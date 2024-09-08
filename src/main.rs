@@ -1,20 +1,29 @@
-extern crate pnet;
-
+use clap::Parser;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
 use pnet::packet::{ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
 use std::net::Ipv6Addr;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    interface: String,
+}
+
 fn main() {
-    println!("Program started");
-    let interface_name = "wlp0s20f3";  // Your interface name here
+    let args = Args::parse();
+    let interface_name = args.interface;
     let interfaces: Vec<NetworkInterface> = datalink::interfaces();
-    let interface: NetworkInterface = interfaces.into_iter()
-        .filter(|iface| iface.name == interface_name)
-        .next()
+
+    let interface: NetworkInterface = interfaces
+        .into_iter()
+        .find(|iface| iface.name == interface_name)
         .expect("Could not find the interface");
 
-    let mut config = Config::default();
-    config.promiscuous = true;  // Enable promiscuous mode
+    let config = Config {
+        promiscuous: true,
+        ..Config::default()
+    };
 
     // Open the channel
     let (mut _tx, mut rx) = match datalink::channel(&interface, config) {
@@ -23,7 +32,6 @@ fn main() {
         Err(e) => panic!("Unable to create channel: {}", e),
     };
 
-    // Loop to capture packets
     loop {
         match rx.next() {
             Ok(packet) => {
@@ -53,7 +61,13 @@ fn process_packet(packet: &[u8]) {
 }
 
 // Function to process the HTTP payload and log relevant details
-fn process_http_payload(payload: &[u8], client_ip: Ipv6Addr, client_port: u16, server_ip: Ipv6Addr, server_port: u16) {
+fn process_http_payload(
+    payload: &[u8],
+    client_ip: Ipv6Addr,
+    client_port: u16,
+    server_ip: Ipv6Addr,
+    server_port: u16,
+) {
     let payload_str = match std::str::from_utf8(payload) {
         Ok(v) => v,
         Err(_) => return, // Not valid UTF-8, skip processing
@@ -61,7 +75,13 @@ fn process_http_payload(payload: &[u8], client_ip: Ipv6Addr, client_port: u16, s
     log_http_signature(client_ip, client_port, server_ip, server_port, payload_str);
 }
 
-fn log_http_signature(client_ip: Ipv6Addr, client_port: u16, server_ip: Ipv6Addr, server_port: u16, headers: &str) {
+fn log_http_signature(
+    client_ip: Ipv6Addr,
+    client_port: u16,
+    server_ip: Ipv6Addr,
+    server_port: u16,
+    headers: &str,
+) {
     println!(
         ".-[ {}/{} -> {}/{} ]-",
         client_ip, client_port, server_ip, server_port
@@ -77,4 +97,3 @@ fn log_http_signature(client_ip: Ipv6Addr, client_port: u16, server_ip: Ipv6Addr
 fn extract_raw_signature(headers: &str) -> String {
     headers.to_string()
 }
-
