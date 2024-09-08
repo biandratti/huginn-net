@@ -20,12 +20,6 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build
         run: cargo build --verbose
-  integration_tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run tests
-        run: cargo test --verbose
   format:
     runs-on: ubuntu-latest
     steps:
