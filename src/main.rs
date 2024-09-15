@@ -1,7 +1,8 @@
 mod fingerprint_http;
 use clap::Parser;
-use fingerprint_http::process_packet;
+use fingerprint_http::handle_ethernet_packet;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
+use pnet::packet::ethernet::EthernetPacket;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -34,11 +35,10 @@ fn main() {
     loop {
         match rx.next() {
             Ok(packet) => {
-                process_packet(packet);
+                let ethernet_packet = EthernetPacket::new(packet).unwrap();
+                handle_ethernet_packet(ethernet_packet);
             }
-            Err(_) => {
-                eprintln!("Failed to capture packet");
-            }
+            Err(e) => eprintln!("Failed to read: {}", e),
         }
     }
 }
