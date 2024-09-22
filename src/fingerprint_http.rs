@@ -1,3 +1,4 @@
+use crate::tcp_package::TcpPackage;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::{ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
@@ -21,40 +22,49 @@ pub fn handle_ethernet_packet(packet: EthernetPacket) {
     }
 }
 
-fn handle_ipv4_packet(packet: Ipv4Packet) {
+pub fn handle_ipv4_packet(packet: Ipv4Packet) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
-    println!(
-        "TCP Packet IPV4 from {}:{} to {}:{}",
-        packet.get_source(),
-        tcp_packet.get_source(),
-        packet.get_destination(),
-        tcp_packet.get_destination()
-    );
 
-    // Access TCP-specific fields
-    println!("Sequence number: {}", tcp_packet.get_sequence());
-    println!(
-        "Acknowledgment number: {}",
-        tcp_packet.get_acknowledgement()
-    );
-    println!("Flags: {:?}", tcp_packet.get_flags());
+    // Calculate network distance (hops) from TTL
+    let ttl = packet.get_ttl();
+    let hops = 64 - ttl; // Adjust based on common defaults (e.g., 64 for Linux, 128 for Windows)
+
+    // Extract TCP options (for now, hardcoded as a simple example)
+    let options = "mss*20,7:mss,sok,ts,nop,ws".to_string();
+
+    // Guess OS based on the window size as a simple fingerprinting technique
+    let os_guess = if tcp_packet.get_window() == 5840 {
+        Some("Linux 3.11 and newer".to_string())
+    } else if tcp_packet.get_window() == 8192 {
+        Some("Windows XP".to_string())
+    } else {
+        Some("Unknown OS".to_string())
+    };
+
+    let raw_sig = format!("4:{}+{}:0:1460:{}", ttl, hops, options);
+
+    // Create a TcpPackage instance
+    let tcp_package = TcpPackage {
+        client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
+        os: os_guess,
+        dist: hops.into(),
+        params: String::from("none"), // Placeholder, real extraction needed for TCP options
+        raw_sig,
+    };
+
+    println!("{}", tcp_package);
 }
 
 fn handle_ipv6_packet(packet: Ipv6Packet) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
-    println!(
-        "TCP Packet IPV6 from {}:{} to {}:{}",
-        packet.get_source(),
-        tcp_packet.get_source(),
-        packet.get_destination(),
-        tcp_packet.get_destination()
-    );
 
-    // Access TCP-specific fields
-    println!("Sequence number: {}", tcp_packet.get_sequence());
-    println!(
-        "Acknowledgment number: {}",
-        tcp_packet.get_acknowledgement()
-    );
-    println!("Flags: {:?}", tcp_packet.get_flags());
+    let tcp_package = TcpPackage {
+        client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
+        os: None,
+        dist: -1,
+        params: String::from("none"),
+        raw_sig: String::from("Not available"),
+    };
+
+    println!("{}", tcp_package);
 }
