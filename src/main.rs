@@ -1,4 +1,5 @@
 mod fingerprint_http;
+mod tcp_fingerprint;
 mod tcp_package;
 
 use clap::Parser;

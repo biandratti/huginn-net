@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Debug)]
 pub struct TcpPackage {
     pub client: String,
     pub os: Option<String>,
