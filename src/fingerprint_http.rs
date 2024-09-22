@@ -1,3 +1,4 @@
+use crate::tcp_package::TcpPackage;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::{ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
@@ -21,67 +22,49 @@ pub fn handle_ethernet_packet(packet: EthernetPacket) {
     }
 }
 
-fn handle_ipv4_packet(packet: Ipv4Packet) {
+pub fn handle_ipv4_packet(packet: Ipv4Packet) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
 
     // Calculate network distance (hops) from TTL
     let ttl = packet.get_ttl();
     let hops = 64 - ttl; // Adjust based on common defaults (e.g., 64 for Linux, 128 for Windows)
 
-    // Extract TCP options (mss, ws, etc.)
-    let window_size = tcp_packet.get_window();
-    let options = format!("mss*20,7:mss,sok,ts,nop,ws");
+    // Extract TCP options (for now, hardcoded as a simple example)
+    let options = "mss*20,7:mss,sok,ts,nop,ws".to_string();
 
-    // Guess OS based on fingerprint (window size as a simple example)
-    let os_guess = if window_size == 5840 {
-        "Linux 3.11 and newer"
-    } else if window_size == 8192 {
-        "Windows XP"
+    // Guess OS based on the window size as a simple fingerprinting technique
+    let os_guess = if tcp_packet.get_window() == 5840 {
+        Some("Linux 3.11 and newer".to_string())
+    } else if tcp_packet.get_window() == 8192 {
+        Some("Windows XP".to_string())
     } else {
-        "Unknown OS"
+        Some("Unknown OS".to_string())
     };
 
-    // Generate raw signature (simplified example)
     let raw_sig = format!("4:{}+{}:0:1460:{}", ttl, hops, options);
 
-    // Output in p0f format
-    println!(
-        ".-[ {}/{} -> {}/{} (syn) ]-\n\
-        |\n\
-        | client   = {}/{}\n\
-        | os       = {}\n\
-        | dist     = {}\n\
-        | params   = none\n\
-        | raw_sig  = {}\n",
-        packet.get_source(),
-        tcp_packet.get_source(),
-        packet.get_destination(),
-        tcp_packet.get_destination(),
-        packet.get_source(),
-        tcp_packet.get_source(),
-        os_guess,
-        hops,
-        raw_sig
-    );
+    // Create a TcpPackage instance
+    let tcp_package = TcpPackage {
+        client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
+        os: os_guess,
+        dist: hops.into(),
+        params: String::from("none"), // Placeholder, real extraction needed for TCP options
+        raw_sig,
+    };
+
+    println!("{}", tcp_package);
 }
 
 fn handle_ipv6_packet(packet: Ipv6Packet) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
 
-    // IPv6 version, print similar output
-    println!(
-        ".-[ {}/{} -> {}/{} (syn) ]-\n\
-        |\n\
-        | client   = {}/{}\n\
-        | os       = OS Detection not implemented for IPv6\n\
-        | dist     = Not available\n\
-        | params   = none\n\
-        | raw_sig  = Not available\n",
-        packet.get_source(),
-        tcp_packet.get_source(),
-        packet.get_destination(),
-        tcp_packet.get_destination(),
-        packet.get_source(),
-        tcp_packet.get_source()
-    );
+    let tcp_package = TcpPackage {
+        client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
+        os: None,
+        dist: -1,
+        params: String::from("none"),
+        raw_sig: String::from("Not available"),
+    };
+
+    println!("{}", tcp_package);
 }
