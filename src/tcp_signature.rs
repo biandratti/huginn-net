@@ -9,6 +9,8 @@ pub struct TcpSignature {
     pub(crate) ttl: u8,
     pub(crate) window: Option<u16>,
     pub(crate) df: bool,
+    pub(crate) olen: u8, // Option Length
+    pub(crate) scale: u8, // Window Scale
     pub(crate) options: Vec<TcpOption>,
     quirks: String,
 }
@@ -23,12 +25,14 @@ pub enum TcpOption {
 }
 
 impl TcpSignature {
-    pub fn new(mss: Option<u16>, ttl: u8, window: Option<u16>, df: bool, options: Vec<TcpOption>, quirks: String) -> Self {
+    pub fn new(mss: Option<u16>, ttl: u8, window: Option<u16>, df: bool, olen: u8, scale: u8, options: Vec<TcpOption>, quirks: String) -> Self {
         Self {
             mss,
             ttl,
             window,
             df,
+            olen,
+            scale,
             options,
             quirks,
         }
@@ -36,7 +40,7 @@ impl TcpSignature {
 
     pub fn linux_3_11_and_newer() -> Vec<Self> {
         vec![
-            Self::new(Some(1460), 64, None, true, vec![
+            Self::new(Some(1460), 64, None, true, 20, 7, vec![
                 TcpOption::Mss(1460),
                 TcpOption::SackPermitted,
                 TcpOption::Timestamp(0, 0),
@@ -44,8 +48,7 @@ impl TcpSignature {
                 TcpOption::WindowScale(7),
             ], "id+".to_string()),
 
-
-            Self::new(Some(1460), 64, None, true, vec![
+            Self::new(Some(1460), 64, None, true, 20, 6, vec![
                 TcpOption::Mss(1460),
                 TcpOption::SackPermitted,
                 TcpOption::Timestamp(0, 0),
@@ -57,15 +60,13 @@ impl TcpSignature {
 
     pub fn linux_2_6_x() -> Vec<Self> {
         vec![
-            Self::new(Some(1460), 64, None, true, vec![
+            Self::new(Some(1460), 64, None, true, 20, 7, vec![
                 TcpOption::Mss(1460),
                 TcpOption::SackPermitted,
                 TcpOption::Timestamp(0, 0),
                 TcpOption::Nop,
                 TcpOption::WindowScale(7),
             ], "id+".to_string()),
-
         ]
     }
-
 }

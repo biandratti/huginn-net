@@ -8,21 +8,21 @@ pub fn handle_ethernet_packet(packet: EthernetPacket) {
     match packet.get_ethertype() {
         EtherTypes::Ipv4 => {
             let ipv4_packet: Ipv4Packet = Ipv4Packet::new(packet.payload()).unwrap();
-            if ipv4_packet.get_next_level_protocol() == pnet::packet::ip::IpNextHeaderProtocols::Tcp
-            {
+            if ipv4_packet.get_next_level_protocol() == pnet::packet::ip::IpNextHeaderProtocols::Tcp {
                 handle_ipv4_packet(ipv4_packet);
             }
         }
         EtherTypes::Ipv6 => {
             let ipv6_packet = Ipv6Packet::new(packet.payload()).unwrap();
             if ipv6_packet.get_next_header() == pnet::packet::ip::IpNextHeaderProtocols::Tcp {
-                //panic!("ipv6 not supported");
+                // panic!("ipv6 not supported");
             }
         }
         _ => {}
     }
 }
 
+// Matching packet to fingerprint based on TCP signatures
 fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket) -> Option<String> {
     let signatures = vec![
         TcpSignature::linux_3_11_and_newer(),
@@ -36,14 +36,37 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
     let tcp_df = ipv4_packet.get_flags() & 0x2 != 0; // Check if the Don't Fragment (DF) flag is set
     let tcp_options = extract_tcp_options(tcp_packet);
 
-    // println!("TTL: {}", packet_ttl);
-    // match tcp_mss {
-    //     Some(mss) => println!("MSS: {}", mss),
-    //     None => println!("MSS: None"),
-    // }
-    // println!("TCP Window: {}", tcp_window);
-    // println!("Don't Fragment (DF) flag: {}", tcp_df);
-    // println!("TCP Options: {:?}", tcp_options);
+
+
+    // Calculate option length
+    let tcp_olen: u8 = tcp_options.iter().map(|option| {
+        match option {
+            TcpOption::Mss(_) => 4, // MSS option is 4 bytes (1 byte type + 1 byte length + 2 bytes value)
+            TcpOption::SackPermitted => 2, // Sack Permitted is 2 bytes (1 byte type + 1 byte length)
+            TcpOption::Timestamp(_, _) => 10, // Timestamp is 10 bytes
+            TcpOption::Nop => 1, // NOP is 1 byte
+            TcpOption::WindowScale(_) => 3, // Window Scale is 3 bytes (1 byte type + 1 byte length + 1 byte value)
+        }
+    }).sum::<usize>() as u8;
+
+    let tcp_scale: u8 = tcp_options.iter().filter_map(|option| {
+        if let TcpOption::WindowScale(s) = option {
+            Some(*s)
+        } else {
+            None
+        }
+    }).next().unwrap_or(0); // Default to 0 if no Window Scale option found
+
+    println!(
+        "TTL: {}, MSS: {:?}, TCP Window: {}, DF: {}, TCP Options: {:?}, tcp olen: {}, tcp scale: {}",
+        packet_ttl,
+        tcp_mss,
+        tcp_window,
+        tcp_df,
+        tcp_options,
+        tcp_olen,
+        tcp_scale
+    );
 
     // Compare the packet with each signature
     for signature_group in signatures {
@@ -52,6 +75,8 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
                 // && tcp_mss == signature.mss
                 // && Some(tcp_window) == signature.window
                 // && tcp_df == signature.df
+                 && tcp_olen == signature.olen
+                 && tcp_scale == signature.scale
                 // && tcp_options_match(&tcp_options, &signature.options)
             {
                 // If all conditions are met, return the signature's label
@@ -63,6 +88,7 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
     None
 }
 
+// Function to extract MSS
 fn extract_mss(tcp_packet: &TcpPacket) -> Option<u16> {
     for option in tcp_packet.get_options_iter() {
         if option.get_number() == TcpOptionNumbers::MSS {
@@ -76,7 +102,7 @@ fn extract_mss(tcp_packet: &TcpPacket) -> Option<u16> {
     None
 }
 
-
+// Function to extract TCP options
 fn extract_tcp_options(tcp_packet: &TcpPacket) -> Vec<TcpOption> {
     let mut options = Vec::new();
     for option in tcp_packet.get_options_iter() {
@@ -108,6 +134,7 @@ fn extract_tcp_options(tcp_packet: &TcpPacket) -> Vec<TcpOption> {
     options
 }
 
+// Function to extract MSS from TCP option
 fn extract_mss_from_option(opt_packet: TcpOptionPacket) -> Option<u16> {
     let payload = opt_packet.payload();
     if payload.len() == 2 {
@@ -116,6 +143,7 @@ fn extract_mss_from_option(opt_packet: TcpOptionPacket) -> Option<u16> {
     None
 }
 
+// Function to extract timestamp from TCP option
 fn extract_timestamp_from_option(opt_packet: TcpOptionPacket) -> Option<(u32, u32)> {
     let payload = opt_packet.payload();
     if payload.len() == 8 {
@@ -126,6 +154,7 @@ fn extract_timestamp_from_option(opt_packet: TcpOptionPacket) -> Option<(u32, u3
     None
 }
 
+// Function to extract window scale from TCP option
 fn extract_window_scale_from_option(opt_packet: TcpOptionPacket) -> Option<u8> {
     let payload = opt_packet.payload();
     if payload.len() == 1 {
@@ -134,10 +163,12 @@ fn extract_window_scale_from_option(opt_packet: TcpOptionPacket) -> Option<u8> {
     None
 }
 
+// Function to check if TCP options match
 fn tcp_options_match(packet_options: &Vec<TcpOption>, signature_options: &Vec<TcpOption>) -> bool {
     packet_options == signature_options
 }
 
+// Function to handle IPv4 packets
 pub fn handle_ipv4_packet(packet: Ipv4Packet) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
 
@@ -152,5 +183,5 @@ pub fn handle_ipv4_packet(packet: Ipv4Packet) {
         raw_sig: format!("4:{}:{}:1460", packet.get_ttl(), tcp_packet.get_window()),
     };
 
-     println!("{}", tcp_package);
+    println!("{}", tcp_package);
 }
