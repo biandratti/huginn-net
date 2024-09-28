@@ -1,7 +1,8 @@
 mod fingerprint_http;
-mod tcp_signature;
 mod tcp_package;
+mod tcp_signature;
 
+use crate::tcp_signature::TcpSignature;
 use clap::Parser;
 use fingerprint_http::handle_ethernet_packet;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
@@ -29,6 +30,8 @@ fn main() {
         ..Config::default()
     };
 
+    let signatures: Vec<TcpSignature> = TcpSignature::all();
+
     let (mut _tx, mut rx) = match datalink::channel(&interface, config) {
         Ok(Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unhandled channel type"),
@@ -39,7 +42,7 @@ fn main() {
         match rx.next() {
             Ok(packet) => {
                 let ethernet_packet = EthernetPacket::new(packet).unwrap();
-                handle_ethernet_packet(ethernet_packet);
+                handle_ethernet_packet(ethernet_packet, &signatures);
             }
             Err(e) => eprintln!("Failed to read: {}", e),
         }

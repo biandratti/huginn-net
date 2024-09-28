@@ -4,13 +4,13 @@ use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::{ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
 
-pub fn handle_ethernet_packet(packet: EthernetPacket) {
+pub fn handle_ethernet_packet(packet: EthernetPacket, signatures: &Vec<TcpSignature>) {
     match packet.get_ethertype() {
         EtherTypes::Ipv4 => {
             let ipv4_packet: Ipv4Packet = Ipv4Packet::new(packet.payload()).unwrap();
             if ipv4_packet.get_next_level_protocol() == pnet::packet::ip::IpNextHeaderProtocols::Tcp
             {
-                handle_ipv4_packet(ipv4_packet);
+                handle_ipv4_packet(ipv4_packet, signatures);
             }
         }
         EtherTypes::Ipv6 => {
@@ -24,7 +24,11 @@ pub fn handle_ethernet_packet(packet: EthernetPacket) {
 }
 
 // Matching packet to fingerprint based on TCP signatures
-fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket) -> Option<String> {
+fn match_packet_to_fingerprint(
+    ipv4_packet: &Ipv4Packet,
+    tcp_packet: &TcpPacket,
+    signatures: &Vec<TcpSignature>,
+) -> Option<String> {
     // Extract TTL from Ipv4Packet
     let packet_ttl: u8 = ipv4_packet.get_ttl();
 
@@ -35,41 +39,10 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
     let packet_mss: u16 = extract_mss_option(&tcp_packet).unwrap_or(1460);
     // let packet_options = extract_tcp_options(tcp_packet);
 
-    println!("Packet TTL: {}", packet_ttl);
-    println!("Packet Window Size: {}", packet_window_size);
-    println!("Packet MSS: {}", packet_mss);
-
-    // List of signatures to compare with
-    let signatures: Vec<TcpSignature> = vec![
-        TcpSignature::nintendo_3ds(),
-        TcpSignature::windows_xp(),
-        TcpSignature::windows_7_or_8(),
-        TcpSignature::linux_3_11_and_newer_v1(),
-        TcpSignature::linux_3_11_and_newer_v2(),
-        TcpSignature::linux_3_1_3_10_v1(),
-        TcpSignature::linux_3_1_3_10_v2(),
-        TcpSignature::linux_3_1_3_10_v3(),
-        TcpSignature::linux_3_1_3_10_v4(),
-        TcpSignature::linux_2_6_x_v1(),
-        TcpSignature::linux_2_6_x_v2(),
-        TcpSignature::linux_2_6_x_v3(),
-        TcpSignature::linux_2_4_x_v1(),
-        TcpSignature::linux_2_4_x_v2(),
-        TcpSignature::linux_2_4_x_v3(),
-        TcpSignature::linux_2_2_x_v1(),
-        TcpSignature::linux_2_2_x_v2(),
-        TcpSignature::linux_2_2_x_v3(),
-        TcpSignature::linux_2_0_v1(),
-        TcpSignature::linux_2_0_v2(),
-        TcpSignature::linux_3_x_loopback_v1(),
-        TcpSignature::linux_3_x_loopback_v2(),
-        TcpSignature::linux_2_6_x_loopback_v1(),
-        TcpSignature::linux_2_6_x_loopback_v2(),
-        TcpSignature::linux_2_4_x_loopback(),
-        TcpSignature::linux_2_2_x_loopback(),
-        TcpSignature::solaris_8(),
-        TcpSignature::android(),
-    ];
+    println!(
+        "Packet: TTL: {} - Window: {} - MSS: {}",
+        packet_ttl, packet_window_size, packet_mss
+    );
 
     // Compare the packet fields with each signature
     for signature in signatures {
@@ -77,6 +50,8 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
         //&& packet_mss == signature.mss
         //&& packet_options == signature.options
         {
+            println!("Packet TTL: {}", signature.ittl);
+            println!("Packet Window Size: {}", signature.window);
             return Some(format!("Matched OS: {:?}", signature));
         }
     }
@@ -134,10 +109,10 @@ fn extract_mss_option(tcp_packet: &TcpPacket) -> Option<u16> {
 }*/
 
 // Function to handle IPv4 packets
-pub fn handle_ipv4_packet(packet: Ipv4Packet) {
+pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
 
-    let os_guess = match_packet_to_fingerprint(&packet, &tcp_packet)
+    let os_guess = match_packet_to_fingerprint(&packet, &tcp_packet, signatures)
         .unwrap_or_else(|| "Unknown OS".to_string());
 
     let tcp_package = TcpPackage {
@@ -148,5 +123,5 @@ pub fn handle_ipv4_packet(packet: Ipv4Packet) {
         raw_sig: format!("??????"),
     };
 
-    println!("{}", tcp_package);
+    //println!("{}", tcp_package);
 }

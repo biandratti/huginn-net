@@ -15,9 +15,41 @@ pub struct TcpSignature {
 }
 
 impl TcpSignature {
+    pub fn all() -> Vec<TcpSignature> {
+        vec![
+            TcpSignature::nintendo_3ds(),
+            TcpSignature::windows_xp(),
+            TcpSignature::windows_7_or_8(),
+            TcpSignature::linux_3_11_and_newer_v1(),
+            TcpSignature::linux_3_11_and_newer_v2(),
+            TcpSignature::linux_3_1_3_10_v1(),
+            TcpSignature::linux_3_1_3_10_v2(),
+            TcpSignature::linux_3_1_3_10_v3(),
+            TcpSignature::linux_3_1_3_10_v4(),
+            TcpSignature::linux_2_6_x_v1(),
+            TcpSignature::linux_2_6_x_v2(),
+            TcpSignature::linux_2_6_x_v3(),
+            TcpSignature::linux_2_4_x_v1(),
+            TcpSignature::linux_2_4_x_v2(),
+            TcpSignature::linux_2_4_x_v3(),
+            TcpSignature::linux_2_2_x_v1(),
+            TcpSignature::linux_2_2_x_v2(),
+            TcpSignature::linux_2_2_x_v3(),
+            TcpSignature::linux_2_0_v1(),
+            TcpSignature::linux_2_0_v2(),
+            TcpSignature::linux_3_x_loopback_v1(),
+            TcpSignature::linux_3_x_loopback_v2(),
+            TcpSignature::linux_2_6_x_loopback_v1(),
+            TcpSignature::linux_2_6_x_loopback_v2(),
+            TcpSignature::linux_2_4_x_loopback(),
+            TcpSignature::linux_2_2_x_loopback(),
+            TcpSignature::solaris_8(),
+            TcpSignature::android(),
+        ]
+    }
     // -------- SILLY --------
 
-    pub fn nintendo_3ds() -> Self {
+    fn nintendo_3ds() -> Self {
         // p0f fingerprint: *:64:0:1360:32768,0:mss,nop,nop,sok:df,id+:0
         Self {
             mss: 1360,
@@ -34,7 +66,7 @@ impl TcpSignature {
 
     // -------- WINDOWS --------
 
-    pub fn windows_xp() -> Self {
+    fn windows_xp() -> Self {
         // p0f fingerprint: *:128:0:*:16384,0:mss,nop,nop,sok:df,id+:0
         Self {
             mss: 1337,
@@ -49,7 +81,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn windows_7_or_8() -> Self {
+    fn windows_7_or_8() -> Self {
         // p0f fingerprint: *:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0
         Self {
             mss: 1337,
@@ -66,7 +98,7 @@ impl TcpSignature {
 
     // -------- LINUX/UNIX --------
 
-    pub fn linux_3_11_and_newer_v1() -> Self {
+    fn linux_3_11_and_newer_v1() -> Self {
         // sig: *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -81,7 +113,7 @@ impl TcpSignature {
             ],
         }
     }
-    pub fn linux_3_11_and_newer_v2() -> Self {
+    fn linux_3_11_and_newer_v2() -> Self {
         // sig: *:64:0:*:mss*20,7:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -96,7 +128,7 @@ impl TcpSignature {
             ],
         }
     }
-    pub fn linux_3_1_3_10_v1() -> Self {
+    fn linux_3_1_3_10_v1() -> Self {
         // sig: *:64:0:*:mss*10,4:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -112,7 +144,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_3_1_3_10_v2() -> Self {
+    fn linux_3_1_3_10_v2() -> Self {
         // sig: *:64:0:*:mss*10,5:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -128,7 +160,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_3_1_3_10_v3() -> Self {
+    fn linux_3_1_3_10_v3() -> Self {
         // sig: *:64:0:*:mss*10,6:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -144,7 +176,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_3_1_3_10_v4() -> Self {
+    fn linux_3_1_3_10_v4() -> Self {
         // sig: *:64:0:*:mss*10,7:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -160,7 +192,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_6_x_v1() -> Self {
+    fn linux_2_6_x_v1() -> Self {
         // sig: *:64:0:*:mss*4,6:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -176,7 +208,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_6_x_v2() -> Self {
+    fn linux_2_6_x_v2() -> Self {
         // sig: *:64:0:*:mss*4,7:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -192,7 +224,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_6_x_v3() -> Self {
+    fn linux_2_6_x_v3() -> Self {
         // sig: *:64:0:*:mss*4,8:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -208,7 +240,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_4_x_v1() -> Self {
+    fn linux_2_4_x_v1() -> Self {
         // sig: *:64:0:*:mss*4,0:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -224,7 +256,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_4_x_v2() -> Self {
+    fn linux_2_4_x_v2() -> Self {
         // sig: *:64:0:*:mss*4,1:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -240,7 +272,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_4_x_v3() -> Self {
+    fn linux_2_4_x_v3() -> Self {
         // sig: *:64:0:*:mss*4,2:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -256,7 +288,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_2_x_v1() -> Self {
+    fn linux_2_2_x_v1() -> Self {
         // sig: *:64:0:*:mss*11,0:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -272,7 +304,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_2_x_v2() -> Self {
+    fn linux_2_2_x_v2() -> Self {
         // sig: *:64:0:*:mss*20,0:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -288,7 +320,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_2_x_v3() -> Self {
+    fn linux_2_2_x_v3() -> Self {
         // sig: *:64:0:*:mss*20,0:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -304,7 +336,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_0_v1() -> Self {
+    fn linux_2_0_v1() -> Self {
         // sig: *:64:0:*:mss*12,0:mss::0
         Self {
             mss: 128,
@@ -314,7 +346,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_0_v2() -> Self {
+    fn linux_2_0_v2() -> Self {
         // sig: *:64:0:*:16384,0:mss::0
         Self {
             mss: 128,
@@ -324,7 +356,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_3_x_loopback_v1() -> Self {
+    fn linux_3_x_loopback_v1() -> Self {
         // sig: *:64:0:16396:mss*2,4:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -340,7 +372,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_3_x_loopback_v2() -> Self {
+    fn linux_3_x_loopback_v2() -> Self {
         // sig: *:64:0:16376:mss*2,4:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -356,7 +388,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_6_x_loopback_v1() -> Self {
+    fn linux_2_6_x_loopback_v1() -> Self {
         // sig: *:64:0:16396:mss*2,2:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -372,7 +404,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_6_x_loopback_v2() -> Self {
+    fn linux_2_6_x_loopback_v2() -> Self {
         // sig: *:64:0:16376:mss*2,2:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -388,7 +420,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_4_x_loopback() -> Self {
+    fn linux_2_4_x_loopback() -> Self {
         // sig: *:64:0:16396:mss*2,0:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -404,7 +436,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn linux_2_2_x_loopback() -> Self {
+    fn linux_2_2_x_loopback() -> Self {
         // sig: *:64:0:3884:mss*8,0:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
@@ -420,7 +452,7 @@ impl TcpSignature {
         }
     }
 
-    pub fn solaris_8() -> Self {
+    fn solaris_8() -> Self {
         // p0f fingerprint: *:64:0:*:32850,1:nop,ws,nop,nop,ts,nop,nop,sok,mss:df,id+:0
         Self {
             mss: 1337,
@@ -441,7 +473,7 @@ impl TcpSignature {
     }
 
     // p0f fingerprint: *:64:0:*:mss*44,1:mss,sok,ts,nop,ws:df,id+:0
-    pub fn android() -> Self {
+    fn android() -> Self {
         Self {
             mss: 1000,
             ittl: 64,
