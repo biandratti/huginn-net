@@ -24,11 +24,11 @@ pub fn handle_ethernet_packet(packet: EthernetPacket, signatures: &Vec<TcpSignat
 }
 
 // Matching packet to fingerprint based on TCP signatures
-fn match_packet_to_fingerprint(
+fn match_packet_to_fingerprint<'a>(
     ipv4_packet: &Ipv4Packet,
     tcp_packet: &TcpPacket,
-    signatures: &Vec<TcpSignature>,
-) -> Option<String> {
+    signatures: &'a Vec<TcpSignature>,
+) -> Option<&'a TcpSignature> {
     // Extract TTL from Ipv4Packet
     let packet_ttl: u8 = ipv4_packet.get_ttl();
 
@@ -37,7 +37,6 @@ fn match_packet_to_fingerprint(
 
     // Extract MSS and TCP Options from TcpPacket
     let packet_mss: u16 = extract_mss_option(&tcp_packet).unwrap_or(1460);
-    // let packet_options = extract_tcp_options(tcp_packet);
 
     println!(
         "Packet: TTL: {} - Window: {} - MSS: {}",
@@ -46,13 +45,10 @@ fn match_packet_to_fingerprint(
 
     // Compare the packet fields with each signature
     for signature in signatures {
-        if packet_ttl == signature.ittl && packet_window_size == signature.window
-        //&& packet_mss == signature.mss
-        //&& packet_options == signature.options
-        {
+        if packet_ttl == signature.ittl && packet_window_size == signature.window {
             println!("Packet TTL: {}", signature.ittl);
             println!("Packet Window Size: {}", signature.window);
-            return Some(format!("Matched OS: {:?}", signature));
+            return Some(signature);
         }
     }
 
@@ -112,16 +108,18 @@ fn extract_mss_option(tcp_packet: &TcpPacket) -> Option<u16> {
 pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
     let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
 
-    let os_guess = match_packet_to_fingerprint(&packet, &tcp_packet, signatures)
-        .unwrap_or_else(|| "Unknown OS".to_string());
+    let tcp_signature: Option<&TcpSignature> =
+        match_packet_to_fingerprint(&packet, &tcp_packet, signatures);
 
     let tcp_package = TcpPackage {
         client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
-        os: Some(os_guess),
+        os: Some("".to_string()),
         dist: 64i64 - packet.get_ttl() as i64,
         params: String::from("none"),
-        raw_sig: format!("??????"),
+        raw_sig: tcp_signature
+            .map(|sig| sig.sig.clone())
+            .unwrap_or_else(|| "Unknown sig".to_string()),
     };
 
-    //println!("{}", tcp_package);
+    println!("{}", tcp_package);
 }
