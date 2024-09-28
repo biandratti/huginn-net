@@ -1,3 +1,4 @@
+use pnet::packet::tcp::TcpOption;
 /**
 For TCP traffic, signature layout is as follows:
 sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
@@ -5,68 +6,115 @@ sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
 
 #[derive(Debug)]
 pub struct TcpSignature {
-    pub(crate) mss: Option<u16>,
-    pub(crate) ttl: u8,
-    pub(crate) window: Option<u16>,
-    pub(crate) df: bool,
-    pub(crate) olen: u8, // Option Length
-    pub(crate) scale: u8, // Window Scale
-    pub(crate) options: Vec<TcpOption>,
-    quirks: String,
-}
+    pub mss: u16,
 
-#[derive(Debug, PartialEq)]
-pub enum TcpOption {
-    Mss(u16),
-    SackPermitted,
-    Timestamp(u32, u32),
-    Nop,
-    WindowScale(u8),
+    pub ittl: u8,
+    pub window: u16,
+    /// TCP Options for SYN
+    pub options: Vec<TcpOption>,
 }
 
 impl TcpSignature {
-    pub fn new(mss: Option<u16>, ttl: u8, window: Option<u16>, df: bool, olen: u8, scale: u8, options: Vec<TcpOption>, quirks: String) -> Self {
+    // -------- SILLY --------
+
+    pub fn nintendo_3ds() -> Self {
+        // p0f fingerprint: *:64:0:1360:32768,0:mss,nop,nop,sok:df,id+:0
         Self {
-            mss,
-            ttl,
-            window,
-            df,
-            olen,
-            scale,
-            options,
-            quirks,
+            mss: 1360,
+            ittl: 64,
+            window: 32768,
+            options: vec![
+                TcpOption::mss(1360),
+                TcpOption::nop(),
+                TcpOption::nop(),
+                TcpOption::sack_perm(),
+            ],
         }
     }
 
-    pub fn linux_3_11_and_newer() -> Vec<Self> {
-        vec![
-            Self::new(Some(1460), 64, None, true, 20, 7, vec![
-                TcpOption::Mss(1460),
-                TcpOption::SackPermitted,
-                TcpOption::Timestamp(0, 0),
-                TcpOption::Nop,
-                TcpOption::WindowScale(7),
-            ], "id+".to_string()),
+    // -------- WINDOWS --------
 
-            Self::new(Some(1460), 64, None, true, 20, 6, vec![
-                TcpOption::Mss(1460),
-                TcpOption::SackPermitted,
-                TcpOption::Timestamp(0, 0),
-                TcpOption::Nop,
-                TcpOption::WindowScale(6),
-            ], "id+".to_string()),
-        ]
+    pub fn windows_xp() -> Self {
+        // p0f fingerprint: *:128:0:*:16384,0:mss,nop,nop,sok:df,id+:0
+        Self {
+            mss: 1337,
+            ittl: 128,
+            window: 16384,
+            options: vec![
+                TcpOption::mss(1337),
+                TcpOption::nop(),
+                TcpOption::nop(),
+                TcpOption::sack_perm(),
+            ],
+        }
     }
 
-    pub fn linux_2_6_x() -> Vec<Self> {
-        vec![
-            Self::new(Some(1460), 64, None, true, 20, 7, vec![
-                TcpOption::Mss(1460),
-                TcpOption::SackPermitted,
-                TcpOption::Timestamp(0, 0),
-                TcpOption::Nop,
-                TcpOption::WindowScale(7),
-            ], "id+".to_string()),
-        ]
+    pub fn windows_7_or_8() -> Self {
+        // p0f fingerprint: *:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0
+        Self {
+            mss: 1337,
+            ittl: 128,
+            window: 8192,
+            options: vec![
+                TcpOption::mss(1337),
+                TcpOption::nop(),
+                TcpOption::nop(),
+                TcpOption::sack_perm(),
+            ],
+        }
+    }
+
+    // -------- LINUX/UNIX --------
+
+    pub fn linux_3_11_and_newer() -> Self {
+        // p0f fingerprint: *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 20,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(10),
+            ],
+        }
+    }
+
+    pub fn solaris_8() -> Self {
+        // p0f fingerprint: *:64:0:*:32850,1:nop,ws,nop,nop,ts,nop,nop,sok,mss:df,id+:0
+        Self {
+            mss: 1337,
+            ittl: 64,
+            window: 32850,
+            options: vec![
+                TcpOption::nop(),
+                TcpOption::wscale(1),
+                TcpOption::nop(),
+                TcpOption::nop(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::nop(),
+                TcpOption::sack_perm(),
+                TcpOption::mss(1337),
+            ],
+        }
+    }
+
+    // p0f fingerprint: *:64:0:*:mss*44,1:mss,sok,ts,nop,ws:df,id+:0
+    pub fn android() -> Self {
+        Self {
+            mss: 1000,
+            ittl: 64,
+            window: 1000 * 44,
+            options: vec![
+                TcpOption::mss(1000),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(1),
+            ],
+        }
     }
 }
