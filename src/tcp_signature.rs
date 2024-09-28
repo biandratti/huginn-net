@@ -66,8 +66,8 @@ impl TcpSignature {
 
     // -------- LINUX/UNIX --------
 
-    pub fn linux_3_11_and_newer() -> Self {
-        // p0f fingerprint: *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
+    pub fn linux_3_11_and_newer_v1() -> Self {
+        // sig: *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
         Self {
             mss: 128,
             ittl: 64,
@@ -78,6 +78,132 @@ impl TcpSignature {
                 TcpOption::timestamp(1, 0),
                 TcpOption::nop(),
                 TcpOption::wscale(10),
+            ],
+        }
+    }
+    pub fn linux_3_11_and_newer_v2() -> Self {
+        // sig: *:64:0:*:mss*20,7:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 20,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(7),
+            ],
+        }
+    }
+    pub fn linux_3_1_3_10_v1() -> Self {
+        // sig: *:64:0:*:mss*10,4:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 10,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(4),
+            ],
+        }
+    }
+
+    pub fn linux_3_1_3_10_v2() -> Self {
+        // sig: *:64:0:*:mss*10,5:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 10,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(5),
+            ],
+        }
+    }
+
+    pub fn linux_3_1_3_10_v3() -> Self {
+        // sig: *:64:0:*:mss*10,6:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 10,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(6),
+            ],
+        }
+    }
+
+    pub fn linux_3_1_3_10_v4() -> Self {
+        // sig: *:64:0:*:mss*10,7:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 10,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(7),
+            ],
+        }
+    }
+
+    pub fn linux_2_6_x_v1() -> Self {
+        // sig: *:64:0:*:mss*4,6:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 4,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(6),
+            ],
+        }
+    }
+
+    pub fn linux_2_6_x_v2() -> Self {
+        // sig: *:64:0:*:mss*4,7:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 4,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(7),
+            ],
+        }
+    }
+
+    pub fn linux_2_6_x_v3() -> Self {
+        // sig: *:64:0:*:mss*4,8:mss,sok,ts,nop,ws:df,id+:0
+        Self {
+            mss: 128,
+            ittl: 64,
+            window: 128 * 4,
+            options: vec![
+                TcpOption::mss(128),
+                TcpOption::sack_perm(),
+                TcpOption::timestamp(1, 0),
+                TcpOption::nop(),
+                TcpOption::wscale(8),
             ],
         }
     }
