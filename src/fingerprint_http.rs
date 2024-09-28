@@ -29,7 +29,7 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
     let packet_ttl: u8 = ipv4_packet.get_ttl();
 
     // Extract window size from TcpPacket
-    let packet_window_size = tcp_packet.get_window();
+    let packet_window_size: u16 = tcp_packet.get_window();
 
     // Extract MSS and TCP Options from TcpPacket
     let packet_mss: u16 = extract_mss_option(&tcp_packet).unwrap_or(1460);
@@ -44,15 +44,36 @@ fn match_packet_to_fingerprint(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket)
         TcpSignature::nintendo_3ds(),
         TcpSignature::windows_xp(),
         TcpSignature::windows_7_or_8(),
-        TcpSignature::linux_3_11_and_newer(),
+        TcpSignature::linux_3_11_and_newer_v1(),
+        TcpSignature::linux_3_11_and_newer_v2(),
+        TcpSignature::linux_3_1_3_10_v1(),
+        TcpSignature::linux_3_1_3_10_v2(),
+        TcpSignature::linux_3_1_3_10_v3(),
+        TcpSignature::linux_3_1_3_10_v4(),
+        TcpSignature::linux_2_6_x_v1(),
+        TcpSignature::linux_2_6_x_v2(),
+        TcpSignature::linux_2_6_x_v3(),
+        TcpSignature::linux_2_4_x_v1(),
+        TcpSignature::linux_2_4_x_v2(),
+        TcpSignature::linux_2_4_x_v3(),
+        TcpSignature::linux_2_2_x_v1(),
+        TcpSignature::linux_2_2_x_v2(),
+        TcpSignature::linux_2_2_x_v3(),
+        TcpSignature::linux_2_0_v1(),
+        TcpSignature::linux_2_0_v2(),
+        TcpSignature::linux_3_x_loopback_v1(),
+        TcpSignature::linux_3_x_loopback_v2(),
+        TcpSignature::linux_2_6_x_loopback_v1(),
+        TcpSignature::linux_2_6_x_loopback_v2(),
+        TcpSignature::linux_2_4_x_loopback(),
+        TcpSignature::linux_2_2_x_loopback(),
         TcpSignature::solaris_8(),
         TcpSignature::android(),
     ];
 
     // Compare the packet fields with each signature
     for signature in signatures {
-        if packet_ttl == signature.ittl
-        //&& packet_window_size == signature.window
+        if packet_ttl == signature.ittl && packet_window_size == signature.window
         //&& packet_mss == signature.mss
         //&& packet_options == signature.options
         {
