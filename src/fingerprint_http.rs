@@ -2,6 +2,7 @@ use crate::tcp_package::TcpPackage;
 use crate::tcp_signature::TcpSignature;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
+use pnet::packet::tcp::TcpOption;
 use pnet::packet::{ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
 
 pub fn handle_ethernet_packet(packet: EthernetPacket, signatures: &Vec<TcpSignature>) {
@@ -29,30 +30,65 @@ fn match_packet_to_fingerprint<'a>(
     tcp_packet: &TcpPacket,
     signatures: &'a Vec<TcpSignature>,
 ) -> Option<&'a TcpSignature> {
-    // Extract TTL from Ipv4Packet
     let packet_ttl: u8 = ipv4_packet.get_ttl();
-
-    // Extract window size from TcpPacket
     let packet_window_size: u16 = tcp_packet.get_window();
 
     // Extract MSS and TCP Options from TcpPacket
-    let packet_mss: u16 = extract_mss_option(&tcp_packet).unwrap_or(1460);
+    let packet_mss: u16 = extract_mss_option(tcp_packet).unwrap_or(0);
+    let packet_options: Vec<TcpOption> = tcp_packet.get_options();
 
-    println!(
-        "Packet: TTL: {} - Window: {} - MSS: {}",
-        packet_ttl, packet_window_size, packet_mss
-    );
+    /*println!(
+        "Packet: TTL: {} - Window: {} - MSS: {} - Options: {:?}",
+        packet_ttl, packet_window_size, packet_mss, packet_options
+    );*/
 
-    // Compare the packet fields with each signature
+    // Define a threshold for a good match (you can adjust this)
+    let threshold = 0.0;
+
+    let mut best_match: Option<&TcpSignature> = None;
+    let mut best_score: f64 = 0.2;
+
+    // Iterate through the signatures and calculate a matching score
     for signature in signatures {
-        if packet_ttl == signature.ittl && packet_window_size == signature.window {
-            println!("Packet TTL: {}", signature.ittl);
-            println!("Packet Window Size: {}", signature.window);
-            return Some(signature);
+        let mut score = 0.0;
+        let mut max_score = 0.0;
+
+        // TTL match (high importance)
+        max_score += 1.0;
+        if packet_ttl == signature.ittl {
+            score += 1.0;
+        }
+
+        // Window size match (moderate importance)
+        max_score += 1.0;
+        if packet_window_size == signature.window {
+            score += 1.0;
+        }
+
+        // MSS match (moderate importance)
+        max_score += 1.0;
+        if packet_mss == signature.mss {
+            score += 1.0;
+        }
+
+        // TCP options match (lower importance but still relevant)
+        max_score += 1.0;
+        /*        if compare_options(&packet_options, &signature.options) {
+            score += 1.0;
+        }*/
+
+        // Calculate the normalized score
+        let match_score = score / max_score;
+
+        // If the match score is higher than the threshold, consider it a match
+        if match_score >= threshold && match_score > best_score {
+            best_score = match_score;
+            best_match = Some(signature);
         }
     }
 
-    None
+    // println!("best_match: {:?}", best_match);
+    best_match
 }
 
 // Extract the MSS option from the TCP packet
@@ -106,7 +142,7 @@ fn extract_mss_option(tcp_packet: &TcpPacket) -> Option<u16> {
 
 // Function to handle IPv4 packets
 pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
-    let tcp_packet = TcpPacket::new(packet.payload()).unwrap();
+    let tcp_packet: TcpPacket = TcpPacket::new(packet.payload()).unwrap();
 
     let tcp_signature: Option<&TcpSignature> =
         match_packet_to_fingerprint(&packet, &tcp_packet, signatures);

@@ -1,16 +1,10 @@
 use pnet::packet::tcp::TcpOption;
-/**
-For TCP traffic, signature layout is as follows:
-sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
-**/
 
 #[derive(Debug)]
 pub struct TcpSignature {
     pub mss: u16,
-
     pub ittl: u8,
     pub window: u16,
-    /// TCP Options for SYN
     pub options: Vec<TcpOption>,
     pub sig: String,
 }
