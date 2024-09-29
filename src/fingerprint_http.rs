@@ -128,18 +128,6 @@ fn extract_mss_option(tcp_packet: &TcpPacket) -> Option<u16> {
     None
 }
 
-// Helper function to extract all TCP options from a TCP packet
-/*fn extract_tcp_options(tcp_packet: &TcpPacket) -> Vec<TcpOption> {
-    let mut options = Vec::new();
-
-    // Iterate over all TCP options and collect them
-    for option in tcp_packet.get_options_iter() {
-        options.push(option);
-    }
-
-    options
-}*/
-
 // Function to handle IPv4 packets
 pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
     let tcp_packet: TcpPacket = TcpPacket::new(packet.payload()).unwrap();
@@ -149,7 +137,7 @@ pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
 
     let tcp_package = TcpPackage {
         client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
-        os: Some("".to_string()),
+        os: tcp_signature.map(|sig| sig.os.clone()),
         dist: 64i64 - packet.get_ttl() as i64,
         params: String::from("none"),
         raw_sig: tcp_signature

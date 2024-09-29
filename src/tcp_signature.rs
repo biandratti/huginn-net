@@ -7,6 +7,7 @@ pub struct TcpSignature {
     pub window: u16,
     pub options: Vec<TcpOption>,
     pub sig: String,
+    pub os: String,
 }
 
 impl TcpSignature {
@@ -39,7 +40,7 @@ impl TcpSignature {
             TcpSignature::linux_2_4_x_loopback(),
             TcpSignature::linux_2_2_x_loopback(),
             TcpSignature::solaris_8(),
-            TcpSignature::android(),
+            TcpSignature::android_v1(),
         ]
     }
     // -------- SILLY --------
@@ -56,6 +57,7 @@ impl TcpSignature {
                 TcpOption::sack_perm(),
             ],
             sig: "*:64:0:1360:32768,0:mss,nop,nop,sok:df,id+:0".to_string(),
+            os: "Nintendo 3ds".to_string(),
         }
     }
 
@@ -73,6 +75,7 @@ impl TcpSignature {
                 TcpOption::sack_perm(),
             ],
             sig: "*:128:0:*:16384,0:mss,nop,nop,sok:df,id+:0".to_string(),
+            os: "Windows XP".to_string(),
         }
     }
 
@@ -88,6 +91,7 @@ impl TcpSignature {
                 TcpOption::sack_perm(),
             ],
             sig: "*:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0".to_string(),
+            os: "Windows 7 u 8".to_string(),
         }
     }
 
@@ -106,6 +110,7 @@ impl TcpSignature {
                 TcpOption::wscale(10),
             ],
             sig: "*:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.11 or newer".to_string(),
         }
     }
     fn linux_3_11_and_newer_v2() -> Self {
@@ -121,6 +126,7 @@ impl TcpSignature {
                 TcpOption::wscale(7),
             ],
             sig: "*:64:0:*:mss*20,7:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.11 or newer".to_string(),
         }
     }
     fn linux_3_1_3_10_v1() -> Self {
@@ -136,6 +142,7 @@ impl TcpSignature {
                 TcpOption::wscale(4),
             ],
             sig: "*:64:0:*:mss*10,4:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.1-3.10".to_string(),
         }
     }
 
@@ -152,6 +159,7 @@ impl TcpSignature {
                 TcpOption::wscale(5),
             ],
             sig: "*:64:0:*:mss*10,5:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.1-3.10".to_string(),
         }
     }
 
@@ -168,6 +176,7 @@ impl TcpSignature {
                 TcpOption::wscale(6),
             ],
             sig: "*:64:0:*:mss*10,6:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.1-3.10".to_string(),
         }
     }
 
@@ -184,6 +193,7 @@ impl TcpSignature {
                 TcpOption::wscale(7),
             ],
             sig: "*:64:0:*:mss*10,7:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.1-3.10".to_string(),
         }
     }
 
@@ -200,6 +210,7 @@ impl TcpSignature {
                 TcpOption::wscale(6),
             ],
             sig: "*:64:0:*:mss*4,6:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.6.x".to_string(),
         }
     }
 
@@ -216,6 +227,7 @@ impl TcpSignature {
                 TcpOption::wscale(7),
             ],
             sig: "*:64:0:*:mss*4,7:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.6.x".to_string(),
         }
     }
 
@@ -232,6 +244,7 @@ impl TcpSignature {
                 TcpOption::wscale(8),
             ],
             sig: "*:64:0:*:mss*4,8:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.6.x".to_string(),
         }
     }
 
@@ -248,6 +261,7 @@ impl TcpSignature {
                 TcpOption::wscale(0),
             ],
             sig: "*:64:0:*:mss*4,0:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.4.x".to_string(),
         }
     }
 
@@ -264,6 +278,7 @@ impl TcpSignature {
                 TcpOption::wscale(1),
             ],
             sig: "*:64:0:*:mss*4,1:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.4.x".to_string(),
         }
     }
 
@@ -280,6 +295,7 @@ impl TcpSignature {
                 TcpOption::wscale(2),
             ],
             sig: "*:64:0:*:mss*4,2:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.4.x".to_string(),
         }
     }
 
@@ -296,6 +312,7 @@ impl TcpSignature {
                 TcpOption::wscale(0),
             ],
             sig: "*:64:0:*:mss*11,0:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.2.x".to_string(),
         }
     }
 
@@ -312,6 +329,7 @@ impl TcpSignature {
                 TcpOption::wscale(0),
             ],
             sig: "*:64:0:*:mss*20,0:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.2.x".to_string(),
         }
     }
 
@@ -328,6 +346,7 @@ impl TcpSignature {
                 TcpOption::wscale(0),
             ],
             sig: "*:64:0:*:mss*20,0:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.2.x".to_string(),
         }
     }
 
@@ -338,6 +357,7 @@ impl TcpSignature {
             window: 128 * 12,
             options: vec![TcpOption::mss(128)],
             sig: "*:64:0:*:mss*12,0:mss::0".to_string(),
+            os: "Linux 2.0".to_string(),
         }
     }
 
@@ -348,6 +368,7 @@ impl TcpSignature {
             window: 16384,
             options: vec![TcpOption::mss(128)],
             sig: "*:64:0:*:16384,0:mss::0".to_string(),
+            os: "Linux 2.0".to_string(),
         }
     }
 
@@ -364,6 +385,7 @@ impl TcpSignature {
                 TcpOption::wscale(4),
             ],
             sig: "*:64:0:16396:mss*2,4:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.x (loopback)".to_string(),
         }
     }
 
@@ -380,6 +402,7 @@ impl TcpSignature {
                 TcpOption::wscale(4),
             ],
             sig: "*:64:0:16376:mss*2,4:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 3.x (loopback)".to_string(),
         }
     }
 
@@ -396,6 +419,7 @@ impl TcpSignature {
                 TcpOption::wscale(4),
             ],
             sig: "*:64:0:16396:mss*2,2:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.6 (loopback)".to_string(),
         }
     }
 
@@ -412,6 +436,7 @@ impl TcpSignature {
                 TcpOption::wscale(4),
             ],
             sig: "*:64:0:16376:mss*2,2:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.6 (loopback)".to_string(),
         }
     }
 
@@ -428,6 +453,7 @@ impl TcpSignature {
                 TcpOption::wscale(0),
             ],
             sig: "*:64:0:16396:mss*2,0:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.4.x (loopback)".to_string(),
         }
     }
 
@@ -444,6 +470,7 @@ impl TcpSignature {
                 TcpOption::wscale(0),
             ],
             sig: "*:64:0:3884:mss*8,0:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux 2.2.x (loopback)".to_string(),
         }
     }
 
@@ -464,10 +491,11 @@ impl TcpSignature {
                 TcpOption::mss(1337),
             ],
             sig: "*:64:0:*:32850,1:nop,ws,nop,nop,ts,nop,nop,sok,mss:df,id+:0".to_string(),
+            os: "Solaris 8".to_string(),
         }
     }
 
-    fn android() -> Self {
+    fn android_v1() -> Self {
         Self {
             mss: 1000,
             ittl: 64,
@@ -480,6 +508,7 @@ impl TcpSignature {
                 TcpOption::wscale(1),
             ],
             sig: "*:64:0:*:mss*44,1:mss,sok,ts,nop,ws:df,id+:0".to_string(),
+            os: "Linux (Android)".to_string(),
         }
     }
 }
