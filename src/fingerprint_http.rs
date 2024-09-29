@@ -2,7 +2,7 @@ use crate::tcp_package::TcpPackage;
 use crate::tcp_signature::TcpSignature;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::tcp::TcpOption;
+use pnet::packet::tcp::{TcpOption, TcpOptionNumbers};
 use pnet::packet::{ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
 
 pub fn handle_ethernet_packet(packet: EthernetPacket, signatures: &Vec<TcpSignature>) {
@@ -33,14 +33,13 @@ fn match_packet_to_fingerprint<'a>(
     let packet_ttl: u8 = ipv4_packet.get_ttl();
     let packet_window_size: u16 = tcp_packet.get_window();
 
-    // Extract MSS and TCP Options from TcpPacket
-    let packet_mss: u16 = extract_mss_option(tcp_packet).unwrap_or(0);
+    let packet_mss: Option<u16> = extract_mss(tcp_packet);
     let packet_options: Vec<TcpOption> = tcp_packet.get_options();
 
-    /*println!(
-        "Packet: TTL: {} - Window: {} - MSS: {} - Options: {:?}",
+    println!(
+        "Packet: TTL: {} - Window: {} - MSS: {:?} - Options: {:?}",
         packet_ttl, packet_window_size, packet_mss, packet_options
-    );*/
+    );
 
     // Define a threshold for a good match (you can adjust this)
     let threshold = 0.0;
@@ -67,8 +66,11 @@ fn match_packet_to_fingerprint<'a>(
 
         // MSS match (moderate importance)
         max_score += 1.0;
-        if packet_mss == signature.mss {
-            score += 1.0;
+        match packet_mss {
+            Some(mss) if mss == signature.mss => {
+                score += 1.0;
+            }
+            _ => {}
         }
 
         // TCP options match (lower importance but still relevant)
@@ -91,40 +93,24 @@ fn match_packet_to_fingerprint<'a>(
     best_match
 }
 
-// Extract the MSS option from the TCP packet
-fn extract_mss_option(tcp_packet: &TcpPacket) -> Option<u16> {
-    let options = tcp_packet.get_options_raw(); // Get the raw options bytes
-    let mut i = 0;
-
-    // Iterate through the options bytes
-    while i < options.len() {
-        let kind = options[i]; // First byte is the option kind
-        match kind {
-            0 => break,  // End of options list
-            1 => i += 1, // No-op option (1 byte)
-            2 => {
-                // MSS option has kind 2 and a length of 4
-                if options.len() >= i + 4 {
-                    let mss = u16::from_be_bytes([options[i + 2], options[i + 3]]);
-                    return Some(mss);
-                }
-                break;
-            }
-            _ => {
-                // Other options; skip over them using the length field
-                if i + 1 < options.len() {
-                    let length = options[i + 1] as usize;
-                    if length < 2 {
-                        break;
+fn extract_mss(tcp_packet: &TcpPacket) -> Option<u16> {
+    for option in tcp_packet.get_options() {
+        match option.number {
+            TcpOptionNumbers::MSS => {
+                // The MSS option length should be 4 (type + length + MSS value)
+                if option.length.len() == 1 && option.length[0] == 4 {
+                    // MSS is contained in the data vector
+                    if option.data.len() == 2 {
+                        // Construct the MSS value
+                        let mss_value: u16 =
+                            ((option.data[0] as u16) << 8) | (option.data[1] as u16);
+                        return Some(mss_value);
                     }
-                    i += length;
-                } else {
-                    break;
                 }
             }
+            _ => continue,
         }
     }
-
     None
 }
 
