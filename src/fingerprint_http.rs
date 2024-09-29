@@ -97,15 +97,9 @@ fn extract_mss(tcp_packet: &TcpPacket) -> Option<u16> {
     for option in tcp_packet.get_options() {
         match option.number {
             TcpOptionNumbers::MSS => {
-                // The MSS option length should be 4 (type + length + MSS value)
-                if option.length.len() == 1 && option.length[0] == 4 {
-                    // MSS is contained in the data vector
-                    if option.data.len() == 2 {
-                        // Construct the MSS value
-                        let mss_value: u16 =
-                            ((option.data[0] as u16) << 8) | (option.data[1] as u16);
-                        return Some(mss_value);
-                    }
+                if option.data.len() == 2 {
+                    let mss_value: u16 = ((option.data[0] as u16) << 8) | (option.data[1] as u16);
+                    return Some(mss_value);
                 }
             }
             _ => continue,
