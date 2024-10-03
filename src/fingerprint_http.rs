@@ -1,5 +1,5 @@
 use crate::tcp_package::TcpPackage;
-use crate::tcp_signature::TcpSignature;
+use crate::tcp_signature::{PayloadClass, Quirk, TcpSignature};
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::tcp::{TcpOption, TcpOptionNumbers};
@@ -30,15 +30,27 @@ fn match_packet_to_fingerprint<'a>(
     tcp_packet: &TcpPacket,
     signatures: &'a Vec<TcpSignature>,
 ) -> Option<&'a TcpSignature> {
+    let packet_ver: char = '4';
     let packet_ttl: u8 = ipv4_packet.get_ttl();
-    let packet_window_size: u16 = tcp_packet.get_window();
-
+    let packet_olen: u8 = extract_olen(ipv4_packet);
     let packet_mss: Option<u16> = extract_mss(tcp_packet);
+    let packet_window_size: u16 = tcp_packet.get_window();
+    let package_scale: Option<u8> = extract_scale(tcp_packet);
     let packet_options: Vec<TcpOption> = tcp_packet.get_options();
+    let packet_quirks: Vec<Quirk> = extract_quirks(ipv4_packet, tcp_packet);
+    let packet_payload_class: PayloadClass = extract_payload_class(tcp_packet);
 
     println!(
-        "Packet: TTL: {} - Window: {} - MSS: {:?} - Options: {:?}",
-        packet_ttl, packet_window_size, packet_mss, packet_options
+        "ver: {} - ittl: {} - olen: {} - mss: {:?} - wsize: {} - scale: {:?} - olayout: {:?} - quirks: {:?} - pclass: {:?}",
+        packet_ver,
+        packet_ttl,
+        packet_olen,
+        packet_mss,
+        packet_window_size,
+        package_scale,
+        packet_options,
+        packet_quirks,
+        packet_payload_class
     );
 
     // Define a threshold for a good match (you can adjust this)
@@ -58,27 +70,6 @@ fn match_packet_to_fingerprint<'a>(
             score += 1.0;
         }
 
-        // Window size match (moderate importance)
-        max_score += 1.0;
-        if packet_window_size == signature.window {
-            score += 1.0;
-        }
-
-        // MSS match (moderate importance)
-        max_score += 1.0;
-        match packet_mss {
-            Some(mss) if mss == signature.mss => {
-                score += 1.0;
-            }
-            _ => {}
-        }
-
-        // TCP options match (lower importance but still relevant)
-        max_score += 1.0;
-        /*        if compare_options(&packet_options, &signature.options) {
-            score += 1.0;
-        }*/
-
         // Calculate the normalized score
         let match_score = score / max_score;
 
@@ -89,7 +80,7 @@ fn match_packet_to_fingerprint<'a>(
         }
     }
 
-    // println!("best_match: {:?}", best_match);
+    //println!("best_match: {:?}", best_match);
     best_match
 }
 
@@ -108,6 +99,38 @@ fn extract_mss(tcp_packet: &TcpPacket) -> Option<u16> {
     None
 }
 
+fn extract_payload_class(tcp_packet: &TcpPacket) -> PayloadClass {
+    //TODO: WIP
+    PayloadClass::Zero
+}
+fn extract_quirks(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket) -> Vec<Quirk> {
+    let mut quirks = Vec::new();
+    //TODO: WIP
+    quirks
+}
+fn extract_scale(tcp_packet: &TcpPacket) -> Option<u8> {
+    for option in tcp_packet.get_options() {
+        match option.number {
+            TcpOptionNumbers::WSCALE => {
+                return Some(option.data[0]);
+            }
+            _ => continue,
+        }
+    }
+    None
+}
+
+fn extract_olen(ipv4_packet: &Ipv4Packet) -> u8 {
+    let ihl = ipv4_packet.get_header_length();
+    let header_length = ihl * 4;
+    let options_length: u8 = if header_length > 20 {
+        header_length - 20
+    } else {
+        0
+    };
+    options_length
+}
+
 // Function to handle IPv4 packets
 pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
     let tcp_packet: TcpPacket = TcpPacket::new(packet.payload()).unwrap();
@@ -117,13 +140,11 @@ pub fn handle_ipv4_packet(packet: Ipv4Packet, signatures: &Vec<TcpSignature>) {
 
     let tcp_package = TcpPackage {
         client: format!("{}/{}", packet.get_source(), tcp_packet.get_source()),
-        os: tcp_signature.map(|sig| sig.os.clone()),
+        os: None,
         dist: 64i64 - packet.get_ttl() as i64,
         params: String::from("none"),
-        raw_sig: tcp_signature
-            .map(|sig| sig.sig.clone())
-            .unwrap_or_else(|| "Unknown sig".to_string()),
+        raw_sig: "".to_string(),
     };
 
-    println!("{}", tcp_package);
+    //println!("{}", tcp_package);
 }
