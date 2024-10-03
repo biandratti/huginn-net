@@ -1,4 +1,7 @@
 use pnet::packet::tcp::TcpOption;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
 
 /**
 * sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
@@ -46,27 +49,117 @@ pub enum PayloadClass {
 
 impl TcpSignature {
     pub fn all() -> Vec<TcpSignature> {
-        vec![TcpSignature::linux_3_11_and_newer_v1()]
-    }
+        let path = Path::new("config/p0f.fp");
 
-    // *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
-    fn linux_3_11_and_newer_v1() -> Self {
-        Self {
-            ver: '*',
-            ittl: 64,
-            olen: 0,
-            mss: None,
-            wsize: "mss*20".to_string(),
-            scale: Some(10),
-            options: vec![
-                TcpOption::mss(1460),
-                TcpOption::sack_perm(),
-                TcpOption::timestamp(1, 0),
-                TcpOption::nop(),
-                TcpOption::wscale(10),
-            ],
-            quirks: vec![Quirk::Df, Quirk::IdPlus],
-            pclass: PayloadClass::Zero,
+        let file = File::open(path).expect("Failed to open file");
+        let reader = BufReader::new(file);
+
+        let mut tcp_signatures = Vec::new();
+
+        for line in reader.lines() {
+            let line = line.expect("Failed to read line");
+            if line.trim().is_empty() {
+                continue; // Skip empty lines
+            }
+
+            // Parse the line into individual components
+            let parts: Vec<&str> = line.split(':').collect();
+
+            if parts.len() != 9 {
+                eprintln!("Skipping invalid line: {}", line);
+                continue;
+            }
+
+            let ver = parts[0].chars().next().unwrap_or('*'); // Default to '*' if not available
+            let ittl = parts[1].parse::<u8>().unwrap_or_default();
+            let olen = parts[2].parse::<u8>().unwrap_or_default();
+            let mss = if parts[3] == "*" {
+                None
+            } else {
+                Some(parts[3].parse::<u16>().unwrap_or_default())
+            };
+            let wsize = parts[4].to_string();
+            let scale = if parts[5] == "*" {
+                None
+            } else {
+                Some(parts[5].parse::<u8>().unwrap_or_default())
+            };
+
+            // Parse TCP options (you might need to modify this based on actual format)
+            let options = parse_tcp_options(parts[6]);
+
+            // Parse quirks
+            let quirks = parse_quirks(parts[7]);
+
+            // Parse payload class
+            let pclass = match parts[8] {
+                "0" => PayloadClass::Zero,
+                "1" => PayloadClass::NonZero,
+                _ => PayloadClass::Any,
+            };
+
+            let signature = TcpSignature {
+                ver,
+                ittl,
+                olen,
+                mss,
+                wsize,
+                scale,
+                options,
+                quirks,
+                pclass,
+            };
+
+            tcp_signatures.push(signature);
+        }
+
+        tcp_signatures
+    }
+}
+
+fn parse_tcp_options(option_str: &str) -> Vec<TcpOption> {
+    let mut options = Vec::new();
+    let option_parts: Vec<&str> = option_str.split(',').collect();
+
+    for option in option_parts {
+        match option {
+            "mss" => {
+                // Add TcpOption for MSS (this is just an example, you'll need to create the proper struct from pnet)
+                // You may need to manually create a TcpOption instance or use pnet's methods for options.
+            }
+            _ => continue,
         }
     }
+
+    options
+}
+
+fn parse_quirks(quirks_str: &str) -> Vec<Quirk> {
+    let mut quirks = Vec::new();
+    let quirk_parts: Vec<&str> = quirks_str.split(',').collect();
+
+    for quirk in quirk_parts {
+        match quirk {
+            "df" => quirks.push(Quirk::Df),
+            "id+" => quirks.push(Quirk::IdPlus),
+            "id-" => quirks.push(Quirk::IdMinus),
+            "ecn" => quirks.push(Quirk::Ecn),
+            "zero+" => quirks.push(Quirk::ZeroPlus),
+            "flow" => quirks.push(Quirk::Flow),
+            "seq0" => quirks.push(Quirk::SeqZero),
+            "ack+" => quirks.push(Quirk::AckPlus),
+            "ack0" => quirks.push(Quirk::AckZero),
+            "urgptr+" => quirks.push(Quirk::UrgPtrPlus),
+            "urg" => quirks.push(Quirk::UrgFlag),
+            "push" => quirks.push(Quirk::PushFlag),
+            "ts1-0" => quirks.push(Quirk::Ts1Zero),
+            "ts2+" => quirks.push(Quirk::Ts2Plus),
+            "opt+" => quirks.push(Quirk::OptPlus),
+            "exwscale" => quirks.push(Quirk::ExWscale),
+            "badopt" => quirks.push(Quirk::BadOpt),
+            _ => continue,
+        }
+    }
+
+    quirks
 }
