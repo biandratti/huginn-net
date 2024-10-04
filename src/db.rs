@@ -21,7 +21,6 @@ impl Default for Database {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[cfg(feature = "parse")]
     #[test]
