@@ -1,9 +1,9 @@
-mod packet;
-mod http;
-mod parse;
-mod tcp;
 mod db;
 mod display;
+mod http;
+mod packet;
+mod parse;
+mod tcp;
 
 use crate::db::Database;
 use clap::Parser;
@@ -47,7 +47,7 @@ fn main() {
             Ok(packet) => {
                 match Signature::extract(packet) {
                     Ok(signature) => {
-                        println!("{}",signature);
+                        println!("{}", signature);
                     }
                     Err(e) => debug!("Failed to extract signature: {}", e),
                 };
@@ -56,7 +56,6 @@ fn main() {
         }
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Label {

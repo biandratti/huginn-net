@@ -83,10 +83,8 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<Signature, Error> {
         if packet.get_identification() != 0 {
             quirks.push(Quirk::NonZeroID);
         }
-    } else {
-        if packet.get_identification() == 0 {
-            quirks.push(Quirk::ZeroID);
-        }
+    } else if packet.get_identification() == 0 {
+        quirks.push(Quirk::ZeroID);
     }
 
     TcpPacket::new(packet.payload())
@@ -138,7 +136,8 @@ fn visit_tcp(
         bail!("invalid TCP flags: {}", flags);
     }
 
-    if (flags & (ECE | CWR )) != 0 { //TODO:    if (flags & (ECE | CWR | NS)) != 0 {
+    if (flags & (ECE | CWR)) != 0 {
+        //TODO:    if (flags & (ECE | CWR | NS)) != 0 {
         quirks.push(Quirk::ECN);
     }
     if tcp.get_sequence() == 0 {
@@ -148,18 +147,16 @@ fn visit_tcp(
         if tcp.get_acknowledgement() == 0 {
             quirks.push(Quirk::AckNumZero);
         }
-    } else {
-        if tcp.get_acknowledgement() != 0 && flags & RST == 0 {
-            quirks.push(Quirk::AckNumNonZero);
-        }
+    } else if tcp.get_acknowledgement() != 0 && flags & RST == 0 {
+        quirks.push(Quirk::AckNumNonZero);
     }
+
     if flags & URG == URG {
         quirks.push(Quirk::URG);
-    } else {
-        if tcp.get_urgent_ptr() != 0 {
-            quirks.push(Quirk::NonZeroURG);
-        }
+    } else if tcp.get_urgent_ptr() != 0 {
+        quirks.push(Quirk::NonZeroURG);
     }
+
     if flags & PSH == PSH {
         quirks.push(Quirk::PUSH);
     }
