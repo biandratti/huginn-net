@@ -26,27 +26,3 @@ pub struct Header {
     pub name: String,
     pub value: Option<String>,
 }
-
-pub fn header<S: AsRef<str>>(name: S) -> Header {
-    Header::new(name)
-}
-
-impl Header {
-    pub fn new<S: AsRef<str>>(name: S) -> Self {
-        Header {
-            optional: false,
-            name: name.as_ref().to_owned(),
-            value: None,
-        }
-    }
-
-    pub fn with_value<S: AsRef<str>>(mut self, value: S) -> Self {
-        self.value = Some(value.as_ref().to_owned());
-        self
-    }
-
-    pub fn optional(mut self) -> Self {
-        self.optional = true;
-        self
-    }
-}

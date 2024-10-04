@@ -104,7 +104,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<Signature, Error> {
 
     let version = IpVersion::V6;
     let ttl = TTL::Value(packet.get_hop_limit());
-    let mut olen = 0; // TODO handle extensions
+    let olen = 0; // TODO handle extensions
     let mut quirks = vec![];
 
     if packet.get_flow_label() != 0 {
