@@ -7,6 +7,6 @@ edition = "2021"
 nom = "4.2"
 clap = { version = "4.5.18", features = ["derive"] }
 pnet = "0.35.0"
-regex = "1.10.6"
+regex = "1.11.0"
 failure = "0.1.8"
 log = "0.4.22"
