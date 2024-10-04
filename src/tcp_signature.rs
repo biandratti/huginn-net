@@ -1,4 +1,3 @@
-use pnet::packet::tcp::TcpOption;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -8,43 +7,104 @@ use std::path::Path;
 **/
 #[derive(Debug)]
 pub struct TcpSignature {
-    pub ver: char,               // Version: '4', '6', or '*'
-    pub ittl: u8,                // Initial TTL
-    pub olen: u8,                // Length of IP options
-    pub mss: Option<u16>,        // Maximum Segment Size
-    pub wsize: String,           // Window size (can be fixed or a formula like "mss*4")
-    pub scale: Option<u8>,       // Window scaling factor
-    pub options: Vec<TcpOption>, // Layout of TCP options
-    pub quirks: Vec<Quirk>,      // List of quirks
-    pub pclass: PayloadClass,    // Payload size classification
+    pub ver: IpVersion,
+    pub ittl: TTL,
+    pub olen: u8,
+    pub mss: Option<u16>,
+    pub wsize: WindowSize,
+    pub scale: Option<u8>,
+    pub options: Vec<TcpOption>,
+    pub quirks: Vec<Quirk>,
+    pub pclass: PayloadSize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum IpVersion {
+    V4,
+    V6,
+    Any,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TTL {
+    Value(u8),
+    Distance(u8, u8),
+    Guess(u8),
+    Bad(u8),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum WindowSize {
+    MSS(u8),
+    MTU(u8),
+    Value(u16),
+    Mod(u16),
+    Any,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TcpOption {
+    /// eol+n  - explicit end of options, followed by n bytes of padding
+    EOL(u8),
+    /// nop    - no-op option
+    NOP,
+    /// mss    - maximum segment size
+    MSS,
+    /// ws     - window scaling
+    WS,
+    /// sok    - selective ACK permitted
+    SOK,
+    /// sack   - selective ACK (should not be seen)
+    SACK,
+    /// ts     - timestamp
+    TS,
+    /// ?n     - unknown option ID n
+    Unknown(u8),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Quirk {
-    Df,         // "Don't Fragment" flag set
-    IdPlus,     // DF set, but non-zero IPID
-    IdMinus,    // DF not set, zero IPID
-    Ecn,        // Explicit Congestion Notification
-    ZeroPlus,   // "Must be zero" field not zero
-    Flow,       // Non-zero IPv6 flow ID
-    SeqZero,    // Sequence number is zero
-    AckPlus,    // ACK number non-zero, but ACK flag not set
-    AckZero,    // ACK number is zero, but ACK flag set
-    UrgPtrPlus, // URG pointer non-zero, but URG flag not set
-    UrgFlag,    // URG flag used
-    PushFlag,   // PUSH flag used
-    Ts1Zero,    // Own timestamp specified as zero
-    Ts2Plus,    // Peer timestamp non-zero on initial SYN
-    OptPlus,    // Trailing non-zero data in options segment
-    ExWscale,   // Excessive window scaling factor (> 14)
-    BadOpt,     // Malformed TCP options
+    /// df     - "don't fragment" set (probably PMTUD); ignored for IPv6
+    DF,
+    /// id+    - DF set but IPID non-zero; ignored for IPv6
+    NonZeroID,
+    /// id-    - DF not set but IPID is zero; ignored for IPv6
+    ZeroID,
+    /// ecn    - explicit congestion notification support
+    ECN,
+    /// 0+     - "must be zero" field not zero; ignored for IPv6
+    MustBeZero,
+    /// flow   - non-zero IPv6 flow ID; ignored for IPv4
+    FlowID,
+    /// seq-   - sequence number is zero
+    SeqNumZero,
+    /// ack+   - ACK number is non-zero, but ACK flag not set
+    AckNumNonZero,
+    /// ack-   - ACK number is zero, but ACK flag set
+    AckNumZero,
+    /// uptr+  - URG pointer is non-zero, but URG flag not set
+    NonZeroURG,
+    /// urgf+  - URG flag used
+    URG,
+    /// pushf+ - PUSH flag used
+    PUSH,
+    /// ts1-   - own timestamp specified as zero
+    OwnTimestampZero,
+    /// ts2+   - non-zero peer timestamp on initial SYN
+    PeerTimestampNonZero,
+    /// opt+   - trailing non-zero data in options segment
+    TrailinigNonZero,
+    /// exws   - excessive window scaling factor (> 14)
+    ExcessiveWindowScaling,
+    /// bad    - malformed TCP options
+    OptBad,
 }
 
-#[derive(Debug)]
-pub enum PayloadClass {
-    Zero,    // Zero payload
-    NonZero, // Non-zero payload
-    Any,     // Any payload
+#[derive(Clone, Debug, PartialEq)]
+pub enum PayloadSize {
+    Zero,
+    NonZero,
+    Any,
 }
 
 impl TcpSignature {
@@ -62,104 +122,11 @@ impl TcpSignature {
                 continue; // Skip empty lines
             }
 
-            // Parse the line into individual components
-            let parts: Vec<&str> = line.split(':').collect();
-
-            if parts.len() != 9 {
-                eprintln!("Skipping invalid line: {}", line);
-                continue;
-            }
-
-            let ver = parts[0].chars().next().unwrap_or('*'); // Default to '*' if not available
-            let ittl = parts[1].parse::<u8>().unwrap_or_default();
-            let olen = parts[2].parse::<u8>().unwrap_or_default();
-            let mss = if parts[3] == "*" {
-                None
-            } else {
-                Some(parts[3].parse::<u16>().unwrap_or_default())
-            };
-            let wsize = parts[4].to_string();
-            let scale = if parts[5] == "*" {
-                None
-            } else {
-                Some(parts[5].parse::<u8>().unwrap_or_default())
-            };
-
-            // Parse TCP options (you might need to modify this based on actual format)
-            let options = parse_tcp_options(parts[6]);
-
-            // Parse quirks
-            let quirks = parse_quirks(parts[7]);
-
-            // Parse payload class
-            let pclass = match parts[8] {
-                "0" => PayloadClass::Zero,
-                "1" => PayloadClass::NonZero,
-                _ => PayloadClass::Any,
-            };
-
-            let signature = TcpSignature {
-                ver,
-                ittl,
-                olen,
-                mss,
-                wsize,
-                scale,
-                options,
-                quirks,
-                pclass,
-            };
-
-            tcp_signatures.push(signature);
         }
 
         tcp_signatures
     }
 }
 
-fn parse_tcp_options(option_str: &str) -> Vec<TcpOption> {
-    let mut options = Vec::new();
-    let option_parts: Vec<&str> = option_str.split(',').collect();
 
-    for option in option_parts {
-        match option {
-            "mss" => {
-                // Add TcpOption for MSS (this is just an example, you'll need to create the proper struct from pnet)
-                // You may need to manually create a TcpOption instance or use pnet's methods for options.
-            }
-            _ => continue,
-        }
-    }
 
-    options
-}
-
-fn parse_quirks(quirks_str: &str) -> Vec<Quirk> {
-    let mut quirks = Vec::new();
-    let quirk_parts: Vec<&str> = quirks_str.split(',').collect();
-
-    for quirk in quirk_parts {
-        match quirk {
-            "df" => quirks.push(Quirk::Df),
-            "id+" => quirks.push(Quirk::IdPlus),
-            "id-" => quirks.push(Quirk::IdMinus),
-            "ecn" => quirks.push(Quirk::Ecn),
-            "zero+" => quirks.push(Quirk::ZeroPlus),
-            "flow" => quirks.push(Quirk::Flow),
-            "seq0" => quirks.push(Quirk::SeqZero),
-            "ack+" => quirks.push(Quirk::AckPlus),
-            "ack0" => quirks.push(Quirk::AckZero),
-            "urgptr+" => quirks.push(Quirk::UrgPtrPlus),
-            "urg" => quirks.push(Quirk::UrgFlag),
-            "push" => quirks.push(Quirk::PushFlag),
-            "ts1-0" => quirks.push(Quirk::Ts1Zero),
-            "ts2+" => quirks.push(Quirk::Ts2Plus),
-            "opt+" => quirks.push(Quirk::OptPlus),
-            "exwscale" => quirks.push(Quirk::ExWscale),
-            "badopt" => quirks.push(Quirk::BadOpt),
-            _ => continue,
-        }
-    }
-
-    quirks
-}

@@ -1,5 +1,5 @@
 use crate::tcp_package::TcpPackage;
-use crate::tcp_signature::{PayloadClass, Quirk, TcpSignature};
+use crate::tcp_signature::{Quirk, TcpSignature};
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::tcp::{TcpOption, TcpOptionNumbers};
@@ -38,10 +38,10 @@ fn match_packet_to_fingerprint<'a>(
     let package_scale: Option<u8> = extract_scale(tcp_packet);
     let packet_options: Vec<TcpOption> = tcp_packet.get_options();
     let packet_quirks: Vec<Quirk> = extract_quirks(ipv4_packet, tcp_packet);
-    let packet_payload_class: PayloadClass = extract_payload_class(tcp_packet);
+    //let packet_payload_class: PayloadSize = extract_payload_class(tcp_packet);
 
     println!(
-        "ver: {} - ittl: {} - olen: {} - mss: {:?} - wsize: {} - scale: {:?} - olayout: {:?} - quirks: {:?} - pclass: {:?}",
+        "ver: {} - ittl: {} - olen: {} - mss: {:?} - wsize: {} - scale: {:?} - olayout: {:?} - quirks: {:?}",
         packet_ver,
         packet_ttl,
         packet_olen,
@@ -50,7 +50,7 @@ fn match_packet_to_fingerprint<'a>(
         package_scale,
         packet_options,
         packet_quirks,
-        packet_payload_class
+//        packet_payload_class
     );
 
     // Define a threshold for a good match (you can adjust this)
@@ -66,9 +66,6 @@ fn match_packet_to_fingerprint<'a>(
 
         // TTL match (high importance)
         max_score += 1.0;
-        if packet_ttl == signature.ittl {
-            score += 1.0;
-        }
 
         // Calculate the normalized score
         let match_score = score / max_score;
@@ -99,10 +96,6 @@ fn extract_mss(tcp_packet: &TcpPacket) -> Option<u16> {
     None
 }
 
-fn extract_payload_class(tcp_packet: &TcpPacket) -> PayloadClass {
-    //TODO: WIP
-    PayloadClass::Zero
-}
 fn extract_quirks(ipv4_packet: &Ipv4Packet, tcp_packet: &TcpPacket) -> Vec<Quirk> {
     let mut quirks = Vec::new();
     //TODO: WIP
