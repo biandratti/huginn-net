@@ -11,7 +11,7 @@ use pnet::packet::{
     Packet, PacketSize,
 };
 
-use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, WindowSize, TTL};
+use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 
 impl Signature {
     pub fn extract(packet: &[u8]) -> Result<Self, Error> {
@@ -65,12 +65,12 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<Signature, Error> {
     }
 
     let version = IpVersion::V4;
-    let ttl = TTL::Value(packet.get_ttl());
+    let ttl = Ttl::Value(packet.get_ttl());
     let olen = packet.get_options_raw().len() as u8;
     let mut quirks = vec![];
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
-        quirks.push(Quirk::ECN);
+        quirks.push(Quirk::Ecn);
     }
 
     if (packet.get_flags() & IP4_MBZ) != 0 {
@@ -78,7 +78,7 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<Signature, Error> {
     }
 
     if (packet.get_flags() & Ipv4Flags::DontFragment) != 0 {
-        quirks.push(Quirk::DF);
+        quirks.push(Quirk::Df);
 
         if packet.get_identification() != 0 {
             quirks.push(Quirk::NonZeroID);
@@ -101,7 +101,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<Signature, Error> {
     }
 
     let version = IpVersion::V6;
-    let ttl = TTL::Value(packet.get_hop_limit());
+    let ttl = Ttl::Value(packet.get_hop_limit());
     let olen = 0; // TODO handle extensions
     let mut quirks = vec![];
 
@@ -109,7 +109,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<Signature, Error> {
         quirks.push(Quirk::FlowID);
     }
     if (packet.get_traffic_class() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
-        quirks.push(Quirk::ECN);
+        quirks.push(Quirk::Ecn);
     }
 
     TcpPacket::new(packet.payload())
@@ -120,7 +120,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<Signature, Error> {
 fn visit_tcp(
     tcp: TcpPacket,
     version: IpVersion,
-    ittl: TTL,
+    ittl: Ttl,
     olen: u8,
     mut quirks: Vec<Quirk>,
 ) -> Result<Signature, Error> {
@@ -138,7 +138,7 @@ fn visit_tcp(
 
     if (flags & (ECE | CWR)) != 0 {
         //TODO:    if (flags & (ECE | CWR | NS)) != 0 {
-        quirks.push(Quirk::ECN);
+        quirks.push(Quirk::Ecn);
     }
     if tcp.get_sequence() == 0 {
         quirks.push(Quirk::SeqNumZero);
@@ -152,13 +152,13 @@ fn visit_tcp(
     }
 
     if flags & URG == URG {
-        quirks.push(Quirk::URG);
+        quirks.push(Quirk::Urg);
     } else if tcp.get_urgent_ptr() != 0 {
         quirks.push(Quirk::NonZeroURG);
     }
 
     if flags & PSH == PSH {
-        quirks.push(Quirk::PUSH);
+        quirks.push(Quirk::Push);
     }
 
     let mut buf = tcp.get_options_raw();
@@ -173,17 +173,17 @@ fn visit_tcp(
 
         match opt.get_number() {
             EOL => {
-                olayout.push(TcpOption::EOL(buf.len() as u8));
+                olayout.push(TcpOption::Eol(buf.len() as u8));
 
                 if buf.iter().any(|&b| b != 0) {
                     quirks.push(Quirk::TrailinigNonZero);
                 }
             }
             NOP => {
-                olayout.push(TcpOption::NOP);
+                olayout.push(TcpOption::Nop);
             }
             MSS => {
-                olayout.push(TcpOption::MSS);
+                olayout.push(TcpOption::Mss);
 
                 if data.len() > 2 {
                     mss = Some(u16::from_ne_bytes(data[..2].try_into()?));
@@ -194,7 +194,7 @@ fn visit_tcp(
                 }
             }
             WSCALE => {
-                olayout.push(TcpOption::WS);
+                olayout.push(TcpOption::Ws);
 
                 wscale = Some(data[0]);
 
@@ -206,14 +206,14 @@ fn visit_tcp(
                 }
             }
             SACK_PERMITTED => {
-                olayout.push(TcpOption::SOK);
+                olayout.push(TcpOption::Sok);
 
                 if data.len() != 2 {
                     quirks.push(Quirk::OptBad);
                 }
             }
             SACK => {
-                olayout.push(TcpOption::SACK);
+                olayout.push(TcpOption::Sack);
 
                 match data.len() {
                     10 | 18 | 26 | 34 => {}

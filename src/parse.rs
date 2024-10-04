@@ -8,7 +8,7 @@ use nom::*;
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
-    tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, WindowSize, TTL},
+    tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
     Label, Type,
 };
 
@@ -183,7 +183,7 @@ impl_from_str!(Label, parse_label);
 impl_from_str!(Type, parse_type);
 impl_from_str!(TcpSignature, parse_tcp_signature);
 impl_from_str!(IpVersion, parse_ip_version);
-impl_from_str!(TTL, parse_ttl);
+impl_from_str!(Ttl, parse_ttl);
 impl_from_str!(WindowSize, parse_window_size);
 impl_from_str!(TcpOption, parse_tcp_option);
 impl_from_str!(Quirk, parse_quirk);
@@ -304,49 +304,49 @@ named!(parse_ip_version<CompleteStr, IpVersion>, alt!(
     tag!("*") => { |_| IpVersion::Any }
 ));
 
-named!(parse_ttl<CompleteStr, TTL>, alt_complete!(
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("-")) => { |ttl| TTL::Bad(ttl) } |
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("+?")) => { |ttl| TTL::Guess(ttl) } |
+named!(parse_ttl<CompleteStr, Ttl>, alt_complete!(
+    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("-")) => { |ttl| Ttl::Bad(ttl) } |
+    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("+?")) => { |ttl| Ttl::Guess(ttl) } |
     separated_pair!(
         map_res!(digit, |s: CompleteStr| s.parse()),
         tag!("+"),
         map_res!(digit, |s: CompleteStr| s.parse())
-    ) => { |(ttl, distance)| TTL::Distance(ttl, distance) } |
-    map_res!(digit, |s: CompleteStr| s.parse()) => { |ttl| TTL::Value(ttl) }
+    ) => { |(ttl, distance)| Ttl::Distance(ttl, distance) } |
+    map_res!(digit, |s: CompleteStr| s.parse()) => { |ttl| Ttl::Value(ttl) }
 ));
 
 named!(parse_window_size<CompleteStr, WindowSize>, alt_complete!(
     tag!("*")                                                            => { |_| WindowSize::Any } |
-    map_res!(preceded!(tag!("mss*"), digit), |s: CompleteStr| s.parse()) => { |n| WindowSize::MSS(n) } |
-    map_res!(preceded!(tag!("mtu*"), digit), |s: CompleteStr| s.parse()) => { |n| WindowSize::MTU(n) } |
+    map_res!(preceded!(tag!("mss*"), digit), |s: CompleteStr| s.parse()) => { |n| WindowSize::Mss(n) } |
+    map_res!(preceded!(tag!("mtu*"), digit), |s: CompleteStr| s.parse()) => { |n| WindowSize::Mtu(n) } |
     map_res!(preceded!(tag!("%"), digit), |s: CompleteStr| s.parse())    => { |n| WindowSize::Mod(n) } |
     map_res!(digit, |s: CompleteStr| s.parse())                          => { |n| WindowSize::Value(n) }
 ));
 
 named!(parse_tcp_option<CompleteStr, TcpOption>, alt_complete!(
-    map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { |n| TcpOption::EOL(n) } |
-    tag!("nop")     => { |_| TcpOption::NOP } |
-    tag!("mss")     => { |_| TcpOption::MSS } |
-    tag!("ws")      => { |_| TcpOption::WS } |
-    tag!("sok")     => { |_| TcpOption::SOK } |
-    tag!("sack")    => { |_| TcpOption::SACK } |
+    map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { |n| TcpOption::Eol(n) } |
+    tag!("nop")     => { |_| TcpOption::Nop } |
+    tag!("mss")     => { |_| TcpOption::Mss } |
+    tag!("ws")      => { |_| TcpOption::Ws } |
+    tag!("sok")     => { |_| TcpOption::Sok } |
+    tag!("sack")    => { |_| TcpOption::Sack } |
     tag!("ts")      => { |_| TcpOption::TS } |
     map_res!(preceded!(tag!("?"), digit), |s: CompleteStr| s.parse()) => { |n| TcpOption::Unknown(n) }
 ));
 
 named!(parse_quirk<CompleteStr, Quirk>, alt_complete!(
-    tag!("df")      => { |_| Quirk::DF } |
+    tag!("df")      => { |_| Quirk::Df } |
     tag!("id+")     => { |_| Quirk::NonZeroID } |
     tag!("id-")     => { |_| Quirk::ZeroID } |
-    tag!("ecn")     => { |_| Quirk::ECN } |
+    tag!("ecn")     => { |_| Quirk::Ecn } |
     tag!("0+")      => { |_| Quirk::MustBeZero } |
     tag!("flow")    => { |_| Quirk::FlowID } |
     tag!("seq-")    => { |_| Quirk::SeqNumZero } |
     tag!("ack+")    => { |_| Quirk::AckNumNonZero } |
     tag!("ack-")    => { |_| Quirk::AckNumZero } |
     tag!("uptr+")   => { |_| Quirk::NonZeroURG } |
-    tag!("urgf+")   => { |_| Quirk::URG } |
-    tag!("pushf+")  => { |_| Quirk::PUSH } |
+    tag!("urgf+")   => { |_| Quirk::Urg } |
+    tag!("pushf+")  => { |_| Quirk::Push } |
     tag!("ts1-")    => { |_| Quirk::OwnTimestampZero } |
     tag!("ts2+")    => { |_| Quirk::PeerTimestampNonZero } |
     tag!("opt+")    => { |_| Quirk::TrailinigNonZero } |
@@ -453,13 +453,13 @@ mod tests {
                 "*:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0",
                 TcpSignature {
                     version: IpVersion::Any,
-                    ittl: TTL::Value(64),
+                    ittl: Ttl::Value(64),
                     olen: 0,
                     mss: None,
-                    wsize: WindowSize::MSS(20),
+                    wsize: WindowSize::Mss(20),
                     wscale: Some(10),
-                    olayout: vec![MSS, SOK, TS, NOP, WS],
-                    quirks: vec![DF, NonZeroID],
+                    olayout: vec![Mss, Sok, TS, Nop, Ws],
+                    quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
                 }
             ),
@@ -467,12 +467,12 @@ mod tests {
                 "*:64:0:*:16384,0:mss::0",
                 TcpSignature {
                     version: IpVersion::Any,
-                    ittl: TTL::Value(64),
+                    ittl: Ttl::Value(64),
                     olen: 0,
                     mss: None,
                     wsize: WindowSize::Value(16384),
                     wscale: Some(0),
-                    olayout: vec![MSS],
+                    olayout: vec![Mss],
                     quirks: vec![],
                     pclass: PayloadSize::Zero,
                 }
@@ -481,12 +481,12 @@ mod tests {
                 "4:128:0:1460:mtu*2,0:mss,nop,ws::0",
                 TcpSignature {
                     version: IpVersion::V4,
-                    ittl: TTL::Value(128),
+                    ittl: Ttl::Value(128),
                     olen: 0,
                     mss: Some(1460),
-                    wsize: WindowSize::MTU(2),
+                    wsize: WindowSize::Mtu(2),
                     wscale: Some(0),
-                    olayout: vec![MSS, NOP, WS],
+                    olayout: vec![Mss, Nop, Ws],
                     quirks: vec![],
                     pclass: PayloadSize::Zero,
                 }
@@ -495,33 +495,33 @@ mod tests {
                 "*:64-:0:265:%512,0:mss,sok,ts:ack+:0",
                 TcpSignature {
                     version: IpVersion::Any,
-                    ittl: TTL::Bad(64),
+                    ittl: Ttl::Bad(64),
                     olen: 0,
                     mss: Some(265),
                     wsize: WindowSize::Mod(512),
                     wscale: Some(0),
-                    olayout: vec![MSS, SOK, TS],
+                    olayout: vec![Mss, Sok, TS],
                     quirks: vec![AckNumNonZero],
                     pclass: PayloadSize::Zero,
                 }
             )
         ];
-        static ref TTLS: Vec<(&'static str, TTL)> = vec![
+        static ref TTLS: Vec<(&'static str, Ttl)> = vec![
             (
                 "64",
-                TTL::Value(64)
+                Ttl::Value(64)
             ),
             (
                 "54+10",
-                TTL::Distance(54, 10)
+                Ttl::Distance(54, 10)
             ),
             (
                 "64-",
-                TTL::Bad(64)
+                Ttl::Bad(64)
             ),
             (
                 "54+?",
-                TTL::Guess(54)
+                Ttl::Guess(54)
             )
         ];
         static ref HTTP_SIGNATURES: Vec<(&'static str, HttpSignature)> = vec![
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn test_ttl() {
         for (s, ttl) in TTLS.iter() {
-            assert_eq!(&s.parse::<TTL>().unwrap(), ttl);
+            assert_eq!(&s.parse::<Ttl>().unwrap(), ttl);
             assert_eq!(&ttl.to_string(), s);
         }
     }

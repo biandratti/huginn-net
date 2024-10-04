@@ -27,7 +27,7 @@ impl fmt::Display for Type {
 mod tcp {
     use core::fmt;
 
-    use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, WindowSize, TTL};
+    use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 
     impl fmt::Display for Signature {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -83,13 +83,13 @@ mod tcp {
         }
     }
 
-    impl fmt::Display for TTL {
+    impl fmt::Display for Ttl {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self {
-                TTL::Value(ttl) => write!(f, "{}", ttl),
-                TTL::Distance(ttl, distance) => write!(f, "{}+{}", ttl, distance),
-                TTL::Guess(ttl) => write!(f, "{}+?", ttl),
-                TTL::Bad(ttl) => write!(f, "{}-", ttl),
+                Ttl::Value(ttl) => write!(f, "{}", ttl),
+                Ttl::Distance(ttl, distance) => write!(f, "{}+{}", ttl, distance),
+                Ttl::Guess(ttl) => write!(f, "{}+?", ttl),
+                Ttl::Bad(ttl) => write!(f, "{}-", ttl),
             }
         }
     }
@@ -99,8 +99,8 @@ mod tcp {
             use WindowSize::*;
 
             match self {
-                MSS(n) => write!(f, "mss*{}", n),
-                MTU(n) => write!(f, "mtu*{}", n),
+                Mss(n) => write!(f, "mss*{}", n),
+                Mtu(n) => write!(f, "mtu*{}", n),
                 Value(n) => write!(f, "{}", n),
                 Mod(n) => write!(f, "%{}", n),
                 Any => f.write_str("*"),
@@ -113,12 +113,12 @@ mod tcp {
             use TcpOption::*;
 
             match self {
-                EOL(n) => write!(f, "eol+{}", n),
-                NOP => f.write_str("nop"),
-                MSS => f.write_str("mss"),
-                WS => f.write_str("ws"),
-                SOK => f.write_str("sok"),
-                SACK => f.write_str("sack"),
+                Eol(n) => write!(f, "eol+{}", n),
+                Nop => f.write_str("nop"),
+                Mss => f.write_str("mss"),
+                Ws => f.write_str("ws"),
+                Sok => f.write_str("sok"),
+                Sack => f.write_str("sack"),
                 TS => f.write_str("ts"),
                 Unknown(n) => write!(f, "?{}", n),
             }
@@ -130,18 +130,18 @@ mod tcp {
             use Quirk::*;
 
             match self {
-                DF => f.write_str("df"),
+                Df => f.write_str("df"),
                 NonZeroID => f.write_str("id+"),
                 ZeroID => f.write_str("id-"),
-                ECN => f.write_str("ecn"),
+                Ecn => f.write_str("ecn"),
                 MustBeZero => f.write_str("0+"),
                 FlowID => f.write_str("flow"),
                 SeqNumZero => f.write_str("seq-"),
                 AckNumNonZero => f.write_str("ack+"),
                 AckNumZero => f.write_str("ack-"),
                 NonZeroURG => f.write_str("uptr+"),
-                URG => f.write_str("urgf+"),
-                PUSH => f.write_str("pushf+"),
+                Urg => f.write_str("urgf+"),
+                Push => f.write_str("pushf+"),
                 OwnTimestampZero => f.write_str("ts1-"),
                 PeerTimestampNonZero => f.write_str("ts2+"),
                 TrailinigNonZero => f.write_str("opt+"),

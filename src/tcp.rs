@@ -2,7 +2,7 @@
 pub struct Signature {
     pub version: IpVersion,
     /// initial TTL used by the OS.
-    pub ittl: TTL,
+    pub ittl: Ttl,
     /// length of IPv4 options or IPv6 extension headers.
     pub olen: u8,
     /// maximum segment size, if specified in TCP options.
@@ -27,7 +27,7 @@ pub enum IpVersion {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TTL {
+pub enum Ttl {
     Value(u8),
     Distance(u8, u8),
     Guess(u8),
@@ -36,8 +36,8 @@ pub enum TTL {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowSize {
-    MSS(u8),
-    MTU(u8),
+    Mss(u8),
+    Mtu(u8),
     Value(u16),
     Mod(u16),
     Any,
@@ -46,17 +46,17 @@ pub enum WindowSize {
 #[derive(Clone, Debug, PartialEq)]
 pub enum TcpOption {
     /// eol+n  - explicit end of options, followed by n bytes of padding
-    EOL(u8),
+    Eol(u8),
     /// nop    - no-op option
-    NOP,
+    Nop,
     /// mss    - maximum segment size
-    MSS,
+    Mss,
     /// ws     - window scaling
-    WS,
+    Ws,
     /// sok    - selective ACK permitted
-    SOK,
+    Sok,
     /// sack   - selective ACK (should not be seen)
-    SACK,
+    Sack,
     /// ts     - timestamp
     TS,
     /// ?n     - unknown option ID n
@@ -66,13 +66,13 @@ pub enum TcpOption {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Quirk {
     /// df     - "don't fragment" set (probably PMTUD); ignored for IPv6
-    DF,
+    Df,
     /// id+    - DF set but IPID non-zero; ignored for IPv6
     NonZeroID,
     /// id-    - DF not set but IPID is zero; ignored for IPv6
     ZeroID,
     /// ecn    - explicit congestion notification support
-    ECN,
+    Ecn,
     /// 0+     - "must be zero" field not zero; ignored for IPv6
     MustBeZero,
     /// flow   - non-zero IPv6 flow ID; ignored for IPv4
@@ -86,9 +86,9 @@ pub enum Quirk {
     /// uptr+  - URG pointer is non-zero, but URG flag not set
     NonZeroURG,
     /// urgf+  - URG flag used
-    URG,
+    Urg,
     /// pushf+ - PUSH flag used
-    PUSH,
+    Push,
     /// ts1-   - own timestamp specified as zero
     OwnTimestampZero,
     /// ts2+   - non-zero peer timestamp on initial SYN
