@@ -1,5 +1,6 @@
 use crate::{http, tcp, Label};
 
+#[allow(dead_code)] //TODO: WIP
 #[derive(Debug)]
 pub struct Database {
     pub classes: Vec<String>,
