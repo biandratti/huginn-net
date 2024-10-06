@@ -66,7 +66,7 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<Signature, Error> {
 
     let version = IpVersion::V4;
     let ttl = Ttl::Value(packet.get_ttl());
-    let olen = packet.get_options_raw().len() as u8;
+    let olen: u8 = packet.get_options_raw().len() as u8;
     let mut quirks = vec![];
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
@@ -126,8 +126,8 @@ fn visit_tcp(
 ) -> Result<Signature, Error> {
     use TcpFlags::*;
 
-    let flags = tcp.get_flags();
-    let tcp_type = flags & (SYN | ACK | FIN | RST);
+    let flags: u8 = tcp.get_flags();
+    let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
 
     if ((flags & SYN) == SYN && (flags & (FIN | RST)) != 0)
         || (flags & (FIN | RST)) == (FIN | RST)
@@ -169,7 +169,7 @@ fn visit_tcp(
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
 
-        let data = opt.payload();
+        let data: &[u8] = opt.payload();
 
         match opt.get_number() {
             EOL => {
@@ -223,11 +223,14 @@ fn visit_tcp(
             TIMESTAMPS => {
                 olayout.push(TcpOption::TS);
 
-                if u16::from_ne_bytes(data[..4].try_into()?) == 0 {
+                if data.len() >= 4 && u32::from_ne_bytes(data[..4].try_into()?) == 0 {
                     quirks.push(Quirk::OwnTimestampZero);
                 }
 
-                if tcp_type == SYN && u16::from_ne_bytes(data[4..8].try_into()?) != 0 {
+                if data.len() >= 8
+                    && tcp_type == SYN
+                    && u32::from_ne_bytes(data[4..8].try_into()?) != 0
+                {
                     quirks.push(Quirk::PeerTimestampNonZero);
                 }
 
