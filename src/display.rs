@@ -8,9 +8,9 @@ impl fmt::Display for Label {
             f,
             "{}:{}:{}:{}",
             self.ty,
-            self.class.as_ref().map(|s| s.as_str()).unwrap_or_default(),
+            self.class.as_deref().unwrap_or_default(),
             self.name,
-            self.flavor.as_ref().map(|s| s.as_str()).unwrap_or_default()
+            self.flavor.as_deref().unwrap_or_default()
         )
     }
 }

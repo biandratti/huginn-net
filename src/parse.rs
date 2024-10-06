@@ -267,14 +267,14 @@ named!(
         tag!(":") >>
         mss: alt!(
             tag!("*")                                   => { |_| None } |
-            map_res!(digit, |s: CompleteStr| s.parse()) => { |n| Some(n) }
+            map_res!(digit, |s: CompleteStr| s.parse()) => { Some }
         ) >>
         tag!(":") >>
         wsize: parse_window_size >>
         tag!(",") >>
         wscale: alt!(
             tag!("*")                                   => { |_| None } |
-            map_res!(digit, |s: CompleteStr| s.parse()) => { |n| Some(n) }
+            map_res!(digit, |s: CompleteStr| s.parse()) => { Some }
         ) >>
         tag!(":") >>
         olayout: separated_nonempty_list!(tag!(","), parse_tcp_option) >>
@@ -305,33 +305,33 @@ named!(parse_ip_version<CompleteStr, IpVersion>, alt!(
 ));
 
 named!(parse_ttl<CompleteStr, Ttl>, alt_complete!(
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("-")) => { |ttl| Ttl::Bad(ttl) } |
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("+?")) => { |ttl| Ttl::Guess(ttl) } |
+    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("-")) => { Ttl::Bad } |
+    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("+?")) => { Ttl::Guess } |
     separated_pair!(
         map_res!(digit, |s: CompleteStr| s.parse()),
         tag!("+"),
         map_res!(digit, |s: CompleteStr| s.parse())
     ) => { |(ttl, distance)| Ttl::Distance(ttl, distance) } |
-    map_res!(digit, |s: CompleteStr| s.parse()) => { |ttl| Ttl::Value(ttl) }
+    map_res!(digit, |s: CompleteStr| s.parse()) => { Ttl::Value }
 ));
 
 named!(parse_window_size<CompleteStr, WindowSize>, alt_complete!(
     tag!("*")                                                            => { |_| WindowSize::Any } |
-    map_res!(preceded!(tag!("mss*"), digit), |s: CompleteStr| s.parse()) => { |n| WindowSize::Mss(n) } |
-    map_res!(preceded!(tag!("mtu*"), digit), |s: CompleteStr| s.parse()) => { |n| WindowSize::Mtu(n) } |
-    map_res!(preceded!(tag!("%"), digit), |s: CompleteStr| s.parse())    => { |n| WindowSize::Mod(n) } |
-    map_res!(digit, |s: CompleteStr| s.parse())                          => { |n| WindowSize::Value(n) }
+    map_res!(preceded!(tag!("mss*"), digit), |s: CompleteStr| s.parse()) => { WindowSize::Mss } |
+    map_res!(preceded!(tag!("mtu*"), digit), |s: CompleteStr| s.parse()) => { WindowSize::Mtu } |
+    map_res!(preceded!(tag!("%"), digit), |s: CompleteStr| s.parse())    => { WindowSize::Mod } |
+    map_res!(digit, |s: CompleteStr| s.parse())                          => { WindowSize::Value }
 ));
 
 named!(parse_tcp_option<CompleteStr, TcpOption>, alt_complete!(
-    map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { |n| TcpOption::Eol(n) } |
+    map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Eol } |
     tag!("nop")     => { |_| TcpOption::Nop } |
     tag!("mss")     => { |_| TcpOption::Mss } |
     tag!("ws")      => { |_| TcpOption::Ws } |
     tag!("sok")     => { |_| TcpOption::Sok } |
     tag!("sack")    => { |_| TcpOption::Sack } |
     tag!("ts")      => { |_| TcpOption::TS } |
-    map_res!(preceded!(tag!("?"), digit), |s: CompleteStr| s.parse()) => { |n| TcpOption::Unknown(n) }
+    map_res!(preceded!(tag!("?"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Unknown }
 ));
 
 named!(parse_quirk<CompleteStr, Quirk>, alt_complete!(
