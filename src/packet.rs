@@ -185,9 +185,13 @@ fn visit_tcp(
             MSS => {
                 olayout.push(TcpOption::Mss);
 
-                if data.len() > 2 {
-                    mss = Some(u16::from_ne_bytes(data[..2].try_into()?));
+                if data.len() >= 2 {
+                    let mss_value: u16 = ((data[0] as u16) << 8) | (data[1] as u16);
+                    mss = Some(mss_value);
                 }
+                /*if data.len() > 2 {
+                    mss = Some(u16::from_ne_bytes(data[..2].try_into()?));
+                }*/
 
                 if data.len() != 4 {
                     quirks.push(Quirk::OptBad);
