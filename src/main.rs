@@ -1,10 +1,15 @@
-mod fingerprint_http;
-mod tcp_package;
+mod db;
+mod display;
+mod http;
+mod packet;
+mod parse;
+mod tcp;
 
+use crate::db::Database;
 use clap::Parser;
-use fingerprint_http::handle_ethernet_packet;
+use log::debug;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
-use pnet::packet::ethernet::EthernetPacket;
+use tcp::Signature;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -17,6 +22,9 @@ fn main() {
     let args = Args::parse();
     let interface_name = args.interface;
     let interfaces: Vec<NetworkInterface> = datalink::interfaces();
+
+    let db = Database::default();
+    debug!("Loaded database: {:?}", db);
 
     let interface: NetworkInterface = interfaces
         .into_iter()
@@ -37,10 +45,28 @@ fn main() {
     loop {
         match rx.next() {
             Ok(packet) => {
-                let ethernet_packet = EthernetPacket::new(packet).unwrap();
-                handle_ethernet_packet(ethernet_packet);
+                match Signature::extract(packet) {
+                    Ok(signature) => {
+                        println!("{}", signature);
+                    }
+                    Err(e) => debug!("Failed to extract signature: {}", e),
+                };
             }
             Err(e) => eprintln!("Failed to read: {}", e),
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Label {
+    pub ty: Type,
+    pub class: Option<String>,
+    pub name: String,
+    pub flavor: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Type {
+    Specified,
+    Generic,
 }
