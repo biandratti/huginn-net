@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 nom = "4.2"
-clap = { version = "4.5.19", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 pnet = "0.35.0"
 regex = "1.11.0"
 failure = "0.1.8"
