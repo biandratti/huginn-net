@@ -169,6 +169,8 @@ fn visit_tcp(
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
 
+        //println!("Buffer before parsing MSS: {:?}", buf);
+
         let data: &[u8] = opt.payload();
 
         match opt.get_number() {
@@ -183,15 +185,11 @@ fn visit_tcp(
                 olayout.push(TcpOption::Nop);
             }
             MSS => {
-                olayout.push(TcpOption::Mss);
-
                 if data.len() >= 2 {
                     let mss_value: u16 = ((data[0] as u16) << 8) | (data[1] as u16);
+                    //quirks.push(Quirk::mss);
                     mss = Some(mss_value);
                 }
-                /*if data.len() > 2 {
-                    mss = Some(u16::from_ne_bytes(data[..2].try_into()?));
-                }*/
 
                 if data.len() != 4 {
                     quirks.push(Quirk::OptBad);
@@ -253,7 +251,15 @@ fn visit_tcp(
         ittl,
         olen,
         mss,
-        wsize: WindowSize::Value(tcp.get_window()),
+        wsize: match (tcp.get_window(), mss) {
+            (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
+                WindowSize::Mss((wsize / mss_value) as u8)
+            }
+            (wsize, _) if wsize % 1500 == 0 => {
+                WindowSize::Mtu((wsize / 1500) as u8) // Assuming 1500 as a typical MTU
+            }
+            (wsize, _) => WindowSize::Value(wsize),
+        },
         wscale,
         olayout,
         quirks,
