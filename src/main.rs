@@ -3,9 +3,11 @@ mod display;
 mod http;
 mod packet;
 mod parse;
+mod signature_matcher;
 mod tcp;
 
 use crate::db::Database;
+use crate::signature_matcher::SignatureMatcher;
 use clap::Parser;
 use log::debug;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
@@ -25,6 +27,7 @@ fn main() {
 
     let db = Database::default();
     debug!("Loaded database: {:?}", db);
+    let matcher = SignatureMatcher::new(&db);
 
     let interface: NetworkInterface = interfaces
         .into_iter()
@@ -49,8 +52,16 @@ fn main() {
                     //TODO: [WIP] Display output by type
                     Ok(signature) => {
                         if signature.mss.is_some() {
-                            //db.tcp_response
-                            println!("{}", signature)
+                            if let Some((label, matched_signature)) =
+                                matcher.find_matching_signature(&signature)
+                            {
+                                println!("Matched Label: {}", label);
+                                println!("Matched Signature: {}", matched_signature);
+                                println!("{}", signature)
+                            } else {
+                                // println!("No matching signature found for: {}", signature);
+                                println!("{}", signature)
+                            }
                         }
                     }
                     Err(e) => debug!("Failed to extract signature: {}", e),

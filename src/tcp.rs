@@ -19,6 +19,12 @@ pub struct Signature {
     pub pclass: PayloadSize,
 }
 
+impl Signature {
+    pub fn matches(&self, other: &Self) -> bool {
+        self.mss == other.mss
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum IpVersion {
     V4,
