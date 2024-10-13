@@ -1,4 +1,5 @@
 use crate::{http, tcp};
+use std::fmt;
 
 #[allow(dead_code)] //TODO: WIP
 #[derive(Debug)]
@@ -24,6 +25,12 @@ pub struct Label {
 pub enum Type {
     Specified,
     Generic,
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl Default for Database {
