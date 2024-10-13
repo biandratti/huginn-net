@@ -47,10 +47,11 @@ fn main() {
             Ok(packet) => {
                 match Signature::extract(packet) {
                     //TODO: [WIP] Display output by type
-                    Ok(signature) => match signature.mss {
-                        Some(_) => println!("{}", signature),
-                        _ => {}
-                    },
+                    Ok(signature) => {
+                        if signature.mss.is_some() {
+                            println!("{}", signature)
+                        }
+                    }
                     Err(e) => debug!("Failed to extract signature: {}", e),
                 };
             }
