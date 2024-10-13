@@ -18,7 +18,7 @@ impl<'a> SignatureMatcher<'a> {
         for (label, db_signatures) in &self.database.tcp_request {
             for db_signature in db_signatures {
                 if signature.matches(db_signature) {
-                    println!("Matched Signature with Label: {}", label);
+                    //println!("Matched Signature with Label: {}", label);
                     return Some((label, db_signature));
                 }
             }
@@ -27,7 +27,7 @@ impl<'a> SignatureMatcher<'a> {
         for (label, db_signatures) in &self.database.tcp_response {
             for db_signature in db_signatures {
                 if signature.matches(db_signature) {
-                    println!("Matched Response Signature with Label: {}", label);
+                    //println!("Matched Response Signature with Label: {}", label);
                     return Some((label, db_signature));
                 }
             }

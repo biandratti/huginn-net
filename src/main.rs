@@ -51,24 +51,20 @@ fn main() {
         match rx.next() {
             Ok(packet) => {
                 match SignatureDetails::extract(packet) {
-                    //TODO: [WIP] Display output by type
                     Ok(signature_details) => {
                         if signature_details.signature.mss.is_some() {
                             if let Some((label, _matched_signature)) =
                                 matcher.find_matching_signature(&signature_details.signature)
                             {
                                 let p0f_output = P0fOutput {
-                                    client: format!(
-                                        "{}/{}",
-                                        signature_details.client.ip, signature_details.client.port
-                                    ),
-                                    os: Some(label.name.clone()),
-                                    raw_sig: signature_details.signature,
+                                    client: signature_details.client,
+                                    label: Some(label.clone()),
+                                    sig: signature_details.signature,
                                 };
                                 println!("{}", p0f_output)
-                            } else {
-                                println!("{}", signature_details.signature)
-                            }
+                            } /*else {
+                                  println!("{}", signature_details.signature)
+                              }*/
                         }
                     }
                     Err(e) => debug!("Failed to extract signature: {}", e),
