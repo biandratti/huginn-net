@@ -1,12 +1,14 @@
 mod db;
 mod display;
 mod http;
+mod p0f_output;
 mod packet;
 mod parse;
 mod signature_matcher;
 mod tcp;
 
 use crate::db::Database;
+use crate::p0f_output::P0fOutput;
 use crate::signature_matcher::SignatureMatcher;
 use clap::Parser;
 use log::debug;
@@ -52,12 +54,22 @@ fn main() {
                     //TODO: [WIP] Display output by type
                     Ok(signature) => {
                         if signature.mss.is_some() {
-                            if let Some((label, matched_signature)) =
+                            if let Some((label, _matched_signature)) =
                                 matcher.find_matching_signature(&signature)
                             {
-                                println!("Matched Label: {}", label);
-                                println!("Matched Signature: {}", matched_signature);
-                                println!("{}", signature)
+                                let p0f_output = P0fOutput {
+                                    client: format!(
+                                        "{}/{}",
+                                        "", //TODO: ???
+                                        ""  //TODO: ???
+                                    ),
+                                    os: Some(label.name.clone()),
+                                    raw_sig: signature,
+                                };
+
+                                // println!("Matched Label: {}", label);
+                                // println!("Matched Signature: {}", matched_signature);
+                                println!("{}", p0f_output)
                             } else {
                                 // println!("No matching signature found for: {}", signature);
                                 println!("{}", signature)
