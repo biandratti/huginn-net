@@ -5,11 +5,11 @@ use log::{trace, warn};
 use nom::types::CompleteStr;
 use nom::*;
 
+use crate::db::{Label, Type};
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
-    Label, Type,
 };
 
 impl FromStr for Database {

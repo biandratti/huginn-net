@@ -1,15 +1,19 @@
 mod db;
 mod display;
 mod http;
+mod p0f_output;
 mod packet;
 mod parse;
+mod signature_matcher;
 mod tcp;
 
 use crate::db::Database;
+use crate::p0f_output::P0fOutput;
+use crate::packet::SignatureDetails;
+use crate::signature_matcher::SignatureMatcher;
 use clap::Parser;
 use log::debug;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
-use tcp::Signature;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,6 +29,7 @@ fn main() {
 
     let db = Database::default();
     debug!("Loaded database: {:?}", db);
+    let matcher = SignatureMatcher::new(&db);
 
     let interface: NetworkInterface = interfaces
         .into_iter()
@@ -45,11 +50,21 @@ fn main() {
     loop {
         match rx.next() {
             Ok(packet) => {
-                match Signature::extract(packet) {
-                    //TODO: [WIP] Display output by type
-                    Ok(signature) => {
-                        if signature.mss.is_some() {
-                            println!("{}", signature)
+                match SignatureDetails::extract(packet) {
+                    Ok(signature_details) => {
+                        if signature_details.signature.mss.is_some() {
+                            if let Some((label, _matched_signature)) =
+                                matcher.find_matching_signature(&signature_details.signature)
+                            {
+                                let p0f_output = P0fOutput {
+                                    client: signature_details.client,
+                                    label: Some(label.clone()),
+                                    sig: signature_details.signature,
+                                };
+                                println!("{}", p0f_output)
+                            } /*else {
+                                  println!("{}", signature_details.signature)
+                              }*/
                         }
                     }
                     Err(e) => debug!("Failed to extract signature: {}", e),
@@ -58,18 +73,4 @@ fn main() {
             Err(e) => eprintln!("Failed to read: {}", e),
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Label {
-    pub ty: Type,
-    pub class: Option<String>,
-    pub name: String,
-    pub flavor: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Type {
-    Specified,
-    Generic,
 }
