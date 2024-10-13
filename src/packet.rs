@@ -65,7 +65,8 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<Signature, Error> {
     }
 
     let version = IpVersion::V4;
-    let ttl = Ttl::Value(packet.get_ttl());
+    let ttl_value: u8 = packet.get_ttl();
+    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value));
     let olen: u8 = packet.get_options_raw().len() as u8;
     let mut quirks = vec![];
 
@@ -101,7 +102,8 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<Signature, Error> {
     }
 
     let version = IpVersion::V6;
-    let ttl = Ttl::Value(packet.get_hop_limit());
+    let ttl_value: u8 = packet.get_hop_limit();
+    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value));
     let olen = 0; // TODO handle extensions
     let mut quirks = vec![];
 
@@ -115,6 +117,18 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<Signature, Error> {
     TcpPacket::new(packet.payload())
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks))
+}
+
+fn guess_dist(ttl: u8) -> u8 {
+    if ttl <= 32 {
+        32 - ttl
+    } else if ttl <= 64 {
+        64 - ttl
+    } else if ttl <= 128 {
+        128 - ttl
+    } else {
+        255 - ttl
+    }
 }
 
 fn visit_tcp(
@@ -169,6 +183,8 @@ fn visit_tcp(
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
 
+        //println!("Buffer before parsing MSS: {:?}", buf);
+
         let data: &[u8] = opt.payload();
 
         match opt.get_number() {
@@ -184,14 +200,15 @@ fn visit_tcp(
             }
             MSS => {
                 olayout.push(TcpOption::Mss);
-
-                if data.len() > 2 {
-                    mss = Some(u16::from_ne_bytes(data[..2].try_into()?));
+                if data.len() >= 2 {
+                    let mss_value: u16 = ((data[0] as u16) << 8) | (data[1] as u16);
+                    //quirks.push(Quirk::mss);
+                    mss = Some(mss_value);
                 }
 
-                if data.len() != 4 {
+                /*if data.len() != 4 {
                     quirks.push(Quirk::OptBad);
-                }
+                }*/
             }
             WSCALE => {
                 olayout.push(TcpOption::Ws);
@@ -201,24 +218,24 @@ fn visit_tcp(
                 if data[0] > 14 {
                     quirks.push(Quirk::ExcessiveWindowScaling);
                 }
-                if data.len() != 3 {
+                /*if data.len() != 3 {
                     quirks.push(Quirk::OptBad);
-                }
+                }*/
             }
             SACK_PERMITTED => {
                 olayout.push(TcpOption::Sok);
 
-                if data.len() != 2 {
+                /*if data.len() != 2 {
                     quirks.push(Quirk::OptBad);
-                }
+                }*/
             }
             SACK => {
                 olayout.push(TcpOption::Sack);
 
-                match data.len() {
+                /*match data.len() {
                     10 | 18 | 26 | 34 => {}
                     _ => quirks.push(Quirk::OptBad),
-                }
+                }*/
             }
             TIMESTAMPS => {
                 olayout.push(TcpOption::TS);
@@ -234,9 +251,9 @@ fn visit_tcp(
                     quirks.push(Quirk::PeerTimestampNonZero);
                 }
 
-                if data.len() != 10 {
+                /*if data.len() != 10 {
                     quirks.push(Quirk::OptBad);
-                }
+                }*/
             }
             _ => {
                 olayout.push(TcpOption::Unknown(opt.get_number().0));
@@ -249,7 +266,15 @@ fn visit_tcp(
         ittl,
         olen,
         mss,
-        wsize: WindowSize::Value(tcp.get_window()),
+        wsize: match (tcp.get_window(), mss) {
+            (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
+                WindowSize::Mss((wsize / mss_value) as u8)
+            }
+            (wsize, _) if wsize % 1500 == 0 => {
+                WindowSize::Mtu((wsize / 1500) as u8) // TODO: [WIP] Assuming 1500 as a typical MTU
+            }
+            (wsize, _) => WindowSize::Value(wsize),
+        },
         wscale,
         olayout,
         quirks,

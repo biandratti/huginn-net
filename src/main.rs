@@ -46,8 +46,11 @@ fn main() {
         match rx.next() {
             Ok(packet) => {
                 match Signature::extract(packet) {
+                    //TODO: [WIP] Display output by type
                     Ok(signature) => {
-                        println!("{}", signature);
+                        if signature.mss.is_some() {
+                            println!("{}", signature)
+                        }
                     }
                     Err(e) => debug!("Failed to extract signature: {}", e),
                 };
