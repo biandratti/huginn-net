@@ -199,6 +199,7 @@ fn visit_tcp(
                 olayout.push(TcpOption::Nop);
             }
             MSS => {
+                olayout.push(TcpOption::Mss);
                 if data.len() >= 2 {
                     let mss_value: u16 = ((data[0] as u16) << 8) | (data[1] as u16);
                     //quirks.push(Quirk::mss);
