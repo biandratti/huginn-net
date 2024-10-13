@@ -49,6 +49,7 @@ fn main() {
                     //TODO: [WIP] Display output by type
                     Ok(signature) => {
                         if signature.mss.is_some() {
+                            //db.tcp_response
                             println!("{}", signature)
                         }
                     }
@@ -58,18 +59,4 @@ fn main() {
             Err(e) => eprintln!("Failed to read: {}", e),
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Label {
-    pub ty: Type,
-    pub class: Option<String>,
-    pub name: String,
-    pub flavor: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Type {
-    Specified,
-    Generic,
 }

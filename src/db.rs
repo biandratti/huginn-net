@@ -1,4 +1,4 @@
-use crate::{http, tcp, Label};
+use crate::{http, tcp};
 
 #[allow(dead_code)] //TODO: WIP
 #[derive(Debug)]
@@ -10,6 +10,20 @@ pub struct Database {
     pub tcp_response: Vec<(Label, Vec<tcp::Signature>)>,
     pub http_request: Vec<(Label, Vec<http::Signature>)>,
     pub http_response: Vec<(Label, Vec<http::Signature>)>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Label {
+    pub ty: Type,
+    pub class: Option<String>,
+    pub name: String,
+    pub flavor: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Type {
+    Specified,
+    Generic,
 }
 
 impl Default for Database {

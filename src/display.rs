@@ -1,6 +1,5 @@
+use crate::db::{Label, Type};
 use core::fmt;
-
-use crate::{Label, Type};
 
 impl fmt::Display for Label {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
