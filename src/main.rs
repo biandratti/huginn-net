@@ -9,11 +9,11 @@ mod tcp;
 
 use crate::db::Database;
 use crate::p0f_output::P0fOutput;
+use crate::packet::SignatureDetails;
 use crate::signature_matcher::SignatureMatcher;
 use clap::Parser;
 use log::debug;
 use pnet::datalink::{self, Channel::Ethernet, Config, NetworkInterface};
-use tcp::Signature;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,29 +50,24 @@ fn main() {
     loop {
         match rx.next() {
             Ok(packet) => {
-                match Signature::extract(packet) {
+                match SignatureDetails::extract(packet) {
                     //TODO: [WIP] Display output by type
-                    Ok(signature) => {
-                        if signature.mss.is_some() {
+                    Ok(signature_details) => {
+                        if signature_details.signature.mss.is_some() {
                             if let Some((label, _matched_signature)) =
-                                matcher.find_matching_signature(&signature)
+                                matcher.find_matching_signature(&signature_details.signature)
                             {
                                 let p0f_output = P0fOutput {
                                     client: format!(
                                         "{}/{}",
-                                        "", //TODO: ???
-                                        ""  //TODO: ???
+                                        signature_details.client.ip, signature_details.client.port
                                     ),
                                     os: Some(label.name.clone()),
-                                    raw_sig: signature,
+                                    raw_sig: signature_details.signature,
                                 };
-
-                                // println!("Matched Label: {}", label);
-                                // println!("Matched Signature: {}", matched_signature);
                                 println!("{}", p0f_output)
                             } else {
-                                // println!("No matching signature found for: {}", signature);
-                                println!("{}", signature)
+                                println!("{}", signature_details.signature)
                             }
                         }
                     }
