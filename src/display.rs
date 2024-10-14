@@ -1,6 +1,5 @@
+use crate::db::Label;
 use core::fmt;
-
-use crate::{Label, Type};
 
 impl fmt::Display for Label {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -12,15 +11,6 @@ impl fmt::Display for Label {
             self.name,
             self.flavor.as_deref().unwrap_or_default()
         )
-    }
-}
-
-impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(match self {
-            Type::Specified => "s",
-            Type::Generic => "g",
-        })
     }
 }
 
