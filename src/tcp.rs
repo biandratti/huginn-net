@@ -24,8 +24,9 @@ impl Signature {
         self.version.matches_ip_version(&db_signature.version)
             && self.ittl.matches_ttl(&db_signature.ittl)
             && self.olen == db_signature.olen
-            && self.mss == db_signature.mss
-        // && self.wsize.matches_window_size(&db_signature.wsize)
+            && (self.mss == db_signature.mss || db_signature.mss == None)
+            && self.wsize.matches_window_size(&db_signature.wsize)
+            && self.pclass.matches_payload_size(&db_signature.pclass)
     }
 }
 
@@ -156,4 +157,15 @@ pub enum PayloadSize {
     Zero,
     NonZero,
     Any,
+}
+
+impl PayloadSize {
+    pub fn matches_payload_size(&self, other: &PayloadSize) -> bool {
+        match (self, other) {
+            (PayloadSize::Zero, PayloadSize::Zero) => true,
+            (PayloadSize::NonZero, PayloadSize::NonZero) => true,
+            (_, PayloadSize::Any) => true,
+            _ => false,
+        }
+    }
 }
