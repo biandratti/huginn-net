@@ -26,6 +26,7 @@ impl Signature {
             && self.olen == db_signature.olen
             && (self.mss == db_signature.mss || db_signature.mss.is_none())
             && self.wsize.matches_window_size(&db_signature.wsize)
+            && (self.wscale == db_signature.wscale || db_signature.wscale.is_none())
             && self.olayout == db_signature.olayout
             && self.quirks == db_signature.quirks
             && self.pclass.matches_payload_size(&db_signature.pclass)
