@@ -21,11 +21,11 @@ pub struct Signature {
 
 impl Signature {
     pub fn matches(&self, db_signature: &Self) -> bool {
-        ((self.version == db_signature.version) || (db_signature.version == IpVersion::Any))
-            && (self.ittl.matches_ttl(&db_signature.ittl))
-            && (self.olen == db_signature.olen)
-            && (self.mss == db_signature.mss)
-        //&& ((self.wsize.matches_window_size(&db_signature.wsize)) || (self.wsize == WindowSize::Any))
+        self.version.matches_ip_version(&db_signature.version)
+            && self.ittl.matches_ttl(&db_signature.ittl)
+            && self.olen == db_signature.olen
+            && self.mss == db_signature.mss
+        // && self.wsize.matches_window_size(&db_signature.wsize)
     }
 }
 
@@ -34,6 +34,16 @@ pub enum IpVersion {
     V4,
     V6,
     Any,
+}
+impl IpVersion {
+    pub fn matches_ip_version(&self, other: &IpVersion) -> bool {
+        match (self, other) {
+            (IpVersion::V4, IpVersion::V4) => true,
+            (IpVersion::V6, IpVersion::V6) => true,
+            (_, IpVersion::Any) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -68,22 +78,20 @@ pub enum WindowSize {
     Any,
 }
 
-/*impl WindowSize {
+impl WindowSize {
     pub fn matches_window_size(&self, other: &WindowSize) -> bool {
         match (self, other) {
-            (WindowSize::Any, _) | (_, WindowSize::Any) => true,
             (WindowSize::Mss(a), WindowSize::Mss(b)) => a == b,
             (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
             (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
             (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
-
             (WindowSize::Mod(mod_val), WindowSize::Value(val))
             | (WindowSize::Value(val), WindowSize::Mod(mod_val)) => val % mod_val == 0,
-
+            (_, WindowSize::Any) => true,
             _ => false,
         }
     }
-}*/
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TcpOption {
