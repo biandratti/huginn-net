@@ -74,7 +74,7 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
 
     let version = IpVersion::V4;
     let ttl_value: u8 = packet.get_ttl();
-    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value));
+    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); //TODO: WIP..
     let olen: u8 = packet.get_options_raw().len() as u8;
     let mut quirks = vec![];
 
@@ -113,7 +113,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
 
     let version = IpVersion::V6;
     let ttl_value: u8 = packet.get_hop_limit();
-    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value));
+    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); // TODO: WIP
     let olen = 0; // TODO handle extensions
     let mut quirks = vec![];
 

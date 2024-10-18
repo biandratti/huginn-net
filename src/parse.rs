@@ -28,7 +28,7 @@ impl FromStr for Database {
         for line in s.lines() {
             let line = CompleteStr(line.trim());
 
-            if line.is_empty() || line.starts_with(";") {
+            if line.is_empty() || line.starts_with(';') {
                 continue;
             }
 
@@ -44,7 +44,7 @@ impl FromStr for Database {
                         .map_err(|err| format_err!("fail to parse `ua_os`: {}, {}", line, err))?
                         .1,
                 );
-            } else if line.starts_with("[") && line.ends_with("]") {
+            } else if line.starts_with('[') && line.ends_with(']') {
                 cur_mod = Some(
                     parse_module(line)
                         .map_err(|err| format_err!("fail to parse `module`: {}, {}", line, err))?
@@ -504,6 +504,35 @@ mod tests {
                     quirks: vec![AckNumNonZero],
                     pclass: PayloadSize::Zero,
                 }
+            ),
+            (
+                "*:64:0:*:mss*44,1:mss,sok,ts,nop,ws:df,id+:0",
+                TcpSignature {
+                    version: IpVersion::Any,
+                    ittl: Ttl::Value(64),
+                    olen: 0,
+                    mss: None,
+                    wsize: WindowSize::Mss(44),
+                    wscale: Some(1),
+                    olayout: vec![Mss, Sok, TS, Nop, Ws],
+                    quirks: vec![Df, NonZeroID],
+                    pclass: PayloadSize::Zero,
+                }
+            ),
+            (
+                "*:64:0:*:*,*:mss,sok,ts,nop,ws:df,id+:0",
+                TcpSignature {
+                    version: IpVersion::Any,
+                    ittl: Ttl::Value(64),
+                    olen: 0,
+                    mss: None,
+                    wsize: WindowSize::Any,
+                    wscale: None,
+                    olayout: vec![Mss, Sok, TS, Nop, Ws],
+                    quirks: vec![Df, NonZeroID],
+                    pclass: PayloadSize::Zero,
+                }
+
             )
         ];
         static ref TTLS: Vec<(&'static str, Ttl)> = vec![
