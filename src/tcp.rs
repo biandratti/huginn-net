@@ -26,6 +26,8 @@ impl Signature {
             && self.olen == db_signature.olen
             && (self.mss == db_signature.mss || db_signature.mss == None)
             && self.wsize.matches_window_size(&db_signature.wsize)
+            && self.olayout == db_signature.olayout
+            && self.quirks == db_signature.quirks
             && self.pclass.matches_payload_size(&db_signature.pclass)
     }
 }
@@ -86,8 +88,8 @@ impl WindowSize {
             (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
             (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
             (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
-            (WindowSize::Mod(mod_val), WindowSize::Value(val))
-            | (WindowSize::Value(val), WindowSize::Mod(mod_val)) => val % mod_val == 0,
+            // (WindowSize::Mod(mod_val), WindowSize::Value(val))
+            // | (WindowSize::Value(val), WindowSize::Mod(mod_val)) => val % mod_val == 0,
             (_, WindowSize::Any) => true,
             _ => false,
         }
