@@ -10,6 +10,7 @@ use crate::{
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
 };
 use nom::branch::alt;
+use nom::bytes::complete::take_while;
 use nom::character::complete::{alpha1, digit1};
 use nom::combinator::{map, map_res, opt};
 use nom::multi::separated_list0;
@@ -432,28 +433,32 @@ named!(parse_http_signature<CompleteStr, HttpSignature>, do_parse!(
     )
 ));
 
-named!(parse_http_version<CompleteStr, HttpVersion>, alt!(
-    tag!("0") => { |_| HttpVersion::V10 } |
-    tag!("1") => { |_| HttpVersion::V11 } |
-    tag!("*") => { |_| HttpVersion::Any }
-));
+fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {
+    alt((
+        map(tag("0"), |_| HttpVersion::V10),
+        map(tag("1"), |_| HttpVersion::V11),
+        map(tag("*"), |_| HttpVersion::Any),
+    ))(input)
+}
 
-named!(parse_http_header<CompleteStr, HttpHeader>, do_parse!(
-    optional: opt!(tag!("?")) >>
-    kv: parse_key_value >>
-    (
-        HttpHeader {
-            optional: optional.is_some(),
-            name: kv.0.to_string(),
-            value: kv.1.map(|s| s.to_string()),
-        }
-    )
-));
+fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
+    map(
+        preceded(opt(tag("?")), parse_header_key_value),
+        |(name, value): (String, Option<String>)| HttpHeader {
+            optional: value.is_none(),
+            name,
+            value: value.map(|s| s.to_string()),
+        },
+    )(input)
+}
 
-named!(parse_key_value<CompleteStr, (CompleteStr, Option<CompleteStr>)>, pair!(
-    take_while!(|c: char| (c.is_ascii_alphanumeric() || c == '-') && c != ':' && c != '='),
-    opt!(preceded!(tag!("=["), take_until_and_consume!("]")))
-));
+fn parse_header_key_value(input: &str) -> IResult<&str, (String, Option<String>)> {
+    separated_pair(
+        take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' && c != ':' && c != '='),
+        tag("="),
+        opt(preceded(tag("=["), take_while(|c: char| c != ']'))),
+    )(input)
+}
 
 #[cfg(test)]
 mod tests {
