@@ -22,7 +22,7 @@ pub struct Signature {
 impl Signature {
     pub fn matches(&self, db_signature: &Self) -> bool {
         ((self.version == db_signature.version) || (db_signature.version == IpVersion::Any))
-            //&& (self.ittl.matches_ttl(&db_signature.ittl))
+            && (self.ittl.matches_ttl(&db_signature.ittl))
             && (self.olen == db_signature.olen)
             && (self.mss == db_signature.mss)
         //&& ((self.wsize.matches_window_size(&db_signature.wsize)) || (self.wsize == WindowSize::Any))
@@ -44,11 +44,12 @@ pub enum Ttl {
     Bad(u8),
 }
 
-/*impl Ttl {
+impl Ttl {
     pub fn matches_ttl(&self, other: &Ttl) -> bool {
         match (self, other) {
             (Ttl::Value(a), Ttl::Value(b)) => a == b,
-            (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => a1 == b1, //&& a2 == b2,
+            (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => a1 == b1 && a2 == b2,
+            (Ttl::Distance(a1, _a2), Ttl::Value(b1)) => a1 == b1,
             (Ttl::Guess(a), Ttl::Guess(b)) => a == b,
             (Ttl::Bad(a), Ttl::Bad(b)) => a == b,
             (Ttl::Guess(a), Ttl::Value(b)) => a == b,
@@ -56,7 +57,7 @@ pub enum Ttl {
             _ => false,
         }
     }
-}*/
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowSize {
