@@ -2,14 +2,25 @@ use std::str::FromStr;
 
 use failure::{bail, format_err, Error};
 use log::{trace, warn};
-use nom::types::CompleteStr;
-use nom::*;
-
+//use nom::types::CompleteStr;
 use crate::db::{Label, Type};
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
+};
+use nom::branch::alt;
+use nom::character::complete::{alpha1, digit1};
+use nom::combinator::{map, map_res, opt};
+use nom::multi::separated_list0;
+use nom::sequence::{separated_pair, terminated};
+use nom::*;
+use nom::{
+    bytes::complete::tag,
+    character::complete::{alphanumeric1, space0},
+    combinator::rest,
+    sequence::{preceded, tuple},
+    IResult,
 };
 
 impl FromStr for Database {
@@ -191,36 +202,60 @@ impl_from_str!(PayloadSize, parse_payload_size);
 impl_from_str!(HttpSignature, parse_http_signature);
 impl_from_str!(HttpHeader, parse_http_header);
 
-named!(parse_named_value<CompleteStr, (CompleteStr, CompleteStr)>, do_parse!(
-    name: alphanumeric >>
-    space0 >> tag!("=") >> space0 >>
-    value: rest >>
-    ( (name, value) )
-));
+fn parse_named_value(input: &str) -> IResult<&str, (&str, &str)> {
+    let (input, (name, _, _, _, value)) =
+        tuple((alphanumeric1, space0, tag("="), space0, rest))(input)?;
+    Ok((input, (name, value)))
+}
 
-named!(parse_classes<CompleteStr, Vec<String>>, do_parse!(
-    tag!("classes") >> space0 >> tag!("=") >> space0 >>
-    classes: separated_list!(tag!(","), alphanumeric) >>
-    (
-        classes.into_iter().map(|s| s.to_string()).collect()
-    )
-));
+fn parse_classes(input: &str) -> IResult<&str, Vec<String>> {
+    let (input, (_, _, _, _, classes)) = tuple((
+        tag("classes"),
+        space0,
+        tag("="),
+        space0,
+        separated_list0(tag(","), alphanumeric1),
+    ))(input)?;
 
-named!(parse_module<CompleteStr, (String, Option<String>)>, do_parse!(
-    tag!("[") >>
-    module: alpha >>
-    direction: opt!(preceded!(tag!(":"), alpha)) >>
-    tag!("]") >>
-    ( module.to_string(), direction.map(|s| s.to_string()) )
-));
+    let class_vec = classes.into_iter().map(|s| s.to_string()).collect();
+    Ok((input, class_vec))
+}
 
-named!(parse_ua_os<CompleteStr, Vec<(String, Option<String>)>>, do_parse!(
-    tag!("ua_os") >> space0 >> tag!("=") >> space0 >>
-    values: separated_list!(tag!(","), parse_key_value) >>
-    (
-        values.into_iter().map(|(name, value)| (name.to_string(), value.map(|s| s.to_string()))).collect()
-    )
-));
+fn parse_module(input: &str) -> IResult<&str, (String, Option<String>)> {
+    let (input, (_, module, direction, _)) =
+        tuple((tag("["), alpha1, opt(preceded(tag(":"), alpha1)), tag("]")))(input)?;
+    let module_str = module.to_string();
+    let direction_str = direction.map(|s| s.to_string());
+
+    Ok((input, (module_str, direction_str)))
+}
+
+fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<String>)>> {
+    let (input, (_, _, _, _, values)) = tuple((
+        tag("ua_os"),
+        space0,
+        tag("="),
+        space0,
+        separated_list0(tag(","), parse_key_value),
+    ))(input)?;
+
+    let result = values
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value.map(|s| s.to_string())))
+        .collect();
+
+    Ok((input, result))
+}
+
+fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    let (input, (name, _, value)) = tuple((
+        alphanumeric1,
+        space0,
+        opt(preceded(tuple((space0, tag("="), space0)), alphanumeric1)),
+    ))(input)?;
+
+    Ok((input, (name, value)))
+}
 
 #[rustfmt::skip]
 named!(
@@ -298,30 +333,49 @@ named!(
     )
 );
 
-named!(parse_ip_version<CompleteStr, IpVersion>, alt!(
-    tag!("4") => { |_| IpVersion::V4 } |
-    tag!("6") => { |_| IpVersion::V6 } |
-    tag!("*") => { |_| IpVersion::Any }
-));
+fn parse_ip_version(input: &str) -> IResult<&str, IpVersion> {
+    alt((
+        map(tag("4"), |_| IpVersion::V4),
+        map(tag("6"), |_| IpVersion::V6),
+        map(tag("*"), |_| IpVersion::Any),
+    ))(input)
+}
 
-named!(parse_ttl<CompleteStr, Ttl>, alt_complete!(
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("-")) => { Ttl::Bad } |
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("+?")) => { Ttl::Guess } |
-    separated_pair!(
-        map_res!(digit, |s: CompleteStr| s.parse()),
-        tag!("+"),
-        map_res!(digit, |s: CompleteStr| s.parse())
-    ) => { |(ttl, distance)| Ttl::Distance(ttl, distance) } |
-    map_res!(digit, |s: CompleteStr| s.parse()) => { Ttl::Value }
-));
+fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
+    alt((
+        map_res(terminated(digit1, tag("-")), |s: &str| {
+            s.parse::<u8>().map(Ttl::Bad)
+        }),
+        map_res(terminated(digit1, tag("+?")), |s: &str| {
+            s.parse::<u8>().map(Ttl::Guess)
+        }),
+        map_res(
+            separated_pair(digit1, tag("+"), digit1),
+            |(ttl_str, distance_str): (&str, &str)| {
+                let ttl = ttl_str.parse::<u8>().map_err(|_| "parse ttl")?;
+                let distance = distance_str.parse::<u8>().map_err(|_| "parse distance")?;
+                Ok(Ttl::Distance(ttl, distance))
+            },
+        ),
+        map_res(digit1, |s: &str| s.parse::<u8>().map(Ttl::Value)),
+    ))(input)
+}
 
-named!(parse_window_size<CompleteStr, WindowSize>, alt_complete!(
-    tag!("*")                                                            => { |_| WindowSize::Any } |
-    map_res!(preceded!(tag!("mss*"), digit), |s: CompleteStr| s.parse()) => { WindowSize::Mss } |
-    map_res!(preceded!(tag!("mtu*"), digit), |s: CompleteStr| s.parse()) => { WindowSize::Mtu } |
-    map_res!(preceded!(tag!("%"), digit), |s: CompleteStr| s.parse())    => { WindowSize::Mod } |
-    map_res!(digit, |s: CompleteStr| s.parse())                          => { WindowSize::Value }
-));
+fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
+    alt((
+        map_res(tag("*"), |_| Ok(WindowSize::Any)),
+        map_res(preceded(tag("mss*"), digit1), |s: &str| {
+            s.parse::<u8>().map(WindowSize::Mss)
+        }),
+        map_res(preceded(tag("mtu*"), digit1), |s: &str| {
+            s.parse::<u8>().map(WindowSize::Mtu)
+        }),
+        map_res(preceded(tag("%"), digit1), |s: &str| {
+            s.parse::<u16>().map(WindowSize::Mod)
+        }),
+        map_res(digit1, |s: &str| s.parse::<u16>().map(WindowSize::Value)),
+    ))(input)
+}
 
 named!(parse_tcp_option<CompleteStr, TcpOption>, alt_complete!(
     map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Eol } |
