@@ -378,42 +378,54 @@ fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
     ))(input)
 }
 
-named!(parse_tcp_option<CompleteStr, TcpOption>, alt_complete!(
-    map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Eol } |
-    tag!("nop")     => { |_| TcpOption::Nop } |
-    tag!("mss")     => { |_| TcpOption::Mss } |
-    tag!("ws")      => { |_| TcpOption::Ws } |
-    tag!("sok")     => { |_| TcpOption::Sok } |
-    tag!("sack")    => { |_| TcpOption::Sack } |
-    tag!("ts")      => { |_| TcpOption::TS } |
-    map_res!(preceded!(tag!("?"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Unknown }
-));
+pub fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
+    alt((
+        map_res(preceded(tag("eol+"), digit1), |s: &str| {
+            s.parse::<u8>().map(TcpOption::Eol)
+        }),
+        tag("nop").map(|_| TcpOption::Nop),
+        tag("mss").map(|_| TcpOption::Mss),
+        tag("ws").map(|_| TcpOption::Ws),
+        tag("sok").map(|_| TcpOption::Sok),
+        tag("sack").map(|_| TcpOption::Sack),
+        tag("ts").map(|_| TcpOption::TS),
+        preceded(
+            tag("?"),
+            map(digit1, |s: &str| s.parse::<u8>().unwrap_or(0)),
+        )
+        .map(TcpOption::Unknown),
+    ))(input)
+}
 
-named!(parse_quirk<CompleteStr, Quirk>, alt_complete!(
-    tag!("df")      => { |_| Quirk::Df } |
-    tag!("id+")     => { |_| Quirk::NonZeroID } |
-    tag!("id-")     => { |_| Quirk::ZeroID } |
-    tag!("ecn")     => { |_| Quirk::Ecn } |
-    tag!("0+")      => { |_| Quirk::MustBeZero } |
-    tag!("flow")    => { |_| Quirk::FlowID } |
-    tag!("seq-")    => { |_| Quirk::SeqNumZero } |
-    tag!("ack+")    => { |_| Quirk::AckNumNonZero } |
-    tag!("ack-")    => { |_| Quirk::AckNumZero } |
-    tag!("uptr+")   => { |_| Quirk::NonZeroURG } |
-    tag!("urgf+")   => { |_| Quirk::Urg } |
-    tag!("pushf+")  => { |_| Quirk::Push } |
-    tag!("ts1-")    => { |_| Quirk::OwnTimestampZero } |
-    tag!("ts2+")    => { |_| Quirk::PeerTimestampNonZero } |
-    tag!("opt+")    => { |_| Quirk::TrailinigNonZero } |
-    tag!("exws")    => { |_| Quirk::ExcessiveWindowScaling } |
-    tag!("bad")     => { |_| Quirk::OptBad }
-));
+pub fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
+    alt((
+        map(tag("df"), |_| Quirk::Df),
+        map(tag("id+"), |_| Quirk::NonZeroID),
+        map(tag("id-"), |_| Quirk::ZeroID),
+        map(tag("ecn"), |_| Quirk::Ecn),
+        map(tag("0+"), |_| Quirk::MustBeZero),
+        map(tag("flow"), |_| Quirk::FlowID),
+        map(tag("seq-"), |_| Quirk::SeqNumZero),
+        map(tag("ack+"), |_| Quirk::AckNumNonZero),
+        map(tag("ack-"), |_| Quirk::AckNumZero),
+        map(tag("uptr+"), |_| Quirk::NonZeroURG),
+        map(tag("urgf+"), |_| Quirk::Urg),
+        map(tag("pushf+"), |_| Quirk::Push),
+        map(tag("ts1-"), |_| Quirk::OwnTimestampZero),
+        map(tag("ts2+"), |_| Quirk::PeerTimestampNonZero),
+        map(tag("opt+"), |_| Quirk::TrailinigNonZero),
+        map(tag("exws"), |_| Quirk::ExcessiveWindowScaling),
+        map(tag("bad"), |_| Quirk::OptBad),
+    ))(input)
+}
 
-named!(parse_payload_size<CompleteStr, PayloadSize>, alt!(
-    tag!("0") => { |_| PayloadSize::Zero } |
-    tag!("+") => { |_| PayloadSize::NonZero } |
-    tag!("*") => { |_| PayloadSize::Any }
-));
+pub fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
+    alt((
+        map(tag("0"), |_| PayloadSize::Zero),
+        map(tag("+"), |_| PayloadSize::NonZero),
+        map(tag("*"), |_| PayloadSize::Any),
+    ))(input)
+}
 
 named!(parse_http_signature<CompleteStr, HttpSignature>, do_parse!(
     version: parse_http_version >>
