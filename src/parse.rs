@@ -1,14 +1,13 @@
 use std::str::FromStr;
 
-use failure::{bail, format_err, Error};
-use log::{trace, warn};
-//use nom::types::CompleteStr;
 use crate::db::{Label, Type};
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
 };
+use failure::{bail, format_err, Error};
+use log::{trace, warn};
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, take_while};
 use nom::character::complete::{alpha1, digit1};
@@ -38,7 +37,7 @@ impl FromStr for Database {
         let mut cur_mod = None;
 
         for line in s.lines() {
-            let line = CompleteStr(line.trim());
+            let line = line.trim();
 
             if line.is_empty() || line.starts_with(';') {
                 continue;
@@ -173,7 +172,7 @@ macro_rules! impl_from_str {
             type Err = Error;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let (remaining, res) = $parse(CompleteStr(s)).map_err(|err| {
+                let (remaining, res) = $parse(s).map_err(|err| {
                     format_err!("parse {} failed: {}, {}", stringify!($ty), s, err)
                 })?;
 
@@ -295,48 +294,51 @@ pub fn parse_type(input: &str) -> IResult<&str, Type> {
     ))(input)
 }
 
-#[rustfmt::skip]
-named!(
-    parse_tcp_signature<CompleteStr, TcpSignature>,
-    do_parse!(
-        version: parse_ip_version >>
-        tag!(":") >>
-        ittl: parse_ttl >>
-        tag!(":") >>
-        olen: map_res!(digit, |s: CompleteStr| s.parse()) >>
-        tag!(":") >>
-        mss: alt!(
-            tag!("*")                                   => { |_| None } |
-            map_res!(digit, |s: CompleteStr| s.parse()) => { Some }
-        ) >>
-        tag!(":") >>
-        wsize: parse_window_size >>
-        tag!(",") >>
-        wscale: alt!(
-            tag!("*")                                   => { |_| None } |
-            map_res!(digit, |s: CompleteStr| s.parse()) => { Some }
-        ) >>
-        tag!(":") >>
-        olayout: separated_nonempty_list!(tag!(","), parse_tcp_option) >>
-        tag!(":") >>
-        quirks: separated_list!(tag!(","), parse_quirk) >>
-        tag!(":") >>
-        pclass: parse_payload_size >>
-        (
-            TcpSignature {
-                version,
-                ittl,
-                olen,
-                mss,
-                wsize,
-                wscale,
-                olayout,
-                quirks,
-                pclass,
-            }
-        )
-    )
-);
+fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
+    let (
+        input,
+        (version, _, ittl, _, olen, _, mss, _, wsize, _, wscale, _, olayout, _, quirks, _, pclass),
+    ) = tuple((
+        parse_ip_version,
+        tag(":"),
+        parse_ttl,
+        tag(":"),
+        map_res(digit1, |s: &str| s.parse::<u8>()), // olen
+        tag(":"),
+        alt((
+            tag("*").map(|_| None),
+            map_res(digit1, |s: &str| s.parse::<u16>().map(Some)),
+        )), // mss
+        tag(":"),
+        parse_window_size,
+        tag(","),
+        alt((
+            tag("*").map(|_| None),
+            map_res(digit1, |s: &str| s.parse::<u8>().map(Some)),
+        )), // wscale
+        tag(":"),
+        separated_list1(tag(","), parse_tcp_option),
+        tag(":"),
+        separated_list0(tag(","), parse_quirk),
+        tag(":"),
+        parse_payload_size,
+    ))(input)?;
+
+    Ok((
+        input,
+        TcpSignature {
+            version,
+            ittl,
+            olen,
+            mss,
+            wsize,
+            wscale,
+            olayout,
+            quirks,
+            pclass,
+        },
+    ))
+}
 
 fn parse_ip_version(input: &str) -> IResult<&str, IpVersion> {
     alt((
