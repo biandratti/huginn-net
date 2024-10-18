@@ -24,7 +24,7 @@ impl Signature {
         self.version.matches_ip_version(&db_signature.version)
             && self.ittl.matches_ttl(&db_signature.ittl)
             && self.olen == db_signature.olen
-            && (self.mss == db_signature.mss || db_signature.mss == None)
+            && (self.mss == db_signature.mss || db_signature.mss.is_none())
             && self.wsize.matches_window_size(&db_signature.wsize)
             && self.olayout == db_signature.olayout
             && self.quirks == db_signature.quirks
@@ -40,12 +40,10 @@ pub enum IpVersion {
 }
 impl IpVersion {
     pub fn matches_ip_version(&self, other: &IpVersion) -> bool {
-        match (self, other) {
-            (IpVersion::V4, IpVersion::V4) => true,
-            (IpVersion::V6, IpVersion::V6) => true,
-            (_, IpVersion::Any) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) | (_, IpVersion::Any)
+        )
     }
 }
 
@@ -163,11 +161,11 @@ pub enum PayloadSize {
 
 impl PayloadSize {
     pub fn matches_payload_size(&self, other: &PayloadSize) -> bool {
-        match (self, other) {
-            (PayloadSize::Zero, PayloadSize::Zero) => true,
-            (PayloadSize::NonZero, PayloadSize::NonZero) => true,
-            (_, PayloadSize::Any) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (PayloadSize::Zero, PayloadSize::Zero)
+                | (PayloadSize::NonZero, PayloadSize::NonZero)
+                | (_, PayloadSize::Any)
+        )
     }
 }

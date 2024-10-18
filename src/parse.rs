@@ -28,7 +28,7 @@ impl FromStr for Database {
         for line in s.lines() {
             let line = CompleteStr(line.trim());
 
-            if line.is_empty() || line.starts_with(";") {
+            if line.is_empty() || line.starts_with(';') {
                 continue;
             }
 
@@ -44,7 +44,7 @@ impl FromStr for Database {
                         .map_err(|err| format_err!("fail to parse `ua_os`: {}, {}", line, err))?
                         .1,
                 );
-            } else if line.starts_with("[") && line.ends_with("]") {
+            } else if line.starts_with('[') && line.ends_with(']') {
                 cur_mod = Some(
                     parse_module(line)
                         .map_err(|err| format_err!("fail to parse `module`: {}, {}", line, err))?
