@@ -10,10 +10,10 @@ use crate::{
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
 };
 use nom::branch::alt;
-use nom::bytes::complete::take_while;
+use nom::bytes::complete::{is_not, take_while};
 use nom::character::complete::{alpha1, digit1};
 use nom::combinator::{map, map_res, opt};
-use nom::multi::separated_list0;
+use nom::multi::{separated_list0, separated_list1};
 use nom::sequence::{separated_pair, terminated};
 use nom::*;
 use nom::{
@@ -258,38 +258,42 @@ fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
     Ok((input, (name, value)))
 }
 
-#[rustfmt::skip]
-named!(
-    parse_label<CompleteStr, Label>,
-    do_parse!(
-        ty: parse_type >>
-        tag!(":") >>
-        class: alt!(
-            tag!("!") => { |_| None } |
-            take_until!(":") => { |s: CompleteStr| Some(s.to_string()) }
-        ) >>
-        tag!(":") >>
-        name: take_until_and_consume!(":") >>
-        flavor: rest >>
-        (
-            Label {
-                ty,
-                class,
-                name: name.to_string(),
-                flavor: if flavor.is_empty() {
-                    None
-                } else {
-                    Some(flavor.to_string())
-                },
+pub fn parse_label(input: &str) -> IResult<&str, Label> {
+    let (input, (ty, _, class, _, name, flavor)) = tuple((
+        parse_type,
+        tag(":"),
+        alt((
+            tag("!").map(|_| None),
+            take_while(|c: char| c != ':').map(|s: &str| Some(s.to_string())),
+        )),
+        tag(":"),
+        take_while(|c: char| c != ':').map(|s: &str| s.to_string()),
+        is_not(":").map(|s: &str| {
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_string())
             }
-        )
-    )
-);
+        }),
+    ))(input)?;
 
-named!(parse_type<CompleteStr, Type>, alt!(
-    tag!("s") => { |_| Type::Specified } |
-    tag!("g") => { |_| Type::Generic }
-));
+    Ok((
+        input,
+        Label {
+            ty,
+            class,
+            name,
+            flavor,
+        },
+    ))
+}
+
+pub fn parse_type(input: &str) -> IResult<&str, Type> {
+    alt((
+        tag("s").map(|_| Type::Specified),
+        tag("g").map(|_| Type::Generic),
+    ))(input)
+}
 
 #[rustfmt::skip]
 named!(
@@ -427,23 +431,27 @@ pub fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
     ))(input)
 }
 
-named!(parse_http_signature<CompleteStr, HttpSignature>, do_parse!(
-    version: parse_http_version >>
-    tag!(":") >>
-    horder: separated_nonempty_list!(tag!(","), parse_http_header) >>
-    tag!(":") >>
-    habsent: opt!(separated_list_complete!(tag!(","), parse_http_header)) >>
-    tag!(":") >>
-    expsw: rest >>
-    (
+pub fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
+    let (input, (version, _, horder, _, habsent, _, expsw)) = tuple((
+        parse_http_version,
+        tag(":"),
+        separated_list1(tag(","), parse_http_header),
+        tag(":"),
+        opt(separated_list0(tag(","), parse_http_header)),
+        tag(":"),
+        is_not(""),
+    ))(input)?;
+
+    Ok((
+        input,
         HttpSignature {
             version,
             horder,
             habsent: habsent.unwrap_or_default(),
             expsw: expsw.to_string(),
-        }
-    )
-));
+        },
+    ))
+}
 
 fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {
     alt((
