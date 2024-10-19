@@ -9,11 +9,11 @@ use crate::{
 use failure::{bail, format_err, Error};
 use log::{trace, warn};
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, take_while};
-use nom::character::complete::{alpha1, digit1};
+use nom::bytes::complete::{is_not, take_until, take_while};
+use nom::character::complete::{alpha1, char, digit1};
 use nom::combinator::{map, map_res, opt};
 use nom::multi::{separated_list0, separated_list1};
-use nom::sequence::{separated_pair, terminated};
+use nom::sequence::{pair, separated_pair, terminated};
 use nom::*;
 use nom::{
     bytes::complete::tag,
@@ -466,23 +466,26 @@ fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {
     ))(input)
 }
 
-fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
-    map(
-        preceded(opt(tag("?")), parse_header_key_value),
-        |(name, value): (String, Option<String>)| HttpHeader {
-            optional: value.is_none(),
-            name,
-            value: value.map(|s| s.to_string()),
-        },
+fn parse_header_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    pair(
+        take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' && c != ':' && c != '='),
+        opt(preceded(tag("=["), take_until("]"))),
     )(input)
 }
 
-fn parse_header_key_value(input: &str) -> IResult<&str, (String, Option<String>)> {
-    separated_pair(
-        take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' && c != ':' && c != '='),
-        tag("="),
-        opt(preceded(tag("=["), take_while(|c: char| c != ']'))),
-    )(input)
+// Main parser: parse_http_header
+fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
+    let (input, optional) = opt(char('?'))(input)?;
+    let (input, kv) = parse_header_key_value(input)?;
+
+    Ok((
+        input,
+        HttpHeader {
+            optional: optional.is_some(),
+            name: kv.0.to_string(),
+            value: kv.1.map(|s| s.to_string()),
+        },
+    ))
 }
 
 #[cfg(test)]
