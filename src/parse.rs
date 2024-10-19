@@ -65,7 +65,7 @@ impl FromStr for Database {
                 let (_, (name, value)) = parse_named_value(line)
                     .map_err(|err| format_err!("fail to parse named value: {}, {}", line, err))?;
 
-                match name.as_ref() {
+                match name {
                     "label" if module == "mtu" => {
                         mtu.push((value.to_string(), vec![]));
                     }
