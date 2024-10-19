@@ -358,10 +358,13 @@ fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
         }),
         map_res(
             separated_pair(digit1, tag("+"), digit1),
-            |(ttl_str, distance_str): (&str, &str)| {
-                let ttl = ttl_str.parse::<u8>().map_err(|_| "parse ttl")?;
-                let distance = distance_str.parse::<u8>().map_err(|_| "parse distance")?;
-                Ok(Ttl::Distance(ttl, distance))
+            |(ttl_str, distance_str): (&str, &str)| match (
+                ttl_str.parse::<u8>(),
+                distance_str.parse::<u8>(),
+            ) {
+                (Ok(ttl), Ok(distance)) => Ok(Ttl::Distance(ttl, distance)),
+                (Err(_), _) => Err("Failed to parse ttl"),
+                (_, Err(_)) => Err("Failed to parse distance"),
             },
         ),
         map_res(digit1, |s: &str| s.parse::<u8>().map(Ttl::Value)),
@@ -370,7 +373,7 @@ fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
 
 fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
     alt((
-        map_res(tag("*"), |_| Ok(WindowSize::Any)),
+        map(tag("*"), |_| WindowSize::Any),
         map_res(preceded(tag("mss*"), digit1), |s: &str| {
             s.parse::<u8>().map(WindowSize::Mss)
         }),
