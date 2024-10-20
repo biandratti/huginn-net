@@ -468,22 +468,22 @@ fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {
 
 fn parse_header_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
     pair(
-        take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' && c != ':' && c != '='),
-        opt(preceded(tag("=["), take_until("]"))),
+        take_while(|c: char| (c.is_ascii_alphanumeric() || c == '-') && c != ':' && c != '='),
+        opt(preceded(tag("=["), terminated(take_until("]"), char(']')))),
     )(input)
 }
 
 // Main parser: parse_http_header
 fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
     let (input, optional) = opt(char('?'))(input)?;
-    let (input, kv) = parse_header_key_value(input)?;
+    let (input, (name, value)) = parse_header_key_value(input)?;
 
     Ok((
         input,
         HttpHeader {
             optional: optional.is_some(),
-            name: kv.0.to_string(),
-            value: kv.1.map(|s| s.to_string()),
+            name: name.to_string(),
+            value: value.map(|s| s.to_string()),
         },
     ))
 }
