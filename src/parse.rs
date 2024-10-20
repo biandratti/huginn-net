@@ -9,7 +9,7 @@ use crate::{
 use failure::{bail, format_err, Error};
 use log::{trace, warn};
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, take_until, take_while};
+use nom::bytes::complete::{take_until, take_while};
 use nom::character::complete::{alpha1, char, digit1};
 use nom::combinator::{map, map_res, opt};
 use nom::multi::{separated_list0, separated_list1};
@@ -438,15 +438,21 @@ fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
         tag(":"),
         opt(separated_list0(tag(","), parse_http_header)),
         tag(":"),
-        is_not(""),
+        rest,
     ))(input)?;
+
+    let habsent = habsent
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|h| !h.name.is_empty())
+        .collect();
 
     Ok((
         input,
         HttpSignature {
             version,
             horder,
-            habsent: habsent.unwrap_or_default(),
+            habsent,
             expsw: expsw.to_string(),
         },
     ))
