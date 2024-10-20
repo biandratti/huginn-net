@@ -473,7 +473,6 @@ fn parse_header_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
     )(input)
 }
 
-// Main parser: parse_http_header
 fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
     let (input, optional) = opt(char('?'))(input)?;
     let (input, (name, value)) = parse_header_key_value(input)?;
