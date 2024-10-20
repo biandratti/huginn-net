@@ -257,23 +257,17 @@ fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
     Ok((input, (name, value)))
 }
 
-pub fn parse_label(input: &str) -> IResult<&str, Label> {
+fn parse_label(input: &str) -> IResult<&str, Label> {
     let (input, (ty, _, class, _, name, flavor)) = tuple((
         parse_type,
         tag(":"),
         alt((
-            tag("!").map(|_| None),
-            take_while(|c: char| c != ':').map(|s: &str| Some(s.to_string())),
+            map(tag("!"), |_| None),
+            map(take_until(":"), |s: &str| Some(s.to_string())),
         )),
         tag(":"),
-        take_while(|c: char| c != ':').map(|s: &str| s.to_string()),
-        is_not(":").map(|s: &str| {
-            if s.is_empty() {
-                None
-            } else {
-                Some(s.to_string())
-            }
-        }),
+        take_until(":"),
+        opt(preceded(tag(":"), rest)),
     ))(input)?;
 
     Ok((
@@ -281,13 +275,13 @@ pub fn parse_label(input: &str) -> IResult<&str, Label> {
         Label {
             ty,
             class,
-            name,
-            flavor,
+            name: name.to_string(),
+            flavor: flavor.filter(|f| !f.is_empty()).map(String::from),
         },
     ))
 }
 
-pub fn parse_type(input: &str) -> IResult<&str, Type> {
+fn parse_type(input: &str) -> IResult<&str, Type> {
     alt((
         tag("s").map(|_| Type::Specified),
         tag("g").map(|_| Type::Generic),
@@ -387,7 +381,7 @@ fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
     ))(input)
 }
 
-pub fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
+fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
     alt((
         map_res(preceded(tag("eol+"), digit1), |s: &str| {
             s.parse::<u8>().map(TcpOption::Eol)
@@ -406,7 +400,7 @@ pub fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
     ))(input)
 }
 
-pub fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
+fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
     alt((
         map(tag("df"), |_| Quirk::Df),
         map(tag("id+"), |_| Quirk::NonZeroID),
@@ -428,7 +422,7 @@ pub fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
     ))(input)
 }
 
-pub fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
+fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
     alt((
         map(tag("0"), |_| PayloadSize::Zero),
         map(tag("+"), |_| PayloadSize::NonZero),
@@ -436,7 +430,7 @@ pub fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
     ))(input)
 }
 
-pub fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
+fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
     let (input, (version, _, horder, _, habsent, _, expsw)) = tuple((
         parse_http_version,
         tag(":"),
