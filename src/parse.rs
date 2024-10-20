@@ -1,15 +1,26 @@
 use std::str::FromStr;
 
-use failure::{bail, format_err, Error};
-use log::{trace, warn};
-use nom::types::CompleteStr;
-use nom::*;
-
 use crate::db::{Label, Type};
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
+};
+use failure::{bail, format_err, Error};
+use log::{trace, warn};
+use nom::branch::alt;
+use nom::bytes::complete::{take_until, take_while};
+use nom::character::complete::{alpha1, char, digit1};
+use nom::combinator::{map, map_res, opt};
+use nom::multi::{separated_list0, separated_list1};
+use nom::sequence::{pair, separated_pair, terminated};
+use nom::*;
+use nom::{
+    bytes::complete::tag,
+    character::complete::{alphanumeric1, space0},
+    combinator::rest,
+    sequence::{preceded, tuple},
+    IResult,
 };
 
 impl FromStr for Database {
@@ -26,7 +37,7 @@ impl FromStr for Database {
         let mut cur_mod = None;
 
         for line in s.lines() {
-            let line = CompleteStr(line.trim());
+            let line = line.trim();
 
             if line.is_empty() || line.starts_with(';') {
                 continue;
@@ -54,7 +65,7 @@ impl FromStr for Database {
                 let (_, (name, value)) = parse_named_value(line)
                     .map_err(|err| format_err!("fail to parse named value: {}, {}", line, err))?;
 
-                match name.as_ref() {
+                match name {
                     "label" if module == "mtu" => {
                         mtu.push((value.to_string(), vec![]));
                     }
@@ -161,7 +172,7 @@ macro_rules! impl_from_str {
             type Err = Error;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let (remaining, res) = $parse(CompleteStr(s)).map_err(|err| {
+                let (remaining, res) = $parse(s).map_err(|err| {
                     format_err!("parse {} failed: {}, {}", stringify!($ty), s, err)
                 })?;
 
@@ -191,215 +202,290 @@ impl_from_str!(PayloadSize, parse_payload_size);
 impl_from_str!(HttpSignature, parse_http_signature);
 impl_from_str!(HttpHeader, parse_http_header);
 
-named!(parse_named_value<CompleteStr, (CompleteStr, CompleteStr)>, do_parse!(
-    name: alphanumeric >>
-    space0 >> tag!("=") >> space0 >>
-    value: rest >>
-    ( (name, value) )
-));
+fn parse_named_value(input: &str) -> IResult<&str, (&str, &str)> {
+    let (input, (name, _, _, _, value)) =
+        tuple((alphanumeric1, space0, tag("="), space0, rest))(input)?;
+    Ok((input, (name, value)))
+}
 
-named!(parse_classes<CompleteStr, Vec<String>>, do_parse!(
-    tag!("classes") >> space0 >> tag!("=") >> space0 >>
-    classes: separated_list!(tag!(","), alphanumeric) >>
-    (
-        classes.into_iter().map(|s| s.to_string()).collect()
-    )
-));
+fn parse_classes(input: &str) -> IResult<&str, Vec<String>> {
+    let (input, (_, _, _, _, classes)) = tuple((
+        tag("classes"),
+        space0,
+        tag("="),
+        space0,
+        separated_list0(tag(","), alphanumeric1),
+    ))(input)?;
 
-named!(parse_module<CompleteStr, (String, Option<String>)>, do_parse!(
-    tag!("[") >>
-    module: alpha >>
-    direction: opt!(preceded!(tag!(":"), alpha)) >>
-    tag!("]") >>
-    ( module.to_string(), direction.map(|s| s.to_string()) )
-));
+    let class_vec = classes.into_iter().map(|s| s.to_string()).collect();
+    Ok((input, class_vec))
+}
 
-named!(parse_ua_os<CompleteStr, Vec<(String, Option<String>)>>, do_parse!(
-    tag!("ua_os") >> space0 >> tag!("=") >> space0 >>
-    values: separated_list!(tag!(","), parse_key_value) >>
-    (
-        values.into_iter().map(|(name, value)| (name.to_string(), value.map(|s| s.to_string()))).collect()
-    )
-));
+fn parse_module(input: &str) -> IResult<&str, (String, Option<String>)> {
+    let (input, (_, module, direction, _)) =
+        tuple((tag("["), alpha1, opt(preceded(tag(":"), alpha1)), tag("]")))(input)?;
+    let module_str = module.to_string();
+    let direction_str = direction.map(|s| s.to_string());
 
-#[rustfmt::skip]
-named!(
-    parse_label<CompleteStr, Label>,
-    do_parse!(
-        ty: parse_type >>
-        tag!(":") >>
-        class: alt!(
-            tag!("!") => { |_| None } |
-            take_until!(":") => { |s: CompleteStr| Some(s.to_string()) }
-        ) >>
-        tag!(":") >>
-        name: take_until_and_consume!(":") >>
-        flavor: rest >>
-        (
-            Label {
-                ty,
-                class,
-                name: name.to_string(),
-                flavor: if flavor.is_empty() {
-                    None
-                } else {
-                    Some(flavor.to_string())
-                },
-            }
+    Ok((input, (module_str, direction_str)))
+}
+
+fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<String>)>> {
+    let (input, (_, _, _, _, values)) = tuple((
+        tag("ua_os"),
+        space0,
+        tag("="),
+        space0,
+        separated_list0(tag(","), parse_key_value),
+    ))(input)?;
+
+    let result = values
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value.map(|s| s.to_string())))
+        .collect();
+
+    Ok((input, result))
+}
+
+fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    let (input, (name, _, value)) = tuple((
+        alphanumeric1,
+        space0,
+        opt(preceded(tuple((space0, tag("="), space0)), alphanumeric1)),
+    ))(input)?;
+
+    Ok((input, (name, value)))
+}
+
+fn parse_label(input: &str) -> IResult<&str, Label> {
+    let (input, (ty, _, class, _, name, flavor)) = tuple((
+        parse_type,
+        tag(":"),
+        alt((
+            map(tag("!"), |_| None),
+            map(take_until(":"), |s: &str| Some(s.to_string())),
+        )),
+        tag(":"),
+        take_until(":"),
+        opt(preceded(tag(":"), rest)),
+    ))(input)?;
+
+    Ok((
+        input,
+        Label {
+            ty,
+            class,
+            name: name.to_string(),
+            flavor: flavor.filter(|f| !f.is_empty()).map(String::from),
+        },
+    ))
+}
+
+fn parse_type(input: &str) -> IResult<&str, Type> {
+    alt((
+        tag("s").map(|_| Type::Specified),
+        tag("g").map(|_| Type::Generic),
+    ))(input)
+}
+
+fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
+    let (
+        input,
+        (version, _, ittl, _, olen, _, mss, _, wsize, _, wscale, _, olayout, _, quirks, _, pclass),
+    ) = tuple((
+        parse_ip_version,
+        tag(":"),
+        parse_ttl,
+        tag(":"),
+        map_res(digit1, |s: &str| s.parse::<u8>()), // olen
+        tag(":"),
+        alt((
+            tag("*").map(|_| None),
+            map_res(digit1, |s: &str| s.parse::<u16>().map(Some)),
+        )), // mss
+        tag(":"),
+        parse_window_size,
+        tag(","),
+        alt((
+            tag("*").map(|_| None),
+            map_res(digit1, |s: &str| s.parse::<u8>().map(Some)),
+        )), // wscale
+        tag(":"),
+        separated_list1(tag(","), parse_tcp_option),
+        tag(":"),
+        separated_list0(tag(","), parse_quirk),
+        tag(":"),
+        parse_payload_size,
+    ))(input)?;
+
+    Ok((
+        input,
+        TcpSignature {
+            version,
+            ittl,
+            olen,
+            mss,
+            wsize,
+            wscale,
+            olayout,
+            quirks,
+            pclass,
+        },
+    ))
+}
+
+fn parse_ip_version(input: &str) -> IResult<&str, IpVersion> {
+    alt((
+        map(tag("4"), |_| IpVersion::V4),
+        map(tag("6"), |_| IpVersion::V6),
+        map(tag("*"), |_| IpVersion::Any),
+    ))(input)
+}
+
+fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
+    alt((
+        map_res(terminated(digit1, tag("-")), |s: &str| {
+            s.parse::<u8>().map(Ttl::Bad)
+        }),
+        map_res(terminated(digit1, tag("+?")), |s: &str| {
+            s.parse::<u8>().map(Ttl::Guess)
+        }),
+        map_res(
+            separated_pair(digit1, tag("+"), digit1),
+            |(ttl_str, distance_str): (&str, &str)| match (
+                ttl_str.parse::<u8>(),
+                distance_str.parse::<u8>(),
+            ) {
+                (Ok(ttl), Ok(distance)) => Ok(Ttl::Distance(ttl, distance)),
+                (Err(_), _) => Err("Failed to parse ttl"),
+                (_, Err(_)) => Err("Failed to parse distance"),
+            },
+        ),
+        map_res(digit1, |s: &str| s.parse::<u8>().map(Ttl::Value)),
+    ))(input)
+}
+
+fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
+    alt((
+        map(tag("*"), |_| WindowSize::Any),
+        map_res(preceded(tag("mss*"), digit1), |s: &str| {
+            s.parse::<u8>().map(WindowSize::Mss)
+        }),
+        map_res(preceded(tag("mtu*"), digit1), |s: &str| {
+            s.parse::<u8>().map(WindowSize::Mtu)
+        }),
+        map_res(preceded(tag("%"), digit1), |s: &str| {
+            s.parse::<u16>().map(WindowSize::Mod)
+        }),
+        map_res(digit1, |s: &str| s.parse::<u16>().map(WindowSize::Value)),
+    ))(input)
+}
+
+fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
+    alt((
+        map_res(preceded(tag("eol+"), digit1), |s: &str| {
+            s.parse::<u8>().map(TcpOption::Eol)
+        }),
+        tag("nop").map(|_| TcpOption::Nop),
+        tag("mss").map(|_| TcpOption::Mss),
+        tag("ws").map(|_| TcpOption::Ws),
+        tag("sok").map(|_| TcpOption::Sok),
+        tag("sack").map(|_| TcpOption::Sack),
+        tag("ts").map(|_| TcpOption::TS),
+        preceded(
+            tag("?"),
+            map(digit1, |s: &str| s.parse::<u8>().unwrap_or(0)),
         )
-    )
-);
+        .map(TcpOption::Unknown),
+    ))(input)
+}
 
-named!(parse_type<CompleteStr, Type>, alt!(
-    tag!("s") => { |_| Type::Specified } |
-    tag!("g") => { |_| Type::Generic }
-));
+fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
+    alt((
+        map(tag("df"), |_| Quirk::Df),
+        map(tag("id+"), |_| Quirk::NonZeroID),
+        map(tag("id-"), |_| Quirk::ZeroID),
+        map(tag("ecn"), |_| Quirk::Ecn),
+        map(tag("0+"), |_| Quirk::MustBeZero),
+        map(tag("flow"), |_| Quirk::FlowID),
+        map(tag("seq-"), |_| Quirk::SeqNumZero),
+        map(tag("ack+"), |_| Quirk::AckNumNonZero),
+        map(tag("ack-"), |_| Quirk::AckNumZero),
+        map(tag("uptr+"), |_| Quirk::NonZeroURG),
+        map(tag("urgf+"), |_| Quirk::Urg),
+        map(tag("pushf+"), |_| Quirk::Push),
+        map(tag("ts1-"), |_| Quirk::OwnTimestampZero),
+        map(tag("ts2+"), |_| Quirk::PeerTimestampNonZero),
+        map(tag("opt+"), |_| Quirk::TrailinigNonZero),
+        map(tag("exws"), |_| Quirk::ExcessiveWindowScaling),
+        map(tag("bad"), |_| Quirk::OptBad),
+    ))(input)
+}
 
-#[rustfmt::skip]
-named!(
-    parse_tcp_signature<CompleteStr, TcpSignature>,
-    do_parse!(
-        version: parse_ip_version >>
-        tag!(":") >>
-        ittl: parse_ttl >>
-        tag!(":") >>
-        olen: map_res!(digit, |s: CompleteStr| s.parse()) >>
-        tag!(":") >>
-        mss: alt!(
-            tag!("*")                                   => { |_| None } |
-            map_res!(digit, |s: CompleteStr| s.parse()) => { Some }
-        ) >>
-        tag!(":") >>
-        wsize: parse_window_size >>
-        tag!(",") >>
-        wscale: alt!(
-            tag!("*")                                   => { |_| None } |
-            map_res!(digit, |s: CompleteStr| s.parse()) => { Some }
-        ) >>
-        tag!(":") >>
-        olayout: separated_nonempty_list!(tag!(","), parse_tcp_option) >>
-        tag!(":") >>
-        quirks: separated_list!(tag!(","), parse_quirk) >>
-        tag!(":") >>
-        pclass: parse_payload_size >>
-        (
-            TcpSignature {
-                version,
-                ittl,
-                olen,
-                mss,
-                wsize,
-                wscale,
-                olayout,
-                quirks,
-                pclass,
-            }
-        )
-    )
-);
+fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
+    alt((
+        map(tag("0"), |_| PayloadSize::Zero),
+        map(tag("+"), |_| PayloadSize::NonZero),
+        map(tag("*"), |_| PayloadSize::Any),
+    ))(input)
+}
 
-named!(parse_ip_version<CompleteStr, IpVersion>, alt!(
-    tag!("4") => { |_| IpVersion::V4 } |
-    tag!("6") => { |_| IpVersion::V6 } |
-    tag!("*") => { |_| IpVersion::Any }
-));
+fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
+    let (input, (version, _, horder, _, habsent, _, expsw)) = tuple((
+        parse_http_version,
+        tag(":"),
+        separated_list1(tag(","), parse_http_header),
+        tag(":"),
+        opt(separated_list0(tag(","), parse_http_header)),
+        tag(":"),
+        rest,
+    ))(input)?;
 
-named!(parse_ttl<CompleteStr, Ttl>, alt_complete!(
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("-")) => { Ttl::Bad } |
-    terminated!(map_res!(digit, |s: CompleteStr| s.parse()), tag!("+?")) => { Ttl::Guess } |
-    separated_pair!(
-        map_res!(digit, |s: CompleteStr| s.parse()),
-        tag!("+"),
-        map_res!(digit, |s: CompleteStr| s.parse())
-    ) => { |(ttl, distance)| Ttl::Distance(ttl, distance) } |
-    map_res!(digit, |s: CompleteStr| s.parse()) => { Ttl::Value }
-));
+    let habsent = habsent
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|h| !h.name.is_empty())
+        .collect();
 
-named!(parse_window_size<CompleteStr, WindowSize>, alt_complete!(
-    tag!("*")                                                            => { |_| WindowSize::Any } |
-    map_res!(preceded!(tag!("mss*"), digit), |s: CompleteStr| s.parse()) => { WindowSize::Mss } |
-    map_res!(preceded!(tag!("mtu*"), digit), |s: CompleteStr| s.parse()) => { WindowSize::Mtu } |
-    map_res!(preceded!(tag!("%"), digit), |s: CompleteStr| s.parse())    => { WindowSize::Mod } |
-    map_res!(digit, |s: CompleteStr| s.parse())                          => { WindowSize::Value }
-));
-
-named!(parse_tcp_option<CompleteStr, TcpOption>, alt_complete!(
-    map_res!(preceded!(tag!("eol+"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Eol } |
-    tag!("nop")     => { |_| TcpOption::Nop } |
-    tag!("mss")     => { |_| TcpOption::Mss } |
-    tag!("ws")      => { |_| TcpOption::Ws } |
-    tag!("sok")     => { |_| TcpOption::Sok } |
-    tag!("sack")    => { |_| TcpOption::Sack } |
-    tag!("ts")      => { |_| TcpOption::TS } |
-    map_res!(preceded!(tag!("?"), digit), |s: CompleteStr| s.parse()) => { TcpOption::Unknown }
-));
-
-named!(parse_quirk<CompleteStr, Quirk>, alt_complete!(
-    tag!("df")      => { |_| Quirk::Df } |
-    tag!("id+")     => { |_| Quirk::NonZeroID } |
-    tag!("id-")     => { |_| Quirk::ZeroID } |
-    tag!("ecn")     => { |_| Quirk::Ecn } |
-    tag!("0+")      => { |_| Quirk::MustBeZero } |
-    tag!("flow")    => { |_| Quirk::FlowID } |
-    tag!("seq-")    => { |_| Quirk::SeqNumZero } |
-    tag!("ack+")    => { |_| Quirk::AckNumNonZero } |
-    tag!("ack-")    => { |_| Quirk::AckNumZero } |
-    tag!("uptr+")   => { |_| Quirk::NonZeroURG } |
-    tag!("urgf+")   => { |_| Quirk::Urg } |
-    tag!("pushf+")  => { |_| Quirk::Push } |
-    tag!("ts1-")    => { |_| Quirk::OwnTimestampZero } |
-    tag!("ts2+")    => { |_| Quirk::PeerTimestampNonZero } |
-    tag!("opt+")    => { |_| Quirk::TrailinigNonZero } |
-    tag!("exws")    => { |_| Quirk::ExcessiveWindowScaling } |
-    tag!("bad")     => { |_| Quirk::OptBad }
-));
-
-named!(parse_payload_size<CompleteStr, PayloadSize>, alt!(
-    tag!("0") => { |_| PayloadSize::Zero } |
-    tag!("+") => { |_| PayloadSize::NonZero } |
-    tag!("*") => { |_| PayloadSize::Any }
-));
-
-named!(parse_http_signature<CompleteStr, HttpSignature>, do_parse!(
-    version: parse_http_version >>
-    tag!(":") >>
-    horder: separated_nonempty_list!(tag!(","), parse_http_header) >>
-    tag!(":") >>
-    habsent: opt!(separated_list_complete!(tag!(","), parse_http_header)) >>
-    tag!(":") >>
-    expsw: rest >>
-    (
+    Ok((
+        input,
         HttpSignature {
             version,
             horder,
-            habsent: habsent.unwrap_or_default(),
+            habsent,
             expsw: expsw.to_string(),
-        }
-    )
-));
+        },
+    ))
+}
 
-named!(parse_http_version<CompleteStr, HttpVersion>, alt!(
-    tag!("0") => { |_| HttpVersion::V10 } |
-    tag!("1") => { |_| HttpVersion::V11 } |
-    tag!("*") => { |_| HttpVersion::Any }
-));
+fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {
+    alt((
+        map(tag("0"), |_| HttpVersion::V10),
+        map(tag("1"), |_| HttpVersion::V11),
+        map(tag("*"), |_| HttpVersion::Any),
+    ))(input)
+}
 
-named!(parse_http_header<CompleteStr, HttpHeader>, do_parse!(
-    optional: opt!(tag!("?")) >>
-    kv: parse_key_value >>
-    (
+fn parse_header_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    pair(
+        take_while(|c: char| (c.is_ascii_alphanumeric() || c == '-') && c != ':' && c != '='),
+        opt(preceded(tag("=["), terminated(take_until("]"), char(']')))),
+    )(input)
+}
+
+fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
+    let (input, optional) = opt(char('?'))(input)?;
+    let (input, (name, value)) = parse_header_key_value(input)?;
+
+    Ok((
+        input,
         HttpHeader {
             optional: optional.is_some(),
-            name: kv.0.to_string(),
-            value: kv.1.map(|s| s.to_string()),
-        }
-    )
-));
-
-named!(parse_key_value<CompleteStr, (CompleteStr, Option<CompleteStr>)>, pair!(
-    take_while!(|c: char| (c.is_ascii_alphanumeric() || c == '-') && c != ':' && c != '='),
-    opt!(preceded!(tag!("=["), take_until_and_consume!("]")))
-));
+            name: name.to_string(),
+            value: value.map(|s| s.to_string()),
+        },
+    ))
+}
 
 #[cfg(test)]
 mod tests {
