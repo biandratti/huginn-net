@@ -58,6 +58,8 @@ fn main() {
                             {
                                 let p0f_output = P0fOutput {
                                     client: signature_details.client,
+                                    server: signature_details.server,
+                                    is_client: signature_details.is_client,
                                     label: Some(label.clone()),
                                     sig: signature_details.signature,
                                 };

@@ -13,13 +13,16 @@ use std::net::IpAddr;
 
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 
-pub struct ClientSource {
+pub struct IpPort {
     pub ip: IpAddr,
     pub port: u16,
 }
+
 pub struct SignatureDetails {
     pub signature: Signature,
-    pub client: ClientSource,
+    pub client: IpPort,
+    pub server: IpPort,
+    pub is_client: bool,
 }
 impl SignatureDetails {
     pub fn extract(packet: &[u8]) -> Result<Self, Error> {
@@ -57,6 +60,10 @@ const IP_TOS_CE: u8 = 0x01;
 const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
+
+fn is_client(tcp_flags: u8) -> bool {
+    tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
+}
 
 fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
@@ -96,11 +103,12 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
         quirks.push(Quirk::ZeroID);
     }
 
-    let client_ip = packet.get_source();
+    let client_ip: IpAddr = IpAddr::V4(packet.get_source());
+    let server_ip = IpAddr::V4(packet.get_destination());
 
     TcpPacket::new(packet.payload())
         .ok_or_else(|| err_msg("TCP packet too short"))
-        .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks, IpAddr::from(client_ip)))
+        .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks, client_ip, server_ip))
 }
 
 fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
@@ -124,10 +132,12 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
         quirks.push(Quirk::Ecn);
     }
 
-    let client_ip = packet.get_source();
+    let client_ip: IpAddr = IpAddr::V6(packet.get_source());
+    let server_ip = IpAddr::V6(packet.get_destination());
+
     TcpPacket::new(packet.payload())
         .ok_or_else(|| err_msg("TCP packet too short"))
-        .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks, IpAddr::from(client_ip)))
+        .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks, client_ip, server_ip))
 }
 
 fn guess_dist(ttl: u8) -> u8 {
@@ -148,11 +158,13 @@ fn visit_tcp(
     ittl: Ttl,
     olen: u8,
     mut quirks: Vec<Quirk>,
-    client_ip: std::net::IpAddr,
+    client_ip: IpAddr,
+    server_ip: IpAddr,
 ) -> Result<SignatureDetails, Error> {
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
+    let is_client = is_client(flags);
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
 
     if ((flags & SYN) == SYN && (flags & (FIN | RST)) != 0)
@@ -274,6 +286,7 @@ fn visit_tcp(
     }
 
     let client_port = tcp.get_source();
+    let server_port = tcp.get_destination();
 
     Ok(SignatureDetails {
         signature: Signature {
@@ -299,9 +312,14 @@ fn visit_tcp(
                 PayloadSize::NonZero
             },
         },
-        client: ClientSource {
+        client: IpPort {
             ip: client_ip,
             port: client_port,
         },
+        server: IpPort {
+            ip: server_ip,
+            port: server_port,
+        },
+        is_client,
     })
 }
