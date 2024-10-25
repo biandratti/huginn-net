@@ -28,6 +28,8 @@ impl<'a> PassiveTcpFingerprinter<'a> {
         Self { matcher } // Assuming Database implements Clone
     }
 
+
+    //TODO: move loop to the example
     /// Starts capturing packets on the specified network interface.
     pub fn start_capture(&self, interface_name: &str) {
         let interfaces: Vec<NetworkInterface> = datalink::interfaces();
