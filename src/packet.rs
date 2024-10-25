@@ -22,6 +22,7 @@ pub struct SignatureDetails {
     pub signature: Signature,
     pub client: IpPort,
     pub server: IpPort,
+    pub is_client: bool,
 }
 impl SignatureDetails {
     pub fn extract(packet: &[u8]) -> Result<Self, Error> {
@@ -59,6 +60,10 @@ const IP_TOS_CE: u8 = 0x01;
 const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
+
+fn is_client(tcp_flags: u8) -> bool {
+    tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
+}
 
 fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
@@ -159,6 +164,7 @@ fn visit_tcp(
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
+    let is_client = is_client(flags);
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
 
     if ((flags & SYN) == SYN && (flags & (FIN | RST)) != 0)
@@ -314,5 +320,6 @@ fn visit_tcp(
             ip: server_ip,
             port: server_port,
         },
+        is_client,
     })
 }
