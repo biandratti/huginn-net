@@ -11,28 +11,31 @@ impl<'a> SignatureMatcher<'a> {
         Self { database }
     }
 
-    pub fn find_matching_signature(
+    pub fn matching_by_tcp_request(
         &self,
         signature: &Signature,
     ) -> Option<(&'a Label, &'a Signature)> {
         for (label, db_signatures) in &self.database.tcp_request {
             for db_signature in db_signatures {
                 if signature.matches(db_signature) {
-                    //println!("Matched Signature with Label: {}", label);
                     return Some((label, db_signature));
                 }
             }
         }
+        None
+    }
 
+    pub fn matching_by_tcp_response(
+        &self,
+        signature: &Signature,
+    ) -> Option<(&'a Label, &'a Signature)> {
         for (label, db_signatures) in &self.database.tcp_response {
             for db_signature in db_signatures {
                 if signature.matches(db_signature) {
-                    //println!("Matched Response Signature with Label: {}", label);
                     return Some((label, db_signature));
                 }
             }
         }
-
         None
     }
 }
