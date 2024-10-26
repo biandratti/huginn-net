@@ -23,5 +23,5 @@ name = "passivetcp"
 path = "src/lib.rs"
 
 [[example]]
-name = "passive_scan"
-path = "examples/passive_scan.rs"
+name = "p0f"
+path = "examples/p0f.rs"
