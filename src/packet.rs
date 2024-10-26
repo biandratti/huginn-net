@@ -1,3 +1,5 @@
+use crate::mtu;
+use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -10,8 +12,6 @@ use pnet::packet::{
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
-
-use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 
 pub struct IpPort {
     pub ip: IpAddr,
@@ -106,9 +106,22 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
     let client_ip: IpAddr = IpAddr::V4(packet.get_source());
     let server_ip = IpAddr::V4(packet.get_destination());
 
-    TcpPacket::new(packet.payload())
+    let tcp_payload = packet.payload(); // Get a reference to the payload without moving `packet`
+
+    TcpPacket::new(tcp_payload)
         .ok_or_else(|| err_msg("TCP packet too short"))
-        .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks, client_ip, server_ip))
+        .and_then(|tcp_packet| {
+            visit_tcp(
+                &tcp_packet,
+                version,
+                ttl,
+                mtu::extract_from_ipv4(&tcp_packet, &packet),
+                olen,
+                quirks,
+                client_ip,
+                server_ip,
+            )
+        })
 }
 
 fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
@@ -137,7 +150,18 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
 
     TcpPacket::new(packet.payload())
         .ok_or_else(|| err_msg("TCP packet too short"))
-        .and_then(|packet| visit_tcp(packet, version, ttl, olen, quirks, client_ip, server_ip))
+        .and_then(|tcp_packet| {
+            visit_tcp(
+                &tcp_packet,
+                version,
+                ttl,
+                mtu::extract_from_ipv6(&tcp_packet, &packet),
+                olen,
+                quirks,
+                client_ip,
+                server_ip,
+            )
+        })
 }
 
 fn guess_dist(ttl: u8) -> u8 {
@@ -152,10 +176,13 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
+//TODO: WIP: observable tcp params
+#[allow(clippy::too_many_arguments)]
 fn visit_tcp(
-    tcp: TcpPacket,
+    tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
+    mtu: Option<u16>,
     olen: u8,
     mut quirks: Vec<Quirk>,
     client_ip: IpAddr,
@@ -288,21 +315,23 @@ fn visit_tcp(
     let client_port = tcp.get_source();
     let server_port = tcp.get_destination();
 
+    let wsize: WindowSize = match (tcp.get_window(), mss) {
+        (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
+            WindowSize::Mss((wsize / mss_value) as u8)
+        }
+        (wsize, _) if mtu.is_some() && wsize % mtu.unwrap() == 0 => {
+            WindowSize::Mtu((wsize / mtu.unwrap()) as u8)
+        }
+        (wsize, _) => WindowSize::Value(wsize),
+    };
+
     Ok(SignatureDetails {
         signature: Signature {
             version,
             ittl,
             olen,
             mss,
-            wsize: match (tcp.get_window(), mss) {
-                (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
-                    WindowSize::Mss((wsize / mss_value) as u8)
-                }
-                (wsize, _) if wsize % 1500 == 0 => {
-                    WindowSize::Mtu((wsize / 1500) as u8) // TODO: [WIP] Assuming 1500 as a typical MTU
-                }
-                (wsize, _) => WindowSize::Value(wsize),
-            },
+            wsize,
             wscale,
             olayout,
             quirks,

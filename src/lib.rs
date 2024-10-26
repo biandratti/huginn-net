@@ -1,6 +1,7 @@
 pub mod db;
 mod display;
 mod http;
+mod mtu;
 mod p0f_output;
 mod packet;
 mod parse;
@@ -26,7 +27,7 @@ impl<'a> P0f<'a> {
         if let Ok(signature_details) = SignatureDetails::extract(packet) {
             if let Some((label, _matched_signature)) = self
                 .matcher
-                .find_matching_signature(&signature_details.signature)
+                .matching_by_tcp_request(&signature_details.signature)
             {
                 return Some(P0fOutput {
                     client: signature_details.client,
