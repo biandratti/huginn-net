@@ -1,3 +1,5 @@
+use crate::mtu;
+use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -10,8 +12,6 @@ use pnet::packet::{
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
-use crate::mtu;
-use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 
 pub struct IpPort {
     pub ip: IpAddr,
@@ -122,7 +122,6 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
                 server_ip,
             )
         })
-
 }
 
 fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
@@ -151,16 +150,18 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
 
     TcpPacket::new(packet.payload())
         .ok_or_else(|| err_msg("TCP packet too short"))
-        .and_then(|tcp_packet| visit_tcp(
-            &tcp_packet,
-            version,
-            ttl,
-            mtu::extract_from_ipv6(&tcp_packet, &packet),
-            olen,
-            quirks,
-            client_ip,
-            server_ip,
-        ))
+        .and_then(|tcp_packet| {
+            visit_tcp(
+                &tcp_packet,
+                version,
+                ttl,
+                mtu::extract_from_ipv6(&tcp_packet, &packet),
+                olen,
+                quirks,
+                client_ip,
+                server_ip,
+            )
+        })
 }
 
 fn guess_dist(ttl: u8) -> u8 {

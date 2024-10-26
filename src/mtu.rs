@@ -3,7 +3,6 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpFlags::SYN;
 use pnet::packet::tcp::TcpPacket;
 
-
 fn is_client(tcp: &TcpPacket) -> bool {
     tcp.get_flags() & SYN == SYN
 }
