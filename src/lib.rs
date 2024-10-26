@@ -6,6 +6,7 @@ mod packet;
 mod parse;
 mod signature_matcher;
 mod tcp;
+mod mtu;
 
 use crate::db::Database;
 use crate::p0f_output::P0fOutput;
