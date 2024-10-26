@@ -176,6 +176,8 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
+//TODO: WIP: observable tcp params
+#[allow(clippy::too_many_arguments)]
 fn visit_tcp(
     tcp: &TcpPacket,
     version: IpVersion,
