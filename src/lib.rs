@@ -9,7 +9,7 @@ mod signature_matcher;
 mod tcp;
 
 use crate::db::Database;
-use crate::p0f_output::P0fOutput;
+use crate::p0f_output::SynAckTCPOutput;
 use crate::packet::SignatureDetails;
 use crate::signature_matcher::SignatureMatcher;
 
@@ -23,14 +23,15 @@ impl<'a> P0f<'a> {
         Self { matcher }
     }
 
-    pub fn analyze_tcp(&self, packet: &[u8]) -> Option<P0fOutput> {
+    //TODO: filter by MTU and create a generic Output with MTU and SynAckTCP
+    pub fn analyze_tcp(&self, packet: &[u8]) -> Option<SynAckTCPOutput> {
         if let Ok(signature_details) = SignatureDetails::extract(packet) {
             if signature_details.is_client {
                 if let Some((label, _matched_signature)) = self
                     .matcher
                     .matching_by_tcp_request(&signature_details.signature)
                 {
-                    return Some(P0fOutput {
+                    return Some(SynAckTCPOutput {
                         client: signature_details.client,
                         server: signature_details.server,
                         is_client: signature_details.is_client,
@@ -43,7 +44,7 @@ impl<'a> P0f<'a> {
                     .matcher
                     .matching_by_tcp_response(&signature_details.signature)
                 {
-                    return Some(P0fOutput {
+                    return Some(SynAckTCPOutput {
                         client: signature_details.client,
                         server: signature_details.server,
                         is_client: signature_details.is_client,
