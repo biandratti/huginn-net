@@ -23,19 +23,34 @@ impl<'a> P0f<'a> {
         Self { matcher }
     }
 
-    pub fn analyze(&self, packet: &[u8]) -> Option<P0fOutput> {
+    pub fn analyze_tcp(&self, packet: &[u8]) -> Option<P0fOutput> {
         if let Ok(signature_details) = SignatureDetails::extract(packet) {
-            if let Some((label, _matched_signature)) = self
-                .matcher
-                .matching_by_tcp_request(&signature_details.signature)
-            {
-                return Some(P0fOutput {
-                    client: signature_details.client,
-                    server: signature_details.server,
-                    is_client: signature_details.is_client,
-                    label: Some(label.clone()),
-                    sig: signature_details.signature,
-                });
+            if signature_details.is_client {
+                if let Some((label, _matched_signature)) = self
+                    .matcher
+                    .matching_by_tcp_request(&signature_details.signature)
+                {
+                    return Some(P0fOutput {
+                        client: signature_details.client,
+                        server: signature_details.server,
+                        is_client: signature_details.is_client,
+                        label: Some(label.clone()),
+                        sig: signature_details.signature,
+                    });
+                }
+            } else {
+                if let Some((label, _matched_signature)) = self
+                    .matcher
+                    .matching_by_tcp_response(&signature_details.signature)
+                {
+                    return Some(P0fOutput {
+                        client: signature_details.client,
+                        server: signature_details.server,
+                        is_client: signature_details.is_client,
+                        label: Some(label.clone()),
+                        sig: signature_details.signature,
+                    });
+                }
             }
         }
         None

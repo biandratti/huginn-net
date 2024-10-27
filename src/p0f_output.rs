@@ -5,7 +5,7 @@ use std::fmt;
 
 pub struct P0fOutput {
     pub client: IpPort,
-    pub server: IpPort,
+    pub server: IpPort, //TODO: Option<IpPort>,
     pub is_client: bool,
     pub label: Option<Label>,
     pub sig: Signature,

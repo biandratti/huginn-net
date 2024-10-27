@@ -31,7 +31,7 @@ fn start_capture(interface_name: &str, p0f: &P0f) {
     loop {
         match rx.next() {
             Ok(packet) => {
-                if let Some(p0f_output) = p0f.analyze(packet) {
+                if let Some(p0f_output) = p0f.analyze_tcp(packet) {
                     println!("{}", p0f_output);
                 }
             }
