@@ -27,6 +27,14 @@ impl<'a> P0f<'a> {
     pub fn analyze_tcp(&self, packet: &[u8]) -> Option<SynAckTCPOutput> {
         if let Ok(signature_details) = SignatureDetails::extract(packet) {
             if signature_details.is_client {
+                if let Some((_link, _matched_mtu)) = signature_details.mtu.and_then(|mtu| {
+                    self.matcher.matching_by_mtu(&mtu)
+                }) {
+                    // TODO: Code for the case where a matching MTU is found.
+                } else {
+                    // TODO: Handle the case where None is returned.
+                }
+
                 if let Some((label, _matched_signature)) = self
                     .matcher
                     .matching_by_tcp_request(&signature_details.signature)

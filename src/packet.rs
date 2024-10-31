@@ -20,6 +20,7 @@ pub struct IpPort {
 
 pub struct SignatureDetails {
     pub signature: Signature,
+    pub mtu: Option<u16>,
     pub client: IpPort,
     pub server: IpPort,
     pub is_client: bool,
@@ -351,6 +352,7 @@ fn visit_tcp(
                 PayloadSize::NonZero
             },
         },
+        mtu,
         client: IpPort {
             ip: client_ip,
             port: client_port,
