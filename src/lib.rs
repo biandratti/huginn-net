@@ -56,7 +56,7 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                P0fOutput { syn_ack, mtu }
+                P0fOutput { syn_ack, mtu , uptime: None}
             } else {
                 let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
                     self.matcher
@@ -73,12 +73,13 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                P0fOutput { syn_ack, mtu: None }
+                P0fOutput { syn_ack, mtu: None , uptime: None}
             }
         } else {
             P0fOutput {
                 syn_ack: None,
                 mtu: None,
+                uptime: None
             }
         }
     }

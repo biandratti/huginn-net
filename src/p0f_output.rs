@@ -6,6 +6,7 @@ use std::fmt;
 pub struct P0fOutput {
     pub syn_ack: Option<SynAckTCPOutput>,
     pub mtu: Option<MTUOutput>,
+    pub uptime: Option<UptimeOutput>,
 }
 
 pub struct SynAckTCPOutput {
@@ -73,6 +74,34 @@ impl fmt::Display for MTUOutput {
             self.client.ip,
             self.link,
             self.mtu,
+        )
+    }
+}
+
+pub struct UptimeOutput {
+    pub client: IpPort,
+    pub server: IpPort,
+    pub uptime: String,
+    pub freq: f64,
+}
+
+impl fmt::Display for UptimeOutput {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (mtu) ]-\n\
+            |\n\
+            | client   = {}\n\
+            | uptime   = {}\n\
+            | raw_freq = {} Hz\n\
+            `----\n",
+            self.client.ip,
+            self.client.port,
+            self.server.ip,
+            self.server.port,
+            self.client.ip,
+            self.uptime,
+            self.freq,
         )
     }
 }
