@@ -4,15 +4,19 @@ use crate::tcp::{Signature, Ttl};
 use std::fmt;
 
 pub struct P0fOutput {
+    pub syn_ack: Option<SynAckTCPOutput>,
+    pub mtu: Option<MTUOutput>,
+}
+
+pub struct SynAckTCPOutput {
     pub client: IpPort,
-    pub server: IpPort,
+    pub server: IpPort, //TODO: Option<IpPort>,
     pub is_client: bool,
     pub label: Option<Label>,
     pub sig: Signature,
 }
 
-//TODO: [WIP] Display output by type
-impl fmt::Display for P0fOutput {
+impl fmt::Display for SynAckTCPOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -41,6 +45,34 @@ impl fmt::Display for P0fOutput {
                 .as_ref()
                 .map_or("Unknown".to_string(), |l| l.ty.to_string()),
             self.sig,
+        )
+    }
+}
+
+pub struct MTUOutput {
+    pub client: IpPort,
+    pub server: IpPort,
+    pub link: String,
+    pub mtu: u16,
+}
+
+impl fmt::Display for MTUOutput {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (mtu) ]-\n\
+            |\n\
+            | client   = {}\n\
+            | link     = {}\n\
+            | raw_mtu  = {}\n\
+            `----\n",
+            self.client.ip,
+            self.client.port,
+            self.server.ip,
+            self.server.port,
+            self.client.ip,
+            self.link,
+            self.mtu,
         )
     }
 }

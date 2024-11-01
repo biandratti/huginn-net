@@ -9,7 +9,7 @@ mod signature_matcher;
 mod tcp;
 
 use crate::db::Database;
-use crate::p0f_output::P0fOutput;
+use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput};
 use crate::packet::SignatureDetails;
 use crate::signature_matcher::SignatureMatcher;
 
@@ -23,21 +23,63 @@ impl<'a> P0f<'a> {
         Self { matcher }
     }
 
-    pub fn analyze(&self, packet: &[u8]) -> Option<P0fOutput> {
+    pub fn analyze_tcp(&self, packet: &[u8]) -> P0fOutput {
         if let Ok(signature_details) = SignatureDetails::extract(packet) {
-            if let Some((label, _matched_signature)) = self
-                .matcher
-                .matching_by_tcp_request(&signature_details.signature)
-            {
-                return Some(P0fOutput {
-                    client: signature_details.client,
-                    server: signature_details.server,
-                    is_client: signature_details.is_client,
-                    label: Some(label.clone()),
-                    sig: signature_details.signature,
-                });
+            if signature_details.is_client {
+                let mtu: Option<MTUOutput> = if let Some(mtu) = signature_details.mtu {
+                    if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
+                        Some(MTUOutput {
+                            client: signature_details.client.clone(),
+                            server: signature_details.server.clone(),
+                            link: link.clone(),
+                            mtu,
+                        })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
+                    self.matcher
+                        .matching_by_tcp_request(&signature_details.signature)
+                {
+                    Some(SynAckTCPOutput {
+                        client: signature_details.client,
+                        server: signature_details.server,
+                        is_client: signature_details.is_client,
+                        label: Some(label.clone()),
+                        sig: signature_details.signature,
+                    })
+                } else {
+                    None
+                };
+
+                P0fOutput { syn_ack, mtu }
+            } else {
+                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
+                    self.matcher
+                        .matching_by_tcp_response(&signature_details.signature)
+                {
+                    Some(SynAckTCPOutput {
+                        client: signature_details.client,
+                        server: signature_details.server,
+                        is_client: signature_details.is_client,
+                        label: Some(label.clone()),
+                        sig: signature_details.signature,
+                    })
+                } else {
+                    None
+                };
+
+                P0fOutput { syn_ack, mtu: None }
+            }
+        } else {
+            P0fOutput {
+                syn_ack: None,
+                mtu: None,
             }
         }
-        None
     }
 }

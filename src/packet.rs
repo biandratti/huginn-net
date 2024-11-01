@@ -13,6 +13,7 @@ use pnet::packet::{
 use std::convert::TryInto;
 use std::net::IpAddr;
 
+#[derive(Clone)]
 pub struct IpPort {
     pub ip: IpAddr,
     pub port: u16,
@@ -20,6 +21,7 @@ pub struct IpPort {
 
 pub struct SignatureDetails {
     pub signature: Signature,
+    pub mtu: Option<u16>,
     pub client: IpPort,
     pub server: IpPort,
     pub is_client: bool,
@@ -108,6 +110,8 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
 
     let tcp_payload = packet.payload(); // Get a reference to the payload without moving `packet`
 
+    let ip_package_header_length: u8 = packet.get_header_length();
+
     TcpPacket::new(tcp_payload)
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|tcp_packet| {
@@ -115,7 +119,7 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
                 &tcp_packet,
                 version,
                 ttl,
-                mtu::extract_from_ipv4(&tcp_packet, &packet),
+                ip_package_header_length,
                 olen,
                 quirks,
                 client_ip,
@@ -148,6 +152,8 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
     let client_ip: IpAddr = IpAddr::V6(packet.get_source());
     let server_ip = IpAddr::V6(packet.get_destination());
 
+    let ip_package_header_length: u8 = 40; //IPv6 header is always 40 bytes
+
     TcpPacket::new(packet.payload())
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|tcp_packet| {
@@ -155,7 +161,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
                 &tcp_packet,
                 version,
                 ttl,
-                mtu::extract_from_ipv6(&tcp_packet, &packet),
+                ip_package_header_length,
                 olen,
                 quirks,
                 client_ip,
@@ -182,7 +188,7 @@ fn visit_tcp(
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
-    mtu: Option<u16>,
+    ip_package_header_length: u8,
     olen: u8,
     mut quirks: Vec<Quirk>,
     client_ip: IpAddr,
@@ -312,6 +318,16 @@ fn visit_tcp(
         }
     }
 
+    let mtu: Option<u16> = match (mss, &version) {
+        (Some(mss_value), IpVersion::V4) => {
+            mtu::extract_from_ipv4(tcp, ip_package_header_length, mss_value)
+        }
+        (Some(mss_value), IpVersion::V6) => {
+            mtu::extract_from_ipv6(tcp, ip_package_header_length, mss_value)
+        }
+        _ => None,
+    };
+
     let client_port = tcp.get_source();
     let server_port = tcp.get_destination();
 
@@ -341,6 +357,7 @@ fn visit_tcp(
                 PayloadSize::NonZero
             },
         },
+        mtu,
         client: IpPort {
             ip: client_ip,
             port: client_port,
