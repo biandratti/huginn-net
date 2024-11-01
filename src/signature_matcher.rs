@@ -39,10 +39,7 @@ impl<'a> SignatureMatcher<'a> {
         None
     }
 
-    pub fn matching_by_mtu(
-        &self,
-        mtu: &u16,
-    ) -> Option<(&'a String, &'a u16)> {
+    pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
         for (link, db_mtus) in &self.database.mtu {
             for db_mtu in db_mtus {
                 if mtu == db_mtu {

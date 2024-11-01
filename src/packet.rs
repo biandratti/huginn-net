@@ -319,8 +319,12 @@ fn visit_tcp(
     }
 
     let mtu: Option<u16> = match (mss, &version) {
-        (Some(mss_value), IpVersion::V4) => mtu::extract_from_ipv4(&tcp, ip_package_header_length, mss_value),
-        (Some(mss_value), IpVersion::V6) => mtu::extract_from_ipv6(&tcp, ip_package_header_length, mss_value),
+        (Some(mss_value), IpVersion::V4) => {
+            mtu::extract_from_ipv4(tcp, ip_package_header_length, mss_value)
+        }
+        (Some(mss_value), IpVersion::V6) => {
+            mtu::extract_from_ipv6(tcp, ip_package_header_length, mss_value)
+        }
         _ => None,
     };
 

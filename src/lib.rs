@@ -42,9 +42,9 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) = self
-                    .matcher
-                    .matching_by_tcp_request(&signature_details.signature)
+                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
+                    self.matcher
+                        .matching_by_tcp_request(&signature_details.signature)
                 {
                     Some(SynAckTCPOutput {
                         client: signature_details.client,
@@ -57,14 +57,11 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                P0fOutput {
-                    syn_ack,
-                    mtu,
-                }
+                P0fOutput { syn_ack, mtu }
             } else {
-                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) = self
-                    .matcher
-                    .matching_by_tcp_response(&signature_details.signature)
+                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
+                    self.matcher
+                        .matching_by_tcp_response(&signature_details.signature)
                 {
                     Some(SynAckTCPOutput {
                         client: signature_details.client,
@@ -77,10 +74,7 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                P0fOutput {
-                    syn_ack,
-                    mtu: None,
-                }
+                P0fOutput { syn_ack, mtu: None }
             }
         } else {
             P0fOutput {

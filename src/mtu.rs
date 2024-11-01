@@ -5,7 +5,7 @@ fn is_client(tcp: &TcpPacket) -> bool {
     tcp.get_flags() & SYN == SYN
 }
 
-pub fn extract_from_ipv4(tcp: &TcpPacket, ipv4_header_len: u8, mss:u16) -> Option<u16> {
+pub fn extract_from_ipv4(tcp: &TcpPacket, ipv4_header_len: u8, mss: u16) -> Option<u16> {
     if is_client(tcp) {
         let tcp_header_len = (tcp.get_data_offset() * 4) as u16;
         let ip_header_len = (ipv4_header_len * 4) as u16;
@@ -16,7 +16,7 @@ pub fn extract_from_ipv4(tcp: &TcpPacket, ipv4_header_len: u8, mss:u16) -> Optio
     }
 }
 
-pub fn extract_from_ipv6(tcp: &TcpPacket, ipv6_header_len: u8, mss:u16) -> Option<u16> {
+pub fn extract_from_ipv6(tcp: &TcpPacket, ipv6_header_len: u8, mss: u16) -> Option<u16> {
     if is_client(tcp) {
         let tcp_header_len = (tcp.get_data_offset() * 4) as u16;
 

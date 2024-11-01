@@ -70,7 +70,6 @@ impl fmt::Display for MTUOutput {
             self.client.port,
             self.server.ip,
             self.server.port,
-
             self.client.ip,
             self.link,
             self.mtu,
