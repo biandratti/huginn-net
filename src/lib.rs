@@ -23,7 +23,6 @@ impl<'a> P0f<'a> {
         Self { matcher }
     }
 
-    //TODO: filter by MTU and create a generic Output with MTU and SynAckTCP
     pub fn analyze_tcp(&self, packet: &[u8]) -> P0fOutput {
         if let Ok(signature_details) = SignatureDetails::extract(packet) {
             if signature_details.is_client {
