@@ -13,6 +13,7 @@ use pnet::packet::{
 use std::convert::TryInto;
 use std::net::IpAddr;
 
+#[derive(Clone)]
 pub struct IpPort {
     pub ip: IpAddr,
     pub port: u16,

@@ -31,8 +31,9 @@ fn start_capture(interface_name: &str, p0f: &P0f) {
     loop {
         match rx.next() {
             Ok(packet) => {
-                if let Some(p0f_output) = p0f.analyze_tcp(packet) {
-                    println!("{}", p0f_output);
+                if let p0f_output = p0f.analyze_tcp(packet) {
+                    p0f_output.syn_ack.map(|syn_ack| println!("{}", syn_ack));
+                    p0f_output.mtu.map(|mtu| println!("{}", mtu));
                 }
             }
             Err(e) => eprintln!("Failed to read packet: {}", e),

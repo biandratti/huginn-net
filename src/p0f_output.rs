@@ -3,6 +3,11 @@ use crate::packet::IpPort;
 use crate::tcp::{Signature, Ttl};
 use std::fmt;
 
+pub struct P0fOutput {
+    pub syn_ack: Option<SynAckTCPOutput>,
+    pub mtu: Option<MTUOutput>,
+}
+
 pub struct SynAckTCPOutput {
     pub client: IpPort,
     pub server: IpPort, //TODO: Option<IpPort>,
