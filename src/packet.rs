@@ -1,5 +1,6 @@
 use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+use crate::update::{extract_update, Update};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -22,6 +23,7 @@ pub struct IpPort {
 pub struct SignatureDetails {
     pub signature: Signature,
     pub mtu: Option<u16>,
+    pub update: Option<Update>,
     pub client: IpPort,
     pub server: IpPort,
     pub is_client: bool,
@@ -358,6 +360,7 @@ fn visit_tcp(
             },
         },
         mtu,
+        update: extract_update(tcp, flags),
         client: IpPort {
             ip: client_ip,
             port: client_port,

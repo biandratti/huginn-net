@@ -7,6 +7,7 @@ mod packet;
 mod parse;
 mod signature_matcher;
 mod tcp;
+mod update;
 
 use crate::db::Database;
 use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput};
@@ -56,7 +57,11 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                P0fOutput { syn_ack, mtu , uptime: None}
+                P0fOutput {
+                    syn_ack,
+                    mtu,
+                    uptime: None,
+                }
             } else {
                 let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
                     self.matcher
@@ -73,13 +78,17 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                P0fOutput { syn_ack, mtu: None , uptime: None}
+                P0fOutput {
+                    syn_ack,
+                    mtu: None,
+                    uptime: None,
+                }
             }
         } else {
             P0fOutput {
                 syn_ack: None,
                 mtu: None,
-                uptime: None
+                uptime: None,
             }
         }
     }
