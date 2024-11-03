@@ -23,7 +23,7 @@ pub struct IpPort {
 pub struct SignatureDetails {
     pub signature: Signature,
     pub mtu: Option<u16>,
-    pub uptime: Option<Uptime>,
+    pub update: Option<Uptime>,
     pub client: IpPort,
     pub server: IpPort,
     pub is_client: bool,
@@ -313,7 +313,7 @@ fn visit_tcp(
                 if flags & SYN == SYN && flags & ACK == 0 {
                     if data.len() >= 4 {
                         let timestamp_option: Option<u32> =
-                            Some(u32::from_ne_bytes(data[..4].try_into().unwrap()));
+                            Some(u32::from_ne_bytes(data[..4].try_into()?));
                         println!(
                             "Timestamp found in get_uptime: ts_val = {}",
                             timestamp_option.unwrap()
@@ -372,7 +372,7 @@ fn visit_tcp(
             },
         },
         mtu,
-        uptime: uptime,
+        update: uptime,
         client: IpPort {
             ip: client_ip,
             port: client_port,

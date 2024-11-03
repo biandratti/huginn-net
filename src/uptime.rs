@@ -90,6 +90,7 @@ fn get_uptime(
     })
 }
 
+//TODO: I need to receive a timestamp only
 pub fn extract_uptime(timestamp_option: Option<u32>) -> Option<Uptime> {
     if let Some(ts_val) = timestamp_option {
         if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
