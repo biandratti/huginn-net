@@ -360,7 +360,7 @@ fn visit_tcp(
             },
         },
         mtu,
-        update: extract_update(tcp, flags),
+        update: extract_update(tcp),
         client: IpPort {
             ip: client_ip,
             port: client_port,
