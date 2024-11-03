@@ -10,7 +10,7 @@ mod tcp;
 mod update;
 
 use crate::db::Database;
-use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput};
+use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, UptimeOutput};
 use crate::packet::SignatureDetails;
 use crate::signature_matcher::SignatureMatcher;
 
@@ -47,8 +47,8 @@ impl<'a> P0f<'a> {
                         .matching_by_tcp_request(&signature_details.signature)
                 {
                     Some(SynAckTCPOutput {
-                        client: signature_details.client,
-                        server: signature_details.server,
+                        client: signature_details.client.clone(),
+                        server: signature_details.server.clone(),
                         is_client: signature_details.is_client,
                         label: Some(label.clone()),
                         sig: signature_details.signature,
@@ -60,7 +60,17 @@ impl<'a> P0f<'a> {
                 P0fOutput {
                     syn_ack,
                     mtu,
-                    uptime: None,
+                    uptime: signature_details.update.and_then(|update| {
+                        Some(UptimeOutput {
+                            client: signature_details.client,
+                            server: signature_details.server,
+                            days: update.days,
+                            hours: update.hours,
+                            min: update.min,
+                            up_mod_days: update.up_mod_days,
+                            freq: update.freq,
+                        })
+                    }),
                 }
             } else {
                 let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =

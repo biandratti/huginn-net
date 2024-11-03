@@ -81,18 +81,21 @@ impl fmt::Display for MTUOutput {
 pub struct UptimeOutput {
     pub client: IpPort,
     pub server: IpPort,
-    pub uptime: String,
-    pub freq: f64,
+    pub days: u32,
+    pub hours: u32,
+    pub min: u32,
+    pub up_mod_days: u32,
+    pub freq: u32,
 }
 
 impl fmt::Display for UptimeOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (mtu) ]-\n\
+            ".-[ {}/{} -> {}/{} (uptime) ]-\n\
             |\n\
             | client   = {}\n\
-            | uptime   = {}\n\
+            | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
             | raw_freq = {} Hz\n\
             `----\n",
             self.client.ip,
@@ -100,7 +103,10 @@ impl fmt::Display for UptimeOutput {
             self.server.ip,
             self.server.port,
             self.client.ip,
-            self.uptime,
+            self.days,
+            self.hours,
+            self.min,
+            self.up_mod_days,
             self.freq,
         )
     }
