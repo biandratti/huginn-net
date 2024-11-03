@@ -1,13 +1,12 @@
-use log::error;
-use pnet::packet::tcp::TcpFlags::{ACK, SYN};
-use pnet::packet::tcp::TcpPacket;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const MIN_TWAIT: u64 = 1000; // Minimum wait time in ms
-const MAX_TWAIT: u64 = 24 * 60 * 60 * 1000; // Maximum wait time in ms (1 day)
-const MIN_TSCALE: f64 = 0.1; // Minimum timestamp scale
-const MAX_TSCALE: f64 = 1000.0; // Maximum timestamp scale
+const MIN_TWAIT: u64 = 1000; // Minimum time wait in milliseconds (1 second)
+const MAX_TWAIT: u64 = 24 * 60 * 60 * 1000; // Maximum time wait in milliseconds (24 hours)
 
+const MIN_TSCALE: f64 = 0.1;
+const MAX_TSCALE: f64 = 1000.0;
+
+//TODO: rename to uptime
 pub struct Update {
     pub days: u32,
     pub hours: u32,
@@ -25,41 +24,54 @@ fn get_unix_time_ms() -> Result<u64, &'static str> {
 }
 
 /// Process the TCP packet to extract an Update, if conditions are met
+/// Process the TCP packet to extract an Update, if conditions are met
+/// Process the TCP packet to extract an Update, if conditions are met
 fn get_update(
-    tcp: &TcpPacket,
+    timestamp_option: Option<u32>,
     last_syn_ts: u32,
     last_syn_recv_ms: u64,
 ) -> Option<Update> {
-    // Extract the first timestamp option from the TCP options
-    let packet_ts1 = tcp
-        .get_options_raw()
-        .chunks_exact(10)
-        .find_map(|chunk| {
-            if chunk[0] == 8 && chunk[1] == 10 {
-                Some(u32::from_be_bytes([chunk[2], chunk[3], chunk[4], chunk[5]]))
-            } else {
-                None
-            }
-        })?;
+    println!("start get_update");
 
-    // Calculate the time difference in milliseconds
+    // Return None if no timestamp option was found
+    let packet_ts1 = timestamp_option?;
+
     let now_ms = get_unix_time_ms().ok()?;
-    let ms_diff = now_ms.saturating_sub(last_syn_recv_ms);
-    let ts_diff = packet_ts1.wrapping_sub(last_syn_ts);
+    println!("Current time in ms: now_ms = {}", now_ms);
+    println!(
+        "Last SYN received time in ms: last_syn_recv_ms = {}",
+        last_syn_recv_ms
+    );
 
-    // Check for timing and timestamp conditions
-    if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT || ts_diff < 5 {
+    let ms_diff = now_ms.saturating_sub(last_syn_recv_ms);
+    println!("ms_diff = {}", ms_diff);
+
+    let ts_diff = packet_ts1.wrapping_sub(last_syn_ts);
+    println!("last_syn_ts = {}", last_syn_ts);
+    println!("packet_ts1 = {}", packet_ts1);
+    println!("ts_diff = {}", ts_diff);
+
+    // Adjusted condition to enforce a minimum difference
+    if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT || ts_diff <= 0 {
+        println!("Condition failed: ms_diff or ts_diff out of bounds.");
+        return None;
+    }
+
+    // Optionally, enforce a minimum delta to prevent processing duplicates
+    if ms_diff == 0 && ts_diff == 0 {
+        println!(
+            "Condition failed: both ms_diff and ts_diff are zero (potential duplicate packet)."
+        );
         return None;
     }
 
     let ffreq = ts_diff as f64 * 1000.0 / ms_diff as f64;
 
-    // Validate frequency range
     if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
+        println!("Condition failed: ffreq out of bounds.");
         return None;
     }
 
-    // Round the frequency to a manageable level
     let freq = match ffreq as u32 {
         0 => 1,
         1..=10 => ffreq as u32,
@@ -69,7 +81,6 @@ fn get_update(
         _ => ((ffreq + 67.0) / 100.0).round() as u32 * 100,
     };
 
-    // Calculate the uptime in minutes and modulo days
     let up_min = packet_ts1 / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
@@ -83,36 +94,15 @@ fn get_update(
 }
 
 /// Attempt to extract an Update from a SYN packet's timestamp options.
-pub fn extract_update(tcp: &TcpPacket) -> Option<Update> {
-    let flags: u8 = tcp.get_flags();
-
-    // Check if it's a SYN packet without ACK (first in a handshake)
-    if flags & SYN == SYN && flags & ACK == 0 {
-        // Extract the initial SYN timestamp option
-        let timestamp_option = tcp
-            .get_options_raw()
-            .chunks_exact(10)
-            .find_map(|chunk| {
-                if chunk[0] == 8 && chunk[1] == 10 {
-                    Some(u32::from_be_bytes([chunk[2], chunk[3], chunk[4], chunk[5]]))
-                } else {
-                    None
-                }
-            });
-
-        if let Some(last_syn_ts) = timestamp_option {
-            // Get current time in milliseconds since UNIX epoch
-            if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
-                // Call get_update to compute the Update struct
-                return get_update(tcp, last_syn_ts, last_syn_recv_ms);
-            } else {
-                println!("Failed to retrieve the current Unix time.");
-                error!("Failed to retrieve the current Unix time.");
-            }
+pub fn extract_update(timestamp_option: Option<u32>) -> Option<Update> {
+    if let Some(ts_val) = timestamp_option {
+        if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
+            return get_update(timestamp_option, ts_val, last_syn_recv_ms);
         } else {
-            println!("Timestamp option not found in TCP packet.");
-            error!("Timestamp option not found in TCP packet.");
+            println!("Failed to retrieve the current Unix time.");
         }
+    } else {
+        println!("Timestamp option not found in TCP packet.");
     }
     None
 }

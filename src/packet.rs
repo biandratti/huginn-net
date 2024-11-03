@@ -238,6 +238,7 @@ fn visit_tcp(
     let mut mss = None;
     let mut wscale = None;
     let mut olayout = vec![];
+    let mut uptime: Option<Update> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -309,6 +310,17 @@ fn visit_tcp(
                 {
                     quirks.push(Quirk::PeerTimestampNonZero);
                 }
+                if flags & SYN == SYN && flags & ACK == 0 {
+                    if data.len() >= 4 {
+                        let timestamp_option: Option<u32> =
+                            Some(u32::from_ne_bytes(data[..4].try_into().unwrap()));
+                        println!(
+                            "Timestamp found in get_update: ts_val = {}",
+                            timestamp_option.unwrap()
+                        );
+                        uptime = extract_update(timestamp_option);
+                    }
+                }
 
                 /*if data.len() != 10 {
                     quirks.push(Quirk::OptBad);
@@ -360,7 +372,7 @@ fn visit_tcp(
             },
         },
         mtu,
-        update: extract_update(tcp),
+        update: uptime,
         client: IpPort {
             ip: client_ip,
             port: client_port,

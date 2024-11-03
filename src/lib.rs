@@ -60,16 +60,14 @@ impl<'a> P0f<'a> {
                 P0fOutput {
                     syn_ack,
                     mtu,
-                    uptime: signature_details.update.map(|update| {
-                        UptimeOutput {
-                            client: signature_details.client,
-                            server: signature_details.server,
-                            days: update.days,
-                            hours: update.hours,
-                            min: update.min,
-                            up_mod_days: update.up_mod_days,
-                            freq: update.freq,
-                        }
+                    uptime: signature_details.update.map(|update| UptimeOutput {
+                        client: signature_details.client,
+                        server: signature_details.server,
+                        days: update.days,
+                        hours: update.hours,
+                        min: update.min,
+                        up_mod_days: update.up_mod_days,
+                        freq: update.freq,
                     }),
                 }
             } else {
