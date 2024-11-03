@@ -1,6 +1,6 @@
 use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-use crate::update::{extract_update, Update};
+use crate::uptime::{extract_uptime, Uptime};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -23,7 +23,7 @@ pub struct IpPort {
 pub struct SignatureDetails {
     pub signature: Signature,
     pub mtu: Option<u16>,
-    pub update: Option<Update>,
+    pub uptime: Option<Uptime>,
     pub client: IpPort,
     pub server: IpPort,
     pub is_client: bool,
@@ -238,7 +238,7 @@ fn visit_tcp(
     let mut mss = None;
     let mut wscale = None;
     let mut olayout = vec![];
-    let mut uptime: Option<Update> = None;
+    let mut uptime: Option<Uptime> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -315,10 +315,10 @@ fn visit_tcp(
                         let timestamp_option: Option<u32> =
                             Some(u32::from_ne_bytes(data[..4].try_into().unwrap()));
                         println!(
-                            "Timestamp found in get_update: ts_val = {}",
+                            "Timestamp found in get_uptime: ts_val = {}",
                             timestamp_option.unwrap()
                         );
-                        uptime = extract_update(timestamp_option);
+                        uptime = extract_uptime(timestamp_option);
                     }
                 }
 
@@ -372,7 +372,7 @@ fn visit_tcp(
             },
         },
         mtu,
-        update: uptime,
+        uptime: uptime,
         client: IpPort {
             ip: client_ip,
             port: client_port,

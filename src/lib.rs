@@ -7,7 +7,7 @@ mod packet;
 mod parse;
 mod signature_matcher;
 mod tcp;
-mod update;
+mod uptime;
 
 use crate::db::Database;
 use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, UptimeOutput};
@@ -60,7 +60,7 @@ impl<'a> P0f<'a> {
                 P0fOutput {
                     syn_ack,
                     mtu,
-                    uptime: signature_details.update.map(|update| UptimeOutput {
+                    uptime: signature_details.uptime.map(|update| UptimeOutput {
                         client: signature_details.client,
                         server: signature_details.server,
                         days: update.days,

@@ -7,7 +7,7 @@ const MIN_TSCALE: f64 = 0.1;
 const MAX_TSCALE: f64 = 1000.0;
 
 //TODO: rename to uptime
-pub struct Update {
+pub struct Uptime {
     pub days: u32,
     pub hours: u32,
     pub min: u32,
@@ -23,15 +23,12 @@ fn get_unix_time_ms() -> Result<u64, &'static str> {
         .map(|duration| duration.as_millis() as u64)
 }
 
-/// Process the TCP packet to extract an Update, if conditions are met
-/// Process the TCP packet to extract an Update, if conditions are met
-/// Process the TCP packet to extract an Update, if conditions are met
-fn get_update(
+fn get_uptime(
     timestamp_option: Option<u32>,
     last_syn_ts: u32,
     last_syn_recv_ms: u64,
-) -> Option<Update> {
-    println!("start get_update");
+) -> Option<Uptime> {
+    println!("start get_uptime");
 
     // Return None if no timestamp option was found
     let packet_ts1 = timestamp_option?;
@@ -84,7 +81,7 @@ fn get_update(
     let up_min = packet_ts1 / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
-    Some(Update {
+    Some(Uptime {
         days: up_min / 60 / 24,
         hours: (up_min / 60) % 24,
         min: up_min % 60,
@@ -93,11 +90,10 @@ fn get_update(
     })
 }
 
-/// Attempt to extract an Update from a SYN packet's timestamp options.
-pub fn extract_update(timestamp_option: Option<u32>) -> Option<Update> {
+pub fn extract_uptime(timestamp_option: Option<u32>) -> Option<Uptime> {
     if let Some(ts_val) = timestamp_option {
         if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
-            return get_update(timestamp_option, ts_val, last_syn_recv_ms);
+            return get_uptime(timestamp_option, ts_val, last_syn_recv_ms);
         } else {
             println!("Failed to retrieve the current Unix time.");
         }
