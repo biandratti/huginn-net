@@ -1,6 +1,6 @@
 use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-use crate::uptime::{extract_uptime, Uptime};
+use crate::uptime::{Uptime};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -13,6 +13,7 @@ use pnet::packet::{
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
 pub struct IpPort {
@@ -23,7 +24,7 @@ pub struct IpPort {
 pub struct SignatureDetails {
     pub signature: Signature,
     pub mtu: Option<u16>,
-    pub update: Option<Uptime>,
+    pub uptime: Option<Uptime>,
     pub client: IpPort,
     pub server: IpPort,
     pub is_client: bool,
@@ -184,6 +185,20 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
+//TODO: move to uptime
+#[derive(Debug)]
+struct SynData {
+    ts1: u32,
+    recv_ms: u64,
+}
+fn get_unix_time_ms() -> u64 {
+    let duration = SystemTime::now().duration_since(UNIX_EPOCH)
+        .expect("Time went backwards"); // Maneja posibles errores, si el sistema tiene un problema con el tiempo
+
+    // Convertir a milisegundos
+    duration.as_millis() as u64
+}
+
 //TODO: WIP: observable tcp params
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
@@ -239,6 +254,8 @@ fn visit_tcp(
     let mut wscale = None;
     let mut olayout = vec![];
     let mut uptime: Option<Uptime> = None;
+    let mut last_syn: Option<SynData> = None;
+    let mut last_synack: Option<SynData> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -310,15 +327,42 @@ fn visit_tcp(
                 {
                     quirks.push(Quirk::PeerTimestampNonZero);
                 }
-                if flags & SYN == SYN && flags & ACK == 0 {
-                    if data.len() >= 4 {
-                        let timestamp_option: Option<u32> =
-                            Some(u32::from_ne_bytes(data[..4].try_into()?));
-                        println!(
-                            "Timestamp found in get_uptime: ts_val = {}",
-                            timestamp_option.unwrap()
-                        );
-                        uptime = extract_uptime(timestamp_option);
+
+                if data.len() >= 8 {
+
+                    let ts1 = u32::from_ne_bytes(data[0..4].try_into()?);
+                    let ts2 = u32::from_ne_bytes(data[4..8].try_into()?);
+
+                    // Guardamos el timestamp del SYN recibido
+                    if tcp_type == SYN {
+                        last_syn = Some(SynData { ts1, recv_ms: get_unix_time_ms() });
+                    } else if tcp_type == ACK {
+                        last_synack = Some(SynData { ts1, recv_ms: get_unix_time_ms() });
+                    }
+
+                    //println!("get diff?");
+                    // Cálculo de la diferencia de timestamps y la frecuencia de los mismos
+                    if let Some(last_syn_data) = &last_syn {
+                        let ms_diff = get_unix_time_ms() - last_syn_data.recv_ms;
+                        let ts_diff = ts1 - last_syn_data.ts1;
+
+                        println!("previus condition, {}, {}", ms_diff, ts_diff );
+                        if ms_diff >= 25 && ms_diff <= 600000 && ts_diff >= 5 {
+                            println!("in condition");
+                            let ffreq = ts_diff as f64 * 1000.0 / ms_diff as f64;
+
+                            // Rango de frecuencias para ajustar el uptime
+                            if ffreq >= 0.01 && ffreq <= 10.0 {
+                                let freq = ffreq.round() as u32;
+                                uptime = Some(Uptime {
+                                    days: (ts1 / freq / 60 / 60 / 24),
+                                    hours: (ts1 / freq / 60 / 60) % 24,
+                                    min: (ts1 / freq / 60) % 60,
+                                    up_mod_days: u32::MAX / (freq * 60 * 60 * 24),
+                                    freq,
+                                });
+                            }
+                        }
                     }
                 }
 
@@ -372,7 +416,7 @@ fn visit_tcp(
             },
         },
         mtu,
-        update: uptime,
+        uptime,
         client: IpPort {
             ip: client_ip,
             port: client_port,

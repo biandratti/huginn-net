@@ -23,17 +23,14 @@ fn get_unix_time_ms() -> Result<u64, &'static str> {
         .map(|duration| duration.as_millis() as u64)
 }
 
-fn get_uptime(
-    timestamp_option: Option<u32>,
+/*fn get_uptime(
+    timestamp: u32,
     last_syn_ts: u32,
     last_syn_recv_ms: u64,
 ) -> Option<Uptime> {
     println!("start get_uptime");
 
-    // Return None if no timestamp option was found
-    let packet_ts1 = timestamp_option?;
-
-    let now_ms = get_unix_time_ms().ok()?;
+    let now_ms: u64 = get_unix_time_ms().ok()?;
     println!("Current time in ms: now_ms = {}", now_ms);
     println!(
         "Last SYN received time in ms: last_syn_recv_ms = {}",
@@ -43,9 +40,9 @@ fn get_uptime(
     let ms_diff = now_ms.saturating_sub(last_syn_recv_ms);
     println!("ms_diff = {}", ms_diff);
 
-    let ts_diff = packet_ts1.wrapping_sub(last_syn_ts);
+    let ts_diff = timestamp.wrapping_sub(last_syn_ts);
     println!("last_syn_ts = {}", last_syn_ts);
-    println!("packet_ts1 = {}", packet_ts1);
+    println!("timestamp = {}", timestamp);
     println!("ts_diff = {}", ts_diff);
 
     // Adjusted condition to enforce a minimum difference
@@ -78,7 +75,7 @@ fn get_uptime(
         _ => ((ffreq + 67.0) / 100.0).round() as u32 * 100,
     };
 
-    let up_min = packet_ts1 / freq / 60;
+    let up_min = timestamp / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
     Some(Uptime {
@@ -88,18 +85,16 @@ fn get_uptime(
         up_mod_days,
         freq,
     })
-}
+}*/
 
-//TODO: I need to receive a timestamp only
-pub fn extract_uptime(timestamp_option: Option<u32>) -> Option<Uptime> {
-    if let Some(ts_val) = timestamp_option {
-        if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
-            return get_uptime(timestamp_option, ts_val, last_syn_recv_ms);
-        } else {
-            println!("Failed to retrieve the current Unix time.");
-        }
+
+/*pub fn extract_uptime(timestamp: u32, last_syn_ts: u32) -> Option<Uptime> {
+    return if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
+        get_uptime(timestamp, last_syn_ts, last_syn_recv_ms)
     } else {
-        println!("Timestamp option not found in TCP packet.");
+        println!("Failed to retrieve the current Unix time.");
+        None
     }
-    None
+
 }
+*/
