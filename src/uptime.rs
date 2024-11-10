@@ -24,6 +24,7 @@ fn get_unix_time_ms() -> u64 {
 }
 
 pub fn check_ts_tcp(
+    //uptime_data: &mut UptimeData, //TODO: I need to move this parameter here...
     to_server: bool,
     ts_val: u32,
     last_syn_data: &SynData,
@@ -56,7 +57,7 @@ pub fn check_ts_tcp(
                 // f.srv_tps = -1; TODO: Set in None?
             }
         }
-        //return None; TODO: evaluate this condition...
+        return None; //TODO: evaluate this condition...
     }
 
     let freq = match ffreq.round() as u32 {
