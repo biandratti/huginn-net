@@ -1,6 +1,6 @@
-use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-use crate::uptime::{Uptime};
+use crate::uptime::Uptime;
+use crate::{mtu, SynData, UptimeData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -30,33 +30,39 @@ pub struct SignatureDetails {
     pub is_client: bool,
 }
 impl SignatureDetails {
-    pub fn extract(packet: &[u8]) -> Result<Self, Error> {
+    pub fn extract(packet: &[u8], uptime_data: &mut UptimeData) -> Result<Self, Error> {
         EthernetPacket::new(packet)
             .ok_or_else(|| err_msg("ethernet packet too short"))
-            .and_then(|packet| visit_ethernet(packet.get_ethertype(), packet.payload()))
+            .and_then(|packet| {
+                visit_ethernet(packet.get_ethertype(), uptime_data, packet.payload())
+            })
     }
 }
 
-fn visit_ethernet(ethertype: EtherType, payload: &[u8]) -> Result<SignatureDetails, Error> {
+fn visit_ethernet(
+    ethertype: EtherType,
+    uptime_data: &mut UptimeData,
+    payload: &[u8],
+) -> Result<SignatureDetails, Error> {
     match ethertype {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| err_msg("vlan packet too short"))
-            .and_then(visit_vlan),
+            .and_then(|packet| visit_vlan(uptime_data, packet)),
 
         EtherTypes::Ipv4 => Ipv4Packet::new(payload)
             .ok_or_else(|| err_msg("ipv4 packet too short"))
-            .and_then(visit_ipv4),
+            .and_then(|packet| visit_ipv4(uptime_data, packet)),
 
         EtherTypes::Ipv6 => Ipv6Packet::new(payload)
             .ok_or_else(|| err_msg("ipv6 packet too short"))
-            .and_then(visit_ipv6),
+            .and_then(|packet| visit_ipv6(uptime_data, packet)),
 
         ty => bail!("unsupport ethernet type: {}", ty),
     }
 }
 
-fn visit_vlan(packet: VlanPacket) -> Result<SignatureDetails, Error> {
-    visit_ethernet(packet.get_ethertype(), packet.payload())
+fn visit_vlan(uptime_data: &mut UptimeData, packet: VlanPacket) -> Result<SignatureDetails, Error> {
+    visit_ethernet(packet.get_ethertype(), uptime_data, packet.payload())
 }
 
 /// Congestion encountered
@@ -70,7 +76,7 @@ fn is_client(tcp_flags: u8) -> bool {
     tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
 }
 
-fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
+fn visit_ipv4(uptime_data: &mut UptimeData, packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv4 packet with non-TCP payload: {}",
@@ -119,6 +125,7 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|tcp_packet| {
             visit_tcp(
+                uptime_data,
                 &tcp_packet,
                 version,
                 ttl,
@@ -131,7 +138,7 @@ fn visit_ipv4(packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
         })
 }
 
-fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
+fn visit_ipv6(uptime_data: &mut UptimeData, packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv6 packet with non-TCP payload: {}",
@@ -161,6 +168,7 @@ fn visit_ipv6(packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|tcp_packet| {
             visit_tcp(
+                uptime_data,
                 &tcp_packet,
                 version,
                 ttl,
@@ -185,14 +193,9 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
-//TODO: move to uptime
-#[derive(Debug)]
-struct SynData {
-    ts1: u32,
-    recv_ms: u64,
-}
 fn get_unix_time_ms() -> u64 {
-    let duration = SystemTime::now().duration_since(UNIX_EPOCH)
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .expect("Time went backwards"); // Maneja posibles errores, si el sistema tiene un problema con el tiempo
 
     // Convertir a milisegundos
@@ -202,6 +205,7 @@ fn get_unix_time_ms() -> u64 {
 //TODO: WIP: observable tcp params
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
+    uptime_data: &mut UptimeData,
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
@@ -254,8 +258,6 @@ fn visit_tcp(
     let mut wscale = None;
     let mut olayout = vec![];
     let mut uptime: Option<Uptime> = None;
-    let mut last_syn: Option<SynData> = None;
-    let mut last_synack: Option<SynData> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -329,39 +331,40 @@ fn visit_tcp(
                 }
 
                 if data.len() >= 8 {
-
                     let ts1 = u32::from_ne_bytes(data[0..4].try_into()?);
                     let ts2 = u32::from_ne_bytes(data[4..8].try_into()?);
 
-                    // Guardamos el timestamp del SYN recibido
                     if tcp_type == SYN {
-                        last_syn = Some(SynData { ts1, recv_ms: get_unix_time_ms() });
+                        uptime_data.last_syn = Some(SynData {
+                            ts1,
+                            recv_ms: get_unix_time_ms(),
+                        });
                     } else if tcp_type == ACK {
-                        last_synack = Some(SynData { ts1, recv_ms: get_unix_time_ms() });
+                        uptime_data.last_syn_ack = Some(SynData {
+                            ts1,
+                            recv_ms: get_unix_time_ms(),
+                        });
                     }
 
-                    //println!("get diff?");
-                    // Cálculo de la diferencia de timestamps y la frecuencia de los mismos
-                    if let Some(last_syn_data) = &last_syn {
+                    if let Some(last_syn_data) = &uptime_data.last_syn {
                         let ms_diff = get_unix_time_ms() - last_syn_data.recv_ms;
                         let ts_diff = ts1 - last_syn_data.ts1;
 
-                        println!("previus condition, {}, {}", ms_diff, ts_diff );
                         if ms_diff >= 25 && ms_diff <= 600000 && ts_diff >= 5 {
-                            println!("in condition");
                             let ffreq = ts_diff as f64 * 1000.0 / ms_diff as f64;
 
-                            // Rango de frecuencias para ajustar el uptime
-                            if ffreq >= 0.01 && ffreq <= 10.0 {
-                                let freq = ffreq.round() as u32;
-                                uptime = Some(Uptime {
-                                    days: (ts1 / freq / 60 / 60 / 24),
-                                    hours: (ts1 / freq / 60 / 60) % 24,
-                                    min: (ts1 / freq / 60) % 60,
-                                    up_mod_days: u32::MAX / (freq * 60 * 60 * 24),
-                                    freq,
-                                });
-                            }
+                            //println!("ffreq {} ", ffreq);
+                            //if ffreq >= 0.01 && ffreq <= 10.0 {
+
+                            let freq = ffreq.round() as u32;
+                            uptime = Some(Uptime {
+                                days: (ts1 / freq / 60 / 60 / 24),
+                                hours: (ts1 / freq / 60 / 60) % 24,
+                                min: (ts1 / freq / 60) % 60,
+                                up_mod_days: u32::MAX / (freq * 60 * 60 * 24),
+                                freq,
+                            });
+                            //}
                         }
                     }
                 }
@@ -399,6 +402,7 @@ fn visit_tcp(
         (wsize, _) => WindowSize::Value(wsize),
     };
 
+    //uptime.clone().map(|u| println!("{}", u.hours));
     Ok(SignatureDetails {
         signature: Signature {
             version,

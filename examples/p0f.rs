@@ -10,7 +10,7 @@ struct Args {
     interface: String,
 }
 
-fn start_capture(interface_name: &str, p0f: &P0f) {
+fn start_capture(interface_name: &str, p0f: &mut P0f) {
     let interfaces: Vec<NetworkInterface> = datalink::interfaces();
     let interface = interfaces
         .into_iter()
@@ -48,6 +48,6 @@ fn main() {
     let db = Database::default();
     debug!("Loaded database: {:?}", db);
 
-    let p0f = P0f::new(&db);
-    start_capture(&interface_name, &p0f);
+    let mut p0f = P0f::new(&db);
+    start_capture(&interface_name, &mut p0f);
 }

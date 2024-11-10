@@ -6,7 +6,6 @@ const MAX_TWAIT: u64 = 24 * 60 * 60 * 1000; // Maximum time wait in milliseconds
 const MIN_TSCALE: f64 = 0.1;
 const MAX_TSCALE: f64 = 1000.0;
 
-//TODO: rename to uptime
 pub struct Uptime {
     pub days: u32,
     pub hours: u32,
@@ -86,7 +85,6 @@ fn get_unix_time_ms() -> Result<u64, &'static str> {
         freq,
     })
 }*/
-
 
 /*pub fn extract_uptime(timestamp: u32, last_syn_ts: u32) -> Option<Uptime> {
     return if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
