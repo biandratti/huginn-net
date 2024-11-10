@@ -1,10 +1,12 @@
+use crate::SynData;
+use pnet::packet::tcp::TcpFlags::SYN;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const MIN_TWAIT: u64 = 1000; // Minimum time wait in milliseconds (1 second)
-const MAX_TWAIT: u64 = 24 * 60 * 60 * 1000; // Maximum time wait in milliseconds (24 hours)
-
-const MIN_TSCALE: f64 = 0.1;
+const MIN_TWAIT: u64 = 25;
+const MAX_TWAIT: u64 = 10 * 60 * 1000;
+const TSTAMP_GRACE: u64 = 1000;
 const MAX_TSCALE: f64 = 1000.0;
+const MIN_TSCALE: f64 = 0.01;
 
 pub struct Uptime {
     pub days: u32,
@@ -14,67 +16,59 @@ pub struct Uptime {
     pub freq: u32,
 }
 
-/// Extract the current Unix time in milliseconds
-fn get_unix_time_ms() -> Result<u64, &'static str> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| "Time error")
-        .map(|duration| duration.as_millis() as u64)
+fn get_unix_time_ms() -> u64 {
+    let now = SystemTime::now();
+    now.duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis() as u64
 }
 
-/*fn get_uptime(
-    timestamp: u32,
-    last_syn_ts: u32,
-    last_syn_recv_ms: u64,
+pub fn check_ts_tcp(
+    to_server: bool,
+    ts_val: u32,
+    last_syn_data: &SynData,
+    tcp_type: u8,
 ) -> Option<Uptime> {
-    println!("start get_uptime");
+    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
+    let ts_diff = ts_val.saturating_sub(last_syn_data.ts1);
 
-    let now_ms: u64 = get_unix_time_ms().ok()?;
-    println!("Current time in ms: now_ms = {}", now_ms);
-    println!(
-        "Last SYN received time in ms: last_syn_recv_ms = {}",
-        last_syn_recv_ms
-    );
-
-    let ms_diff = now_ms.saturating_sub(last_syn_recv_ms);
-    println!("ms_diff = {}", ms_diff);
-
-    let ts_diff = timestamp.wrapping_sub(last_syn_ts);
-    println!("last_syn_ts = {}", last_syn_ts);
-    println!("timestamp = {}", timestamp);
-    println!("ts_diff = {}", ts_diff);
-
-    // Adjusted condition to enforce a minimum difference
-    if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT || ts_diff <= 0 {
-        println!("Condition failed: ms_diff or ts_diff out of bounds.");
+    if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT {
         return None;
     }
 
-    // Optionally, enforce a minimum delta to prevent processing duplicates
-    if ms_diff == 0 && ts_diff == 0 {
-        println!(
-            "Condition failed: both ms_diff and ts_diff are zero (potential duplicate packet)."
-        );
+    if ts_diff < 5
+        || (ms_diff < TSTAMP_GRACE && ts_diff.wrapping_neg() as u64 / 1000 < MAX_TSCALE as u64)
+    {
         return None;
     }
 
-    let ffreq = ts_diff as f64 * 1000.0 / ms_diff as f64;
-
-    if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
-        println!("Condition failed: ffreq out of bounds.");
-        return None;
-    }
-
-    let freq = match ffreq as u32 {
-        0 => 1,
-        1..=10 => ffreq as u32,
-        11..=50 => ((ffreq + 3.0) / 5.0).round() as u32 * 5,
-        51..=100 => ((ffreq + 7.0) / 10.0).round() as u32 * 10,
-        101..=500 => ((ffreq + 33.0) / 50.0).round() as u32 * 50,
-        _ => ((ffreq + 67.0) / 100.0).round() as u32 * 100,
+    let ffreq = if ts_diff > ts_diff.wrapping_neg() {
+        ts_diff.wrapping_neg() as f64 * -1000.0 / ms_diff as f64
+    } else {
+        ts_diff as f64 * 1000.0 / ms_diff as f64
     };
 
-    let up_min = timestamp / freq / 60;
+    if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
+        if tcp_type != SYN {
+            if to_server {
+                // f.cli_tps = -1; // Mark as invalid frequency TODO: Set in None?
+            } else {
+                // f.srv_tps = -1; TODO: Set in None?
+            }
+        }
+        //return None; TODO: evaluate this condition...
+    }
+
+    let freq = match ffreq.round() as u32 {
+        0 => 1,
+        1..=10 => ffreq.round() as u32,
+        11..=50 => ((ffreq.round() + 3.0) / 5.0).round() as u32 * 5,
+        51..=100 => ((ffreq.round() + 7.0) / 10.0).round() as u32 * 10,
+        101..=500 => ((ffreq.round() + 33.0) / 50.0).round() as u32 * 50,
+        _ => ((ffreq.round() + 67.0) / 100.0).round() as u32 * 100,
+    };
+
+    let up_min = ts_val / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
     Some(Uptime {
@@ -84,15 +78,4 @@ fn get_unix_time_ms() -> Result<u64, &'static str> {
         up_mod_days,
         freq,
     })
-}*/
-
-/*pub fn extract_uptime(timestamp: u32, last_syn_ts: u32) -> Option<Uptime> {
-    return if let Ok(last_syn_recv_ms) = get_unix_time_ms() {
-        get_uptime(timestamp, last_syn_ts, last_syn_recv_ms)
-    } else {
-        println!("Failed to retrieve the current Unix time.");
-        None
-    }
-
 }
-*/

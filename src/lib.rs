@@ -19,21 +19,21 @@ struct SynData {
     recv_ms: u64,
 }
 struct UptimeData {
-    last_syn: Option<SynData>,
-    last_syn_ack: Option<SynData>,
+    client: Option<SynData>,
+    server: Option<SynData>,
 }
 
 pub struct P0f<'a> {
     pub matcher: SignatureMatcher<'a>,
-    pub uptime_data: UptimeData,
+    uptime_data: UptimeData,
 }
 
 impl<'a> P0f<'a> {
     pub fn new(database: &'a Database) -> Self {
         let matcher = SignatureMatcher::new(database);
         let uptime_data = UptimeData {
-            last_syn: None,
-            last_syn_ack: None,
+            client: None,
+            server: None,
         };
         Self {
             matcher,
@@ -41,7 +41,6 @@ impl<'a> P0f<'a> {
         }
     }
 
-    // Cambiamos `&self` a `&mut self` para permitir mutabilidad en `uptime_data`
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         if let Ok(signature_details) = SignatureDetails::extract(packet, &mut self.uptime_data) {
             if signature_details.is_client {

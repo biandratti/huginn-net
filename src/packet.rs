@@ -1,5 +1,5 @@
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-use crate::uptime::Uptime;
+use crate::uptime::{check_ts_tcp, Uptime};
 use crate::{mtu, SynData, UptimeData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
@@ -331,41 +331,28 @@ fn visit_tcp(
                 }
 
                 if data.len() >= 8 {
-                    let ts1 = u32::from_ne_bytes(data[0..4].try_into()?);
-                    let ts2 = u32::from_ne_bytes(data[4..8].try_into()?);
+                    let ts_val = u32::from_ne_bytes(data[..4].try_into()?);
+
+                    let last_syn_data = if tcp_type == SYN {
+                        uptime_data.client.as_ref()
+                    } else {
+                        uptime_data.server.as_ref()
+                    };
+
+                    if let Some(last_syn_data) = last_syn_data {
+                        uptime = check_ts_tcp(is_client, ts_val, last_syn_data, tcp_type);
+                    }
 
                     if tcp_type == SYN {
-                        uptime_data.last_syn = Some(SynData {
-                            ts1,
+                        uptime_data.client = Some(SynData {
+                            ts1: ts_val,
                             recv_ms: get_unix_time_ms(),
                         });
                     } else if tcp_type == ACK {
-                        uptime_data.last_syn_ack = Some(SynData {
-                            ts1,
+                        uptime_data.server = Some(SynData {
+                            ts1: ts_val,
                             recv_ms: get_unix_time_ms(),
                         });
-                    }
-
-                    if let Some(last_syn_data) = &uptime_data.last_syn {
-                        let ms_diff = get_unix_time_ms() - last_syn_data.recv_ms;
-                        let ts_diff = ts1 - last_syn_data.ts1;
-
-                        if ms_diff >= 25 && ms_diff <= 600000 && ts_diff >= 5 {
-                            let ffreq = ts_diff as f64 * 1000.0 / ms_diff as f64;
-
-                            //println!("ffreq {} ", ffreq);
-                            //if ffreq >= 0.01 && ffreq <= 10.0 {
-
-                            let freq = ffreq.round() as u32;
-                            uptime = Some(Uptime {
-                                days: (ts1 / freq / 60 / 60 / 24),
-                                hours: (ts1 / freq / 60 / 60) % 24,
-                                min: (ts1 / freq / 60) % 60,
-                                up_mod_days: u32::MAX / (freq * 60 * 60 * 24),
-                                freq,
-                            });
-                            //}
-                        }
                     }
                 }
 
