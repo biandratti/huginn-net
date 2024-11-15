@@ -1,4 +1,4 @@
-use crate::SynData;
+use crate::UptimeData;
 use pnet::packet::tcp::TcpFlags::SYN;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -24,14 +24,18 @@ fn get_unix_time_ms() -> u64 {
 }
 
 pub fn check_ts_tcp(
-    //uptime_data: &mut UptimeData, //TODO: I need to move this parameter here...
+    uptime_data: &mut UptimeData, //TODO: I need to move this parameter here...
     to_server: bool,
     ts_val: u32,
-    last_syn_data: &SynData,
     tcp_type: u8,
 ) -> Option<Uptime> {
-    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
-    let ts_diff = ts_val.saturating_sub(last_syn_data.ts1);
+    let last_syn_data = if tcp_type == SYN {
+        uptime_data.client.as_ref()
+    } else {
+        uptime_data.server.as_ref()
+    };
+    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data?.recv_ms);
+    let ts_diff = ts_val.saturating_sub(last_syn_data?.ts1);
 
     if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT {
         return None;
@@ -52,8 +56,14 @@ pub fn check_ts_tcp(
     if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
         if tcp_type != SYN {
             if to_server {
+                if let Some(client) = uptime_data.client.as_mut() {
+                    client.ts1 = 1; // TODO -1?
+                }
                 // f.cli_tps = -1; // Mark as invalid frequency TODO: Set in None?
             } else {
+                if let Some(server) = uptime_data.server.as_mut() {
+                    server.ts1 = 1; // TODO -1?
+                }
                 // f.srv_tps = -1; TODO: Set in None?
             }
         }

@@ -333,16 +333,9 @@ fn visit_tcp(
                 if data.len() >= 8 {
                     let ts_val = u32::from_ne_bytes(data[..4].try_into()?);
 
-                    let last_syn_data = if tcp_type == SYN {
-                        uptime_data.client.as_ref()
-                    } else {
-                        uptime_data.server.as_ref()
-                    };
+                    uptime = check_ts_tcp(uptime_data, is_client, ts_val, tcp_type);
 
-                    if let Some(last_syn_data) = last_syn_data {
-                        uptime = check_ts_tcp(is_client, ts_val, last_syn_data, tcp_type);
-                    }
-
+                    //TODO: move...
                     if tcp_type == SYN {
                         uptime_data.client = Some(SynData {
                             ts1: ts_val,
