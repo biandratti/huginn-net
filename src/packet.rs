@@ -1,6 +1,6 @@
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, Uptime};
-use crate::{mtu, SynData, UptimeData};
+use crate::{mtu, UptimeData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -13,7 +13,6 @@ use pnet::packet::{
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
 pub struct IpPort {
@@ -193,15 +192,6 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
-fn get_unix_time_ms() -> u64 {
-    let duration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards"); // Maneja posibles errores, si el sistema tiene un problema con el tiempo
-
-    // Convertir a milisegundos
-    duration.as_millis() as u64
-}
-
 //TODO: WIP: observable tcp params
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
@@ -331,22 +321,8 @@ fn visit_tcp(
                 }
 
                 if data.len() >= 8 {
-                    let ts_val = u32::from_ne_bytes(data[..4].try_into()?);
-
+                    let ts_val: u32 = u32::from_ne_bytes(data[..4].try_into()?);
                     uptime = check_ts_tcp(uptime_data, is_client, ts_val, tcp_type);
-
-                    //TODO: move...
-                    if tcp_type == SYN {
-                        uptime_data.client = Some(SynData {
-                            ts1: ts_val,
-                            recv_ms: get_unix_time_ms(),
-                        });
-                    } else if tcp_type == ACK {
-                        uptime_data.server = Some(SynData {
-                            ts1: ts_val,
-                            recv_ms: get_unix_time_ms(),
-                        });
-                    }
                 }
 
                 /*if data.len() != 10 {

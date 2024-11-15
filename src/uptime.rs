@@ -1,5 +1,5 @@
-use crate::UptimeData;
-use pnet::packet::tcp::TcpFlags::SYN;
+use crate::{SynData, UptimeData};
+use pnet::packet::tcp::TcpFlags::{ACK, SYN};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const MIN_TWAIT: u64 = 25;
@@ -24,7 +24,7 @@ fn get_unix_time_ms() -> u64 {
 }
 
 pub fn check_ts_tcp(
-    uptime_data: &mut UptimeData, //TODO: I need to move this parameter here...
+    uptime_data: &mut UptimeData,
     to_server: bool,
     ts_val: u32,
     tcp_type: u8,
@@ -81,6 +81,18 @@ pub fn check_ts_tcp(
 
     let up_min = ts_val / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
+
+    if tcp_type == SYN {
+        uptime_data.client = Some(SynData {
+            ts1: ts_val,
+            recv_ms: get_unix_time_ms(),
+        });
+    } else if tcp_type == ACK {
+        uptime_data.server = Some(SynData {
+            ts1: ts_val,
+            recv_ms: get_unix_time_ms(),
+        });
+    }
 
     Some(Uptime {
         days: up_min / 60 / 24,
