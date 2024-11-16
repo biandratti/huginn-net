@@ -29,47 +29,56 @@ pub fn check_ts_tcp(
     ts_val: u32,
     tcp_type: u8,
 ) -> Option<Uptime> {
-    let last_syn_data = if tcp_type == SYN {
+    // If no timestamp or if the connection is still in SYN state, return early
+    if ts_val == 0 || uptime_data.sendsyn {
+        return None;
+    }
+
+    // Select the correct side (client or server) based on the `to_server` flag
+    let last_syn_data: Option<&SynData> = if to_server {
         uptime_data.client.as_ref()
     } else {
         uptime_data.server.as_ref()
     };
-    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data?.recv_ms);
-    let ts_diff = ts_val.saturating_sub(last_syn_data?.ts1);
 
+    // If there's no valid SYN data yet, return early
+    let last_syn_data = last_syn_data?;
+    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
+    let ts_diff = ts_val.saturating_sub(last_syn_data.ts1);
+
+    // Check if the time differences are valid
     if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT {
         return None;
     }
 
     if ts_diff < 5
-        || (ms_diff < TSTAMP_GRACE && ts_diff.wrapping_neg() as u64 / 1000 < MAX_TSCALE as u64)
+        || (ms_diff < TSTAMP_GRACE
+            && ts_diff.wrapping_neg() as u64 / 1000 < (MAX_TSCALE as u64 / TSTAMP_GRACE))
     {
         return None;
     }
 
+    // Calculate the timestamp frequency
     let ffreq = if ts_diff > ts_diff.wrapping_neg() {
         ts_diff.wrapping_neg() as f64 * -1000.0 / ms_diff as f64
     } else {
         ts_diff as f64 * 1000.0 / ms_diff as f64
     };
 
+    // Check if the frequency is within acceptable bounds
     if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
+        // Allow invalid readings on SYN, might be caused by IP sharing or OS changes
         if tcp_type != SYN {
             if to_server {
-                if let Some(client) = uptime_data.client.as_mut() {
-                    client.ts1 = 1; // TODO -1?
-                }
-                // f.cli_tps = -1; // Mark as invalid frequency TODO: Set in None?
+                uptime_data.client = None; // Mark client as invalid
             } else {
-                if let Some(server) = uptime_data.server.as_mut() {
-                    server.ts1 = 1; // TODO -1?
-                }
-                // f.srv_tps = -1; TODO: Set in None?
+                uptime_data.server = None; // Mark server as invalid
             }
         }
-        return None; //TODO: evaluate this condition...
+        return None;
     }
 
+    // Round the frequency to the nearest valid value
     let freq = match ffreq.round() as u32 {
         0 => 1,
         1..=10 => ffreq.round() as u32,
@@ -79,10 +88,13 @@ pub fn check_ts_tcp(
         _ => ((ffreq.round() + 67.0) / 100.0).round() as u32 * 100,
     };
 
+    // Calculate uptime in minutes and modulo days
     let up_min = ts_val / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
+    // Store the last timestamp for client or server, depending on direction
     if tcp_type == SYN {
+        uptime_data.sendsyn = true;
         uptime_data.client = Some(SynData {
             ts1: ts_val,
             recv_ms: get_unix_time_ms(),

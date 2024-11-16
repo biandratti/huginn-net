@@ -21,6 +21,7 @@ struct SynData {
 struct UptimeData {
     client: Option<SynData>,
     server: Option<SynData>,
+    sendsyn: bool,
 }
 
 pub struct P0f<'a> {
@@ -34,6 +35,7 @@ impl<'a> P0f<'a> {
         let uptime_data = UptimeData {
             client: None,
             server: None,
+            sendsyn: false,
         };
         Self {
             matcher,
