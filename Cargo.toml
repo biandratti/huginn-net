@@ -17,6 +17,7 @@ regex = "1.11.1"
 failure = "0.1.8"
 log = "0.4.22"
 lazy_static = "1.5.0"
+ttl_cache = "0.5.1"
 
 [lib]
 name = "passivetcp"

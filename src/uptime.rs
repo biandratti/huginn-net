@@ -1,6 +1,6 @@
-use crate::{SynData, UptimeData};
-use pnet::packet::tcp::TcpFlags::{ACK, SYN};
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::{Connection, SynData};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use ttl_cache::TtlCache;
 
 const MIN_TWAIT: u64 = 25;
 const MAX_TWAIT: u64 = 10 * 60 * 1000;
@@ -24,25 +24,33 @@ fn get_unix_time_ms() -> u64 {
 }
 
 pub fn check_ts_tcp(
-    uptime_data: &mut UptimeData,
-    to_server: bool,
+    cache: &mut TtlCache<Connection, SynData>,
+    connection: &Connection,
+    is_client: bool,
     ts_val: u32,
-    tcp_type: u8,
 ) -> Option<Uptime> {
-    // If no timestamp or if the connection is still in SYN state, return early
-    if ts_val == 0 || uptime_data.sendsyn {
-        return None;
-    }
-
-    // Select the correct side (client or server) based on the `to_server` flag
-    let last_syn_data: Option<&SynData> = if to_server {
-        uptime_data.client.as_ref()
+    let syn_data: Option<&SynData> = if !is_client {
+        let client_connection = Connection {
+            src_ip: connection.dst_ip.clone(),
+            src_port: connection.dst_port,
+            dst_ip: connection.src_ip.clone(),
+            dst_port: connection.src_port,
+        };
+        cache.get(&client_connection)
     } else {
-        uptime_data.server.as_ref()
+        cache.insert(
+            connection.clone(),
+            SynData {
+                ts1: ts_val,
+                recv_ms: get_unix_time_ms(),
+            },
+            Duration::new(60, 0),
+        );
+        None
     };
 
     // If there's no valid SYN data yet, return early
-    let last_syn_data = last_syn_data?;
+    let last_syn_data = syn_data?;
     let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
     let ts_diff = ts_val.saturating_sub(last_syn_data.ts1);
 
@@ -67,14 +75,6 @@ pub fn check_ts_tcp(
 
     // Check if the frequency is within acceptable bounds
     if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
-        // Allow invalid readings on SYN, might be caused by IP sharing or OS changes
-        if tcp_type != SYN {
-            if to_server {
-                uptime_data.client = None; // Mark client as invalid
-            } else {
-                uptime_data.server = None; // Mark server as invalid
-            }
-        }
         return None;
     }
 
@@ -91,20 +91,6 @@ pub fn check_ts_tcp(
     // Calculate uptime in minutes and modulo days
     let up_min = ts_val / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
-
-    // Store the last timestamp for client or server, depending on direction
-    if tcp_type == SYN {
-        uptime_data.sendsyn = true;
-        uptime_data.client = Some(SynData {
-            ts1: ts_val,
-            recv_ms: get_unix_time_ms(),
-        });
-    } else if tcp_type == ACK {
-        uptime_data.server = Some(SynData {
-            ts1: ts_val,
-            recv_ms: get_unix_time_ms(),
-        });
-    }
 
     Some(Uptime {
         days: up_min / 60 / 24,

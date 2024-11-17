@@ -1,6 +1,6 @@
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, Uptime};
-use crate::{mtu, UptimeData};
+use crate::{mtu, Connection, SynData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -13,6 +13,7 @@ use pnet::packet::{
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
+use ttl_cache::TtlCache;
 
 #[derive(Clone)]
 pub struct IpPort {
@@ -29,39 +30,43 @@ pub struct SignatureDetails {
     pub is_client: bool,
 }
 impl SignatureDetails {
-    pub fn extract(packet: &[u8], uptime_data: &mut UptimeData) -> Result<Self, Error> {
+    pub fn extract(
+        packet: &[u8],
+        cache: &mut TtlCache<Connection, SynData>,
+    ) -> Result<Self, Error> {
         EthernetPacket::new(packet)
             .ok_or_else(|| err_msg("ethernet packet too short"))
-            .and_then(|packet| {
-                visit_ethernet(packet.get_ethertype(), uptime_data, packet.payload())
-            })
+            .and_then(|packet| visit_ethernet(packet.get_ethertype(), cache, packet.payload()))
     }
 }
 
 fn visit_ethernet(
     ethertype: EtherType,
-    uptime_data: &mut UptimeData,
+    cache: &mut TtlCache<Connection, SynData>,
     payload: &[u8],
 ) -> Result<SignatureDetails, Error> {
     match ethertype {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| err_msg("vlan packet too short"))
-            .and_then(|packet| visit_vlan(uptime_data, packet)),
+            .and_then(|packet| visit_vlan(cache, packet)),
 
         EtherTypes::Ipv4 => Ipv4Packet::new(payload)
             .ok_or_else(|| err_msg("ipv4 packet too short"))
-            .and_then(|packet| visit_ipv4(uptime_data, packet)),
+            .and_then(|packet| visit_ipv4(cache, packet)),
 
         EtherTypes::Ipv6 => Ipv6Packet::new(payload)
             .ok_or_else(|| err_msg("ipv6 packet too short"))
-            .and_then(|packet| visit_ipv6(uptime_data, packet)),
+            .and_then(|packet| visit_ipv6(cache, packet)),
 
         ty => bail!("unsupport ethernet type: {}", ty),
     }
 }
 
-fn visit_vlan(uptime_data: &mut UptimeData, packet: VlanPacket) -> Result<SignatureDetails, Error> {
-    visit_ethernet(packet.get_ethertype(), uptime_data, packet.payload())
+fn visit_vlan(
+    cache: &mut TtlCache<Connection, SynData>,
+    packet: VlanPacket,
+) -> Result<SignatureDetails, Error> {
+    visit_ethernet(packet.get_ethertype(), cache, packet.payload())
 }
 
 /// Congestion encountered
@@ -75,7 +80,10 @@ fn is_client(tcp_flags: u8) -> bool {
     tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
 }
 
-fn visit_ipv4(uptime_data: &mut UptimeData, packet: Ipv4Packet) -> Result<SignatureDetails, Error> {
+fn visit_ipv4(
+    cache: &mut TtlCache<Connection, SynData>,
+    packet: Ipv4Packet,
+) -> Result<SignatureDetails, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv4 packet with non-TCP payload: {}",
@@ -124,7 +132,7 @@ fn visit_ipv4(uptime_data: &mut UptimeData, packet: Ipv4Packet) -> Result<Signat
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|tcp_packet| {
             visit_tcp(
-                uptime_data,
+                cache,
                 &tcp_packet,
                 version,
                 ttl,
@@ -137,7 +145,10 @@ fn visit_ipv4(uptime_data: &mut UptimeData, packet: Ipv4Packet) -> Result<Signat
         })
 }
 
-fn visit_ipv6(uptime_data: &mut UptimeData, packet: Ipv6Packet) -> Result<SignatureDetails, Error> {
+fn visit_ipv6(
+    cache: &mut TtlCache<Connection, SynData>,
+    packet: Ipv6Packet,
+) -> Result<SignatureDetails, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv6 packet with non-TCP payload: {}",
@@ -167,7 +178,7 @@ fn visit_ipv6(uptime_data: &mut UptimeData, packet: Ipv6Packet) -> Result<Signat
         .ok_or_else(|| err_msg("TCP packet too short"))
         .and_then(|tcp_packet| {
             visit_tcp(
-                uptime_data,
+                cache,
                 &tcp_packet,
                 version,
                 ttl,
@@ -195,15 +206,15 @@ fn guess_dist(ttl: u8) -> u8 {
 //TODO: WIP: observable tcp params
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
-    uptime_data: &mut UptimeData,
+    cache: &mut TtlCache<Connection, SynData>,
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
     ip_package_header_length: u8,
     olen: u8,
     mut quirks: Vec<Quirk>,
-    client_ip: IpAddr,
-    server_ip: IpAddr,
+    source_ip: IpAddr,      // TODO: rename ALL to source
+    destination_ip: IpAddr, // TODO: rename ALL to destination
 ) -> Result<SignatureDetails, Error> {
     use TcpFlags::*;
 
@@ -322,7 +333,13 @@ fn visit_tcp(
 
                 if data.len() >= 8 {
                     let ts_val: u32 = u32::from_ne_bytes(data[..4].try_into()?);
-                    uptime = check_ts_tcp(uptime_data, is_client, ts_val, tcp_type);
+                    let connection: Connection = Connection {
+                        src_ip: source_ip,
+                        src_port: tcp.get_source(),
+                        dst_ip: destination_ip,
+                        dst_port: tcp.get_destination(),
+                    };
+                    uptime = check_ts_tcp(cache, &connection, is_client, ts_val);
                 }
 
                 /*if data.len() != 10 {
@@ -378,11 +395,11 @@ fn visit_tcp(
         mtu,
         uptime,
         client: IpPort {
-            ip: client_ip,
+            ip: source_ip,
             port: client_port,
         },
         server: IpPort {
-            ip: server_ip,
+            ip: destination_ip,
             port: server_port,
         },
         is_client,
