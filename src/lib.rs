@@ -34,19 +34,10 @@ pub struct P0f<'a> {
 }
 
 impl<'a> P0f<'a> {
-    pub fn new(database: &'a Database) -> Self {
-        let matcher = SignatureMatcher::new(database);
-        let cache: TtlCache<Connection, SynData> = TtlCache::new(100); // TODO: capacity by param...
-                                                                       /*let uptime_data = UptimeData {
-                                                                           client: None,
-                                                                           server: None,
-                                                                           sendsyn: false,
-                                                                       };*/
-        Self {
-            matcher,
-            cache,
-            //uptime_data,
-        }
+    pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
+        let matcher: SignatureMatcher = SignatureMatcher::new(database);
+        let cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
+        Self { matcher, cache }
     }
 
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
@@ -85,15 +76,7 @@ impl<'a> P0f<'a> {
                 P0fOutput {
                     syn_ack,
                     mtu,
-                    uptime: signature_details.uptime.map(|update| UptimeOutput {
-                        client: signature_details.client,
-                        server: signature_details.server,
-                        days: update.days,
-                        hours: update.hours,
-                        min: update.min,
-                        up_mod_days: update.up_mod_days,
-                        freq: update.freq,
-                    }),
+                    uptime: None,
                 }
             } else {
                 let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =

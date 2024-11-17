@@ -48,6 +48,6 @@ fn main() {
     let db = Database::default();
     debug!("Loaded database: {:?}", db);
 
-    let mut p0f = P0f::new(&db);
+    let mut p0f = P0f::new(&db, 100);
     start_capture(&interface_name, &mut p0f);
 }
