@@ -31,9 +31,9 @@ pub fn check_ts_tcp(
 ) -> Option<Uptime> {
     let syn_data: Option<&SynData> = if !is_client {
         let client_connection = Connection {
-            src_ip: connection.dst_ip.clone(),
+            src_ip: connection.dst_ip,
             src_port: connection.dst_port,
-            dst_ip: connection.src_ip.clone(),
+            dst_ip: connection.src_ip,
             dst_port: connection.src_port,
         };
         cache.get(&client_connection)
@@ -55,7 +55,7 @@ pub fn check_ts_tcp(
     let ts_diff = ts_val.saturating_sub(last_syn_data.ts1);
 
     // Check if the time differences are valid
-    if ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT {
+    if !(MIN_TWAIT..=MAX_TWAIT).contains(&ms_diff) {
         return None;
     }
 
@@ -74,7 +74,8 @@ pub fn check_ts_tcp(
     };
 
     // Check if the frequency is within acceptable bounds
-    if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
+    //TODO : problem here
+    if !(MIN_TSCALE..=MAX_TSCALE).contains(&ffreq) {
         return None;
     }
 
