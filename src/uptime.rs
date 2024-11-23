@@ -1,5 +1,6 @@
 use crate::{Connection, SynData};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use log::debug;
 use ttl_cache::TtlCache;
 
 const MIN_TWAIT: u64 = 25;
@@ -51,8 +52,9 @@ pub fn check_ts_tcp(
 
     // If there's no valid SYN data yet, return early
     let last_syn_data = syn_data?;
-    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
-    let ts_diff = ts_val.saturating_sub(last_syn_data.ts1);
+    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms) ;
+    // TODO: check if ts_diff is in nanoseconds
+    let ts_diff = (ts_val.saturating_sub(last_syn_data.ts1)  / 1000000) as u64;
 
     // Check if the time differences are valid
     if !(MIN_TWAIT..=MAX_TWAIT).contains(&ms_diff) {
@@ -61,21 +63,21 @@ pub fn check_ts_tcp(
 
     if ts_diff < 5
         || (ms_diff < TSTAMP_GRACE
-            && ts_diff.wrapping_neg() as u64 / 1000 < (MAX_TSCALE as u64 / TSTAMP_GRACE))
+            && ts_diff.wrapping_neg() / 1000 < (MAX_TSCALE as u64 / TSTAMP_GRACE))
     {
         return None;
     }
 
     // Calculate the timestamp frequency
-    let ffreq = if ts_diff > ts_diff.wrapping_neg() {
+    let ffreq: f64 = if ts_diff > ts_diff.wrapping_neg() {
         ts_diff.wrapping_neg() as f64 * -1000.0 / ms_diff as f64
     } else {
         ts_diff as f64 * 1000.0 / ms_diff as f64
     };
 
     // Check if the frequency is within acceptable bounds
-    //TODO : problem here
-    if !(MIN_TSCALE..=MAX_TSCALE).contains(&ffreq) {
+    if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
+        debug!("Invalid frequency: ffreq={}, ts_diff={}, ms_diff={}", ffreq, ts_diff, ms_diff);
         return None;
     }
 
