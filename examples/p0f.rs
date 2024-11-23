@@ -10,7 +10,7 @@ struct Args {
     interface: String,
 }
 
-fn start_capture(interface_name: &str, p0f: &P0f) {
+fn start_capture(interface_name: &str, p0f: &mut P0f) {
     let interfaces: Vec<NetworkInterface> = datalink::interfaces();
     let interface = interfaces
         .into_iter()
@@ -34,6 +34,7 @@ fn start_capture(interface_name: &str, p0f: &P0f) {
                 let p0f_output = p0f.analyze_tcp(packet);
                 p0f_output.syn_ack.map(|syn_ack| println!("{}", syn_ack));
                 p0f_output.mtu.map(|mtu| println!("{}", mtu));
+                p0f_output.uptime.map(|uptime| println!("{}", uptime));
             }
             Err(e) => eprintln!("Failed to read packet: {}", e),
         }
@@ -47,6 +48,6 @@ fn main() {
     let db = Database::default();
     debug!("Loaded database: {:?}", db);
 
-    let p0f = P0f::new(&db);
-    start_capture(&interface_name, &p0f);
+    let mut p0f = P0f::new(&db, 100);
+    start_capture(&interface_name, &mut p0f);
 }
