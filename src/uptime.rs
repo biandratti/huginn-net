@@ -1,6 +1,6 @@
 use crate::{Connection, SynData};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use log::debug;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ttl_cache::TtlCache;
 
 const MIN_TWAIT: u64 = 25;
@@ -52,9 +52,9 @@ pub fn check_ts_tcp(
 
     // If there's no valid SYN data yet, return early
     let last_syn_data = syn_data?;
-    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms) ;
+    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
     // TODO: check if ts_diff is in nanoseconds
-    let ts_diff = (ts_val.saturating_sub(last_syn_data.ts1)  / 1000000) as u64;
+    let ts_diff = (ts_val.saturating_sub(last_syn_data.ts1) / 1000000) as u64;
 
     // Check if the time differences are valid
     if !(MIN_TWAIT..=MAX_TWAIT).contains(&ms_diff) {
@@ -76,8 +76,11 @@ pub fn check_ts_tcp(
     };
 
     // Check if the frequency is within acceptable bounds
-    if ffreq < MIN_TSCALE || ffreq > MAX_TSCALE {
-        debug!("Invalid frequency: ffreq={}, ts_diff={}, ms_diff={}", ffreq, ts_diff, ms_diff);
+    if !(MIN_TSCALE..=MAX_TSCALE).contains(&ffreq) {
+        debug!(
+            "Invalid frequency: ffreq={}, ts_diff={}, ms_diff={}",
+            ffreq, ts_diff, ms_diff
+        );
         return None;
     }
 
