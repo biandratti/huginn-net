@@ -4,26 +4,34 @@ use crate::tcp::{Signature, Ttl};
 use std::fmt;
 
 pub struct P0fOutput {
-    pub syn_ack: Option<SynAckTCPOutput>, //TODO: add syn
+    pub syn: Option<SynTCPOutput>,
+    pub syn_ack: Option<SynAckTCPOutput>,
     pub mtu: Option<MTUOutput>,
     pub uptime: Option<UptimeOutput>,
 }
 
-pub struct SynAckTCPOutput {
+pub struct SynTCPOutput {
     pub source: IpPort,
-    pub destination: IpPort, //TODO: Option<IpPort>,
-    pub is_client: bool,
+    pub destination: IpPort,
     pub label: Option<Label>,
     pub sig: Signature,
 }
 
-impl fmt::Display for SynAckTCPOutput {
+pub struct SynAckTCPOutput {
+    pub source: IpPort,
+    pub destination: IpPort,
+    pub label: Option<Label>,
+    pub sig: Signature,
+}
+
+impl fmt::Display for SynTCPOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} ({}) ]-\n\
+            ".-[ {}/{} -> {}/{} (syn) ]-\n\
             |\n\
-            | {}   = {}/{}\n\
+            | client   = {}/{}\n\
+            | os       = {}/{}\n\
             | dist     = {}\n\
             | params   = {}\n\
             | raw_sig  = {}\n\
@@ -32,8 +40,42 @@ impl fmt::Display for SynAckTCPOutput {
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            if self.is_client { "syn" } else { "syn+ack" },
-            if self.is_client { "client" } else { "server" },
+            self.source.ip,
+            self.source.port,
+            self.label.as_ref().map_or("Unknown", |l| &l.name),
+            self.label
+                .as_ref()
+                .map_or("Unknown", |l| l.flavor.as_deref().unwrap_or("Unknown")),
+            match self.sig.ittl {
+                Ttl::Distance(_, distance) => distance,
+                _ => "Unknown".parse().unwrap(),
+            },
+            self.label
+                .as_ref()
+                .map_or("Unknown".to_string(), |l| l.ty.to_string()),
+            self.sig,
+        )
+    }
+}
+
+impl fmt::Display for SynAckTCPOutput {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (syn+ack) ]-\n\
+            |\n\
+            | server   = {}/{}\n\
+            | os       = {}/{}\n\
+            | dist     = {}\n\
+            | params   = {}\n\
+            | raw_sig  = {}\n\
+            `----\n",
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
+            self.source.port,
+            self.source.ip,
+            self.source.port,
             self.label.as_ref().map_or("Unknown", |l| &l.name),
             self.label
                 .as_ref()

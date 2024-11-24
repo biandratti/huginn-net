@@ -1,6 +1,6 @@
+use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, Uptime};
-use crate::{mtu};
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{

@@ -10,7 +10,7 @@ mod tcp;
 mod uptime;
 
 use crate::db::Database;
-use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, UptimeOutput};
+use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
 use crate::packet::SignatureDetails;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
@@ -46,14 +46,13 @@ impl<'a> P0f<'a> {
                     None
                 };
 
-                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
-                    self.matcher
-                        .matching_by_tcp_request(&signature_details.signature)
+                let syn: Option<SynTCPOutput> = if let Some((label, _matched_signature)) = self
+                    .matcher
+                    .matching_by_tcp_request(&signature_details.signature)
                 {
-                    Some(SynAckTCPOutput {
+                    Some(SynTCPOutput {
                         source: signature_details.source.clone(),
                         destination: signature_details.destination.clone(),
-                        is_client: signature_details.is_client,
                         label: Some(label.clone()),
                         sig: signature_details.signature,
                     })
@@ -62,7 +61,8 @@ impl<'a> P0f<'a> {
                 };
 
                 P0fOutput {
-                    syn_ack,
+                    syn,
+                    syn_ack: None,
                     mtu,
                     uptime: None,
                 }
@@ -74,7 +74,6 @@ impl<'a> P0f<'a> {
                     Some(SynAckTCPOutput {
                         source: signature_details.source.clone(),
                         destination: signature_details.destination.clone(),
-                        is_client: signature_details.is_client,
                         label: Some(label.clone()),
                         sig: signature_details.signature,
                     })
@@ -83,6 +82,7 @@ impl<'a> P0f<'a> {
                 };
 
                 P0fOutput {
+                    syn: None,
                     syn_ack,
                     mtu: None,
                     uptime: signature_details.uptime.map(|update| UptimeOutput {
@@ -98,6 +98,7 @@ impl<'a> P0f<'a> {
             }
         } else {
             P0fOutput {
+                syn: None,
                 syn_ack: None,
                 mtu: None,
                 uptime: None,

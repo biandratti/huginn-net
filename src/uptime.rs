@@ -1,5 +1,5 @@
-use std::net::IpAddr;
 use log::debug;
+use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ttl_cache::TtlCache;
 
