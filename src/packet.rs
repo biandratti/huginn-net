@@ -28,7 +28,7 @@ pub struct SignatureDetails {
     pub uptime: Option<Uptime>,
     pub source: IpPort,
     pub destination: IpPort,
-    pub is_client: bool,
+    pub from_client: bool,
 }
 impl SignatureDetails {
     pub fn extract(
@@ -77,7 +77,7 @@ const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
 
-fn is_client(tcp_flags: u8) -> bool {
+fn from_client(tcp_flags: u8) -> bool {
     tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
 }
 
@@ -220,7 +220,7 @@ fn visit_tcp(
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
-    let is_client = is_client(flags);
+    let from_client = from_client(flags);
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
 
     if ((flags & SYN) == SYN && (flags & (FIN | RST)) != 0)
@@ -340,7 +340,7 @@ fn visit_tcp(
                         dst_ip: destination_ip,
                         dst_port: tcp.get_destination(),
                     };
-                    uptime = check_ts_tcp(cache, &connection, is_client, ts_val);
+                    uptime = check_ts_tcp(cache, &connection, from_client, ts_val);
                 }
 
                 /*if data.len() != 10 {
@@ -402,6 +402,6 @@ fn visit_tcp(
             ip: destination_ip,
             port: destination_port,
         },
-        is_client,
+        from_client,
     })
 }

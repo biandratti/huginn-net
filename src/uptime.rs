@@ -40,10 +40,10 @@ fn get_unix_time_ms() -> u64 {
 pub fn check_ts_tcp(
     cache: &mut TtlCache<Connection, SynData>,
     connection: &Connection,
-    is_client: bool,
+    from_client: bool,
     ts_val: u32,
 ) -> Option<Uptime> {
-    let syn_data: Option<&SynData> = if !is_client {
+    let syn_data: Option<&SynData> = if !from_client {
         let client_connection = Connection {
             src_ip: connection.dst_ip,
             src_port: connection.dst_port,

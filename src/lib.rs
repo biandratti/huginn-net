@@ -30,7 +30,7 @@ impl<'a> P0f<'a> {
 
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         if let Ok(signature_details) = SignatureDetails::extract(packet, &mut self.cache) {
-            if signature_details.is_client {
+            if signature_details.from_client {
                 let mtu: Option<MTUOutput> = if let Some(mtu) = signature_details.mtu {
                     if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
                         Some(MTUOutput {
