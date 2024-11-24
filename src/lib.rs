@@ -13,22 +13,9 @@ use crate::db::Database;
 use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, UptimeOutput};
 use crate::packet::SignatureDetails;
 use crate::signature_matcher::SignatureMatcher;
-use std::net::IpAddr;
+use crate::uptime::{Connection, SynData};
 use ttl_cache::TtlCache;
 
-// TODO: move to uptime
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-struct Connection {
-    src_ip: IpAddr,
-    src_port: u16,
-    dst_ip: IpAddr,
-    dst_port: u16,
-}
-
-struct SynData {
-    ts1: u32,
-    recv_ms: u64,
-}
 pub struct P0f<'a> {
     pub matcher: SignatureMatcher<'a>,
     cache: TtlCache<Connection, SynData>,

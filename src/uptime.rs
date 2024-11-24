@@ -1,4 +1,4 @@
-use crate::{Connection, SynData};
+use std::net::IpAddr;
 use log::debug;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ttl_cache::TtlCache;
@@ -8,6 +8,19 @@ const MAX_TWAIT: u64 = 10 * 60 * 1000;
 const TSTAMP_GRACE: u64 = 1000;
 const MAX_TSCALE: f64 = 1000.0;
 const MIN_TSCALE: f64 = 0.01;
+
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+pub struct Connection {
+    pub src_ip: IpAddr,
+    pub src_port: u16,
+    pub dst_ip: IpAddr,
+    pub dst_port: u16,
+}
+
+pub struct SynData {
+    ts1: u32,
+    recv_ms: u64,
+}
 
 pub struct Uptime {
     pub days: u32,

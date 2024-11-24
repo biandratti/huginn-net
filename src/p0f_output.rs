@@ -4,7 +4,7 @@ use crate::tcp::{Signature, Ttl};
 use std::fmt;
 
 pub struct P0fOutput {
-    pub syn_ack: Option<SynAckTCPOutput>,
+    pub syn_ack: Option<SynAckTCPOutput>, //TODO: add syn
     pub mtu: Option<MTUOutput>,
     pub uptime: Option<UptimeOutput>,
 }

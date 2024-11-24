@@ -1,6 +1,7 @@
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, Uptime};
-use crate::{mtu, Connection, SynData};
+use crate::{mtu};
+use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -58,7 +59,7 @@ fn visit_ethernet(
             .ok_or_else(|| err_msg("ipv6 packet too short"))
             .and_then(|packet| visit_ipv6(cache, packet)),
 
-        ty => bail!("unsupport ethernet type: {}", ty),
+        ty => bail!("unsupported ethernet type: {}", ty),
     }
 }
 
@@ -86,7 +87,7 @@ fn visit_ipv4(
 ) -> Result<SignatureDetails, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!(
-            "unsuppport IPv4 packet with non-TCP payload: {}",
+            "unsupported IPv4 packet with non-TCP payload: {}",
             packet.get_next_level_protocol()
         );
     }
@@ -94,7 +95,7 @@ fn visit_ipv4(
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
-        bail!("unsupport IPv4 fragment");
+        bail!("unsupported IPv4 fragment");
     }
 
     let version = IpVersion::V4;
