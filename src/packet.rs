@@ -25,8 +25,8 @@ pub struct SignatureDetails {
     pub signature: Signature,
     pub mtu: Option<u16>,
     pub uptime: Option<Uptime>,
-    pub client: IpPort,
-    pub server: IpPort,
+    pub source: IpPort,
+    pub destination: IpPort,
     pub is_client: bool,
 }
 impl SignatureDetails {
@@ -121,8 +121,8 @@ fn visit_ipv4(
         quirks.push(Quirk::ZeroID);
     }
 
-    let client_ip: IpAddr = IpAddr::V4(packet.get_source());
-    let server_ip = IpAddr::V4(packet.get_destination());
+    let source_ip: IpAddr = IpAddr::V4(packet.get_source());
+    let destination_ip = IpAddr::V4(packet.get_destination());
 
     let tcp_payload = packet.payload(); // Get a reference to the payload without moving `packet`
 
@@ -139,8 +139,8 @@ fn visit_ipv4(
                 ip_package_header_length,
                 olen,
                 quirks,
-                client_ip,
-                server_ip,
+                source_ip,
+                destination_ip,
             )
         })
 }
@@ -169,8 +169,8 @@ fn visit_ipv6(
         quirks.push(Quirk::Ecn);
     }
 
-    let client_ip: IpAddr = IpAddr::V6(packet.get_source());
-    let server_ip = IpAddr::V6(packet.get_destination());
+    let source_ip: IpAddr = IpAddr::V6(packet.get_source());
+    let destination_ip = IpAddr::V6(packet.get_destination());
 
     let ip_package_header_length: u8 = 40; //IPv6 header is always 40 bytes
 
@@ -185,8 +185,8 @@ fn visit_ipv6(
                 ip_package_header_length,
                 olen,
                 quirks,
-                client_ip,
-                server_ip,
+                source_ip,
+                destination_ip,
             )
         })
 }
@@ -213,8 +213,8 @@ fn visit_tcp(
     ip_package_header_length: u8,
     olen: u8,
     mut quirks: Vec<Quirk>,
-    source_ip: IpAddr,      // TODO: rename ALL to source
-    destination_ip: IpAddr, // TODO: rename ALL to destination
+    source_ip: IpAddr,
+    destination_ip: IpAddr,
 ) -> Result<SignatureDetails, Error> {
     use TcpFlags::*;
 
@@ -362,8 +362,8 @@ fn visit_tcp(
         _ => None,
     };
 
-    let client_port = tcp.get_source();
-    let server_port = tcp.get_destination();
+    let source_port = tcp.get_source();
+    let destination_port = tcp.get_destination();
 
     let wsize: WindowSize = match (tcp.get_window(), mss) {
         (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
@@ -393,13 +393,13 @@ fn visit_tcp(
         },
         mtu,
         uptime,
-        client: IpPort {
+        source: IpPort {
             ip: source_ip,
-            port: client_port,
+            port: source_port,
         },
-        server: IpPort {
+        destination: IpPort {
             ip: destination_ip,
-            port: server_port,
+            port: destination_port,
         },
         is_client,
     })
