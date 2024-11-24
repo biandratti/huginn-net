@@ -4,36 +4,78 @@ use crate::tcp::{Signature, Ttl};
 use std::fmt;
 
 pub struct P0fOutput {
+    pub syn: Option<SynTCPOutput>,
     pub syn_ack: Option<SynAckTCPOutput>,
     pub mtu: Option<MTUOutput>,
     pub uptime: Option<UptimeOutput>,
 }
 
-pub struct SynAckTCPOutput {
-    pub client: IpPort,
-    pub server: IpPort, //TODO: Option<IpPort>,
-    pub is_client: bool,
+pub struct SynTCPOutput {
+    pub source: IpPort,
+    pub destination: IpPort,
     pub label: Option<Label>,
     pub sig: Signature,
+}
+
+pub struct SynAckTCPOutput {
+    pub source: IpPort,
+    pub destination: IpPort,
+    pub label: Option<Label>,
+    pub sig: Signature,
+}
+
+impl fmt::Display for SynTCPOutput {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (syn) ]-\n\
+            |\n\
+            | client   = {}/{}\n\
+            | os       = {}/{}\n\
+            | dist     = {}\n\
+            | params   = {}\n\
+            | raw_sig  = {}\n\
+            `----\n",
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
+            self.source.port,
+            self.label.as_ref().map_or("Unknown", |l| &l.name),
+            self.label
+                .as_ref()
+                .map_or("Unknown", |l| l.flavor.as_deref().unwrap_or("Unknown")),
+            match self.sig.ittl {
+                Ttl::Distance(_, distance) => distance,
+                _ => "Unknown".parse().unwrap(),
+            },
+            self.label
+                .as_ref()
+                .map_or("Unknown".to_string(), |l| l.ty.to_string()),
+            self.sig,
+        )
+    }
 }
 
 impl fmt::Display for SynAckTCPOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} ({}) ]-\n\
+            ".-[ {}/{} -> {}/{} (syn+ack) ]-\n\
             |\n\
-            | {}   = {}/{}\n\
+            | server   = {}/{}\n\
+            | os       = {}/{}\n\
             | dist     = {}\n\
             | params   = {}\n\
             | raw_sig  = {}\n\
             `----\n",
-            self.client.ip,
-            self.client.port,
-            self.server.ip,
-            self.server.port,
-            if self.is_client { "syn" } else { "syn+ack" },
-            if self.is_client { "client" } else { "server" },
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
+            self.source.port,
+            self.source.ip,
+            self.source.port,
             self.label.as_ref().map_or("Unknown", |l| &l.name),
             self.label
                 .as_ref()
@@ -51,8 +93,8 @@ impl fmt::Display for SynAckTCPOutput {
 }
 
 pub struct MTUOutput {
-    pub client: IpPort,
-    pub server: IpPort,
+    pub source: IpPort,
+    pub destination: IpPort,
     pub link: String,
     pub mtu: u16,
 }
@@ -67,11 +109,11 @@ impl fmt::Display for MTUOutput {
             | link     = {}\n\
             | raw_mtu  = {}\n\
             `----\n",
-            self.client.ip,
-            self.client.port,
-            self.server.ip,
-            self.server.port,
-            self.client.ip,
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
             self.link,
             self.mtu,
         )
@@ -79,8 +121,8 @@ impl fmt::Display for MTUOutput {
 }
 
 pub struct UptimeOutput {
-    pub client: IpPort,
-    pub server: IpPort,
+    pub source: IpPort,
+    pub destination: IpPort,
     pub days: u32,
     pub hours: u32,
     pub min: u32,
@@ -98,11 +140,11 @@ impl fmt::Display for UptimeOutput {
             | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
             | raw_freq = {} Hz\n\
             `----\n",
-            self.client.ip,
-            self.client.port,
-            self.server.ip,
-            self.server.port,
-            self.client.ip,
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
             self.days,
             self.hours,
             self.min,

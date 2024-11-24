@@ -13,7 +13,6 @@ categories = ["network-programming"]
 nom = "7.1"
 clap = { version = "4.5.21", features = ["derive"] }
 pnet = "0.35.0"
-regex = "1.11.1"
 failure = "0.1.8"
 log = "0.4.22"
 lazy_static = "1.5.0"

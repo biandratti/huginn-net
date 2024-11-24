@@ -1,5 +1,5 @@
-use crate::{Connection, SynData};
 use log::debug;
+use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ttl_cache::TtlCache;
 
@@ -9,7 +9,20 @@ const TSTAMP_GRACE: u64 = 1000;
 const MAX_TSCALE: f64 = 1000.0;
 const MIN_TSCALE: f64 = 0.01;
 
-pub struct Uptime {
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+pub struct Connection {
+    pub src_ip: IpAddr,
+    pub src_port: u16,
+    pub dst_ip: IpAddr,
+    pub dst_port: u16,
+}
+
+pub struct SynData {
+    ts1: u32,
+    recv_ms: u64,
+}
+
+pub struct ObservableUptime {
     pub days: u32,
     pub hours: u32,
     pub min: u32,
@@ -27,10 +40,10 @@ fn get_unix_time_ms() -> u64 {
 pub fn check_ts_tcp(
     cache: &mut TtlCache<Connection, SynData>,
     connection: &Connection,
-    is_client: bool,
+    from_client: bool,
     ts_val: u32,
-) -> Option<Uptime> {
-    let syn_data: Option<&SynData> = if !is_client {
+) -> Option<ObservableUptime> {
+    let syn_data: Option<&SynData> = if !from_client {
         let client_connection = Connection {
             src_ip: connection.dst_ip,
             src_port: connection.dst_port,
@@ -98,7 +111,7 @@ pub fn check_ts_tcp(
     let up_min = ts_val / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
-    Some(Uptime {
+    Some(ObservableUptime {
         days: up_min / 60 / 24,
         hours: (up_min / 60) % 24,
         min: up_min % 60,

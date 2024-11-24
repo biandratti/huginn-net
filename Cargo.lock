@@ -277,7 +277,6 @@ dependencies = [
  "log",
  "nom",
  "pnet",
- "regex",
  "ttl_cache",
 ]
 

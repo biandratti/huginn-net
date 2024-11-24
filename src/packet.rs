@@ -1,6 +1,7 @@
+use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-use crate::uptime::{check_ts_tcp, Uptime};
-use crate::{mtu, Connection, SynData};
+use crate::uptime::{check_ts_tcp, ObservableUptime};
+use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -21,15 +22,15 @@ pub struct IpPort {
     pub port: u16,
 }
 
-pub struct SignatureDetails {
+pub struct ObservableSignature {
     pub signature: Signature,
     pub mtu: Option<u16>,
-    pub uptime: Option<Uptime>,
-    pub client: IpPort,
-    pub server: IpPort,
-    pub is_client: bool,
+    pub uptime: Option<ObservableUptime>,
+    pub source: IpPort,
+    pub destination: IpPort,
+    pub from_client: bool,
 }
-impl SignatureDetails {
+impl ObservableSignature {
     pub fn extract(
         packet: &[u8],
         cache: &mut TtlCache<Connection, SynData>,
@@ -44,7 +45,7 @@ fn visit_ethernet(
     ethertype: EtherType,
     cache: &mut TtlCache<Connection, SynData>,
     payload: &[u8],
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     match ethertype {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| err_msg("vlan packet too short"))
@@ -58,14 +59,14 @@ fn visit_ethernet(
             .ok_or_else(|| err_msg("ipv6 packet too short"))
             .and_then(|packet| visit_ipv6(cache, packet)),
 
-        ty => bail!("unsupport ethernet type: {}", ty),
+        ty => bail!("unsupported ethernet type: {}", ty),
     }
 }
 
 fn visit_vlan(
     cache: &mut TtlCache<Connection, SynData>,
     packet: VlanPacket,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     visit_ethernet(packet.get_ethertype(), cache, packet.payload())
 }
 
@@ -76,17 +77,17 @@ const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
 
-fn is_client(tcp_flags: u8) -> bool {
+fn from_client(tcp_flags: u8) -> bool {
     tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
 }
 
 fn visit_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: Ipv4Packet,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!(
-            "unsuppport IPv4 packet with non-TCP payload: {}",
+            "unsupported IPv4 packet with non-TCP payload: {}",
             packet.get_next_level_protocol()
         );
     }
@@ -94,7 +95,7 @@ fn visit_ipv4(
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
-        bail!("unsupport IPv4 fragment");
+        bail!("unsupported IPv4 fragment");
     }
 
     let version = IpVersion::V4;
@@ -121,8 +122,8 @@ fn visit_ipv4(
         quirks.push(Quirk::ZeroID);
     }
 
-    let client_ip: IpAddr = IpAddr::V4(packet.get_source());
-    let server_ip = IpAddr::V4(packet.get_destination());
+    let source_ip: IpAddr = IpAddr::V4(packet.get_source());
+    let destination_ip = IpAddr::V4(packet.get_destination());
 
     let tcp_payload = packet.payload(); // Get a reference to the payload without moving `packet`
 
@@ -139,8 +140,8 @@ fn visit_ipv4(
                 ip_package_header_length,
                 olen,
                 quirks,
-                client_ip,
-                server_ip,
+                source_ip,
+                destination_ip,
             )
         })
 }
@@ -148,7 +149,7 @@ fn visit_ipv4(
 fn visit_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: Ipv6Packet,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv6 packet with non-TCP payload: {}",
@@ -169,8 +170,8 @@ fn visit_ipv6(
         quirks.push(Quirk::Ecn);
     }
 
-    let client_ip: IpAddr = IpAddr::V6(packet.get_source());
-    let server_ip = IpAddr::V6(packet.get_destination());
+    let source_ip: IpAddr = IpAddr::V6(packet.get_source());
+    let destination_ip = IpAddr::V6(packet.get_destination());
 
     let ip_package_header_length: u8 = 40; //IPv6 header is always 40 bytes
 
@@ -185,8 +186,8 @@ fn visit_ipv6(
                 ip_package_header_length,
                 olen,
                 quirks,
-                client_ip,
-                server_ip,
+                source_ip,
+                destination_ip,
             )
         })
 }
@@ -203,7 +204,6 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
-//TODO: WIP: observable tcp params
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
     cache: &mut TtlCache<Connection, SynData>,
@@ -213,13 +213,13 @@ fn visit_tcp(
     ip_package_header_length: u8,
     olen: u8,
     mut quirks: Vec<Quirk>,
-    source_ip: IpAddr,      // TODO: rename ALL to source
-    destination_ip: IpAddr, // TODO: rename ALL to destination
-) -> Result<SignatureDetails, Error> {
+    source_ip: IpAddr,
+    destination_ip: IpAddr,
+) -> Result<ObservableSignature, Error> {
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
-    let is_client = is_client(flags);
+    let from_client = from_client(flags);
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
 
     if ((flags & SYN) == SYN && (flags & (FIN | RST)) != 0)
@@ -258,7 +258,7 @@ fn visit_tcp(
     let mut mss = None;
     let mut wscale = None;
     let mut olayout = vec![];
-    let mut uptime: Option<Uptime> = None;
+    let mut uptime: Option<ObservableUptime> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -339,7 +339,7 @@ fn visit_tcp(
                         dst_ip: destination_ip,
                         dst_port: tcp.get_destination(),
                     };
-                    uptime = check_ts_tcp(cache, &connection, is_client, ts_val);
+                    uptime = check_ts_tcp(cache, &connection, from_client, ts_val);
                 }
 
                 /*if data.len() != 10 {
@@ -362,8 +362,8 @@ fn visit_tcp(
         _ => None,
     };
 
-    let client_port = tcp.get_source();
-    let server_port = tcp.get_destination();
+    let source_port = tcp.get_source();
+    let destination_port = tcp.get_destination();
 
     let wsize: WindowSize = match (tcp.get_window(), mss) {
         (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
@@ -375,8 +375,7 @@ fn visit_tcp(
         (wsize, _) => WindowSize::Value(wsize),
     };
 
-    //uptime.clone().map(|u| println!("{}", u.hours));
-    Ok(SignatureDetails {
+    Ok(ObservableSignature {
         signature: Signature {
             version,
             ittl,
@@ -394,14 +393,14 @@ fn visit_tcp(
         },
         mtu,
         uptime,
-        client: IpPort {
+        source: IpPort {
             ip: source_ip,
-            port: client_port,
+            port: source_port,
         },
-        server: IpPort {
+        destination: IpPort {
             ip: destination_ip,
-            port: server_port,
+            port: destination_port,
         },
-        is_client,
+        from_client,
     })
 }
