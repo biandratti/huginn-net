@@ -16,6 +16,7 @@ use crate::signature_matcher::SignatureMatcher;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
+// TODO: move to uptime
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 struct Connection {
     src_ip: IpAddr,
@@ -46,8 +47,8 @@ impl<'a> P0f<'a> {
                 let mtu: Option<MTUOutput> = if let Some(mtu) = signature_details.mtu {
                     if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
                         Some(MTUOutput {
-                            client: signature_details.source.clone(),
-                            server: signature_details.destination.clone(),
+                            source: signature_details.source.clone(),
+                            destination: signature_details.destination.clone(),
                             link: link.clone(),
                             mtu,
                         })
@@ -63,8 +64,8 @@ impl<'a> P0f<'a> {
                         .matching_by_tcp_request(&signature_details.signature)
                 {
                     Some(SynAckTCPOutput {
-                        client: signature_details.source.clone(),
-                        server: signature_details.destination.clone(),
+                        source: signature_details.source.clone(),
+                        destination: signature_details.destination.clone(),
                         is_client: signature_details.is_client,
                         label: Some(label.clone()),
                         sig: signature_details.signature,
@@ -84,8 +85,8 @@ impl<'a> P0f<'a> {
                         .matching_by_tcp_response(&signature_details.signature)
                 {
                     Some(SynAckTCPOutput {
-                        client: signature_details.source.clone(),
-                        server: signature_details.destination.clone(),
+                        source: signature_details.source.clone(),
+                        destination: signature_details.destination.clone(),
                         is_client: signature_details.is_client,
                         label: Some(label.clone()),
                         sig: signature_details.signature,
@@ -98,8 +99,8 @@ impl<'a> P0f<'a> {
                     syn_ack,
                     mtu: None,
                     uptime: signature_details.uptime.map(|update| UptimeOutput {
-                        client: signature_details.source,
-                        server: signature_details.destination,
+                        source: signature_details.source,
+                        destination: signature_details.destination,
                         days: update.days,
                         hours: update.hours,
                         min: update.min,
