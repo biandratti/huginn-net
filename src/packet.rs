@@ -375,7 +375,6 @@ fn visit_tcp(
         (wsize, _) => WindowSize::Value(wsize),
     };
 
-    //uptime.clone().map(|u| println!("{}", u.hours));
     Ok(SignatureDetails {
         signature: Signature {
             version,
