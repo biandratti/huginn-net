@@ -1,6 +1,6 @@
 use crate::mtu;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-use crate::uptime::{check_ts_tcp, Uptime};
+use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
@@ -22,15 +22,15 @@ pub struct IpPort {
     pub port: u16,
 }
 
-pub struct SignatureDetails {
+pub struct ObservableSignature {
     pub signature: Signature,
     pub mtu: Option<u16>,
-    pub uptime: Option<Uptime>,
+    pub uptime: Option<ObservableUptime>,
     pub source: IpPort,
     pub destination: IpPort,
     pub from_client: bool,
 }
-impl SignatureDetails {
+impl ObservableSignature {
     pub fn extract(
         packet: &[u8],
         cache: &mut TtlCache<Connection, SynData>,
@@ -45,7 +45,7 @@ fn visit_ethernet(
     ethertype: EtherType,
     cache: &mut TtlCache<Connection, SynData>,
     payload: &[u8],
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     match ethertype {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| err_msg("vlan packet too short"))
@@ -66,7 +66,7 @@ fn visit_ethernet(
 fn visit_vlan(
     cache: &mut TtlCache<Connection, SynData>,
     packet: VlanPacket,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     visit_ethernet(packet.get_ethertype(), cache, packet.payload())
 }
 
@@ -84,7 +84,7 @@ fn from_client(tcp_flags: u8) -> bool {
 fn visit_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: Ipv4Packet,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsupported IPv4 packet with non-TCP payload: {}",
@@ -149,7 +149,7 @@ fn visit_ipv4(
 fn visit_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: Ipv6Packet,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv6 packet with non-TCP payload: {}",
@@ -204,7 +204,6 @@ fn guess_dist(ttl: u8) -> u8 {
     }
 }
 
-//TODO: WIP: observable tcp params
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
     cache: &mut TtlCache<Connection, SynData>,
@@ -216,7 +215,7 @@ fn visit_tcp(
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
     destination_ip: IpAddr,
-) -> Result<SignatureDetails, Error> {
+) -> Result<ObservableSignature, Error> {
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
@@ -259,7 +258,7 @@ fn visit_tcp(
     let mut mss = None;
     let mut wscale = None;
     let mut olayout = vec![];
-    let mut uptime: Option<Uptime> = None;
+    let mut uptime: Option<ObservableUptime> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -376,7 +375,7 @@ fn visit_tcp(
         (wsize, _) => WindowSize::Value(wsize),
     };
 
-    Ok(SignatureDetails {
+    Ok(ObservableSignature {
         signature: Signature {
             version,
             ittl,

@@ -22,7 +22,7 @@ pub struct SynData {
     recv_ms: u64,
 }
 
-pub struct Uptime {
+pub struct ObservableUptime {
     pub days: u32,
     pub hours: u32,
     pub min: u32,
@@ -42,7 +42,7 @@ pub fn check_ts_tcp(
     connection: &Connection,
     from_client: bool,
     ts_val: u32,
-) -> Option<Uptime> {
+) -> Option<ObservableUptime> {
     let syn_data: Option<&SynData> = if !from_client {
         let client_connection = Connection {
             src_ip: connection.dst_ip,
@@ -111,7 +111,7 @@ pub fn check_ts_tcp(
     let up_min = ts_val / freq / 60;
     let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
-    Some(Uptime {
+    Some(ObservableUptime {
         days: up_min / 60 / 24,
         hours: (up_min / 60) % 24,
         min: up_min % 60,

@@ -11,7 +11,7 @@ mod uptime;
 
 use crate::db::Database;
 use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
-use crate::packet::SignatureDetails;
+use crate::packet::ObservableSignature;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
 use ttl_cache::TtlCache;
@@ -29,13 +29,13 @@ impl<'a> P0f<'a> {
     }
 
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
-        if let Ok(signature_details) = SignatureDetails::extract(packet, &mut self.cache) {
-            if signature_details.from_client {
-                let mtu: Option<MTUOutput> = if let Some(mtu) = signature_details.mtu {
+        if let Ok(observable_signature) = ObservableSignature::extract(packet, &mut self.cache) {
+            if observable_signature.from_client {
+                let mtu: Option<MTUOutput> = if let Some(mtu) = observable_signature.mtu {
                     if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
                         Some(MTUOutput {
-                            source: signature_details.source.clone(),
-                            destination: signature_details.destination.clone(),
+                            source: observable_signature.source.clone(),
+                            destination: observable_signature.destination.clone(),
                             link: link.clone(),
                             mtu,
                         })
@@ -48,13 +48,13 @@ impl<'a> P0f<'a> {
 
                 let syn: Option<SynTCPOutput> = if let Some((label, _matched_signature)) = self
                     .matcher
-                    .matching_by_tcp_request(&signature_details.signature)
+                    .matching_by_tcp_request(&observable_signature.signature)
                 {
                     Some(SynTCPOutput {
-                        source: signature_details.source.clone(),
-                        destination: signature_details.destination.clone(),
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
                         label: Some(label.clone()),
-                        sig: signature_details.signature,
+                        sig: observable_signature.signature,
                     })
                 } else {
                     None
@@ -69,13 +69,13 @@ impl<'a> P0f<'a> {
             } else {
                 let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
                     self.matcher
-                        .matching_by_tcp_response(&signature_details.signature)
+                        .matching_by_tcp_response(&observable_signature.signature)
                 {
                     Some(SynAckTCPOutput {
-                        source: signature_details.source.clone(),
-                        destination: signature_details.destination.clone(),
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
                         label: Some(label.clone()),
-                        sig: signature_details.signature,
+                        sig: observable_signature.signature,
                     })
                 } else {
                     None
@@ -85,9 +85,9 @@ impl<'a> P0f<'a> {
                     syn: None,
                     syn_ack,
                     mtu: None,
-                    uptime: signature_details.uptime.map(|update| UptimeOutput {
-                        source: signature_details.source,
-                        destination: signature_details.destination,
+                    uptime: observable_signature.uptime.map(|update| UptimeOutput {
+                        source: observable_signature.source,
+                        destination: observable_signature.destination,
                         days: update.days,
                         hours: update.hours,
                         min: update.min,
