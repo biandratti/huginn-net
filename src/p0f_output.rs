@@ -31,7 +31,7 @@ impl fmt::Display for SynTCPOutput {
             ".-[ {}/{} -> {}/{} (syn) ]-\n\
             |\n\
             | client   = {}/{}\n\
-            | os       = {}/{}\n\
+            | os       = {}\n\
             | dist     = {}\n\
             | params   = {}\n\
             | raw_sig  = {}\n\
@@ -42,10 +42,9 @@ impl fmt::Display for SynTCPOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.label.as_ref().map_or("Unknown", |l| &l.name),
-            self.label
-                .as_ref()
-                .map_or("Unknown", |l| l.flavor.as_deref().unwrap_or("Unknown")),
+            self.label.as_ref().map_or("???".to_string(), |l| {
+                format!("{}/{}", l.name, l.flavor.as_deref().unwrap_or("???"))
+            }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
                 _ => "Unknown".parse().unwrap(),
@@ -65,7 +64,7 @@ impl fmt::Display for SynAckTCPOutput {
             ".-[ {}/{} -> {}/{} (syn+ack) ]-\n\
             |\n\
             | server   = {}/{}\n\
-            | os       = {}/{}\n\
+            | os       = {}\n\
             | dist     = {}\n\
             | params   = {}\n\
             | raw_sig  = {}\n\
@@ -76,10 +75,9 @@ impl fmt::Display for SynAckTCPOutput {
             self.source.port,
             self.source.ip,
             self.source.port,
-            self.label.as_ref().map_or("Unknown", |l| &l.name),
-            self.label
-                .as_ref()
-                .map_or("Unknown", |l| l.flavor.as_deref().unwrap_or("Unknown")),
+            self.label.as_ref().map_or("???".to_string(), |l| {
+                format!("{}/{}", l.name, l.flavor.as_deref().unwrap_or("???"))
+            }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
                 _ => "Unknown".parse().unwrap(),
