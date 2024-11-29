@@ -52,7 +52,7 @@ impl fmt::Display for SynTCPOutput {
             },
             self.label
                 .as_ref()
-                .map_or("Unknown".to_string(), |l| l.ty.to_string()),
+                .map_or("none".to_string(), |l| l.ty.to_string()),
             self.sig,
         )
     }
@@ -86,7 +86,7 @@ impl fmt::Display for SynAckTCPOutput {
             },
             self.label
                 .as_ref()
-                .map_or("Unknown".to_string(), |l| l.ty.to_string()),
+                .map_or("none".to_string(), |l| l.ty.to_string()),
             self.sig,
         )
     }

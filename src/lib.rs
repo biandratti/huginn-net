@@ -57,7 +57,12 @@ impl<'a> P0f<'a> {
                         sig: observable_signature.signature,
                     })
                 } else {
-                    None
+                    Some(SynTCPOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
+                        label: None,
+                        sig: observable_signature.signature,
+                    })
                 };
 
                 P0fOutput {
@@ -78,7 +83,12 @@ impl<'a> P0f<'a> {
                         sig: observable_signature.signature,
                     })
                 } else {
-                    None
+                    Some(SynAckTCPOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
+                        label: None,
+                        sig: observable_signature.signature,
+                    })
                 };
 
                 P0fOutput {
