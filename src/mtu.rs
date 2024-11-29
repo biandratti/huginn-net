@@ -12,7 +12,7 @@ pub fn extract_from_ipv4(tcp: &TcpPacket, ipv4_header_len: u8, mss: u16) -> Opti
         let mut tcp_header_len = (tcp.get_data_offset() as u16) * 4; // convert to bytes
         if tcp_header_len > 20 {
             // If TCP header contains options
-            tcp_header_len = tcp_header_len - 20;
+            tcp_header_len -= 20;
         }
         let mtu = mss + ip_header_len + tcp_header_len;
         debug!(
