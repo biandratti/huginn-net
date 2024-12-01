@@ -1,8 +1,8 @@
 use clap::Parser;
 use log::debug;
-use pnet::datalink::{self, Config, NetworkInterface};
 use passivetcp_rs::db::Database;
 use passivetcp_rs::P0f;
+use pnet::datalink::{self, Config, NetworkInterface};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
