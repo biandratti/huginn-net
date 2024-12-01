@@ -1,7 +1,6 @@
 use crate::{http, tcp};
 use std::fmt;
 
-#[allow(dead_code)] //TODO: WIP
 #[derive(Debug)]
 pub struct Database {
     pub classes: Vec<String>,

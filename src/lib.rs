@@ -21,13 +21,34 @@ pub struct P0f<'a> {
     cache: TtlCache<Connection, SynData>,
 }
 
+/// A passive TCP fingerprinting engine inspired by `p0f`.
+///
+/// The `P0f` struct acts as the core component of the library, handling TCP packet
+/// analysis and matching signatures using a database of known fingerprints.
 impl<'a> P0f<'a> {
+    /// Creates a new instance of `P0f`.
+    ///
+    /// # Parameters
+    /// - `database`: A reference to the database containing known TCP/IP signatures.
+    /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
+    ///
+    /// # Returns
+    /// A new `P0f` instance initialized with the given database and cache capacity.
+
     pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
         let cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
         Self { matcher, cache }
     }
 
+    /// Analyzes a TCP packet and returns the corresponding `P0fOutput`.
+    ///
+    /// # Parameters
+    /// - `packet`: A byte slice representing the raw TCP packet to analyze.
+    ///
+    /// # Returns
+    /// A `P0fOutput` containing the analysis results, including matched signatures,
+    /// observed MTU, uptime information, and other details. If no valid data is observed, an empty output is returned.
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         if let Ok(observable_signature) = ObservableSignature::extract(packet, &mut self.cache) {
             if observable_signature.from_client {
