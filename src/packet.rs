@@ -263,8 +263,6 @@ fn visit_tcp(
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
 
-        //println!("Buffer before parsing MSS: {:?}", buf);
-
         let data: &[u8] = opt.payload();
 
         match opt.get_number() {
@@ -281,7 +279,7 @@ fn visit_tcp(
             MSS => {
                 olayout.push(TcpOption::Mss);
                 if data.len() >= 2 {
-                    let mss_value: u16 = ((data[0] as u16) << 8) | (data[1] as u16);
+                    let mss_value: u16 = u16::from_be_bytes([data[0], data[1]]);
                     //quirks.push(Quirk::mss);
                     mss = Some(mss_value);
                 }
