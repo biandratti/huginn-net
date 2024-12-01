@@ -56,7 +56,10 @@ impl Database {
                 .ok()
                 .and_then(|content| content.parse().ok())
                 .unwrap_or_else(|| {
-                    eprintln!("Failed to load configuration from {}. Falling back to default.", path);
+                    eprintln!(
+                        "Failed to load configuration from {}. Falling back to default.",
+                        path
+                    );
                     Self::default()
                 })
         } else {
