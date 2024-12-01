@@ -1,6 +1,9 @@
 use crate::{http, tcp};
 use std::fmt;
 
+/// Represents the database used by `P0f` to store signatures and associated metadata.
+/// The database contains signatures for analyzing TCP and HTTP traffic, as well as
+/// other metadata such as MTU mappings and user agent-to-operating system mappings.
 #[derive(Debug)]
 pub struct Database {
     pub classes: Vec<String>,
@@ -12,6 +15,8 @@ pub struct Database {
     pub http_response: Vec<(Label, Vec<http::Signature>)>,
 }
 
+/// Represents a label associated with a signature, which provides metadata about
+/// the signature, such as type, class, name, and optional flavor details.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Label {
     pub ty: Type,
@@ -20,6 +25,9 @@ pub struct Label {
     pub flavor: Option<String>,
 }
 
+/// Enum representing the type of `Label`.
+/// - `Specified`: A specific label with well-defined characteristics.
+/// - `Generic`: A generic label with broader characteristics.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
     Specified,
@@ -27,6 +35,9 @@ pub enum Type {
 }
 
 impl fmt::Display for Type {
+    /// Creates a default instance of the `Database` by parsing a configuration file
+    /// located at `config/p0f.fp`. This file is expected to define the default
+    /// signatures and mappings used for analysis.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
