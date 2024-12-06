@@ -51,6 +51,7 @@ impl<'a> P0f<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         if let Ok(observable_signature) = ObservableSignature::extract(packet, &mut self.cache) {
             if observable_signature.from_client {
+
                 //println!("MTU {:?}", observable_signature.mtu);
                 let mtu: Option<MTUOutput> = if let Some(mtu) = observable_signature.mtu {
                     if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
