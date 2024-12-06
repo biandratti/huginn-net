@@ -34,7 +34,6 @@ impl<'a> P0f<'a> {
     ///
     /// # Returns
     /// A new `P0f` instance initialized with the given database and cache capacity.
-
     pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
         let cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
