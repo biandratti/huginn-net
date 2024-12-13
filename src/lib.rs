@@ -14,6 +14,9 @@ use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, Upt
 use crate::packet::ObservableSignature;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
+use pnet::datalink;
+use pnet::datalink::Config;
+use std::sync::mpsc::Sender;
 use ttl_cache::TtlCache;
 
 pub struct P0f<'a> {
@@ -40,6 +43,48 @@ impl<'a> P0f<'a> {
         Self { matcher, cache }
     }
 
+    /// Captures and analyzes packets on the specified network interface.
+    ///
+    /// Sends `P0fOutput` through the provided channel.
+    ///
+    /// # Parameters
+    /// - `interface_name`: The name of the network interface to analyze.
+    /// - `sender`: A `Sender` to send `P0fOutput` objects back to the caller.
+    ///
+    /// # Panics
+    /// - If the network interface cannot be found or a channel cannot be created.
+    pub fn analyze_network(&mut self, interface_name: &str, sender: Sender<P0fOutput>) {
+        let interfaces = datalink::interfaces();
+        let interface = interfaces
+            .into_iter()
+            .find(|iface| iface.name == interface_name)
+            .expect("Could not find the interface");
+
+        let config = Config {
+            promiscuous: true,
+            ..Config::default()
+        };
+
+        let (_tx, mut rx) = match datalink::channel(&interface, config) {
+            Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
+            Ok(_) => panic!("Unhandled channel type"),
+            Err(e) => panic!("Unable to create channel: {}", e),
+        };
+
+        loop {
+            match rx.next() {
+                Ok(packet) => {
+                    let output = self.analyze_tcp(packet);
+                    if sender.send(output).is_err() {
+                        eprintln!("Receiver dropped, stopping packet capture");
+                        break;
+                    }
+                }
+                Err(e) => eprintln!("Failed to read packet: {}", e),
+            }
+        }
+    }
+
     /// Analyzes a TCP packet and returns the corresponding `P0fOutput`.
     ///
     /// # Parameters
@@ -48,10 +93,9 @@ impl<'a> P0f<'a> {
     /// # Returns
     /// A `P0fOutput` containing the analysis results, including matched signatures,
     /// observed MTU, uptime information, and other details. If no valid data is observed, an empty output is returned.
-    pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
+    fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         if let Ok(observable_signature) = ObservableSignature::extract(packet, &mut self.cache) {
             if observable_signature.from_client {
-                //println!("MTU {:?}", observable_signature.mtu);
                 let mtu: Option<MTUOutput> = if let Some(mtu) = observable_signature.mtu {
                     if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
                         Some(MTUOutput {
