@@ -58,30 +58,49 @@ impl<'a> P0f<'a> {
         let interfaces = datalink::interfaces();
         let interface = interfaces
             .into_iter()
-            .find(|iface| iface.name == interface_name)
-            .expect("Could not find the interface");
+            .find(|iface| iface.name == interface_name);
 
-        let config = Config {
-            promiscuous: true,
-            ..Config::default()
-        };
+        match interface {
+            Some(iface) => {
+                debug!("Using network interface: {}", iface.name);
 
-        let (_tx, mut rx) = match datalink::channel(&interface, config) {
-            Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
-            Ok(_) => panic!("Unhandled channel type"),
-            Err(e) => panic!("Unable to create channel: {}", e),
-        };
+                let config = Config {
+                    promiscuous: true,
+                    ..Config::default()
+                };
 
-        loop {
-            match rx.next() {
-                Ok(packet) => {
-                    let output = self.analyze_tcp(packet);
-                    if sender.send(output).is_err() {
-                        error!("Receiver dropped, stopping packet capture");
-                        break;
+                let (_tx, mut rx) = match datalink::channel(&iface, config) {
+                    Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
+                    Ok(_) => {
+                        error!("Unhandled channel type for interface: {}", iface.name);
+                        return;
+                    }
+                    Err(e) => {
+                        error!(
+                            "Unable to create channel for interface {}: {}",
+                            iface.name, e
+                        );
+                        return;
+                    }
+                };
+
+                loop {
+                    match rx.next() {
+                        Ok(packet) => {
+                            let output = self.analyze_tcp(packet);
+                            if sender.send(output).is_err() {
+                                error!("Receiver dropped, stopping packet capture");
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to read packet: {}", e);
+                        }
                     }
                 }
-                Err(error) => error!("Failed to read packet: {}", error),
+            }
+            None => {
+                error!("Could not find the network interface: {}", interface_name);
             }
         }
     }
