@@ -85,99 +85,69 @@ impl<'a> P0f<'a> {
         }
     }
 
-    /// Analyzes a TCP packet and returns the corresponding `P0fOutput`.
-    ///
-    /// # Parameters
-    /// - `packet`: A byte slice representing the raw TCP packet to analyze.
-    ///
-    /// # Returns
-    /// A `P0fOutput` containing the analysis results, including matched signatures,
-    /// observed MTU, uptime information, and other details. If no valid data is observed, an empty output is returned.
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
-        if let Ok(observable_signature) = ObservableSignature::extract(packet, &mut self.cache) {
-            if observable_signature.from_client {
-                let mtu: Option<MTUOutput> = if let Some(mtu) = observable_signature.mtu {
-                    if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
-                        Some(MTUOutput {
-                            source: observable_signature.source.clone(),
-                            destination: observable_signature.destination.clone(),
-                            link: link.clone(),
-                            mtu,
-                        })
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+        match ObservableSignature::extract(packet, &mut self.cache) {
+            Ok(observable_signature) => {
+                let (syn, syn_ack, mtu, uptime) = if observable_signature.from_client {
+                    let mtu = observable_signature.mtu.and_then(|mtu| {
+                        self.matcher
+                            .matching_by_mtu(&mtu)
+                            .map(|(link, _)| MTUOutput {
+                                source: observable_signature.source.clone(),
+                                destination: observable_signature.destination.clone(),
+                                link: link.clone(),
+                                mtu,
+                            })
+                    });
 
-                let syn: Option<SynTCPOutput> = if let Some((label, _matched_signature)) = self
-                    .matcher
-                    .matching_by_tcp_request(&observable_signature.signature)
-                {
-                    Some(SynTCPOutput {
+                    let syn = Some(SynTCPOutput {
                         source: observable_signature.source.clone(),
                         destination: observable_signature.destination.clone(),
-                        label: Some(label.clone()),
+                        label: self
+                            .matcher
+                            .matching_by_tcp_request(&observable_signature.signature)
+                            .map(|(label, _)| label.clone()),
                         sig: observable_signature.signature,
-                    })
-                } else {
-                    Some(SynTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: None,
-                        sig: observable_signature.signature,
-                    })
-                };
+                    });
 
-                P0fOutput {
-                    syn,
-                    syn_ack: None,
-                    mtu,
-                    uptime: None,
-                }
-            } else {
-                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
-                    self.matcher
-                        .matching_by_tcp_response(&observable_signature.signature)
-                {
-                    Some(SynAckTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: Some(label.clone()),
-                        sig: observable_signature.signature,
-                    })
+                    (syn, None, mtu, None)
                 } else {
-                    Some(SynAckTCPOutput {
+                    let syn_ack = Some(SynAckTCPOutput {
                         source: observable_signature.source.clone(),
                         destination: observable_signature.destination.clone(),
-                        label: None,
+                        label: self
+                            .matcher
+                            .matching_by_tcp_response(&observable_signature.signature)
+                            .map(|(label, _)| label.clone()),
                         sig: observable_signature.signature,
-                    })
-                };
+                    });
 
-                P0fOutput {
-                    syn: None,
-                    syn_ack,
-                    mtu: None,
-                    uptime: observable_signature.uptime.map(|update| UptimeOutput {
-                        source: observable_signature.source,
-                        destination: observable_signature.destination,
+                    let uptime = observable_signature.uptime.map(|update| UptimeOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
                         days: update.days,
                         hours: update.hours,
                         min: update.min,
                         up_mod_days: update.up_mod_days,
                         freq: update.freq,
-                    }),
+                    });
+
+                    (None, syn_ack, None, uptime)
+                };
+
+                P0fOutput {
+                    syn,
+                    syn_ack,
+                    mtu,
+                    uptime,
                 }
             }
-        } else {
-            P0fOutput {
+            Err(_) => P0fOutput {
                 syn: None,
                 syn_ack: None,
                 mtu: None,
                 uptime: None,
-            }
+            },
         }
     }
 }

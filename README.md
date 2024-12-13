@@ -66,37 +66,27 @@ use passivetcp_rs::db::Database;
 use passivetcp_rs::P0f;
 
 let args = Args::parse();
-let interface_name = args.interface;
-let db = Database::default();
-let mut p0f = P0f::new(&db, 100);
 
-let interfaces: Vec<NetworkInterface> = datalink::interfaces();
-let interface = interfaces
-    .into_iter()
-    .find(|iface| iface.name == interface_name)
-    .expect("Could not find the interface");
+let db = Box::leak(Box::new(Database::default()));
+let mut p0f = P0f::new(db, 100);
+let (sender, receiver) = mpsc::channel();
 
-let config = Config {
-    promiscuous: true,
-    ..Config::default()
-};
+thread::spawn(move || {
+    p0f.analyze_network(&args.interface, sender);
+});
 
-let (_tx, mut rx) = match datalink::channel(&interface, config) {
-    Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
-    Ok(_) => panic!("Unhandled channel type"),
-    Err(e) => panic!("Unable to create channel: {}", e),
-};
-
-loop {
-    match rx.next() {
-        Ok(packet) => {
-            let p0f_output = p0f.analyze_tcp(packet);
-            p0f_output.syn.map(|syn| println!("{}", syn));
-            p0f_output.syn_ack.map(|syn_ack| println!("{}", syn_ack));
-            p0f_output.mtu.map(|mtu| println!("{}", mtu));
-            p0f_output.uptime.map(|uptime| println!("{}", uptime));
-        }
-    Err(e) => eprintln!("Failed to read packet: {}", e),
+for output in receiver {
+    if let Some(syn) = output.syn {
+        println!("{}", syn);
+    }
+    if let Some(syn_ack) = output.syn_ack {
+        println!("{}", syn_ack);
+    }
+    if let Some(mtu) = output.mtu {
+        println!("{}", mtu);
+    }
+    if let Some(uptime) = output.uptime {
+        println!("{}", uptime);
     }
 }
 ```
