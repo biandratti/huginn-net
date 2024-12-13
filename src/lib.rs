@@ -14,6 +14,7 @@ use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, Upt
 use crate::packet::ObservableSignature;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
+use log::{debug, error};
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
@@ -76,11 +77,11 @@ impl<'a> P0f<'a> {
                 Ok(packet) => {
                     let output = self.analyze_tcp(packet);
                     if sender.send(output).is_err() {
-                        eprintln!("Receiver dropped, stopping packet capture");
+                        error!("Receiver dropped, stopping packet capture");
                         break;
                     }
                 }
-                Err(e) => eprintln!("Failed to read packet: {}", e),
+                Err(error) => error!("Failed to read packet: {}", error),
             }
         }
     }
@@ -142,12 +143,15 @@ impl<'a> P0f<'a> {
                     uptime,
                 }
             }
-            Err(_) => P0fOutput {
-                syn: None,
-                syn_ack: None,
-                mtu: None,
-                uptime: None,
-            },
+            Err(error) => {
+                debug!("Fail to process signature: {}", error);
+                P0fOutput {
+                    syn: None,
+                    syn_ack: None,
+                    mtu: None,
+                    uptime: None,
+                }
+            }
         }
     }
 }
