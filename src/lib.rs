@@ -14,6 +14,10 @@ use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, Upt
 use crate::packet::ObservableSignature;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
+use log::{debug, error};
+use pnet::datalink;
+use pnet::datalink::Config;
+use std::sync::mpsc::Sender;
 use ttl_cache::TtlCache;
 
 pub struct P0f<'a> {
@@ -40,99 +44,132 @@ impl<'a> P0f<'a> {
         Self { matcher, cache }
     }
 
-    /// Analyzes a TCP packet and returns the corresponding `P0fOutput`.
+    /// Captures and analyzes packets on the specified network interface.
+    ///
+    /// Sends `P0fOutput` through the provided channel.
     ///
     /// # Parameters
-    /// - `packet`: A byte slice representing the raw TCP packet to analyze.
+    /// - `interface_name`: The name of the network interface to analyze.
+    /// - `sender`: A `Sender` to send `P0fOutput` objects back to the caller.
     ///
-    /// # Returns
-    /// A `P0fOutput` containing the analysis results, including matched signatures,
-    /// observed MTU, uptime information, and other details. If no valid data is observed, an empty output is returned.
-    pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
-        if let Ok(observable_signature) = ObservableSignature::extract(packet, &mut self.cache) {
-            if observable_signature.from_client {
-                //println!("MTU {:?}", observable_signature.mtu);
-                let mtu: Option<MTUOutput> = if let Some(mtu) = observable_signature.mtu {
-                    if let Some((link, _matched_mtu)) = self.matcher.matching_by_mtu(&mtu) {
-                        Some(MTUOutput {
-                            source: observable_signature.source.clone(),
-                            destination: observable_signature.destination.clone(),
-                            link: link.clone(),
-                            mtu,
-                        })
-                    } else {
-                        None
+    /// # Panics
+    /// - If the network interface cannot be found or a channel cannot be created.
+    pub fn analyze_network(&mut self, interface_name: &str, sender: Sender<P0fOutput>) {
+        let interfaces = datalink::interfaces();
+        let interface = interfaces
+            .into_iter()
+            .find(|iface| iface.name == interface_name);
+
+        match interface {
+            Some(iface) => {
+                debug!("Using network interface: {}", iface.name);
+
+                let config = Config {
+                    promiscuous: true,
+                    ..Config::default()
+                };
+
+                let (_tx, mut rx) = match datalink::channel(&iface, config) {
+                    Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
+                    Ok(_) => {
+                        error!("Unhandled channel type for interface: {}", iface.name);
+                        return;
                     }
-                } else {
-                    None
+                    Err(e) => {
+                        error!(
+                            "Unable to create channel for interface {}: {}",
+                            iface.name, e
+                        );
+                        return;
+                    }
                 };
 
-                let syn: Option<SynTCPOutput> = if let Some((label, _matched_signature)) = self
-                    .matcher
-                    .matching_by_tcp_request(&observable_signature.signature)
-                {
-                    Some(SynTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: Some(label.clone()),
-                        sig: observable_signature.signature,
-                    })
-                } else {
-                    Some(SynTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: None,
-                        sig: observable_signature.signature,
-                    })
-                };
-
-                P0fOutput {
-                    syn,
-                    syn_ack: None,
-                    mtu,
-                    uptime: None,
+                loop {
+                    match rx.next() {
+                        Ok(packet) => {
+                            let output = self.analyze_tcp(packet);
+                            if sender.send(output).is_err() {
+                                error!("Receiver dropped, stopping packet capture");
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to read packet: {}", e);
+                        }
+                    }
                 }
-            } else {
-                let syn_ack: Option<SynAckTCPOutput> = if let Some((label, _matched_signature)) =
-                    self.matcher
-                        .matching_by_tcp_response(&observable_signature.signature)
-                {
-                    Some(SynAckTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: Some(label.clone()),
-                        sig: observable_signature.signature,
-                    })
-                } else {
-                    Some(SynAckTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: None,
-                        sig: observable_signature.signature,
-                    })
-                };
+            }
+            None => {
+                error!("Could not find the network interface: {}", interface_name);
+            }
+        }
+    }
 
-                P0fOutput {
-                    syn: None,
-                    syn_ack,
-                    mtu: None,
-                    uptime: observable_signature.uptime.map(|update| UptimeOutput {
-                        source: observable_signature.source,
-                        destination: observable_signature.destination,
+    fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
+        match ObservableSignature::extract(packet, &mut self.cache) {
+            Ok(observable_signature) => {
+                let (syn, syn_ack, mtu, uptime) = if observable_signature.from_client {
+                    let mtu = observable_signature.mtu.and_then(|mtu| {
+                        self.matcher
+                            .matching_by_mtu(&mtu)
+                            .map(|(link, _)| MTUOutput {
+                                source: observable_signature.source.clone(),
+                                destination: observable_signature.destination.clone(),
+                                link: link.clone(),
+                                mtu,
+                            })
+                    });
+
+                    let syn = Some(SynTCPOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
+                        label: self
+                            .matcher
+                            .matching_by_tcp_request(&observable_signature.signature)
+                            .map(|(label, _)| label.clone()),
+                        sig: observable_signature.signature,
+                    });
+
+                    (syn, None, mtu, None)
+                } else {
+                    let syn_ack = Some(SynAckTCPOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
+                        label: self
+                            .matcher
+                            .matching_by_tcp_response(&observable_signature.signature)
+                            .map(|(label, _)| label.clone()),
+                        sig: observable_signature.signature,
+                    });
+
+                    let uptime = observable_signature.uptime.map(|update| UptimeOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
                         days: update.days,
                         hours: update.hours,
                         min: update.min,
                         up_mod_days: update.up_mod_days,
                         freq: update.freq,
-                    }),
+                    });
+
+                    (None, syn_ack, None, uptime)
+                };
+
+                P0fOutput {
+                    syn,
+                    syn_ack,
+                    mtu,
+                    uptime,
                 }
             }
-        } else {
-            P0fOutput {
-                syn: None,
-                syn_ack: None,
-                mtu: None,
-                uptime: None,
+            Err(error) => {
+                debug!("Fail to process signature: {}", error);
+                P0fOutput {
+                    syn: None,
+                    syn_ack: None,
+                    mtu: None,
+                    uptime: None,
+                }
             }
         }
     }

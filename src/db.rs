@@ -1,4 +1,5 @@
 use crate::{http, tcp};
+use log::error;
 use std::fmt;
 
 /// Represents the database used by `P0f` to store signatures and associated metadata.
@@ -56,7 +57,7 @@ impl Database {
                 .ok()
                 .and_then(|content| content.parse().ok())
                 .unwrap_or_else(|| {
-                    eprintln!(
+                    error!(
                         "Failed to load configuration from {}. Falling back to default.",
                         path
                     );
