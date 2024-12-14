@@ -65,7 +65,6 @@ Here’s a basic example of how to use passivetcp-rs:
 use passivetcp_rs::db::Database;
 use passivetcp_rs::P0f;
 
-env_logger::init();
 let args = Args::parse();
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();

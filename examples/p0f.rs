@@ -20,7 +20,7 @@ struct Args {
 }
 
 fn initialize_logging(log_file: Option<String>) {
-    let pattern = "{d} - {l} - {m}{n}"; // Format: timestamp - level - message
+    let pattern = "{d} - {l} - {m}{n}";
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(pattern)))
         .build();
@@ -57,10 +57,9 @@ fn initialize_logging(log_file: Option<String>) {
 
 fn main() {
     let args = Args::parse();
-
-    let db = Box::leak(Box::new(Database::default()));
     initialize_logging(args.log_file);
 
+    let db = Box::leak(Box::new(Database::default()));
     debug!("Loaded database: {:?}", db);
 
     let (sender, receiver) = mpsc::channel();

@@ -3,7 +3,7 @@ use crate::tcp::Signature;
 use crate::Database;
 
 pub struct SignatureMatcher<'a> {
-    database: &'a Database, // Reference to the database
+    database: &'a Database,
 }
 
 impl<'a> SignatureMatcher<'a> {
