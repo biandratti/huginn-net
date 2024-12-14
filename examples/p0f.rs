@@ -56,11 +56,10 @@ fn initialize_logging(log_file: Option<String>) {
 }
 
 fn main() {
-    //env_logger::init();
     let args = Args::parse();
 
     let db = Box::leak(Box::new(Database::default()));
-    initialize_logging(args.log_file.clone());
+    initialize_logging(args.log_file);
 
     debug!("Loaded database: {:?}", db);
 
