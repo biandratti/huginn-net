@@ -18,7 +18,11 @@ About passivetcp-rs
 
 This Rust implementation of passive TCP fingerprinting is still in its experimental phase, and while it builds upon the established ideas of p0f, it is not yet feature-complete. The library currently provides basic functionality, but we plan to expand its capabilities as the project matures.
 
-#### A snippet of typical p0f output may look like this:
+### Example
+```
+cargo build --release --examples
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE> -l <LOG_FILE.LOG>
+```
 
 ```text
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
@@ -62,7 +66,7 @@ This Rust implementation of passive TCP fingerprinting is still in its experimen
 To use passivetcp-rs in your Rust project, add the following dependency to your `Cargo.toml`:
 ```toml
 [dependencies]
-passivetcp-rs = "0.1.0-alpha.0"
+passivetcp-rs = "0.1.0-alpha.2"
 ```
 
 ### Usage
