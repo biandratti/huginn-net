@@ -8,9 +8,10 @@ mod parse;
 mod signature_matcher;
 mod tcp;
 mod uptime;
+mod http_parser;
 
 use crate::db::Database;
-use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
+use crate::p0f_output::{HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
 use crate::packet::ObservableSignature;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
@@ -108,7 +109,7 @@ impl<'a> P0f<'a> {
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         match ObservableSignature::extract(packet, &mut self.cache) {
             Ok(observable_signature) => {
-                let (syn, syn_ack, mtu, uptime) = if observable_signature.from_client {
+                let (syn, syn_ack, mtu, uptime, http_request) = if observable_signature.from_client {
                     let mtu = observable_signature.mtu.and_then(|mtu| {
                         self.matcher
                             .matching_by_mtu(&mtu)
@@ -130,7 +131,20 @@ impl<'a> P0f<'a> {
                         sig: observable_signature.signature,
                     });
 
-                    (syn, None, mtu, None)
+                    let http_request = observable_signature.http_request.map(| http_request |
+                                                                                 HttpRequestOutput {
+                        source: observable_signature.source.clone(),
+                        destination: observable_signature.destination.clone(),
+                        lang: http_request.lang,
+                        user_agent: http_request.user_agent,
+                        label: self
+                            .matcher
+                            .matching_by_http_request(&http_request.signature)
+                            .map(|(label, _)| label.clone()),
+                        sig: http_request.signature,
+                    });
+
+                    (syn, None, mtu, None, http_request)
                 } else {
                     let syn_ack = Some(SynAckTCPOutput {
                         source: observable_signature.source.clone(),
@@ -152,7 +166,7 @@ impl<'a> P0f<'a> {
                         freq: update.freq,
                     });
 
-                    (None, syn_ack, None, uptime)
+                    (None, syn_ack, None, uptime, None)
                 };
 
                 P0fOutput {
@@ -160,6 +174,7 @@ impl<'a> P0f<'a> {
                     syn_ack,
                     mtu,
                     uptime,
+                    http_request,
                 }
             }
             Err(error) => {
@@ -169,6 +184,7 @@ impl<'a> P0f<'a> {
                     syn_ack: None,
                     mtu: None,
                     uptime: None,
+                    http_request: None,
                 }
             }
         }

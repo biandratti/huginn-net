@@ -1,5 +1,3 @@
-use crate::tcp::IpVersion;
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
     /// HTTP version
