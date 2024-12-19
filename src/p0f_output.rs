@@ -168,7 +168,7 @@ impl fmt::Display for HttpRequestOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (uptime) ]-\n\
+            ".-[ {}/{} -> {}/{} (http request) ]-\n\
             |\n\
             | client   = {}\n\
             | app      = {}\n\

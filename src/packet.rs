@@ -1,6 +1,7 @@
+use crate::http_parser::{parse_http_request, ObservableHttpRequest};
 use crate::mtu;
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::tcp;
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
@@ -16,7 +17,6 @@ use pnet::packet::{
 use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
-use crate::http_parser::{parse_http_request, ObservableHttpRequest};
 
 #[derive(Clone)]
 pub struct IpPort {
@@ -377,7 +377,7 @@ fn visit_tcp(
     };
 
     //TODO: WIP...
-    let observableHttpRequest = parse_http_request(tcp.payload());
+    let observable_http_request = parse_http_request(tcp.payload());
 
     Ok(ObservableSignature {
         signature: tcp::Signature {
@@ -395,7 +395,7 @@ fn visit_tcp(
                 PayloadSize::NonZero
             },
         },
-        http_request: observableHttpRequest,
+        http_request: observable_http_request,
         mtu,
         uptime,
         source: IpPort {

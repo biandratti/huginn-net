@@ -1,6 +1,7 @@
 pub mod db;
 mod display;
 mod http;
+mod http_parser;
 mod mtu;
 mod p0f_output;
 mod packet;
@@ -8,10 +9,11 @@ mod parse;
 mod signature_matcher;
 mod tcp;
 mod uptime;
-mod http_parser;
 
 use crate::db::Database;
-use crate::p0f_output::{HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
+use crate::p0f_output::{
+    HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+};
 use crate::packet::ObservableSignature;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
@@ -109,65 +111,67 @@ impl<'a> P0f<'a> {
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         match ObservableSignature::extract(packet, &mut self.cache) {
             Ok(observable_signature) => {
-                let (syn, syn_ack, mtu, uptime, http_request) = if observable_signature.from_client {
-                    let mtu = observable_signature.mtu.and_then(|mtu| {
-                        self.matcher
-                            .matching_by_mtu(&mtu)
-                            .map(|(link, _)| MTUOutput {
+                let (syn, syn_ack, mtu, uptime, http_request) =
+                    if observable_signature.from_client {
+                        let mtu = observable_signature.mtu.and_then(|mtu| {
+                            self.matcher
+                                .matching_by_mtu(&mtu)
+                                .map(|(link, _)| MTUOutput {
+                                    source: observable_signature.source.clone(),
+                                    destination: observable_signature.destination.clone(),
+                                    link: link.clone(),
+                                    mtu,
+                                })
+                        });
+
+                        let syn = Some(SynTCPOutput {
+                            source: observable_signature.source.clone(),
+                            destination: observable_signature.destination.clone(),
+                            label: self
+                                .matcher
+                                .matching_by_tcp_request(&observable_signature.signature)
+                                .map(|(label, _)| label.clone()),
+                            sig: observable_signature.signature,
+                        });
+
+                        let http_request = observable_signature.http_request.map(|http_request| {
+                            HttpRequestOutput {
                                 source: observable_signature.source.clone(),
                                 destination: observable_signature.destination.clone(),
-                                link: link.clone(),
-                                mtu,
-                            })
-                    });
+                                lang: http_request.lang,
+                                user_agent: http_request.user_agent,
+                                label: self
+                                    .matcher
+                                    .matching_by_http_request(&http_request.signature)
+                                    .map(|(label, _)| label.clone()),
+                                sig: http_request.signature,
+                            }
+                        });
 
-                    let syn = Some(SynTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: self
-                            .matcher
-                            .matching_by_tcp_request(&observable_signature.signature)
-                            .map(|(label, _)| label.clone()),
-                        sig: observable_signature.signature,
-                    });
+                        (syn, None, mtu, None, http_request)
+                    } else {
+                        let syn_ack = Some(SynAckTCPOutput {
+                            source: observable_signature.source.clone(),
+                            destination: observable_signature.destination.clone(),
+                            label: self
+                                .matcher
+                                .matching_by_tcp_response(&observable_signature.signature)
+                                .map(|(label, _)| label.clone()),
+                            sig: observable_signature.signature,
+                        });
 
-                    let http_request = observable_signature.http_request.map(| http_request |
-                                                                                 HttpRequestOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        lang: http_request.lang,
-                        user_agent: http_request.user_agent,
-                        label: self
-                            .matcher
-                            .matching_by_http_request(&http_request.signature)
-                            .map(|(label, _)| label.clone()),
-                        sig: http_request.signature,
-                    });
+                        let uptime = observable_signature.uptime.map(|update| UptimeOutput {
+                            source: observable_signature.source.clone(),
+                            destination: observable_signature.destination.clone(),
+                            days: update.days,
+                            hours: update.hours,
+                            min: update.min,
+                            up_mod_days: update.up_mod_days,
+                            freq: update.freq,
+                        });
 
-                    (syn, None, mtu, None, http_request)
-                } else {
-                    let syn_ack = Some(SynAckTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: self
-                            .matcher
-                            .matching_by_tcp_response(&observable_signature.signature)
-                            .map(|(label, _)| label.clone()),
-                        sig: observable_signature.signature,
-                    });
-
-                    let uptime = observable_signature.uptime.map(|update| UptimeOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        days: update.days,
-                        hours: update.hours,
-                        min: update.min,
-                        up_mod_days: update.up_mod_days,
-                        freq: update.freq,
-                    });
-
-                    (None, syn_ack, None, uptime, None)
-                };
+                        (None, syn_ack, None, uptime, None)
+                    };
 
                 P0fOutput {
                     syn,

@@ -50,7 +50,8 @@ pub fn header<S: AsRef<str>>(name: S) -> Header {
     Header::new(name)
 }
 
-#[cfg(test)]
+//TODO: WIP
+//#[cfg(test)]
 impl Header {
     pub fn new<S: AsRef<str>>(name: S) -> Self {
         Header {
