@@ -1,74 +1,20 @@
 use crate::mtu;
-use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+use crate::process::{IpPort, ObservablePackage};
+use crate::tcp;
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
 use pnet::packet::{
-    ethernet::{EtherType, EtherTypes, EthernetPacket},
     ip::IpNextHeaderProtocols,
     ipv4::{Ipv4Flags, Ipv4Packet},
     ipv6::Ipv6Packet,
     tcp::{TcpFlags, TcpOptionNumbers::*, TcpOptionPacket, TcpPacket},
-    vlan::VlanPacket,
     Packet, PacketSize,
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
-
-#[derive(Clone)]
-pub struct IpPort {
-    pub ip: IpAddr,
-    pub port: u16,
-}
-
-pub struct ObservableSignature {
-    pub signature: Signature,
-    pub mtu: Option<u16>,
-    pub uptime: Option<ObservableUptime>,
-    pub source: IpPort,
-    pub destination: IpPort,
-    pub from_client: bool,
-}
-impl ObservableSignature {
-    pub fn extract(
-        packet: &[u8],
-        cache: &mut TtlCache<Connection, SynData>,
-    ) -> Result<Self, Error> {
-        EthernetPacket::new(packet)
-            .ok_or_else(|| err_msg("ethernet packet too short"))
-            .and_then(|packet| visit_ethernet(packet.get_ethertype(), cache, packet.payload()))
-    }
-}
-
-fn visit_ethernet(
-    ethertype: EtherType,
-    cache: &mut TtlCache<Connection, SynData>,
-    payload: &[u8],
-) -> Result<ObservableSignature, Error> {
-    match ethertype {
-        EtherTypes::Vlan => VlanPacket::new(payload)
-            .ok_or_else(|| err_msg("vlan packet too short"))
-            .and_then(|packet| visit_vlan(cache, packet)),
-
-        EtherTypes::Ipv4 => Ipv4Packet::new(payload)
-            .ok_or_else(|| err_msg("ipv4 packet too short"))
-            .and_then(|packet| visit_ipv4(cache, packet)),
-
-        EtherTypes::Ipv6 => Ipv6Packet::new(payload)
-            .ok_or_else(|| err_msg("ipv6 packet too short"))
-            .and_then(|packet| visit_ipv6(cache, packet)),
-
-        ty => bail!("unsupported ethernet type: {}", ty),
-    }
-}
-
-fn visit_vlan(
-    cache: &mut TtlCache<Connection, SynData>,
-    packet: VlanPacket,
-) -> Result<ObservableSignature, Error> {
-    visit_ethernet(packet.get_ethertype(), cache, packet.payload())
-}
 
 /// Congestion encountered
 const IP_TOS_CE: u8 = 0x01;
@@ -81,10 +27,10 @@ fn from_client(tcp_flags: u8) -> bool {
     tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
 }
 
-fn visit_ipv4(
+pub fn visit_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: Ipv4Packet,
-) -> Result<ObservableSignature, Error> {
+) -> Result<ObservablePackage, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsupported IPv4 packet with non-TCP payload: {}",
@@ -146,10 +92,10 @@ fn visit_ipv4(
         })
 }
 
-fn visit_ipv6(
+pub fn visit_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: Ipv6Packet,
-) -> Result<ObservableSignature, Error> {
+) -> Result<ObservablePackage, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!(
             "unsuppport IPv6 packet with non-TCP payload: {}",
@@ -215,7 +161,7 @@ fn visit_tcp(
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
     destination_ip: IpAddr,
-) -> Result<ObservableSignature, Error> {
+) -> Result<ObservablePackage, Error> {
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
@@ -373,8 +319,8 @@ fn visit_tcp(
         (wsize, _) => WindowSize::Value(wsize),
     };
 
-    Ok(ObservableSignature {
-        signature: Signature {
+    Ok(ObservablePackage {
+        tcp_signature: tcp::Signature {
             version,
             ittl,
             olen,

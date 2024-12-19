@@ -1,5 +1,5 @@
 use crate::db::Label;
-use crate::packet::IpPort;
+use crate::process::IpPort;
 use crate::tcp::{Signature, Ttl};
 use std::fmt;
 

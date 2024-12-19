@@ -1,17 +1,18 @@
 pub mod db;
+mod db_parse;
 mod display;
 mod http;
 mod mtu;
 mod p0f_output;
-mod packet;
-mod parse;
+mod process;
 mod signature_matcher;
 mod tcp;
+mod tcp_process;
 mod uptime;
 
 use crate::db::Database;
 use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
-use crate::packet::ObservableSignature;
+use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
 use log::{debug, error};
@@ -106,7 +107,7 @@ impl<'a> P0f<'a> {
     }
 
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
-        match ObservableSignature::extract(packet, &mut self.cache) {
+        match ObservablePackage::extract(packet, &mut self.cache) {
             Ok(observable_signature) => {
                 let (syn, syn_ack, mtu, uptime) = if observable_signature.from_client {
                     let mtu = observable_signature.mtu.and_then(|mtu| {
@@ -125,9 +126,9 @@ impl<'a> P0f<'a> {
                         destination: observable_signature.destination.clone(),
                         label: self
                             .matcher
-                            .matching_by_tcp_request(&observable_signature.signature)
+                            .matching_by_tcp_request(&observable_signature.tcp_signature)
                             .map(|(label, _)| label.clone()),
-                        sig: observable_signature.signature,
+                        sig: observable_signature.tcp_signature,
                     });
 
                     (syn, None, mtu, None)
@@ -137,9 +138,9 @@ impl<'a> P0f<'a> {
                         destination: observable_signature.destination.clone(),
                         label: self
                             .matcher
-                            .matching_by_tcp_response(&observable_signature.signature)
+                            .matching_by_tcp_response(&observable_signature.tcp_signature)
                             .map(|(label, _)| label.clone()),
-                        sig: observable_signature.signature,
+                        sig: observable_signature.tcp_signature,
                     });
 
                     let uptime = observable_signature.uptime.map(|update| UptimeOutput {
