@@ -1,17 +1,18 @@
 pub mod db;
+mod db_parse;
 mod display;
 mod http;
 mod mtu;
 mod p0f_output;
-mod packet;
-mod parse;
+mod process;
 mod signature_matcher;
 mod tcp;
+mod tcp_process;
 mod uptime;
 
 use crate::db::Database;
 use crate::p0f_output::{MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
-use crate::packet::ObservableSignature;
+use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
 use log::{debug, error};
@@ -106,53 +107,59 @@ impl<'a> P0f<'a> {
     }
 
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
-        match ObservableSignature::extract(packet, &mut self.cache) {
-            Ok(observable_signature) => {
-                let (syn, syn_ack, mtu, uptime) = if observable_signature.from_client {
-                    let mtu = observable_signature.mtu.and_then(|mtu| {
-                        self.matcher
-                            .matching_by_mtu(&mtu)
-                            .map(|(link, _)| MTUOutput {
-                                source: observable_signature.source.clone(),
-                                destination: observable_signature.destination.clone(),
-                                link: link.clone(),
-                                mtu,
-                            })
-                    });
+        match ObservablePackage::extract(packet, &mut self.cache) {
+            Ok(observable_package) => {
+                let (syn, syn_ack, mtu, uptime) = {
+                    let mtu: Option<MTUOutput> =
+                        observable_package.mtu.and_then(|observable_mtu| {
+                            self.matcher
+                                .matching_by_mtu(&observable_mtu.value)
+                                .map(|(link, _)| MTUOutput {
+                                    source: observable_package.source.clone(),
+                                    destination: observable_package.destination.clone(),
+                                    link: link.clone(),
+                                    mtu: observable_mtu.value,
+                                })
+                        });
 
-                    let syn = Some(SynTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: self
-                            .matcher
-                            .matching_by_tcp_request(&observable_signature.signature)
-                            .map(|(label, _)| label.clone()),
-                        sig: observable_signature.signature,
-                    });
+                    let syn: Option<SynTCPOutput> =
+                        observable_package
+                            .tcp_request
+                            .map(|observable_tcp| SynTCPOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                label: self
+                                    .matcher
+                                    .matching_by_tcp_request(&observable_tcp.signature)
+                                    .map(|(label, _)| label.clone()),
+                                sig: observable_tcp.signature,
+                            });
 
-                    (syn, None, mtu, None)
-                } else {
-                    let syn_ack = Some(SynAckTCPOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        label: self
-                            .matcher
-                            .matching_by_tcp_response(&observable_signature.signature)
-                            .map(|(label, _)| label.clone()),
-                        sig: observable_signature.signature,
-                    });
+                    let syn_ack: Option<SynAckTCPOutput> =
+                        observable_package
+                            .tcp_response
+                            .map(|observable_tcp| SynAckTCPOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                label: self
+                                    .matcher
+                                    .matching_by_tcp_request(&observable_tcp.signature)
+                                    .map(|(label, _)| label.clone()),
+                                sig: observable_tcp.signature,
+                            });
 
-                    let uptime = observable_signature.uptime.map(|update| UptimeOutput {
-                        source: observable_signature.source.clone(),
-                        destination: observable_signature.destination.clone(),
-                        days: update.days,
-                        hours: update.hours,
-                        min: update.min,
-                        up_mod_days: update.up_mod_days,
-                        freq: update.freq,
-                    });
+                    let uptime: Option<UptimeOutput> =
+                        observable_package.uptime.map(|update| UptimeOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            days: update.days,
+                            hours: update.hours,
+                            min: update.min,
+                            up_mod_days: update.up_mod_days,
+                            freq: update.freq,
+                        });
 
-                    (None, syn_ack, None, uptime)
+                    (syn, syn_ack, mtu, uptime)
                 };
 
                 P0fOutput {
