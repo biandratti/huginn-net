@@ -17,6 +17,11 @@ use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
+#[derive(Clone)]
+pub struct ObservableTcp {
+    pub signature: tcp::Signature,
+}
+
 /// Congestion encountered
 const IP_TOS_CE: u8 = 0x01;
 /// ECN supported
@@ -320,8 +325,8 @@ fn visit_tcp(
         (wsize, _) => WindowSize::Value(wsize),
     };
 
-    Ok(ObservablePackage {
-        tcp_signature: tcp::Signature {
+    let tcp_signature: ObservableTcp = ObservableTcp {
+        signature: tcp::Signature {
             version,
             ittl,
             olen,
@@ -336,8 +341,21 @@ fn visit_tcp(
                 PayloadSize::NonZero
             },
         },
-        mtu,
-        uptime,
+    };
+
+    Ok(ObservablePackage {
+        tcp_request: if from_client {
+            Some(tcp_signature.clone())
+        } else {
+            None
+        },
+        tcp_response: if !from_client {
+            Some(tcp_signature)
+        } else {
+            None
+        },
+        mtu: if from_client { mtu } else { None },
+        uptime: if !from_client { uptime } else { None },
         source: IpPort {
             ip: source_ip,
             port: source_port,
@@ -346,6 +364,5 @@ fn visit_tcp(
             ip: destination_ip,
             port: destination_port,
         },
-        from_client,
     })
 }

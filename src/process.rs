@@ -1,6 +1,5 @@
 use crate::mtu::ObservableMtu;
-use crate::tcp;
-use crate::tcp_process::{visit_ipv4, visit_ipv6};
+use crate::tcp_process::{visit_ipv4, visit_ipv6, ObservableTcp};
 use crate::uptime::ObservableUptime;
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
@@ -23,8 +22,8 @@ pub struct IpPort {
 pub struct ObservablePackage {
     pub source: IpPort,
     pub destination: IpPort,
-    pub from_client: bool,
-    pub tcp_signature: tcp::Signature,
+    pub tcp_request: Option<ObservableTcp>,
+    pub tcp_response: Option<ObservableTcp>,
     pub mtu: Option<ObservableMtu>,
     pub uptime: Option<ObservableUptime>,
 }
