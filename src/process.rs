@@ -1,3 +1,4 @@
+use crate::mtu::ObservableMtu;
 use crate::tcp;
 use crate::tcp_process::{visit_ipv4, visit_ipv6};
 use crate::uptime::ObservableUptime;
@@ -10,7 +11,6 @@ use pnet::packet::{
     vlan::VlanPacket,
     Packet,
 };
-use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
@@ -25,7 +25,7 @@ pub struct ObservablePackage {
     pub destination: IpPort,
     pub from_client: bool,
     pub tcp_signature: tcp::Signature,
-    pub mtu: Option<u16>,
+    pub mtu: Option<ObservableMtu>,
     pub uptime: Option<ObservableUptime>,
 }
 impl ObservablePackage {

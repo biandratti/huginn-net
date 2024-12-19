@@ -1,4 +1,5 @@
 use crate::mtu;
+use crate::mtu::ObservableMtu;
 use crate::process::{IpPort, ObservablePackage};
 use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
@@ -296,7 +297,7 @@ fn visit_tcp(
         }
     }
 
-    let mtu: Option<u16> = match (mss, &version) {
+    let mtu: Option<ObservableMtu> = match (mss, &version) {
         (Some(mss_value), IpVersion::V4) => {
             mtu::extract_from_ipv4(tcp, ip_package_header_length, mss_value)
         }
@@ -313,8 +314,8 @@ fn visit_tcp(
         (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
             WindowSize::Mss((wsize / mss_value) as u8)
         }
-        (wsize, _) if mtu.is_some() && wsize % mtu.unwrap() == 0 => {
-            WindowSize::Mtu((wsize / mtu.unwrap()) as u8)
+        (wsize, _) if mtu.as_ref().map_or(false, |mtu| wsize % mtu.value == 0) => {
+            WindowSize::Mtu((wsize / mtu.as_ref().unwrap().value) as u8)
         }
         (wsize, _) => WindowSize::Value(wsize),
     };

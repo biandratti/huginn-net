@@ -110,14 +110,14 @@ impl<'a> P0f<'a> {
         match ObservablePackage::extract(packet, &mut self.cache) {
             Ok(observable_signature) => {
                 let (syn, syn_ack, mtu, uptime) = if observable_signature.from_client {
-                    let mtu = observable_signature.mtu.and_then(|mtu| {
+                    let mtu = observable_signature.mtu.and_then(|observable_mtu| {
                         self.matcher
-                            .matching_by_mtu(&mtu)
+                            .matching_by_mtu(&observable_mtu.value)
                             .map(|(link, _)| MTUOutput {
                                 source: observable_signature.source.clone(),
                                 destination: observable_signature.destination.clone(),
                                 link: link.clone(),
-                                mtu,
+                                mtu: observable_mtu.value,
                             })
                     });
 
