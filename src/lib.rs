@@ -123,8 +123,9 @@ impl<'a> P0f<'a> {
                         });
 
                     let syn: Option<SynTCPOutput> =
-                        observable_package.tcp_request.and_then(|observable_tcp| {
-                            Some(SynTCPOutput {
+                        observable_package
+                            .tcp_request
+                            .map(|observable_tcp| SynTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 label: self
@@ -132,12 +133,12 @@ impl<'a> P0f<'a> {
                                     .matching_by_tcp_request(&observable_tcp.signature)
                                     .map(|(label, _)| label.clone()),
                                 sig: observable_tcp.signature,
-                            })
-                        });
+                            });
 
                     let syn_ack: Option<SynAckTCPOutput> =
-                        observable_package.tcp_response.and_then(|observable_tcp| {
-                            Some(SynAckTCPOutput {
+                        observable_package
+                            .tcp_response
+                            .map(|observable_tcp| SynAckTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 label: self
@@ -145,8 +146,7 @@ impl<'a> P0f<'a> {
                                     .matching_by_tcp_request(&observable_tcp.signature)
                                     .map(|(label, _)| label.clone()),
                                 sig: observable_tcp.signature,
-                            })
-                        });
+                            });
 
                     let uptime: Option<UptimeOutput> =
                         observable_package.uptime.map(|update| UptimeOutput {
