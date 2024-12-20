@@ -1,7 +1,7 @@
 use crate::db::Label;
+use crate::http;
 use crate::process::IpPort;
 use crate::tcp::{Signature, Ttl};
-use crate::{http, tcp};
 use std::fmt;
 
 pub struct P0fOutput {

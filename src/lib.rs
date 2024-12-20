@@ -2,6 +2,7 @@ pub mod db;
 mod db_parse;
 mod display;
 mod http;
+mod http_process;
 mod mtu;
 mod p0f_output;
 mod process;
@@ -9,10 +10,11 @@ mod signature_matcher;
 mod tcp;
 mod tcp_process;
 mod uptime;
-mod http_process;
 
 use crate::db::Database;
-use crate::p0f_output::{HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput};
+use crate::p0f_output::{
+    HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+};
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
@@ -160,19 +162,20 @@ impl<'a> P0f<'a> {
                             freq: update.freq,
                         });
 
-                    let http_request = observable_package.http_request.map(|http_request| {
-                        HttpRequestOutput {
-                            source: observable_package.source.clone(),
-                            destination: observable_package.destination.clone(),
-                            lang: http_request.lang,
-                            user_agent: http_request.user_agent,
-                            label: self
-                                .matcher
-                                .matching_by_http_request(&http_request.signature)
-                                .map(|(label, _)| label.clone()),
-                            sig: http_request.signature,
-                        }
-                    });
+                    let http_request =
+                        observable_package
+                            .http_request
+                            .map(|http_request| HttpRequestOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                lang: http_request.lang,
+                                user_agent: http_request.user_agent,
+                                label: self
+                                    .matcher
+                                    .matching_by_http_request(&http_request.signature)
+                                    .map(|(label, _)| label.clone()),
+                                sig: http_request.signature,
+                            });
 
                     (syn, syn_ack, mtu, uptime, http_request)
                 };
@@ -182,7 +185,7 @@ impl<'a> P0f<'a> {
                     syn_ack,
                     mtu,
                     uptime,
-                    http_request
+                    http_request,
                 }
             }
             Err(error) => {

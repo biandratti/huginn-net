@@ -1,8 +1,11 @@
+use crate::http_process::ObservableHttpRequest;
 use crate::mtu::ObservableMtu;
-use crate::tcp_process::{visit_ipv4, visit_ipv6, ObservableTcp};
+use crate::tcp_process::ObservableTcp;
 use crate::uptime::ObservableUptime;
 use crate::uptime::{Connection, SynData};
+use crate::{http_process, tcp_process};
 use failure::{bail, err_msg, Error};
+use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
     ipv4::Ipv4Packet,
@@ -12,7 +15,6 @@ use pnet::packet::{
 };
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
-use crate::http_process::ObservableHttpRequest;
 
 #[derive(Clone)]
 pub struct IpPort {
@@ -52,11 +54,11 @@ fn visit_ethernet(
 
         EtherTypes::Ipv4 => Ipv4Packet::new(payload)
             .ok_or_else(|| err_msg("ipv4 packet too short"))
-            .and_then(|packet| visit_ipv4(cache, packet)),
+            .and_then(|packet| process_ipv4(cache, packet)),
 
         EtherTypes::Ipv6 => Ipv6Packet::new(payload)
             .ok_or_else(|| err_msg("ipv6 packet too short"))
-            .and_then(|packet| visit_ipv6(cache, packet)),
+            .and_then(|packet| process_ipv6(cache, packet)),
 
         ty => bail!("unsupported ethernet type: {}", ty),
     }
@@ -67,4 +69,32 @@ fn visit_vlan(
     packet: VlanPacket,
 ) -> Result<ObservablePackage, Error> {
     visit_ethernet(packet.get_ethertype(), cache, packet.payload())
+}
+
+pub fn process_ipv4(
+    cache: &mut TtlCache<Connection, SynData>,
+    packet: Ipv4Packet,
+) -> Result<ObservablePackage, Error> {
+    if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
+        bail!(
+            "unsupported IPv4 packet with non-TCP payload: {}",
+            packet.get_next_level_protocol()
+        );
+    }
+    //TODO: evaluate in parallel
+    let _ = http_process::process_http_ipv4(&packet);
+    tcp_process::process_tcp_ipv4(cache, &packet)
+}
+
+pub fn process_ipv6(
+    cache: &mut TtlCache<Connection, SynData>,
+    packet: Ipv6Packet,
+) -> Result<ObservablePackage, Error> {
+    if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
+        bail!(
+            "unsuppport IPv6 packet with non-TCP payload: {}",
+            packet.get_next_header()
+        );
+    }
+    tcp_process::process_tcp_ipv6(cache, &packet)
 }

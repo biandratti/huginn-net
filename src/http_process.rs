@@ -1,8 +1,13 @@
 use crate::http;
+use failure::Error;
+use pnet::packet::ipv4::Ipv4Packet;
 
-pub fn process_http_request(payload: &[u8]) -> Option<ObservableHttpRequest> {
-    //TODO: WIP
-    None
+pub fn process_http_ipv4(_packet: &Ipv4Packet) -> Result<ObservableHttpPackage, Error> {
+    Ok(ObservableHttpPackage { http_request: None })
+}
+
+pub struct ObservableHttpPackage {
+    http_request: Option<ObservableHttpRequest>,
 }
 
 pub struct ObservableHttpRequest {
