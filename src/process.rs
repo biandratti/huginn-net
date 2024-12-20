@@ -39,7 +39,14 @@ impl ObservablePackage {
     ) -> Result<Self, Error> {
         EthernetPacket::new(packet)
             .ok_or_else(|| err_msg("ethernet packet too short"))
-            .and_then(|packet| visit_ethernet(packet.get_ethertype(), tcp_cache, http_cache, packet.payload()))
+            .and_then(|packet| {
+                visit_ethernet(
+                    packet.get_ethertype(),
+                    tcp_cache,
+                    http_cache,
+                    packet.payload(),
+                )
+            })
     }
 }
 
@@ -71,7 +78,12 @@ fn visit_vlan(
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     packet: VlanPacket,
 ) -> Result<ObservablePackage, Error> {
-    visit_ethernet(packet.get_ethertype(), tcp_cache, http_cache, packet.payload())
+    visit_ethernet(
+        packet.get_ethertype(),
+        tcp_cache,
+        http_cache,
+        packet.payload(),
+    )
 }
 
 pub fn process_ipv4(
@@ -101,5 +113,6 @@ pub fn process_ipv6(
             packet.get_next_header()
         );
     }
+    let _ = http_process::process_http_ipv6(&packet, http_cache);
     tcp_process::process_tcp_ipv6(tcp_cache, &packet)
 }

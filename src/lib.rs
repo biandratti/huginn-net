@@ -12,6 +12,7 @@ mod tcp_process;
 mod uptime;
 
 use crate::db::Database;
+use crate::http_process::{FlowKey, TcpFlow};
 use crate::p0f_output::{
     HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
@@ -23,7 +24,6 @@ use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
 use ttl_cache::TtlCache;
-use crate::http_process::{FlowKey, TcpFlow};
 
 pub struct P0f<'a> {
     pub matcher: SignatureMatcher<'a>,
@@ -48,7 +48,11 @@ impl<'a> P0f<'a> {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
         let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
         let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
-        Self { matcher, tcp_cache, http_cache }
+        Self {
+            matcher,
+            tcp_cache,
+            http_cache,
+        }
     }
 
     /// Captures and analyzes packets on the specified network interface.

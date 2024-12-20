@@ -36,6 +36,7 @@ pub fn process_tcp_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv4Packet,
 ) -> Result<ObservablePackage, Error> {
+    //if packet.get_next_header() == IpNextHeaderProtocols::Tcp {} //TODO: WIP
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
@@ -94,6 +95,7 @@ pub fn process_tcp_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv6Packet,
 ) -> Result<ObservablePackage, Error> {
+    //if packet.get_next_header() == IpNextHeaderProtocols::Tcp {} //TODO: WIP
     let version = IpVersion::V6;
     let ttl_value: u8 = packet.get_hop_limit();
     let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); // TODO: WIP
