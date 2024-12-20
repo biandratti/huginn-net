@@ -23,10 +23,12 @@ use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
 use ttl_cache::TtlCache;
+use crate::http_process::{FlowKey, TcpFlow};
 
 pub struct P0f<'a> {
     pub matcher: SignatureMatcher<'a>,
-    cache: TtlCache<Connection, SynData>,
+    tcp_cache: TtlCache<Connection, SynData>,
+    http_cache: TtlCache<FlowKey, TcpFlow>,
 }
 
 /// A passive TCP fingerprinting engine inspired by `p0f`.
@@ -44,8 +46,9 @@ impl<'a> P0f<'a> {
     /// A new `P0f` instance initialized with the given database and cache capacity.
     pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
-        let cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
-        Self { matcher, cache }
+        let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
+        let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
+        Self { matcher, tcp_cache, http_cache }
     }
 
     /// Captures and analyzes packets on the specified network interface.
@@ -110,7 +113,7 @@ impl<'a> P0f<'a> {
     }
 
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
-        match ObservablePackage::extract(packet, &mut self.cache) {
+        match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request) = {
                     let mtu: Option<MTUOutput> =
