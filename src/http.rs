@@ -21,11 +21,9 @@ impl Signature {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Version {
-    /// HTTP/1.0
     V10,
-    /// HTTP/1.1
     V11,
-    /// HTTP/1.0 or HTTP/1.1
+    // V2,
     Any,
 }
 
@@ -50,7 +48,7 @@ pub fn header<S: AsRef<str>>(name: S) -> Header {
     Header::new(name)
 }
 
-#[cfg(test)]
+//#[cfg(test)]
 impl Header {
     pub fn new<S: AsRef<str>>(name: S) -> Self {
         Header {
