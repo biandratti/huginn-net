@@ -169,7 +169,7 @@ impl<'a> P0f<'a> {
                             freq: update.freq,
                         });
 
-                    let http_request =
+/*                    let http_request =
                         observable_package
                             .http_request
                             .map(|http_request| HttpRequestOutput {
@@ -182,9 +182,9 @@ impl<'a> P0f<'a> {
                                     .matching_by_http_request(&http_request.signature)
                                     .map(|(label, _)| label.clone()),
                                 sig: http_request.signature,
-                            });
+                            });*/
 
-                    (syn, syn_ack, mtu, uptime, http_request)
+                    (syn, syn_ack, mtu, uptime, None)
                 };
 
                 P0fOutput {
