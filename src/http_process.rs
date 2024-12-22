@@ -2,7 +2,7 @@ use crate::http;
 use crate::http::{Header, Version};
 use failure::Error;
 use httparse::{Request, EMPTY_HEADER};
-use log::{debug, info};
+use log::debug;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -14,6 +14,8 @@ use ttl_cache::TtlCache;
 
 pub type FlowKey = (IpAddr, IpAddr, u16, u16); // (Client IP, Server IP, Client Port, Server Port)
 
+//TODO: WIP
+#[allow(dead_code)]
 pub struct TcpFlow {
     client_ip: IpAddr,
     server_ip: IpAddr,
@@ -95,7 +97,6 @@ fn process_tcp_packet(
             if src_ip == flow.client_ip && src_port == flow.client_port {
                 flow.client_data.extend_from_slice(tcp.payload());
                 if let Ok(http_request_parsed) = parse_http_request(&flow.client_data) {
-                    info!("HTTP Request:\n{:?}", http_request_parsed);
                     http_request = http_request_parsed;
                 }
             } else {
@@ -135,7 +136,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
                 })
                 .collect();
 
-            let expected_headers = vec![
+            let expected_headers = [
                 "User-Agent",
                 "Server",
                 "Accept-Language",
@@ -152,19 +153,18 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             let habsent: Vec<Header> = expected_headers
                 .iter()
                 .filter(|h| !headers.iter().any(|(k, _)| k.eq_ignore_ascii_case(h)))
-                .map(|h| Header::new(h.to_string()))
+                .map(Header::new)
                 .collect();
 
             let user_agent: Option<String> = headers
                 .iter()
                 .find(|(k, _)| k.eq_ignore_ascii_case("User-Agent"))
                 .map(|(_, v)| v.clone());
+
             let lang: Option<String> = headers
                 .iter()
                 .find(|(k, _)| k.eq_ignore_ascii_case("Accept-Language"))
                 .map(|(_, v)| v.clone());
-
-            //info!("Successfully parsed HTTP Request. Headers: {:?}", headers);
 
             Ok(Some(ObservableHttpRequest {
                 lang,
@@ -208,7 +208,7 @@ fn extract_http_version(request: Request) -> Version {
 }
 
 pub struct ObservableHttpPackage {
-    http_request: Option<ObservableHttpRequest>,
+    pub http_request: Option<ObservableHttpRequest>,
 }
 
 #[derive(Debug)]

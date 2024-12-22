@@ -359,6 +359,6 @@ fn visit_tcp(
         destination: IpPort {
             ip: destination_ip,
             port: destination_port,
-        }
+        },
     })
 }
