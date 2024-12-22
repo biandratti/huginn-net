@@ -31,6 +31,7 @@ pub struct ObservablePackage {
     pub uptime: Option<ObservableUptime>,
     pub http_request: Option<ObservableHttpRequest>,
 }
+
 impl ObservablePackage {
     pub fn extract(
         packet: &[u8],
@@ -98,8 +99,9 @@ pub fn process_ipv4(
         );
     }
     //TODO: evaluate in parallel
-    let _ = http_process::process_http_ipv4(&packet, http_cache);
-    tcp_process::process_tcp_ipv4(tcp_cache, &packet)
+    let http_response = http_process::process_http_ipv4(&packet, http_cache);
+    let tcp_response = tcp_process::process_tcp_ipv4(tcp_cache, &packet);
+    todo!()
 }
 
 pub fn process_ipv6(
@@ -113,6 +115,7 @@ pub fn process_ipv6(
             packet.get_next_header()
         );
     }
-    let _ = http_process::process_http_ipv6(&packet, http_cache);
-    tcp_process::process_tcp_ipv6(tcp_cache, &packet)
+    let http_response = http_process::process_http_ipv6(&packet, http_cache);
+    let tcp_response = tcp_process::process_tcp_ipv6(tcp_cache, &packet);
+    todo!()
 }

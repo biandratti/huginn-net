@@ -195,10 +195,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
 }
 
 fn extract_traffic_classification(user_agent: Option<String>) -> String {
-    match user_agent {
-        None => "???".to_string(),
-        Some(us_ag) => us_ag,
-    }
+    user_agent.unwrap_or_else(|| "???".to_string())
 }
 
 fn extract_http_version(request: Request) -> Version {
