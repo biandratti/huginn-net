@@ -6,6 +6,7 @@ use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
+use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ipv4::{Ipv4Flags, Ipv4Packet},
     ipv6::Ipv6Packet,
@@ -45,11 +46,14 @@ pub fn process_tcp_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv4Packet,
 ) -> Result<ObservableTCPPackage, Error> {
-    //if packet.get_next_header() == IpNextHeaderProtocols::Tcp {} //TODO: WIP
+    if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
+        bail!("unsupported IPv4 protocol")
+    }
+
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
-        bail!("unsupported IPv4 fragment");
+        bail!("unsupported IPv4 fragment")
     }
 
     let version = IpVersion::V4;
@@ -104,7 +108,9 @@ pub fn process_tcp_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv6Packet,
 ) -> Result<ObservableTCPPackage, Error> {
-    //if packet.get_next_header() == IpNextHeaderProtocols::Tcp {} //TODO: WIP
+    if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
+        bail!("unsupported IPv6 protocol")
+    }
     let version = IpVersion::V6;
     let ttl_value: u8 = packet.get_hop_limit();
     let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); // TODO: WIP

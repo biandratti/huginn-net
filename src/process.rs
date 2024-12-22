@@ -1,6 +1,6 @@
-use crate::http_process::{FlowKey, ObservableHttpRequest, TcpFlow};
+use crate::http_process::{FlowKey, ObservableHttpPackage, ObservableHttpRequest, TcpFlow};
 use crate::mtu::ObservableMtu;
-use crate::tcp_process::ObservableTcp;
+use crate::tcp_process::{ObservableTCPPackage, ObservableTcp};
 use crate::uptime::ObservableUptime;
 use crate::uptime::{Connection, SynData};
 use crate::{http_process, tcp_process};
@@ -98,22 +98,9 @@ pub fn process_ipv4(
             packet.get_next_level_protocol()
         );
     }
-    //TODO: evaluate in parallel
     let http_response = http_process::process_http_ipv4(&packet, http_cache);
     let tcp_response = tcp_process::process_tcp_ipv4(tcp_cache, &packet);
-    match (http_response, tcp_response) {
-        (Ok(http_package), Ok(tcp_package)) => Ok(ObservablePackage {
-            source: tcp_package.source,
-            destination: tcp_package.destination,
-            tcp_request: tcp_package.tcp_request,
-            tcp_response: tcp_package.tcp_response,
-            mtu: tcp_package.mtu,
-            uptime: tcp_package.uptime,
-            http_request: http_package.http_request,
-        }),
-        (Err(http_err), _) => Err(http_err),
-        (_, Err(tcp_err)) => Err(tcp_err),
-    }
+    handle_http_tcp_responses(http_response, tcp_response)
 }
 
 pub fn process_ipv6(
@@ -129,6 +116,13 @@ pub fn process_ipv6(
     }
     let http_response = http_process::process_http_ipv6(&packet, http_cache);
     let tcp_response = tcp_process::process_tcp_ipv6(tcp_cache, &packet);
+    handle_http_tcp_responses(http_response, tcp_response)
+}
+
+fn handle_http_tcp_responses(
+    http_response: Result<ObservableHttpPackage, Error>,
+    tcp_response: Result<ObservableTCPPackage, Error>,
+) -> Result<ObservablePackage, Error> {
     match (http_response, tcp_response) {
         (Ok(http_package), Ok(tcp_package)) => Ok(ObservablePackage {
             source: tcp_package.source,

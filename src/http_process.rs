@@ -1,6 +1,6 @@
 use crate::http;
 use crate::http::{Header, Version};
-use failure::Error;
+use failure::{bail, Error};
 use httparse::{Request, EMPTY_HEADER};
 use log::debug;
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -12,7 +12,8 @@ use std::net::IpAddr;
 use std::time::{Duration, Instant};
 use ttl_cache::TtlCache;
 
-pub type FlowKey = (IpAddr, IpAddr, u16, u16); // (Client IP, Server IP, Client Port, Server Port)
+/// FlowKey: (Client IP, Server IP, Client Port, Server Port)
+pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
 //TODO: WIP
 #[allow(dead_code)]
@@ -32,34 +33,38 @@ pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
 ) -> Result<ObservableHttpPackage, Error> {
-    if packet.get_next_level_protocol() == IpNextHeaderProtocols::Tcp {
-        if let Some(tcp) = TcpPacket::new(packet.payload()) {
-            return process_tcp_packet(
-                cache,
-                tcp,
-                IpAddr::V4(packet.get_source()),
-                IpAddr::V4(packet.get_destination()),
-            );
-        }
+    if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
+        bail!("unsupported IPv4 protocol")
     }
-    Ok(ObservableHttpPackage { http_request: None })
+    if let Some(tcp) = TcpPacket::new(packet.payload()) {
+        process_tcp_packet(
+            cache,
+            tcp,
+            IpAddr::V4(packet.get_source()),
+            IpAddr::V4(packet.get_destination()),
+        )
+    } else {
+        Ok(ObservableHttpPackage { http_request: None })
+    }
 }
 
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
 ) -> Result<ObservableHttpPackage, Error> {
-    if packet.get_next_header() == IpNextHeaderProtocols::Tcp {
-        if let Some(tcp) = TcpPacket::new(packet.payload()) {
-            return process_tcp_packet(
-                cache,
-                tcp,
-                IpAddr::V6(packet.get_source()),
-                IpAddr::V6(packet.get_destination()),
-            );
-        }
+    if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
+        bail!("unsupported IPv6 protocol")
     }
-    Ok(ObservableHttpPackage { http_request: None })
+    if let Some(tcp) = TcpPacket::new(packet.payload()) {
+        process_tcp_packet(
+            cache,
+            tcp,
+            IpAddr::V6(packet.get_source()),
+            IpAddr::V6(packet.get_destination()),
+        )
+    } else {
+        Ok(ObservableHttpPackage { http_request: None })
+    }
 }
 
 fn process_tcp_packet(
