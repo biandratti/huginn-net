@@ -17,6 +17,7 @@ failure = "0.1.8"
 log = "0.4.22"
 ttl_cache = "0.5.1"
 lazy_static = "1.5.0"
+httparse = "1.9.5"
 
 [dev-dependencies]
 clap = { version = "4.5.23", features = ["derive"] }

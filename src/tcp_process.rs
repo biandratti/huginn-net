@@ -1,13 +1,13 @@
 use crate::mtu;
 use crate::mtu::ObservableMtu;
-use crate::process::{IpPort, ObservablePackage};
+use crate::process::IpPort;
 use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use failure::{bail, err_msg, Error};
+use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
-    ip::IpNextHeaderProtocols,
     ipv4::{Ipv4Flags, Ipv4Packet},
     ipv6::Ipv6Packet,
     tcp::{TcpFlags, TcpOptionNumbers::*, TcpOptionPacket, TcpPacket},
@@ -29,25 +29,31 @@ const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
 
+pub struct ObservableTCPPackage {
+    pub source: IpPort,
+    pub destination: IpPort,
+    pub tcp_request: Option<ObservableTcp>,
+    pub tcp_response: Option<ObservableTcp>,
+    pub mtu: Option<ObservableMtu>,
+    pub uptime: Option<ObservableUptime>,
+}
+
 fn from_client(tcp_flags: u8) -> bool {
     tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
 }
 
-pub fn visit_ipv4(
+pub fn process_tcp_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
-    packet: Ipv4Packet,
-) -> Result<ObservablePackage, Error> {
+    packet: &Ipv4Packet,
+) -> Result<ObservableTCPPackage, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        bail!(
-            "unsupported IPv4 packet with non-TCP payload: {}",
-            packet.get_next_level_protocol()
-        );
+        bail!("unsupported IPv4 protocol")
     }
 
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
-        bail!("unsupported IPv4 fragment");
+        bail!("unsupported IPv4 fragment")
     }
 
     let version = IpVersion::V4;
@@ -98,17 +104,13 @@ pub fn visit_ipv4(
         })
 }
 
-pub fn visit_ipv6(
+pub fn process_tcp_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
-    packet: Ipv6Packet,
-) -> Result<ObservablePackage, Error> {
+    packet: &Ipv6Packet,
+) -> Result<ObservableTCPPackage, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        bail!(
-            "unsuppport IPv6 packet with non-TCP payload: {}",
-            packet.get_next_header()
-        );
+        bail!("unsupported IPv6 protocol")
     }
-
     let version = IpVersion::V6;
     let ttl_value: u8 = packet.get_hop_limit();
     let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); // TODO: WIP
@@ -167,7 +169,7 @@ fn visit_tcp(
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
     destination_ip: IpAddr,
-) -> Result<ObservablePackage, Error> {
+) -> Result<ObservableTCPPackage, Error> {
     use TcpFlags::*;
 
     let flags: u8 = tcp.get_flags();
@@ -343,7 +345,7 @@ fn visit_tcp(
         },
     };
 
-    Ok(ObservablePackage {
+    Ok(ObservableTCPPackage {
         tcp_request: if from_client {
             Some(tcp_signature.clone())
         } else {
