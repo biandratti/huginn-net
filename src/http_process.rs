@@ -125,7 +125,7 @@ fn process_tcp_packet(
 }
 
 fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
-    let mut headers = [EMPTY_HEADER; 16];
+    let mut headers = [EMPTY_HEADER; 64];
     let mut req = Request::new(&mut headers);
 
     match req.parse(data) {
@@ -136,13 +136,13 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
                 .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
                 .collect();
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(headers.clone());
+            let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
 
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers.clone());
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
 
-            let user_agent: Option<String> = extract_user_agent(headers.clone());
+            let user_agent: Option<String> = extract_user_agent(&headers);
 
-            let lang: Option<String> = extract_accept_language(headers.clone());
+            let lang: Option<String> = extract_accept_language(&headers);
 
             let http_version: Version = extract_http_version(req);
 
@@ -174,11 +174,12 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
     }
 }
 
-fn build_headers_in_order(headers: Vec<Header>) -> Vec<Header> {
-    headers
+fn build_headers_in_order(headers: &[Header]) -> Vec<Header> {
+    // TODO: WIP
+    headers.to_vec()
 }
 
-fn build_headers_absent_in_order(headers: Vec<Header>) -> Vec<Header> {
+fn build_headers_absent_in_order(headers: &[Header]) -> Vec<Header> {
     // List of expected headers
     let expected_headers = [
         "User-Agent",
@@ -200,14 +201,14 @@ fn build_headers_absent_in_order(headers: Vec<Header>) -> Vec<Header> {
     headers_absent
 }
 
-fn extract_user_agent(headers: Vec<Header>) -> Option<String> {
+fn extract_user_agent(headers: &[Header]) -> Option<String> {
     headers
         .iter()
         .find(|header| header.name.eq_ignore_ascii_case("User-Agent"))
         .and_then(|header| header.value.clone())
 }
 
-fn extract_accept_language(headers: Vec<Header>) -> Option<String> {
+fn extract_accept_language(headers: &[Header]) -> Option<String> {
     headers
         .iter()
         .find(|header| header.name.eq_ignore_ascii_case("Accept-Language"))
