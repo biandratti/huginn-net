@@ -133,15 +133,12 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             let headers: Vec<Header> = req
                 .headers
                 .iter()
-                .map(|h| {
-                    Header::new(h.name)
-                        .with_value(String::from_utf8_lossy(h.value))
-                })
+                .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
                 .collect();
 
-            let horder: Vec<Header> = build_headers_in_order(headers.clone());
+            let headers_in_order: Vec<Header> = build_headers_in_order(headers.clone());
 
-            let habsent: Vec<Header> = build_headers_absent(headers.clone());
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers.clone());
 
             let user_agent: Option<String> = extract_user_agent(headers.clone());
 
@@ -154,8 +151,8 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
                 user_agent: user_agent.clone(),
                 signature: http::Signature {
                     version: http_version,
-                    horder,
-                    habsent,
+                    horder: headers_in_order,
+                    habsent: headers_absent,
                     expsw: extract_traffic_classification(user_agent),
                 },
             }))
@@ -181,17 +178,26 @@ fn build_headers_in_order(headers: Vec<Header>) -> Vec<Header> {
     headers
 }
 
-fn build_headers_absent(headers: Vec<Header>) -> Vec<Header> {
-    /*let expected_headers = [
+fn build_headers_absent_in_order(headers: Vec<Header>) -> Vec<Header> {
+    // List of expected headers
+    let expected_headers = [
         "User-Agent",
         "Server",
         "Accept-Language",
         "Via",
         "X-Forwarded-For",
         "Date",
-    ];*/
-
-    headers
+    ];
+    let mut headers_absent = Vec::new();
+    for header_name in expected_headers.iter() {
+        let header_present = headers
+            .iter()
+            .any(|h| h.name.eq_ignore_ascii_case(header_name));
+        if !header_present {
+            headers_absent.push(Header::new(header_name));
+        }
+    }
+    headers_absent
 }
 
 fn extract_user_agent(headers: Vec<Header>) -> Option<String> {
