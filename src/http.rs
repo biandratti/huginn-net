@@ -23,7 +23,6 @@ impl Signature {
 pub enum Version {
     V10,
     V11,
-    // V2,
     Any,
 }
 

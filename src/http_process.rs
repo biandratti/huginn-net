@@ -130,52 +130,30 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
 
     match req.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
-            let headers: Vec<_> = req
+            let headers: Vec<Header> = req
                 .headers
                 .iter()
                 .map(|h| {
-                    (
-                        h.name.to_string(),
-                        String::from_utf8_lossy(h.value).to_string(),
-                    )
+                    Header::new(h.name)
+                        .with_value(String::from_utf8_lossy(h.value))
                 })
                 .collect();
 
-            let expected_headers = [
-                "User-Agent",
-                "Server",
-                "Accept-Language",
-                "Via",
-                "X-Forwarded-For",
-                "Date",
-            ];
+            let horder: Vec<Header> = build_headers_in_order(headers.clone());
 
-            let horder: Vec<Header> = headers
-                .iter()
-                .map(|(k, _)| Header::new(k.clone()))
-                .collect();
+            let habsent: Vec<Header> = build_headers_absent(headers.clone());
 
-            let habsent: Vec<Header> = expected_headers
-                .iter()
-                .filter(|h| !headers.iter().any(|(k, _)| k.eq_ignore_ascii_case(h)))
-                .map(Header::new)
-                .collect();
+            let user_agent: Option<String> = extract_user_agent(headers.clone());
 
-            let user_agent: Option<String> = headers
-                .iter()
-                .find(|(k, _)| k.eq_ignore_ascii_case("User-Agent"))
-                .map(|(_, v)| v.clone());
+            let lang: Option<String> = extract_accept_language(headers.clone());
 
-            let lang: Option<String> = headers
-                .iter()
-                .find(|(k, _)| k.eq_ignore_ascii_case("Accept-Language"))
-                .map(|(_, v)| v.clone());
+            let http_version: Version = extract_http_version(req);
 
             Ok(Some(ObservableHttpRequest {
                 lang,
                 user_agent: user_agent.clone(),
                 signature: http::Signature {
-                    version: extract_http_version(req),
+                    version: http_version,
                     horder,
                     habsent,
                     expsw: extract_traffic_classification(user_agent),
@@ -199,15 +177,45 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
     }
 }
 
+fn build_headers_in_order(headers: Vec<Header>) -> Vec<Header> {
+    headers
+}
+
+fn build_headers_absent(headers: Vec<Header>) -> Vec<Header> {
+    /*let expected_headers = [
+        "User-Agent",
+        "Server",
+        "Accept-Language",
+        "Via",
+        "X-Forwarded-For",
+        "Date",
+    ];*/
+
+    headers
+}
+
+fn extract_user_agent(headers: Vec<Header>) -> Option<String> {
+    headers
+        .iter()
+        .find(|header| header.name.eq_ignore_ascii_case("User-Agent"))
+        .and_then(|header| header.value.clone())
+}
+
+fn extract_accept_language(headers: Vec<Header>) -> Option<String> {
+    headers
+        .iter()
+        .find(|header| header.name.eq_ignore_ascii_case("Accept-Language"))
+        .and_then(|header| header.value.clone())
+}
+
 fn extract_traffic_classification(user_agent: Option<String>) -> String {
     user_agent.unwrap_or_else(|| "???".to_string())
 }
 
 fn extract_http_version(request: Request) -> Version {
     match request.version {
-        Some(1) => Version::V10,
-        Some(2) => Version::V11,
-        //Some(3) => Version::V2,
+        Some(0) => Version::V10,
+        Some(1) => Version::V11,
         _ => Version::Any,
     }
 }
