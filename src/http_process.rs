@@ -15,8 +15,6 @@ use ttl_cache::TtlCache;
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
-//TODO: WIP
-#[allow(dead_code)]
 pub struct TcpFlow {
     client_ip: IpAddr,
     server_ip: IpAddr,
@@ -44,7 +42,10 @@ pub fn process_http_ipv4(
             IpAddr::V4(packet.get_destination()),
         )
     } else {
-        Ok(ObservableHttpPackage { http_request: None })
+        Ok(ObservableHttpPackage {
+            http_request: None,
+            http_response: None,
+        })
     }
 }
 
@@ -63,7 +64,10 @@ pub fn process_http_ipv6(
             IpAddr::V6(packet.get_destination()),
         )
     } else {
-        Ok(ObservableHttpPackage { http_request: None })
+        Ok(ObservableHttpPackage {
+            http_request: None,
+            http_response: None,
+        })
     }
 }
 
@@ -77,6 +81,7 @@ fn process_tcp_packet(
     let dst_port = tcp.get_destination();
     let flow_key = (src_ip, dst_ip, src_port, dst_port);
     let mut http_request: Option<ObservableHttpRequest> = None;
+    let mut http_response: Option<ObservableHttpResponse> = None;
 
     if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
         let flow = TcpFlow {
@@ -91,7 +96,10 @@ fn process_tcp_packet(
             last_seen: Instant::now(),
         };
         cache.insert(flow_key, flow, Duration::new(60, 0));
-        return Ok(ObservableHttpPackage { http_request: None });
+        return Ok(ObservableHttpPackage {
+            http_request: None,
+            http_response: None,
+        });
     }
 
     if let Some(flow) = cache.get_mut(&flow_key) {
@@ -105,9 +113,8 @@ fn process_tcp_packet(
                     http_request = http_request_parsed;
                 }
             } else {
-                // Try to parse the HTTP response when enough data is accumulated
-                /*flow.server_data.extend_from_slice(tcp.payload());
-                if let Ok(response) = parse_http_response(&flow.server_data) {
+                flow.server_data.extend_from_slice(tcp.payload());
+                /*if let Ok(response) = parse_http_response(&flow.server_data) {
                     info!("HTTP Response:\n{:?}", response);
                 }*/
             }
@@ -121,7 +128,10 @@ fn process_tcp_packet(
         }
     }
 
-    Ok(ObservableHttpPackage { http_request })
+    Ok(ObservableHttpPackage {
+        http_request,
+        http_response,
+    })
 }
 
 fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
@@ -229,12 +239,16 @@ fn extract_http_version(request: Request) -> Version {
 
 pub struct ObservableHttpPackage {
     pub http_request: Option<ObservableHttpRequest>,
+    pub http_response: Option<ObservableHttpResponse>,
 }
 
 #[derive(Debug)]
 pub struct ObservableHttpRequest {
     pub lang: Option<String>,
     pub user_agent: Option<String>,
+    pub signature: http::Signature,
+}
+pub struct ObservableHttpResponse {
     pub signature: http::Signature,
 }
 

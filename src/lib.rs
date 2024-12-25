@@ -14,7 +14,8 @@ mod uptime;
 use crate::db::Database;
 use crate::http_process::{FlowKey, TcpFlow};
 use crate::p0f_output::{
-    HttpRequestOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+    HttpRequestOutput, HttpResponseOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput,
+    UptimeOutput,
 };
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
@@ -119,7 +120,7 @@ impl<'a> P0f<'a> {
     fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
-                let (syn, syn_ack, mtu, uptime, http_request) = {
+                let (syn, syn_ack, mtu, uptime, http_request, http_response) = {
                     let mtu: Option<MTUOutput> =
                         observable_package.mtu.and_then(|observable_mtu| {
                             self.matcher
@@ -169,22 +170,33 @@ impl<'a> P0f<'a> {
                             freq: update.freq,
                         });
 
-                    let http_request =
-                        observable_package
-                            .http_request
-                            .map(|http_request| HttpRequestOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
-                                lang: http_request.lang,
-                                user_agent: http_request.user_agent,
-                                label: self
-                                    .matcher
-                                    .matching_by_http_request(&http_request.signature)
-                                    .map(|(label, _)| label.clone()),
-                                sig: http_request.signature,
-                            });
+                    let http_request: Option<HttpRequestOutput> = observable_package
+                        .http_request
+                        .map(|http_request| HttpRequestOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            lang: http_request.lang,
+                            user_agent: http_request.user_agent,
+                            label: self
+                                .matcher
+                                .matching_by_http_request(&http_request.signature)
+                                .map(|(label, _)| label.clone()),
+                            sig: http_request.signature,
+                        });
 
-                    (syn, syn_ack, mtu, uptime, http_request)
+                    let http_response: Option<HttpResponseOutput> = observable_package
+                        .http_response
+                        .map(|http_response| HttpResponseOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            label: self
+                                .matcher
+                                .matching_by_http_response(&http_response.signature)
+                                .map(|(label, _)| label.clone()),
+                            sig: http_response.signature,
+                        });
+
+                    (syn, syn_ack, mtu, uptime, http_request, http_response)
                 };
 
                 P0fOutput {
@@ -193,6 +205,7 @@ impl<'a> P0f<'a> {
                     mtu,
                     uptime,
                     http_request,
+                    http_response,
                 }
             }
             Err(error) => {
@@ -203,6 +216,7 @@ impl<'a> P0f<'a> {
                     mtu: None,
                     uptime: None,
                     http_request: None,
+                    http_response: None,
                 }
             }
         }
