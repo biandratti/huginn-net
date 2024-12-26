@@ -73,12 +73,12 @@ impl fmt::Display for SynAckTCPOutput {
             | params   = {}\n\
             | raw_sig  = {}\n\
             `----\n",
+            self.source.ip,
+            self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
-            self.source.ip,
-            self.source.port,
+            self.destination.ip,
+            self.destination.port,
             self.label.as_ref().map_or("???".to_string(), |l| {
                 format!("{}/{}", l.name, l.flavor.as_deref().unwrap_or("???"))
             }),
@@ -107,7 +107,7 @@ impl fmt::Display for MTUOutput {
             f,
             ".-[ {}/{} -> {}/{} (mtu) ]-\n\
             |\n\
-            | client   = {}\n\
+            | server   = {}/{}\n\
             | link     = {}\n\
             | raw_mtu  = {}\n\
             `----\n",
@@ -115,7 +115,8 @@ impl fmt::Display for MTUOutput {
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
+            self.destination.ip,
+            self.destination.port,
             self.link,
             self.mtu,
         )
@@ -138,7 +139,7 @@ impl fmt::Display for UptimeOutput {
             f,
             ".-[ {}/{} -> {}/{} (uptime) ]-\n\
             |\n\
-            | client   = {}\n\
+            | client   = {}/{}\n\
             | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
             | raw_freq = {} Hz\n\
             `----\n",
@@ -147,6 +148,7 @@ impl fmt::Display for UptimeOutput {
             self.destination.ip,
             self.destination.port,
             self.source.ip,
+            self.source.port,
             self.days,
             self.hours,
             self.min,
@@ -171,7 +173,7 @@ impl fmt::Display for HttpRequestOutput {
             f,
             ".-[ {}/{} -> {}/{} (http request) ]-\n\
             |\n\
-            | client   = {}\n\
+            | client   = {}/{}\n\
             | app      = {}\n\
             | lang     = {}\n\
             | params   = {}\n\
@@ -182,6 +184,7 @@ impl fmt::Display for HttpRequestOutput {
             self.destination.ip,
             self.destination.port,
             self.source.ip,
+            self.source.port,
             self.user_agent.as_deref().unwrap_or("???"),
             self.lang.as_deref().unwrap_or("???"),
             self.label
@@ -205,7 +208,7 @@ impl fmt::Display for HttpResponseOutput {
             f,
             ".-[ {}/{} -> {}/{} (http response) ]-\n\
             |\n\
-            | server   = {}\n\
+            | server   = {}/{}\n\
             | app      = {}\n\
             | params   = {}\n\
             | raw_sig  = {}\n\
@@ -214,7 +217,8 @@ impl fmt::Display for HttpResponseOutput {
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
+            self.destination.ip,
+            self.destination.port,
             self.label
                 .as_ref()
                 .map_or("???".to_string(), |l| l.name.clone()),
