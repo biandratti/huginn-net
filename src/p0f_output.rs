@@ -3,6 +3,7 @@ use crate::http;
 use crate::process::IpPort;
 use crate::tcp::{Signature, Ttl};
 use std::fmt;
+use std::fmt::Formatter;
 
 pub struct P0fOutput {
     pub syn: Option<SynTCPOutput>,
@@ -10,6 +11,7 @@ pub struct P0fOutput {
     pub mtu: Option<MTUOutput>,
     pub uptime: Option<UptimeOutput>,
     pub http_request: Option<HttpRequestOutput>,
+    pub http_response: Option<HttpResponseOutput>,
 }
 
 pub struct SynTCPOutput {
@@ -27,7 +29,7 @@ pub struct SynAckTCPOutput {
 }
 
 impl fmt::Display for SynTCPOutput {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             ".-[ {}/{} -> {}/{} (syn) ]-\n\
@@ -60,7 +62,7 @@ impl fmt::Display for SynTCPOutput {
 }
 
 impl fmt::Display for SynAckTCPOutput {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             ".-[ {}/{} -> {}/{} (syn+ack) ]-\n\
@@ -71,12 +73,12 @@ impl fmt::Display for SynAckTCPOutput {
             | params   = {}\n\
             | raw_sig  = {}\n\
             `----\n",
+            self.source.ip,
+            self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
-            self.source.ip,
-            self.source.port,
+            self.destination.ip,
+            self.destination.port,
             self.label.as_ref().map_or("???".to_string(), |l| {
                 format!("{}/{}", l.name, l.flavor.as_deref().unwrap_or("???"))
             }),
@@ -100,12 +102,12 @@ pub struct MTUOutput {
 }
 
 impl fmt::Display for MTUOutput {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             ".-[ {}/{} -> {}/{} (mtu) ]-\n\
             |\n\
-            | client   = {}\n\
+            | server   = {}/{}\n\
             | link     = {}\n\
             | raw_mtu  = {}\n\
             `----\n",
@@ -113,7 +115,8 @@ impl fmt::Display for MTUOutput {
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
+            self.destination.ip,
+            self.destination.port,
             self.link,
             self.mtu,
         )
@@ -131,12 +134,12 @@ pub struct UptimeOutput {
 }
 
 impl fmt::Display for UptimeOutput {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             ".-[ {}/{} -> {}/{} (uptime) ]-\n\
             |\n\
-            | client   = {}\n\
+            | client   = {}/{}\n\
             | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
             | raw_freq = {} Hz\n\
             `----\n",
@@ -145,6 +148,7 @@ impl fmt::Display for UptimeOutput {
             self.destination.ip,
             self.destination.port,
             self.source.ip,
+            self.source.port,
             self.days,
             self.hours,
             self.min,
@@ -164,12 +168,12 @@ pub struct HttpRequestOutput {
 }
 
 impl fmt::Display for HttpRequestOutput {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             ".-[ {}/{} -> {}/{} (http request) ]-\n\
             |\n\
-            | client   = {}\n\
+            | client   = {}/{}\n\
             | app      = {}\n\
             | lang     = {}\n\
             | params   = {}\n\
@@ -180,8 +184,44 @@ impl fmt::Display for HttpRequestOutput {
             self.destination.ip,
             self.destination.port,
             self.source.ip,
+            self.source.port,
             self.user_agent.as_deref().unwrap_or("???"),
             self.lang.as_deref().unwrap_or("???"),
+            self.label
+                .as_ref()
+                .map_or("none".to_string(), |l| l.ty.to_string()),
+            self.sig,
+        )
+    }
+}
+
+pub struct HttpResponseOutput {
+    pub source: IpPort,
+    pub destination: IpPort,
+    pub label: Option<Label>,
+    pub sig: http::Signature,
+}
+
+impl fmt::Display for HttpResponseOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (http response) ]-\n\
+            |\n\
+            | server   = {}/{}\n\
+            | app      = {}\n\
+            | params   = {}\n\
+            | raw_sig  = {}\n\
+            `----\n",
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.destination.ip,
+            self.destination.port,
+            self.label
+                .as_ref()
+                .map_or("???".to_string(), |l| l.name.clone()),
             self.label
                 .as_ref()
                 .map_or("none".to_string(), |l| l.ty.to_string()),

@@ -1,4 +1,6 @@
-use crate::http_process::{FlowKey, ObservableHttpPackage, ObservableHttpRequest, TcpFlow};
+use crate::http_process::{
+    FlowKey, ObservableHttpPackage, ObservableHttpRequest, ObservableHttpResponse, TcpFlow,
+};
 use crate::mtu::ObservableMtu;
 use crate::tcp_process::{ObservableTCPPackage, ObservableTcp};
 use crate::uptime::ObservableUptime;
@@ -30,6 +32,7 @@ pub struct ObservablePackage {
     pub mtu: Option<ObservableMtu>,
     pub uptime: Option<ObservableUptime>,
     pub http_request: Option<ObservableHttpRequest>,
+    pub http_response: Option<ObservableHttpResponse>,
 }
 
 impl ObservablePackage {
@@ -132,6 +135,7 @@ fn handle_http_tcp_responses(
             mtu: tcp_package.mtu,
             uptime: tcp_package.uptime,
             http_request: http_package.http_request,
+            http_response: http_package.http_response,
         }),
         (Err(http_err), _) => Err(http_err),
         (_, Err(tcp_err)) => Err(tcp_err),
