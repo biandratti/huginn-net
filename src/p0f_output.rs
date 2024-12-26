@@ -203,7 +203,7 @@ impl fmt::Display for HttpResponseOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (http request) ]-\n\
+            ".-[ {}/{} -> {}/{} (http response) ]-\n\
             |\n\
             | server   = {}\n\
             | app      = {}\n\

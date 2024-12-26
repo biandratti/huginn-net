@@ -145,14 +145,6 @@ fn process_tcp_packet(
                 http_request = http_request_parsed;
             }
         }
-
-        if tcp.get_flags() & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-            != 0
-        {
-            // TODO: WIP
-            debug!("Connection closed or reset");
-            //cache.remove(&flow_key);
-        }
     }
 
     let flow_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
@@ -172,8 +164,7 @@ fn process_tcp_packet(
             != 0
         {
             debug!("Connection closed or reset");
-            // TODO: WIP
-            //cache.remove(&flow_key);
+            cache.remove(&flow_key);
         }
     }
 
@@ -229,9 +220,46 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
     }
 }
 
-fn parse_http_response(_data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
-    // TODO: WIP
-    Ok(None)
+fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
+    let mut headers = [EMPTY_HEADER; 64];
+    let mut req = Request::new(&mut headers);
+
+    match req.parse(data) {
+        Ok(httparse::Status::Complete(_)) => {
+            let headers: Vec<Header> = req
+                .headers
+                .iter()
+                .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
+                .collect();
+
+            let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
+            let http_version: Version = extract_http_version(req);
+
+            Ok(Some(ObservableHttpResponse {
+                signature: http::Signature {
+                    version: http_version,
+                    horder: headers_in_order,
+                    habsent: headers_absent,
+                    expsw: extract_traffic_classification(None),
+                },
+            }))
+        }
+        Ok(httparse::Status::Partial) => {
+            debug!("Incomplete HTTP response data. Data: {:?}", data);
+            Ok(None)
+        }
+        Err(e) => {
+            debug!(
+                "Failed to parse HTTP response with Data: {:?}. Error: {}",
+                data, e
+            );
+            Err(failure::err_msg(format!(
+                "Failed to parse HTTP response: {}",
+                e
+            )))
+        }
+    }
 }
 
 fn build_headers_in_order(headers: &[Header]) -> Vec<Header> {
@@ -239,6 +267,7 @@ fn build_headers_in_order(headers: &[Header]) -> Vec<Header> {
     headers.to_vec()
 }
 
+// TODO: WIP
 fn build_headers_absent_in_order(headers: &[Header]) -> Vec<Header> {
     // List of expected headers
     let expected_headers = [
