@@ -15,16 +15,56 @@ use ttl_cache::TtlCache;
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
+#[derive(Clone)]
+struct TcpData {
+    sequence: u32,
+    data: Vec<u8>,
+}
+
 pub struct TcpFlow {
     client_ip: IpAddr,
     server_ip: IpAddr,
     client_port: u16,
     server_port: u16,
-    client_seq: u32,
-    server_seq: u32,
-    client_data: Vec<u8>, // Aggregated HTTP request payload
-    server_data: Vec<u8>, // Aggregated HTTP response payload
-    last_seen: Instant,   // Timestamp for flow expiration
+    client_data: Vec<TcpData>,
+    server_data: Vec<TcpData>,
+    last_seen: Instant, // Timestamp for flow expiration
+}
+impl TcpFlow {
+    fn apply(src_ip: IpAddr, src_port: u16, dst_ip: IpAddr, dst_port: u16) -> TcpFlow {
+        TcpFlow {
+            client_ip: src_ip,
+            server_ip: dst_ip,
+            client_port: src_port,
+            server_port: dst_port,
+            //client_seq: tcp.get_sequence(),
+            //server_seq: 0,
+            client_data: Vec::new(),
+            server_data: Vec::new(),
+            last_seen: Instant::now(),
+        }
+    }
+    /// Traversing all the data in sequence in the correct order to build the full data
+    ///
+    /// # Parameters
+    /// - `is_client`: If the data comes from the client.
+    fn get_full_data(&self, is_client: bool) -> Vec<u8> {
+        let data = if is_client {
+            &self.client_data
+        } else {
+            &self.server_data
+        };
+
+        let mut sorted_data = data.clone();
+
+        sorted_data.sort_by_key(|tcp_data| tcp_data.sequence);
+
+        let mut full_data = Vec::new();
+        for tcp_data in sorted_data {
+            full_data.extend_from_slice(&tcp_data.data);
+        }
+        full_data
+    }
 }
 
 pub fn process_http_ipv4(
@@ -77,46 +117,40 @@ fn process_tcp_packet(
     src_ip: IpAddr,
     dst_ip: IpAddr,
 ) -> Result<ObservableHttpPackage, Error> {
-    let src_port = tcp.get_source();
-    let dst_port = tcp.get_destination();
-    let flow_key = (src_ip, dst_ip, src_port, dst_port);
+    let src_port: u16 = tcp.get_source();
+    let dst_port: u16 = tcp.get_destination();
+    let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
     let mut http_request: Option<ObservableHttpRequest> = None;
     let mut http_response: Option<ObservableHttpResponse> = None;
 
     if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
-        let flow = TcpFlow {
-            client_ip: src_ip,
-            server_ip: dst_ip,
-            client_port: src_port,
-            server_port: dst_port,
-            client_seq: tcp.get_sequence(),
-            server_seq: 0,
-            client_data: Vec::new(),
-            server_data: Vec::new(),
-            last_seen: Instant::now(),
-        };
+        let flow: TcpFlow = TcpFlow::apply(src_ip, src_port, dst_ip, dst_port);
         cache.insert(flow_key, flow, Duration::new(60, 0));
-        return Ok(ObservableHttpPackage {
-            http_request: None,
-            http_response: None,
-        });
     }
 
+    // TODO: WIP
     if let Some(flow) = cache.get_mut(&flow_key) {
-        flow.last_seen = Instant::now();
+        flow.last_seen = Instant::now(); // TODO: WIP
 
         if !tcp.payload().is_empty() {
-            // Append the new data to the flow data
             if src_ip == flow.client_ip && src_port == flow.client_port {
-                flow.client_data.extend_from_slice(tcp.payload());
-                if let Ok(http_request_parsed) = parse_http_request(&flow.client_data) {
+                let tcp_data: TcpData = TcpData {
+                    sequence: tcp.get_sequence(),
+                    data: Vec::from(tcp.payload()),
+                };
+                flow.client_data.push(tcp_data);
+                if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
                     http_request = http_request_parsed;
                 }
-            } else {
-                flow.server_data.extend_from_slice(tcp.payload());
-                /*if let Ok(response) = parse_http_response(&flow.server_data) {
-                    info!("HTTP Response:\n{:?}", response);
-                }*/
+            } else if src_ip == flow.server_ip && src_port == flow.server_port {
+                let tcp_data: TcpData = TcpData {
+                    sequence: tcp.get_sequence(),
+                    data: Vec::from(tcp.payload()),
+                };
+                flow.server_data.push(tcp_data);
+                if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
+                    http_response = http_response_parsed;
+                }
             }
         }
 
@@ -147,13 +181,9 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
                 .collect();
 
             let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
-
             let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
-
             let user_agent: Option<String> = extract_user_agent(&headers);
-
             let lang: Option<String> = extract_accept_language(&headers);
-
             let http_version: Version = extract_http_version(req);
 
             Ok(Some(ObservableHttpRequest {
@@ -182,6 +212,11 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             )))
         }
     }
+}
+
+fn parse_http_response(_data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
+    // TODO: WIP
+    Ok(None)
 }
 
 fn build_headers_in_order(headers: &[Header]) -> Vec<Header> {
