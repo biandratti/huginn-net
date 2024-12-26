@@ -9,7 +9,7 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use std::net::IpAddr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use ttl_cache::TtlCache;
 
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
@@ -28,20 +28,22 @@ pub struct TcpFlow {
     server_port: u16,
     client_data: Vec<TcpData>,
     server_data: Vec<TcpData>,
-    last_seen: Instant, // Timestamp for flow expiration
 }
 impl TcpFlow {
-    fn apply(src_ip: IpAddr, src_port: u16, dst_ip: IpAddr, dst_port: u16) -> TcpFlow {
+    fn init(
+        src_ip: IpAddr,
+        src_port: u16,
+        dst_ip: IpAddr,
+        dst_port: u16,
+        tcp_data: TcpData,
+    ) -> TcpFlow {
         TcpFlow {
             client_ip: src_ip,
             server_ip: dst_ip,
             client_port: src_port,
             server_port: dst_port,
-            //client_seq: tcp.get_sequence(),
-            //server_seq: 0,
-            client_data: Vec::new(),
+            client_data: vec![tcp_data.clone()],
             server_data: Vec::new(),
-            last_seen: Instant::now(),
         }
     }
     /// Traversing all the data in sequence in the correct order to build the full data
@@ -124,33 +126,45 @@ fn process_tcp_packet(
     let mut http_response: Option<ObservableHttpResponse> = None;
 
     if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
-        let flow: TcpFlow = TcpFlow::apply(src_ip, src_port, dst_ip, dst_port);
+        let tcp_data: TcpData = TcpData {
+            sequence: tcp.get_sequence(),
+            data: Vec::from(tcp.payload()),
+        };
+        let flow: TcpFlow = TcpFlow::init(src_ip, src_port, dst_ip, dst_port, tcp_data);
         cache.insert(flow_key, flow, Duration::new(60, 0));
     }
 
-    // TODO: WIP
     if let Some(flow) = cache.get_mut(&flow_key) {
-        flow.last_seen = Instant::now(); // TODO: WIP
+        if !tcp.payload().is_empty() && src_ip == flow.client_ip && src_port == flow.client_port {
+            let tcp_data: TcpData = TcpData {
+                sequence: tcp.get_sequence(),
+                data: Vec::from(tcp.payload()),
+            };
+            flow.client_data.push(tcp_data);
+            if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
+                http_request = http_request_parsed;
+            }
+        }
 
-        if !tcp.payload().is_empty() {
-            if src_ip == flow.client_ip && src_port == flow.client_port {
-                let tcp_data: TcpData = TcpData {
-                    sequence: tcp.get_sequence(),
-                    data: Vec::from(tcp.payload()),
-                };
-                flow.client_data.push(tcp_data);
-                if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
-                    http_request = http_request_parsed;
-                }
-            } else if src_ip == flow.server_ip && src_port == flow.server_port {
-                let tcp_data: TcpData = TcpData {
-                    sequence: tcp.get_sequence(),
-                    data: Vec::from(tcp.payload()),
-                };
-                flow.server_data.push(tcp_data);
-                if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
-                    http_response = http_response_parsed;
-                }
+        if tcp.get_flags() & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+            != 0
+        {
+            // TODO: WIP
+            debug!("Connection closed or reset");
+            //cache.remove(&flow_key);
+        }
+    }
+
+    let flow_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
+    if let Some(flow) = cache.get_mut(&flow_key) {
+        if !tcp.payload().is_empty() && src_ip == flow.server_ip && src_port == flow.server_port {
+            let tcp_data: TcpData = TcpData {
+                sequence: tcp.get_sequence(),
+                data: Vec::from(tcp.payload()),
+            };
+            flow.server_data.push(tcp_data);
+            if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
+                http_response = http_response_parsed;
             }
         }
 
@@ -158,7 +172,8 @@ fn process_tcp_packet(
             != 0
         {
             debug!("Connection closed or reset");
-            cache.remove(&flow_key);
+            // TODO: WIP
+            //cache.remove(&flow_key);
         }
     }
 
