@@ -1,5 +1,5 @@
 use crate::http;
-use crate::http::{Header, Version};
+use crate::http::{Header, HeaderCategory, HeaderRegistry, Version};
 use failure::{bail, Error};
 use httparse::{Request, EMPTY_HEADER};
 use log::debug;
@@ -67,6 +67,49 @@ impl TcpFlow {
         }
         full_data
     }
+}
+
+fn http_init() -> HeaderRegistry {
+    let mut registry = HeaderRegistry::new();
+
+    registry.register_header("User-Agent", HeaderCategory::Mandatory);
+    registry.register_header("Server", HeaderCategory::Mandatory);
+    registry.register_header("Accept-Language", HeaderCategory::Mandatory);
+    registry.register_header("Via", HeaderCategory::Mandatory);
+    registry.register_header("X-Forwarded-For", HeaderCategory::Mandatory);
+    registry.register_header("Date", HeaderCategory::Mandatory);
+
+    let req_optional = ["DNT", "Referer"];
+    for &header in &req_optional {
+        registry.register_header(header, HeaderCategory::Optional);
+    }
+
+    let resp_optional = ["ETag", "Cache-Control"];
+    for &header in &resp_optional {
+        registry.register_header(header, HeaderCategory::Optional);
+    }
+
+    let req_skip_value = ["Authorization"];
+    for &header in &req_skip_value {
+        registry.register_header(header, HeaderCategory::SkipValue);
+    }
+
+    let resp_skip_value = ["Set-Cookie"];
+    for &header in &resp_skip_value {
+        registry.register_header(header, HeaderCategory::SkipValue);
+    }
+
+    let req_common = ["Host"];
+    for &header in &req_common {
+        registry.register_header(header, HeaderCategory::Common);
+    }
+
+    let resp_common = ["Content-Type"];
+    for &header in &resp_common {
+        registry.register_header(header, HeaderCategory::Common);
+    }
+
+    registry
 }
 
 pub fn process_http_ipv4(
