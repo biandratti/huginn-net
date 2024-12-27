@@ -1,3 +1,4 @@
+use crate::http::HeaderRegistry;
 use crate::http_process::{
     FlowKey, ObservableHttpPackage, ObservableHttpRequest, ObservableHttpResponse, TcpFlow,
 };
@@ -40,6 +41,7 @@ impl ObservablePackage {
         packet: &[u8],
         tcp_cache: &mut TtlCache<Connection, SynData>,
         http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+        header_registry: &HeaderRegistry,
     ) -> Result<Self, Error> {
         EthernetPacket::new(packet)
             .ok_or_else(|| err_msg("ethernet packet too short"))
@@ -48,6 +50,7 @@ impl ObservablePackage {
                     packet.get_ethertype(),
                     tcp_cache,
                     http_cache,
+                    header_registry,
                     packet.payload(),
                 )
             })
@@ -58,20 +61,21 @@ fn visit_ethernet(
     ethertype: EtherType,
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
     payload: &[u8],
 ) -> Result<ObservablePackage, Error> {
     match ethertype {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| err_msg("vlan packet too short"))
-            .and_then(|packet| visit_vlan(tcp_cache, http_cache, packet)),
+            .and_then(|packet| visit_vlan(tcp_cache, http_cache, header_registry, packet)),
 
         EtherTypes::Ipv4 => Ipv4Packet::new(payload)
             .ok_or_else(|| err_msg("ipv4 packet too short"))
-            .and_then(|packet| process_ipv4(tcp_cache, http_cache, packet)),
+            .and_then(|packet| process_ipv4(tcp_cache, http_cache, header_registry, packet)),
 
         EtherTypes::Ipv6 => Ipv6Packet::new(payload)
             .ok_or_else(|| err_msg("ipv6 packet too short"))
-            .and_then(|packet| process_ipv6(tcp_cache, http_cache, packet)),
+            .and_then(|packet| process_ipv6(tcp_cache, http_cache, header_registry, packet)),
 
         ty => bail!("unsupported ethernet type: {}", ty),
     }
@@ -80,12 +84,14 @@ fn visit_ethernet(
 fn visit_vlan(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
     packet: VlanPacket,
 ) -> Result<ObservablePackage, Error> {
     visit_ethernet(
         packet.get_ethertype(),
         tcp_cache,
         http_cache,
+        header_registry,
         packet.payload(),
     )
 }
@@ -93,6 +99,7 @@ fn visit_vlan(
 pub fn process_ipv4(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
     packet: Ipv4Packet,
 ) -> Result<ObservablePackage, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
@@ -101,7 +108,7 @@ pub fn process_ipv4(
             packet.get_next_level_protocol()
         );
     }
-    let http_response = http_process::process_http_ipv4(&packet, http_cache);
+    let http_response = http_process::process_http_ipv4(&packet, http_cache, header_registry);
     let tcp_response = tcp_process::process_tcp_ipv4(tcp_cache, &packet);
     handle_http_tcp_responses(http_response, tcp_response)
 }
@@ -109,6 +116,7 @@ pub fn process_ipv4(
 pub fn process_ipv6(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
     packet: Ipv6Packet,
 ) -> Result<ObservablePackage, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
@@ -117,7 +125,7 @@ pub fn process_ipv6(
             packet.get_next_header()
         );
     }
-    let http_response = http_process::process_http_ipv6(&packet, http_cache);
+    let http_response = http_process::process_http_ipv6(&packet, http_cache, header_registry);
     let tcp_response = tcp_process::process_tcp_ipv6(tcp_cache, &packet);
     handle_http_tcp_responses(http_response, tcp_response)
 }

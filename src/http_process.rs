@@ -1,5 +1,5 @@
 use crate::http;
-use crate::http::{Header, HeaderCategory, HeaderRegistry, Version};
+use crate::http::{Header, HeaderRegistry, Version};
 use failure::{bail, Error};
 use httparse::{Request, EMPTY_HEADER};
 use log::debug;
@@ -72,6 +72,7 @@ impl TcpFlow {
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
 ) -> Result<ObservableHttpPackage, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!("unsupported IPv4 protocol")
@@ -79,6 +80,7 @@ pub fn process_http_ipv4(
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
             cache,
+            header_registry,
             tcp,
             IpAddr::V4(packet.get_source()),
             IpAddr::V4(packet.get_destination()),
@@ -94,6 +96,7 @@ pub fn process_http_ipv4(
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
 ) -> Result<ObservableHttpPackage, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!("unsupported IPv6 protocol")
@@ -101,6 +104,7 @@ pub fn process_http_ipv6(
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
             cache,
+            header_registry,
             tcp,
             IpAddr::V6(packet.get_source()),
             IpAddr::V6(packet.get_destination()),
@@ -115,6 +119,7 @@ pub fn process_http_ipv6(
 
 fn process_tcp_packet(
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    header_registry: &HeaderRegistry,
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
@@ -141,7 +146,9 @@ fn process_tcp_packet(
                 data: Vec::from(tcp.payload()),
             };
             flow.client_data.push(tcp_data);
-            if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
+            if let Ok(http_request_parsed) =
+                parse_http_request(&flow.get_full_data(true), header_registry)
+            {
                 http_request = http_request_parsed;
             }
         }
@@ -155,7 +162,9 @@ fn process_tcp_packet(
                 data: Vec::from(tcp.payload()),
             };
             flow.server_data.push(tcp_data);
-            if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
+            if let Ok(http_response_parsed) =
+                parse_http_response(&flow.get_full_data(false), header_registry)
+            {
                 http_response = http_response_parsed;
             }
         }
@@ -174,7 +183,10 @@ fn process_tcp_packet(
     })
 }
 
-fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
+fn parse_http_request(
+    data: &[u8],
+    header_registry: &HeaderRegistry,
+) -> Result<Option<ObservableHttpRequest>, Error> {
     let mut headers = [EMPTY_HEADER; 64];
     let mut req = Request::new(&mut headers);
 
@@ -186,7 +198,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
                 .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
                 .collect();
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
+            let headers_in_order: Vec<Header> = build_headers_in_order(&headers, header_registry);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
             let user_agent: Option<String> = extract_user_agent(&headers);
             let lang: Option<String> = extract_accept_language(&headers);
@@ -220,7 +232,10 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
     }
 }
 
-fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
+fn parse_http_response(
+    data: &[u8],
+    header_registry: &HeaderRegistry,
+) -> Result<Option<ObservableHttpResponse>, Error> {
     let mut headers = [EMPTY_HEADER; 64];
     let mut req = Request::new(&mut headers);
 
@@ -232,7 +247,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
                 .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
                 .collect();
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
+            let headers_in_order: Vec<Header> = build_headers_in_order(&headers, header_registry);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
             let http_version: Version = extract_http_version(req);
 
@@ -262,24 +277,15 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
     }
 }
 
-fn build_headers_in_order(headers: &[Header]) -> Vec<Header> {
+fn build_headers_in_order(headers: &[Header], _header_registry: &HeaderRegistry) -> Vec<Header> {
     // TODO: WIP
     headers.to_vec()
 }
 
 // TODO: WIP
 fn build_headers_absent_in_order(headers: &[Header]) -> Vec<Header> {
-    // List of expected headers
-    let expected_headers = [
-        "User-Agent",
-        "Server",
-        "Accept-Language",
-        "Via",
-        "X-Forwarded-For",
-        "Date",
-    ];
     let mut headers_absent = Vec::new();
-    for header_name in expected_headers.iter() {
+    for header_name in HeaderRegistry::expected_headers().iter() {
         let header_present = headers
             .iter()
             .any(|h| h.name.eq_ignore_ascii_case(header_name));
