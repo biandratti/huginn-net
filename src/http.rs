@@ -71,8 +71,8 @@ impl Header {
 
 #[derive(Debug, Clone)]
 pub struct HeaderRegistry {
-    headers: HashMap<String, (u32, Header)>,
-    next_id: u32,
+    headers: HashMap<String, (u32, HeaderCategory)>,
+    id: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -87,41 +87,127 @@ impl HeaderRegistry {
     pub fn new() -> Self {
         Self {
             headers: HashMap::new(),
-            next_id: 0,
+            id: 0,
         }
+    }
+
+    pub fn init() -> Self {
+        let mut registry = HeaderRegistry::new();
+
+        for &header in &Self::expected_headers() {
+            registry.register_header(header, HeaderCategory::Mandatory);
+        }
+        for &header in &Self::request_optional_headers() {
+            registry.register_header(header, HeaderCategory::Optional);
+        }
+        for &header in &Self::response_optional_headers() {
+            registry.register_header(header, HeaderCategory::Optional);
+        }
+        for &header in &Self::request_skip_value_headers() {
+            registry.register_header(header, HeaderCategory::SkipValue);
+        }
+        for &header in &Self::response_skip_value_headers() {
+            registry.register_header(header, HeaderCategory::SkipValue);
+        }
+        for &header in &Self::request_common_headers() {
+            registry.register_header(header, HeaderCategory::Common);
+        }
+        for &header in &Self::response_common_headers() {
+            registry.register_header(header, HeaderCategory::Common);
+        }
+
+        registry
     }
 
     /// Register a header and return the id registered
     pub fn register_header<S: AsRef<str>>(&mut self, name: S, category: HeaderCategory) -> u32 {
         let name = name.as_ref();
 
-        // Return existing ID if already registered
         if let Some(&(id, _)) = self.headers.get(name) {
             return id;
         }
 
-        // Create a new Header
-        let mut header = Header::new(name);
-        if category == HeaderCategory::Optional {
-            header.optional = true;
-        }
-
         // Assign a new ID and insert into the registry
-        let id = self.next_id;
-        self.next_id += 1;
+        let id = self.id;
+        self.id += 1;
 
-        self.headers.insert(name.to_owned(), (id, header));
+        self.headers.insert(name.to_owned(), (id, category));
 
         id
     }
 
-    // Get header by name
-    fn get_header<S: AsRef<str>>(&self, name: S) -> Option<&Header> {
-        self.headers.get(name.as_ref()).map(|(_, header)| header)
+    pub fn expected_headers() -> [&'static str; 6] {
+        [
+            "User-Agent",
+            "Server",
+            "Accept-Language",
+            "Via",
+            "X-Forwarded-For",
+            "Date",
+        ]
     }
 
-    // Get header ID by name
-    fn get_header_id<S: AsRef<str>>(&self, name: S) -> Option<u32> {
-        self.headers.get(name.as_ref()).map(|(id, _)| *id)
+    pub fn request_optional_headers() -> [&'static str; 11] {
+        [
+            "Cookie",
+            "Referer",
+            "Origin",
+            "Range",
+            "If-Modified-Since",
+            "If-None-Match",
+            "Via",
+            "X-Forwarded-For",
+            "Authorization",
+            "Proxy-Authorization",
+            "Cache-Control",
+        ]
+    }
+
+    pub fn response_optional_headers() -> [&'static str; 12] {
+        [
+            "Set-Cookie",
+            "Last-Modified",
+            "ETag",
+            "Content-Length",
+            "Content-Disposition",
+            "Cache-Control",
+            "Expires",
+            "Pragma",
+            "Location",
+            "Refresh",
+            "Content-Range",
+            "Vary",
+        ]
+    }
+
+    pub fn request_skip_value_headers() -> [&'static str; 2] {
+        ["Host", "User-Agent"]
+    }
+
+    pub fn response_skip_value_headers() -> [&'static str; 3] {
+        ["Date", "Content-Type", "Server"]
+    }
+
+    pub fn request_common_headers() -> [&'static str; 8] {
+        [
+            "Host",
+            "User-Agent",
+            "Connection",
+            "Accept",
+            "Accept-Encoding",
+            "Accept-Language",
+            "Accept-Charset",
+            "Keep-Alive",
+        ]
+    }
+
+    pub fn response_common_headers() -> [&'static str; 5] {
+        [
+            "Content-Type",
+            "Connection",
+            "Keep-Alive",
+            "Accept-Ranges",
+            "Date",
+        ]
     }
 }
