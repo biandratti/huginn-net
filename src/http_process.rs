@@ -398,8 +398,9 @@ mod tests {
 
     #[test]
     fn test_parse_http_request() {
+        let header_registry: HeaderRegistry = HeaderRegistry::init();
         let valid_request = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test-agent\r\nAccept-Language: en-US\r\n\r\n";
-        match parse_http_request(valid_request) {
+        match parse_http_request(valid_request, &header_registry) {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("en-US".to_string()));
                 assert_eq!(request.user_agent, Some("test-agent".to_string()));
