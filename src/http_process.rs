@@ -241,8 +241,8 @@ fn parse_http_response(
             let headers: &[httparse::Header] = req.headers;
 
             let headers_in_order: Vec<Header> =
-                build_headers_in_order(&headers, false, header_registry);
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
+                build_headers_in_order(headers, false, header_registry);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers);
             let http_version: Version = extract_http_version(req);
 
             Ok(Some(ObservableHttpResponse {
@@ -283,27 +283,27 @@ fn build_headers_in_order(
             .iter()
             .filter(|(_, (_, _, group))| matches!(group, HeaderGroup::All | HeaderGroup::Request))
         {
-            headers
+            if let Some(header) = headers
                 .iter()
                 .find(|header| header.name.eq_ignore_ascii_case(name))
-                .map(|header| {
-                    let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
-                    match category {
-                        HeaderCategory::Mandatory => {
-                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                        }
-                        HeaderCategory::Optional => {
-                            headers_in_order
-                                .push(Header::new(name).with_optional_value(h_value).optional());
-                        }
-                        HeaderCategory::SkipValue => {
-                            headers_in_order.push(Header::new(name));
-                        }
-                        HeaderCategory::Common => {
-                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                        }
+            {
+                let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
+                match category {
+                    HeaderCategory::Mandatory => {
+                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
                     }
-                });
+                    HeaderCategory::Optional => {
+                        headers_in_order
+                            .push(Header::new(name).with_optional_value(h_value).optional());
+                    }
+                    HeaderCategory::SkipValue => {
+                        headers_in_order.push(Header::new(name));
+                    }
+                    HeaderCategory::Common => {
+                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
+                    }
+                }
+            }
         }
     } else {
         for (name, (_, category, _)) in header_registry
@@ -311,27 +311,27 @@ fn build_headers_in_order(
             .iter()
             .filter(|(_, (_, _, group))| matches!(group, HeaderGroup::All | HeaderGroup::Response))
         {
-            headers
+            if let Some(header) = headers
                 .iter()
                 .find(|header| header.name.eq_ignore_ascii_case(name))
-                .map(|header| {
-                    let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
-                    match category {
-                        HeaderCategory::Mandatory => {
-                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                        }
-                        HeaderCategory::Optional => {
-                            headers_in_order
-                                .push(Header::new(name).with_optional_value(h_value).optional());
-                        }
-                        HeaderCategory::SkipValue => {
-                            headers_in_order.push(Header::new(name));
-                        }
-                        HeaderCategory::Common => {
-                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                        }
+            {
+                let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
+                match category {
+                    HeaderCategory::Mandatory => {
+                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
                     }
-                });
+                    HeaderCategory::Optional => {
+                        headers_in_order
+                            .push(Header::new(name).with_optional_value(h_value).optional());
+                    }
+                    HeaderCategory::SkipValue => {
+                        headers_in_order.push(Header::new(name));
+                    }
+                    HeaderCategory::Common => {
+                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
+                    }
+                }
+            }
         }
     }
 
