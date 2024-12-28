@@ -1,5 +1,5 @@
 use crate::http;
-use crate::http::{Header, HeaderRegistry, Version};
+use crate::http::{Header, HeaderCategory, HeaderGroup, HeaderRegistry, Version};
 use failure::{bail, Error};
 use httparse::{Request, EMPTY_HEADER};
 use log::debug;
@@ -192,16 +192,13 @@ fn parse_http_request(
 
     match req.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
-            let headers: Vec<Header> = req
-                .headers
-                .iter()
-                .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
-                .collect();
+            let headers: &[httparse::Header] = req.headers;
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(&headers, header_registry);
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
-            let user_agent: Option<String> = extract_user_agent(&headers);
-            let lang: Option<String> = extract_accept_language(&headers);
+            let headers_in_order: Vec<Header> =
+                build_headers_in_order(headers, true, header_registry);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers);
+            let user_agent: Option<String> = extract_user_agent(headers);
+            let lang: Option<String> = extract_accept_language(headers);
             let http_version: Version = extract_http_version(req);
 
             Ok(Some(ObservableHttpRequest {
@@ -241,13 +238,10 @@ fn parse_http_response(
 
     match req.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
-            let headers: Vec<Header> = req
-                .headers
-                .iter()
-                .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
-                .collect();
+            let headers: &[httparse::Header] = req.headers;
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(&headers, header_registry);
+            let headers_in_order: Vec<Header> =
+                build_headers_in_order(&headers, false, header_registry);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
             let http_version: Version = extract_http_version(req);
 
@@ -277,14 +271,75 @@ fn parse_http_response(
     }
 }
 
-fn build_headers_in_order(headers: &[Header], _header_registry: &HeaderRegistry) -> Vec<Header> {
-    // TODO: WIP
-    headers.to_vec()
+fn build_headers_in_order(
+    headers: &[httparse::Header],
+    is_request: bool,
+    header_registry: &HeaderRegistry,
+) -> Vec<Header> {
+    let mut headers_in_order: Vec<Header> = Vec::new();
+    if is_request {
+        for (name, (_, category, _)) in header_registry
+            .headers
+            .iter()
+            .filter(|(_, (_, _, group))| matches!(group, HeaderGroup::All | HeaderGroup::Request))
+        {
+            headers
+                .iter()
+                .find(|header| header.name.eq_ignore_ascii_case(name))
+                .map(|header| {
+                    let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
+                    match category {
+                        HeaderCategory::Mandatory => {
+                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
+                        }
+                        HeaderCategory::Optional => {
+                            headers_in_order
+                                .push(Header::new(name).with_optional_value(h_value).optional());
+                        }
+                        HeaderCategory::SkipValue => {
+                            headers_in_order.push(Header::new(name));
+                        }
+                        HeaderCategory::Common => {
+                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
+                        }
+                    }
+                });
+        }
+    } else {
+        for (name, (_, category, _)) in header_registry
+            .headers
+            .iter()
+            .filter(|(_, (_, _, group))| matches!(group, HeaderGroup::All | HeaderGroup::Response))
+        {
+            headers
+                .iter()
+                .find(|header| header.name.eq_ignore_ascii_case(name))
+                .map(|header| {
+                    let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
+                    match category {
+                        HeaderCategory::Mandatory => {
+                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
+                        }
+                        HeaderCategory::Optional => {
+                            headers_in_order
+                                .push(Header::new(name).with_optional_value(h_value).optional());
+                        }
+                        HeaderCategory::SkipValue => {
+                            headers_in_order.push(Header::new(name));
+                        }
+                        HeaderCategory::Common => {
+                            headers_in_order.push(Header::new(name).with_optional_value(h_value));
+                        }
+                    }
+                });
+        }
+    }
+
+    headers_in_order
 }
 
-// TODO: WIP
-fn build_headers_absent_in_order(headers: &[Header]) -> Vec<Header> {
-    let mut headers_absent = Vec::new();
+fn build_headers_absent_in_order(headers: &[httparse::Header]) -> Vec<Header> {
+    let mut headers_absent: Vec<Header> = Vec::new();
     for header_name in HeaderRegistry::expected_headers().iter() {
         let header_present = headers
             .iter()
@@ -296,18 +351,18 @@ fn build_headers_absent_in_order(headers: &[Header]) -> Vec<Header> {
     headers_absent
 }
 
-fn extract_user_agent(headers: &[Header]) -> Option<String> {
+fn extract_user_agent(headers: &[httparse::Header]) -> Option<String> {
     headers
         .iter()
         .find(|header| header.name.eq_ignore_ascii_case("User-Agent"))
-        .and_then(|header| header.value.clone())
+        .map(|header| String::from_utf8_lossy(header.value).to_string())
 }
 
-fn extract_accept_language(headers: &[Header]) -> Option<String> {
+fn extract_accept_language(headers: &[httparse::Header]) -> Option<String> {
     headers
         .iter()
         .find(|header| header.name.eq_ignore_ascii_case("Accept-Language"))
-        .and_then(|header| header.value.clone())
+        .map(|header| String::from_utf8_lossy(header.value).to_string())
 }
 
 fn extract_traffic_classification(user_agent: Option<String>) -> String {

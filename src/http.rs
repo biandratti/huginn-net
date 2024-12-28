@@ -63,19 +63,22 @@ impl Header {
         self
     }
 
+    pub fn with_optional_value<S: AsRef<str>>(mut self, value: Option<S>) -> Self {
+        self.value = value.map(|v| v.as_ref().to_owned());
+        self
+    }
+
     pub fn optional(mut self) -> Self {
         self.optional = true;
         self
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct HeaderRegistry {
-    headers: HashMap<String, (u32, HeaderCategory)>,
+    pub headers: HashMap<String, (u32, HeaderCategory, HeaderGroup)>,
     id: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum HeaderCategory {
     Mandatory,
     Optional,
@@ -83,47 +86,59 @@ pub enum HeaderCategory {
     Common,
 }
 
+pub enum HeaderGroup {
+    All,
+    Request,
+    Response,
+}
+
 impl HeaderRegistry {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             headers: HashMap::new(),
             id: 0,
         }
     }
 
+    // TODO: evaluate static
     pub fn init() -> Self {
         let mut registry = HeaderRegistry::new();
 
         for &header in &Self::expected_headers() {
-            registry.register_header(header, HeaderCategory::Mandatory);
+            registry.register_header(header, HeaderCategory::Mandatory, HeaderGroup::All);
         }
         for &header in &Self::request_optional_headers() {
-            registry.register_header(header, HeaderCategory::Optional);
+            registry.register_header(header, HeaderCategory::Optional, HeaderGroup::Request);
         }
         for &header in &Self::response_optional_headers() {
-            registry.register_header(header, HeaderCategory::Optional);
+            registry.register_header(header, HeaderCategory::Optional, HeaderGroup::Response);
         }
         for &header in &Self::request_skip_value_headers() {
-            registry.register_header(header, HeaderCategory::SkipValue);
+            registry.register_header(header, HeaderCategory::SkipValue, HeaderGroup::Request);
         }
         for &header in &Self::response_skip_value_headers() {
-            registry.register_header(header, HeaderCategory::SkipValue);
+            registry.register_header(header, HeaderCategory::SkipValue, HeaderGroup::Response);
         }
         for &header in &Self::request_common_headers() {
-            registry.register_header(header, HeaderCategory::Common);
+            registry.register_header(header, HeaderCategory::Common, HeaderGroup::Request);
         }
         for &header in &Self::response_common_headers() {
-            registry.register_header(header, HeaderCategory::Common);
+            registry.register_header(header, HeaderCategory::Common, HeaderGroup::Response);
         }
 
         registry
     }
 
     /// Register a header and return the id registered
-    pub fn register_header<S: AsRef<str>>(&mut self, name: S, category: HeaderCategory) -> u32 {
+    fn register_header<S: AsRef<str>>(
+        &mut self,
+        name: S,
+        category: HeaderCategory,
+        group: HeaderGroup,
+    ) -> u32 {
         let name = name.as_ref();
 
-        if let Some(&(id, _)) = self.headers.get(name) {
+        if let Some(&(id, _, _)) = self.headers.get(name) {
             return id;
         }
 
@@ -131,7 +146,7 @@ impl HeaderRegistry {
         let id = self.id;
         self.id += 1;
 
-        self.headers.insert(name.to_owned(), (id, category));
+        self.headers.insert(name.to_owned(), (id, category, group));
 
         id
     }
@@ -147,7 +162,7 @@ impl HeaderRegistry {
         ]
     }
 
-    pub fn request_optional_headers() -> [&'static str; 11] {
+    fn request_optional_headers() -> [&'static str; 11] {
         [
             "Cookie",
             "Referer",
@@ -163,7 +178,7 @@ impl HeaderRegistry {
         ]
     }
 
-    pub fn response_optional_headers() -> [&'static str; 12] {
+    fn response_optional_headers() -> [&'static str; 12] {
         [
             "Set-Cookie",
             "Last-Modified",
@@ -180,15 +195,15 @@ impl HeaderRegistry {
         ]
     }
 
-    pub fn request_skip_value_headers() -> [&'static str; 2] {
+    fn request_skip_value_headers() -> [&'static str; 2] {
         ["Host", "User-Agent"]
     }
 
-    pub fn response_skip_value_headers() -> [&'static str; 3] {
+    fn response_skip_value_headers() -> [&'static str; 3] {
         ["Date", "Content-Type", "Server"]
     }
 
-    pub fn request_common_headers() -> [&'static str; 8] {
+    fn request_common_headers() -> [&'static str; 8] {
         [
             "Host",
             "User-Agent",
@@ -201,7 +216,7 @@ impl HeaderRegistry {
         ]
     }
 
-    pub fn response_common_headers() -> [&'static str; 5] {
+    fn response_common_headers() -> [&'static str; 5] {
         [
             "Content-Type",
             "Connection",
