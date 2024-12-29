@@ -54,7 +54,7 @@ impl TcpFlow {
     /// # Parameters
     /// - `is_client`: If the data comes from the client.
     fn get_full_data(&self, is_client: bool) -> Vec<u8> {
-        let data = if is_client {
+        let data: &Vec<TcpData> = if is_client {
             &self.client_data
         } else {
             &self.server_data
@@ -186,7 +186,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             let headers: &[httparse::Header] = req.headers;
 
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, true);
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, true);
             let user_agent: Option<String> = extract_user_agent(headers);
             let lang: Option<String> = extract_accept_language(headers);
             let http_version: Version = extract_http_version(req);
@@ -228,7 +228,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
             let headers: &[httparse::Header] = req.headers;
 
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, false);
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, false);
             let http_version: Version = extract_http_version(req);
 
             Ok(Some(ObservableHttpResponse {
@@ -275,6 +275,7 @@ fn build_headers_in_order(headers: &[httparse::Header], is_request: bool) -> Vec
         http::response_common_headers()
     };
 
+    #[allow(clippy::if_same_then_else)]
     for header in headers {
         let value: Option<&str> = match std::str::from_utf8(header.value) {
             Ok(v) => Some(v),
@@ -295,14 +296,18 @@ fn build_headers_in_order(headers: &[httparse::Header], is_request: bool) -> Vec
     headers_in_order
 }
 
-fn build_headers_absent_in_order(headers: &[httparse::Header]) -> Vec<Header> {
+fn build_headers_absent_in_order(headers: &[httparse::Header], is_request: bool) -> Vec<Header> {
     let mut headers_absent: Vec<Header> = Vec::new();
-    for header_name in http::expected_headers().iter() {
-        let header_present = headers
-            .iter()
-            .any(|h| h.name.eq_ignore_ascii_case(header_name));
-        if !header_present {
-            headers_absent.push(Header::new(header_name));
+    let common_list: Vec<&str> = if is_request {
+        http::request_common_headers()
+    } else {
+        http::response_common_headers()
+    };
+    let current_headers: Vec<&str> = headers.iter().map(|h| h.name).collect();
+
+    for header in &common_list {
+        if !current_headers.contains(header) {
+            headers_absent.push(Header::new(header));
         }
     }
     headers_absent

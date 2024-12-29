@@ -72,7 +72,8 @@ impl Header {
     }
 }
 
-pub fn expected_headers() -> Vec<&'static str> {
+//TODO: WIP
+/*pub fn expected_headers() -> Vec<&'static str> {
     vec![
         "User-Agent",
         "Server",
@@ -81,7 +82,7 @@ pub fn expected_headers() -> Vec<&'static str> {
         "X-Forwarded-For",
         "Date",
     ]
-}
+}*/
 
 pub fn request_optional_headers() -> Vec<&'static str> {
     vec![
