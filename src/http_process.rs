@@ -124,9 +124,56 @@ fn process_tcp_packet(
 ) -> Result<ObservableHttpPackage, Error> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
-    let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
+    let mut observable_http_package = ObservableHttpPackage {
+        http_request: None,
+        http_response: None,
+    };
 
-    if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
+    let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
+    let (tcp_flow, is_client) = {
+        if let Some(flow) = cache.get_mut(&flow_key) {
+            (Some(flow), true)
+        } else {
+            let reversed_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
+            if let Some(flow) = cache.get_mut(&reversed_key) {
+                (Some(flow), false)
+            } else {
+                (None, false)
+            }
+        }
+    };
+
+    if let Some(flow) = tcp_flow {
+        if !tcp.payload().is_empty() {
+            let tcp_data = TcpData {
+                sequence: tcp.get_sequence(),
+                data: Vec::from(tcp.payload()),
+            };
+
+            if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
+                flow.client_data.push(tcp_data);
+                if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(is_client))
+                {
+                    observable_http_package.http_request = http_request_parsed;
+                }
+            } else if src_ip == flow.server_ip && src_port == flow.server_port {
+                flow.server_data.push(tcp_data);
+                if let Ok(http_response_parsed) =
+                    parse_http_response(&flow.get_full_data(is_client))
+                {
+                    observable_http_package.http_response = http_response_parsed;
+
+                    if tcp.get_flags()
+                        & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                        != 0
+                    {
+                        debug!("Connection closed or reset");
+                        cache.remove(&flow_key);
+                    }
+                }
+            }
+        }
+    } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
         let tcp_data: TcpData = TcpData {
             sequence: tcp.get_sequence(),
             data: Vec::from(tcp.payload()),
@@ -135,51 +182,7 @@ fn process_tcp_packet(
         cache.insert(flow_key, flow, Duration::new(60, 0));
     }
 
-    if let Some(flow) = cache.get_mut(&flow_key) {
-        if !tcp.payload().is_empty() && src_ip == flow.client_ip && src_port == flow.client_port {
-            let tcp_data: TcpData = TcpData {
-                sequence: tcp.get_sequence(),
-                data: Vec::from(tcp.payload()),
-            };
-            flow.client_data.push(tcp_data);
-            if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
-                return Ok(ObservableHttpPackage {
-                    http_request: http_request_parsed,
-                    http_response: None,
-                });
-            }
-        }
-    }
-
-    let flow_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
-    if let Some(flow) = cache.get_mut(&flow_key) {
-        if !tcp.payload().is_empty() && src_ip == flow.server_ip && src_port == flow.server_port {
-            let tcp_data: TcpData = TcpData {
-                sequence: tcp.get_sequence(),
-                data: Vec::from(tcp.payload()),
-            };
-            flow.server_data.push(tcp_data);
-            if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
-                if tcp.get_flags()
-                    & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-                    != 0
-                {
-                    debug!("Connection closed or reset");
-                    cache.remove(&flow_key);
-                }
-
-                return Ok(ObservableHttpPackage {
-                    http_request: None,
-                    http_response: http_response_parsed,
-                });
-            }
-        }
-    }
-
-    Ok(ObservableHttpPackage {
-        http_request: None,
-        http_response: None,
-    })
+    Ok(observable_http_package)
 }
 
 fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
