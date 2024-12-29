@@ -1,7 +1,7 @@
 use crate::http;
 use crate::http::{Header, Version};
 use failure::{bail, Error};
-use httparse::{Request, EMPTY_HEADER};
+use httparse::{Request, Response, EMPTY_HEADER};
 use log::debug;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
@@ -197,7 +197,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, true);
             let user_agent: Option<String> = extract_user_agent(headers);
             let lang: Option<String> = extract_accept_language(headers);
-            let http_version: Version = extract_http_version(req);
+            let http_version: Version = extract_http_version(req.version);
 
             Ok(Some(ObservableHttpRequest {
                 lang,
@@ -229,15 +229,15 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
 
 fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
     let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
-    let mut req = Request::new(&mut headers);
+    let mut res = Response::new(&mut headers);
 
-    match req.parse(data) {
+    match res.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
-            let headers: &[httparse::Header] = req.headers;
+            let headers: &[httparse::Header] = res.headers;
 
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, false);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, false);
-            let http_version: Version = extract_http_version(req);
+            let http_version: Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
                 signature: http::Signature {
@@ -339,8 +339,8 @@ fn extract_traffic_classification(user_agent: Option<String>) -> String {
     user_agent.unwrap_or_else(|| "???".to_string())
 }
 
-fn extract_http_version(request: Request) -> Version {
-    match request.version {
+fn extract_http_version(version: Option<u8>) -> Version {
+    match version {
         Some(0) => Version::V10,
         Some(1) => Version::V11,
         _ => Version::Any,
