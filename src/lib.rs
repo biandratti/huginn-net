@@ -12,7 +12,6 @@ mod tcp_process;
 mod uptime;
 
 use crate::db::Database;
-use crate::http::HeaderRegistry;
 use crate::http_process::{FlowKey, TcpFlow};
 use crate::p0f_output::{
     HttpRequestOutput, HttpResponseOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput,
@@ -73,7 +72,6 @@ impl<'a> P0f<'a> {
             .into_iter()
             .find(|iface| iface.name == interface_name);
 
-        let header_registry: HeaderRegistry = HeaderRegistry::init();
         match interface {
             Some(iface) => {
                 debug!("Using network interface: {}", iface.name);
@@ -101,7 +99,7 @@ impl<'a> P0f<'a> {
                 loop {
                     match rx.next() {
                         Ok(packet) => {
-                            let output = self.analyze_tcp(packet, &header_registry);
+                            let output = self.analyze_tcp(packet);
                             if sender.send(output).is_err() {
                                 error!("Receiver dropped, stopping packet capture");
                                 break;
@@ -119,13 +117,8 @@ impl<'a> P0f<'a> {
         }
     }
 
-    fn analyze_tcp(&mut self, packet: &[u8], header_registry: &HeaderRegistry) -> P0fOutput {
-        match ObservablePackage::extract(
-            packet,
-            &mut self.tcp_cache,
-            &mut self.http_cache,
-            header_registry,
-        ) {
+    fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
+        match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response) = {
                     let mtu: Option<MTUOutput> =

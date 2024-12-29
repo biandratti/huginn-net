@@ -1,5 +1,5 @@
 use crate::http;
-use crate::http::{Header, HeaderCategory, HeaderGroup, HeaderRegistry, Version};
+use crate::http::{Header, Version};
 use failure::{bail, Error};
 use httparse::{Request, EMPTY_HEADER};
 use log::debug;
@@ -11,6 +11,9 @@ use pnet::packet::Packet;
 use std::net::IpAddr;
 use std::time::Duration;
 use ttl_cache::TtlCache;
+
+/// Maximum number of HTTP headers
+const HTTP_MAX_HDRS: usize = 32;
 
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
@@ -72,7 +75,6 @@ impl TcpFlow {
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-    header_registry: &HeaderRegistry,
 ) -> Result<ObservableHttpPackage, Error> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         bail!("unsupported IPv4 protocol")
@@ -80,7 +82,6 @@ pub fn process_http_ipv4(
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
             cache,
-            header_registry,
             tcp,
             IpAddr::V4(packet.get_source()),
             IpAddr::V4(packet.get_destination()),
@@ -96,7 +97,6 @@ pub fn process_http_ipv4(
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-    header_registry: &HeaderRegistry,
 ) -> Result<ObservableHttpPackage, Error> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         bail!("unsupported IPv6 protocol")
@@ -104,7 +104,6 @@ pub fn process_http_ipv6(
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
             cache,
-            header_registry,
             tcp,
             IpAddr::V6(packet.get_source()),
             IpAddr::V6(packet.get_destination()),
@@ -119,7 +118,6 @@ pub fn process_http_ipv6(
 
 fn process_tcp_packet(
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-    header_registry: &HeaderRegistry,
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
@@ -146,9 +144,7 @@ fn process_tcp_packet(
                 data: Vec::from(tcp.payload()),
             };
             flow.client_data.push(tcp_data);
-            if let Ok(http_request_parsed) =
-                parse_http_request(&flow.get_full_data(true), header_registry)
-            {
+            if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
                 http_request = http_request_parsed;
             }
         }
@@ -162,9 +158,7 @@ fn process_tcp_packet(
                 data: Vec::from(tcp.payload()),
             };
             flow.server_data.push(tcp_data);
-            if let Ok(http_response_parsed) =
-                parse_http_response(&flow.get_full_data(false), header_registry)
-            {
+            if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
                 http_response = http_response_parsed;
             }
         }
@@ -183,19 +177,15 @@ fn process_tcp_packet(
     })
 }
 
-fn parse_http_request(
-    data: &[u8],
-    header_registry: &HeaderRegistry,
-) -> Result<Option<ObservableHttpRequest>, Error> {
-    let mut headers = [EMPTY_HEADER; 64];
+fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
+    let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut req = Request::new(&mut headers);
 
     match req.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
             let headers: &[httparse::Header] = req.headers;
 
-            let headers_in_order: Vec<Header> =
-                build_headers_in_order(headers, true, header_registry);
+            let headers_in_order: Vec<Header> = build_headers_in_order(headers, true);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers);
             let user_agent: Option<String> = extract_user_agent(headers);
             let lang: Option<String> = extract_accept_language(headers);
@@ -229,19 +219,15 @@ fn parse_http_request(
     }
 }
 
-fn parse_http_response(
-    data: &[u8],
-    header_registry: &HeaderRegistry,
-) -> Result<Option<ObservableHttpResponse>, Error> {
-    let mut headers = [EMPTY_HEADER; 64];
+fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
+    let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut req = Request::new(&mut headers);
 
     match req.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
             let headers: &[httparse::Header] = req.headers;
 
-            let headers_in_order: Vec<Header> =
-                build_headers_in_order(headers, false, header_registry);
+            let headers_in_order: Vec<Header> = build_headers_in_order(headers, false);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers);
             let http_version: Version = extract_http_version(req);
 
@@ -271,67 +257,38 @@ fn parse_http_response(
     }
 }
 
-fn build_headers_in_order(
-    headers: &[httparse::Header],
-    is_request: bool,
-    header_registry: &HeaderRegistry,
-) -> Vec<Header> {
+fn build_headers_in_order(headers: &[httparse::Header], is_request: bool) -> Vec<Header> {
     let mut headers_in_order: Vec<Header> = Vec::new();
-    if is_request {
-        for (name, (_, category, _)) in header_registry
-            .headers
-            .iter()
-            .filter(|(_, (_, _, group))| matches!(group, HeaderGroup::All | HeaderGroup::Request))
-        {
-            if let Some(header) = headers
-                .iter()
-                .find(|header| header.name.eq_ignore_ascii_case(name))
-            {
-                let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
-                match category {
-                    HeaderCategory::Mandatory => {
-                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                    }
-                    HeaderCategory::Optional => {
-                        headers_in_order
-                            .push(Header::new(name).with_optional_value(h_value).optional());
-                    }
-                    HeaderCategory::SkipValue => {
-                        headers_in_order.push(Header::new(name));
-                    }
-                    HeaderCategory::Common => {
-                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                    }
-                }
-            }
-        }
+    let optional_list = if is_request {
+        http::request_optional_headers()
     } else {
-        for (name, (_, category, _)) in header_registry
-            .headers
-            .iter()
-            .filter(|(_, (_, _, group))| matches!(group, HeaderGroup::All | HeaderGroup::Response))
-        {
-            if let Some(header) = headers
-                .iter()
-                .find(|header| header.name.eq_ignore_ascii_case(name))
-            {
-                let h_value = Option::from(String::from_utf8_lossy(header.value).to_string());
-                match category {
-                    HeaderCategory::Mandatory => {
-                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                    }
-                    HeaderCategory::Optional => {
-                        headers_in_order
-                            .push(Header::new(name).with_optional_value(h_value).optional());
-                    }
-                    HeaderCategory::SkipValue => {
-                        headers_in_order.push(Header::new(name));
-                    }
-                    HeaderCategory::Common => {
-                        headers_in_order.push(Header::new(name).with_optional_value(h_value));
-                    }
-                }
-            }
+        http::response_optional_headers()
+    };
+    let skip_value_list = if is_request {
+        http::request_skip_value_headers()
+    } else {
+        http::response_skip_value_headers()
+    };
+    let common_list = if is_request {
+        http::request_common_headers()
+    } else {
+        http::response_common_headers()
+    };
+
+    for header in headers {
+        let value: Option<&str> = match std::str::from_utf8(header.value) {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        };
+
+        if optional_list.contains(&header.name) {
+            headers_in_order.push(Header::new(header.name).optional());
+        } else if skip_value_list.contains(&header.name) {
+            headers_in_order.push(Header::new(header.name));
+        } else if common_list.contains(&header.name) {
+            headers_in_order.push(Header::new(header.name).with_optional_value(value));
+        } else {
+            headers_in_order.push(Header::new(header.name).with_optional_value(value));
         }
     }
 
@@ -340,7 +297,7 @@ fn build_headers_in_order(
 
 fn build_headers_absent_in_order(headers: &[httparse::Header]) -> Vec<Header> {
     let mut headers_absent: Vec<Header> = Vec::new();
-    for header_name in HeaderRegistry::expected_headers().iter() {
+    for header_name in http::expected_headers().iter() {
         let header_present = headers
             .iter()
             .any(|h| h.name.eq_ignore_ascii_case(header_name));
@@ -398,9 +355,8 @@ mod tests {
 
     #[test]
     fn test_parse_http_request() {
-        let header_registry: HeaderRegistry = HeaderRegistry::init();
         let valid_request = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test-agent\r\nAccept-Language: en-US\r\n\r\n";
-        match parse_http_request(valid_request, &header_registry) {
+        match parse_http_request(valid_request) {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("en-US".to_string()));
                 assert_eq!(request.user_agent, Some("test-agent".to_string()));

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
     /// HTTP version
@@ -74,155 +72,77 @@ impl Header {
     }
 }
 
-pub struct HeaderRegistry {
-    pub headers: HashMap<String, (u32, HeaderCategory, HeaderGroup)>,
-    id: u32,
+pub fn expected_headers() -> Vec<&'static str> {
+    vec![
+        "User-Agent",
+        "Server",
+        "Accept-Language",
+        "Via",
+        "X-Forwarded-For",
+        "Date",
+    ]
 }
 
-pub enum HeaderCategory {
-    Mandatory,
-    Optional,
-    SkipValue,
-    Common,
+pub fn request_optional_headers() -> Vec<&'static str> {
+    vec![
+        "Cookie",
+        "Referer",
+        "Origin",
+        "Range",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Via",
+        "X-Forwarded-For",
+        "Authorization",
+        "Proxy-Authorization",
+        "Cache-Control",
+    ]
 }
 
-pub enum HeaderGroup {
-    All,
-    Request,
-    Response,
+pub fn response_optional_headers() -> Vec<&'static str> {
+    vec![
+        "Set-Cookie",
+        "Last-Modified",
+        "ETag",
+        "Content-Length",
+        "Content-Disposition",
+        "Cache-Control",
+        "Expires",
+        "Pragma",
+        "Location",
+        "Refresh",
+        "Content-Range",
+        "Vary",
+    ]
 }
 
-impl HeaderRegistry {
-    fn new() -> Self {
-        Self {
-            headers: HashMap::new(),
-            id: 0,
-        }
-    }
+pub fn request_skip_value_headers() -> Vec<&'static str> {
+    vec!["Host", "User-Agent"]
+}
 
-    // TODO: evaluate static
-    pub fn init() -> Self {
-        let mut registry = HeaderRegistry::new();
+pub fn response_skip_value_headers() -> Vec<&'static str> {
+    vec!["Date", "Content-Type", "Server"]
+}
 
-        for &header in &Self::expected_headers() {
-            registry.register_header(header, HeaderCategory::Mandatory, HeaderGroup::All);
-        }
-        for &header in &Self::request_optional_headers() {
-            registry.register_header(header, HeaderCategory::Optional, HeaderGroup::Request);
-        }
-        for &header in &Self::response_optional_headers() {
-            registry.register_header(header, HeaderCategory::Optional, HeaderGroup::Response);
-        }
-        for &header in &Self::request_skip_value_headers() {
-            registry.register_header(header, HeaderCategory::SkipValue, HeaderGroup::Request);
-        }
-        for &header in &Self::response_skip_value_headers() {
-            registry.register_header(header, HeaderCategory::SkipValue, HeaderGroup::Response);
-        }
-        for &header in &Self::request_common_headers() {
-            registry.register_header(header, HeaderCategory::Common, HeaderGroup::Request);
-        }
-        for &header in &Self::response_common_headers() {
-            registry.register_header(header, HeaderCategory::Common, HeaderGroup::Response);
-        }
+pub fn request_common_headers() -> Vec<&'static str> {
+    vec![
+        "Host",
+        "User-Agent",
+        "Connection",
+        "Accept",
+        "Accept-Encoding",
+        "Accept-Language",
+        "Accept-Charset",
+        "Keep-Alive",
+    ]
+}
 
-        registry
-    }
-
-    /// Register a header and return the id registered
-    fn register_header<S: AsRef<str>>(
-        &mut self,
-        name: S,
-        category: HeaderCategory,
-        group: HeaderGroup,
-    ) -> u32 {
-        let name = name.as_ref();
-
-        if let Some(&(id, _, _)) = self.headers.get(name) {
-            return id;
-        }
-
-        // Assign a new ID and insert into the registry
-        let id = self.id;
-        self.id += 1;
-
-        self.headers.insert(name.to_owned(), (id, category, group));
-
-        id
-    }
-
-    pub fn expected_headers() -> [&'static str; 6] {
-        [
-            "User-Agent",
-            "Server",
-            "Accept-Language",
-            "Via",
-            "X-Forwarded-For",
-            "Date",
-        ]
-    }
-
-    fn request_optional_headers() -> [&'static str; 11] {
-        [
-            "Cookie",
-            "Referer",
-            "Origin",
-            "Range",
-            "If-Modified-Since",
-            "If-None-Match",
-            "Via",
-            "X-Forwarded-For",
-            "Authorization",
-            "Proxy-Authorization",
-            "Cache-Control",
-        ]
-    }
-
-    fn response_optional_headers() -> [&'static str; 12] {
-        [
-            "Set-Cookie",
-            "Last-Modified",
-            "ETag",
-            "Content-Length",
-            "Content-Disposition",
-            "Cache-Control",
-            "Expires",
-            "Pragma",
-            "Location",
-            "Refresh",
-            "Content-Range",
-            "Vary",
-        ]
-    }
-
-    fn request_skip_value_headers() -> [&'static str; 2] {
-        ["Host", "User-Agent"]
-    }
-
-    fn response_skip_value_headers() -> [&'static str; 3] {
-        ["Date", "Content-Type", "Server"]
-    }
-
-    fn request_common_headers() -> [&'static str; 8] {
-        [
-            "Host",
-            "User-Agent",
-            "Connection",
-            "Accept",
-            "Accept-Encoding",
-            "Accept-Language",
-            "Accept-Charset",
-            "Keep-Alive",
-        ]
-    }
-
-    fn response_common_headers() -> [&'static str; 5] {
-        [
-            "Content-Type",
-            "Connection",
-            "Keep-Alive",
-            "Accept-Ranges",
-            "Date",
-        ]
-    }
+pub fn response_common_headers() -> Vec<&'static str> {
+    vec![
+        "Content-Type",
+        "Connection",
+        "Keep-Alive",
+        "Accept-Ranges",
+        "Date",
+    ]
 }
