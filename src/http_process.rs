@@ -125,8 +125,6 @@ fn process_tcp_packet(
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
     let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
-    let mut http_request: Option<ObservableHttpRequest> = None;
-    let mut http_response: Option<ObservableHttpResponse> = None;
 
     if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
         let tcp_data: TcpData = TcpData {
@@ -145,7 +143,10 @@ fn process_tcp_packet(
             };
             flow.client_data.push(tcp_data);
             if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
-                http_request = http_request_parsed;
+                return Ok(ObservableHttpPackage {
+                    http_request: http_request_parsed,
+                    http_response: None,
+                });
             }
         }
     }
@@ -159,21 +160,25 @@ fn process_tcp_packet(
             };
             flow.server_data.push(tcp_data);
             if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
-                http_response = http_response_parsed;
-            }
-        }
+                if tcp.get_flags()
+                    & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                    != 0
+                {
+                    debug!("Connection closed or reset");
+                    cache.remove(&flow_key);
+                }
 
-        if tcp.get_flags() & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-            != 0
-        {
-            debug!("Connection closed or reset");
-            cache.remove(&flow_key);
+                return Ok(ObservableHttpPackage {
+                    http_request: None,
+                    http_response: http_response_parsed,
+                });
+            }
         }
     }
 
     Ok(ObservableHttpPackage {
-        http_request,
-        http_response,
+        http_request: None,
+        http_response: None,
     })
 }
 
