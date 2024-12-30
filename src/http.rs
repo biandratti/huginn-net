@@ -47,7 +47,6 @@ pub fn header<S: AsRef<str>>(name: S) -> Header {
     Header::new(name)
 }
 
-//#[cfg(test)]
 impl Header {
     pub fn new<S: AsRef<str>>(name: S) -> Self {
         Header {
@@ -62,8 +61,77 @@ impl Header {
         self
     }
 
+    pub fn with_optional_value<S: AsRef<str>>(mut self, value: Option<S>) -> Self {
+        self.value = value.map(|v| v.as_ref().to_owned());
+        self
+    }
+
     pub fn optional(mut self) -> Self {
         self.optional = true;
         self
     }
+}
+
+pub fn request_optional_headers() -> Vec<&'static str> {
+    vec![
+        "Cookie",
+        "Referer",
+        "Origin",
+        "Range",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Via",
+        "X-Forwarded-For",
+        "Authorization",
+        "Proxy-Authorization",
+        "Cache-Control",
+    ]
+}
+
+pub fn response_optional_headers() -> Vec<&'static str> {
+    vec![
+        "Set-Cookie",
+        "Last-Modified",
+        "ETag",
+        "Content-Length",
+        "Content-Disposition",
+        "Cache-Control",
+        "Expires",
+        "Pragma",
+        "Location",
+        "Refresh",
+        "Content-Range",
+        "Vary",
+    ]
+}
+
+pub fn request_skip_value_headers() -> Vec<&'static str> {
+    vec!["Host", "User-Agent"]
+}
+
+pub fn response_skip_value_headers() -> Vec<&'static str> {
+    vec!["Date", "Content-Type", "Server"]
+}
+
+pub fn request_common_headers() -> Vec<&'static str> {
+    vec![
+        "Host",
+        "User-Agent",
+        "Connection",
+        "Accept",
+        "Accept-Encoding",
+        "Accept-Language",
+        "Accept-Charset",
+        "Keep-Alive",
+    ]
+}
+
+pub fn response_common_headers() -> Vec<&'static str> {
+    vec![
+        "Content-Type",
+        "Connection",
+        "Keep-Alive",
+        "Accept-Ranges",
+        "Date",
+    ]
 }

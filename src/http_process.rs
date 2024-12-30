@@ -1,7 +1,7 @@
 use crate::http;
 use crate::http::{Header, Version};
 use failure::{bail, Error};
-use httparse::{Request, EMPTY_HEADER};
+use httparse::{Request, Response, EMPTY_HEADER};
 use log::debug;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
@@ -11,6 +11,9 @@ use pnet::packet::Packet;
 use std::net::IpAddr;
 use std::time::Duration;
 use ttl_cache::TtlCache;
+
+/// Maximum number of HTTP headers
+const HTTP_MAX_HDRS: usize = 32;
 
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
@@ -51,7 +54,7 @@ impl TcpFlow {
     /// # Parameters
     /// - `is_client`: If the data comes from the client.
     fn get_full_data(&self, is_client: bool) -> Vec<u8> {
-        let data = if is_client {
+        let data: &Vec<TcpData> = if is_client {
             &self.client_data
         } else {
             &self.server_data
@@ -121,11 +124,56 @@ fn process_tcp_packet(
 ) -> Result<ObservableHttpPackage, Error> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
-    let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
-    let mut http_request: Option<ObservableHttpRequest> = None;
-    let mut http_response: Option<ObservableHttpResponse> = None;
+    let mut observable_http_package = ObservableHttpPackage {
+        http_request: None,
+        http_response: None,
+    };
 
-    if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
+    let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
+    let (tcp_flow, is_client) = {
+        if let Some(flow) = cache.get_mut(&flow_key) {
+            (Some(flow), true)
+        } else {
+            let reversed_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
+            if let Some(flow) = cache.get_mut(&reversed_key) {
+                (Some(flow), false)
+            } else {
+                (None, false)
+            }
+        }
+    };
+
+    if let Some(flow) = tcp_flow {
+        if !tcp.payload().is_empty() {
+            let tcp_data = TcpData {
+                sequence: tcp.get_sequence(),
+                data: Vec::from(tcp.payload()),
+            };
+
+            if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
+                flow.client_data.push(tcp_data);
+                if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(is_client))
+                {
+                    observable_http_package.http_request = http_request_parsed;
+                }
+            } else if src_ip == flow.server_ip && src_port == flow.server_port {
+                flow.server_data.push(tcp_data);
+                if let Ok(http_response_parsed) =
+                    parse_http_response(&flow.get_full_data(is_client))
+                {
+                    observable_http_package.http_response = http_response_parsed;
+
+                    if tcp.get_flags()
+                        & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                        != 0
+                    {
+                        debug!("Connection closed or reset");
+                        cache.remove(&flow_key);
+                    }
+                }
+            }
+        }
+    } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
         let tcp_data: TcpData = TcpData {
             sequence: tcp.get_sequence(),
             data: Vec::from(tcp.payload()),
@@ -134,63 +182,22 @@ fn process_tcp_packet(
         cache.insert(flow_key, flow, Duration::new(60, 0));
     }
 
-    if let Some(flow) = cache.get_mut(&flow_key) {
-        if !tcp.payload().is_empty() && src_ip == flow.client_ip && src_port == flow.client_port {
-            let tcp_data: TcpData = TcpData {
-                sequence: tcp.get_sequence(),
-                data: Vec::from(tcp.payload()),
-            };
-            flow.client_data.push(tcp_data);
-            if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(true)) {
-                http_request = http_request_parsed;
-            }
-        }
-    }
-
-    let flow_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
-    if let Some(flow) = cache.get_mut(&flow_key) {
-        if !tcp.payload().is_empty() && src_ip == flow.server_ip && src_port == flow.server_port {
-            let tcp_data: TcpData = TcpData {
-                sequence: tcp.get_sequence(),
-                data: Vec::from(tcp.payload()),
-            };
-            flow.server_data.push(tcp_data);
-            if let Ok(http_response_parsed) = parse_http_response(&flow.get_full_data(false)) {
-                http_response = http_response_parsed;
-            }
-        }
-
-        if tcp.get_flags() & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-            != 0
-        {
-            debug!("Connection closed or reset");
-            cache.remove(&flow_key);
-        }
-    }
-
-    Ok(ObservableHttpPackage {
-        http_request,
-        http_response,
-    })
+    Ok(observable_http_package)
 }
 
 fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
-    let mut headers = [EMPTY_HEADER; 64];
+    let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut req = Request::new(&mut headers);
 
     match req.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
-            let headers: Vec<Header> = req
-                .headers
-                .iter()
-                .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
-                .collect();
+            let headers: &[httparse::Header] = req.headers;
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
-            let user_agent: Option<String> = extract_user_agent(&headers);
-            let lang: Option<String> = extract_accept_language(&headers);
-            let http_version: Version = extract_http_version(req);
+            let headers_in_order: Vec<Header> = build_headers_in_order(headers, true);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, true);
+            let user_agent: Option<String> = extract_header_by_name(headers, "User-Agent");
+            let lang: Option<String> = extract_header_by_name(headers, "Accept-Language");
+            let http_version: Version = extract_http_version(req.version);
 
             Ok(Some(ObservableHttpRequest {
                 lang,
@@ -221,27 +228,24 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
 }
 
 fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
-    let mut headers = [EMPTY_HEADER; 64];
-    let mut req = Request::new(&mut headers);
+    let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
+    let mut res = Response::new(&mut headers);
 
-    match req.parse(data) {
+    match res.parse(data) {
         Ok(httparse::Status::Complete(_)) => {
-            let headers: Vec<Header> = req
-                .headers
-                .iter()
-                .map(|h| Header::new(h.name).with_value(String::from_utf8_lossy(h.value)))
-                .collect();
+            let headers: &[httparse::Header] = res.headers;
 
-            let headers_in_order: Vec<Header> = build_headers_in_order(&headers);
-            let headers_absent: Vec<Header> = build_headers_absent_in_order(&headers);
-            let http_version: Version = extract_http_version(req);
+            let headers_in_order: Vec<Header> = build_headers_in_order(headers, false);
+            let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, false);
+            let server: Option<String> = extract_header_by_name(headers, "Server");
+            let http_version: Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
                 signature: http::Signature {
                     version: http_version,
                     horder: headers_in_order,
                     habsent: headers_absent,
-                    expsw: extract_traffic_classification(None),
+                    expsw: extract_traffic_classification(server),
                 },
             }))
         }
@@ -262,54 +266,75 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
     }
 }
 
-fn build_headers_in_order(headers: &[Header]) -> Vec<Header> {
-    // TODO: WIP
-    headers.to_vec()
+fn build_headers_in_order(headers: &[httparse::Header], is_request: bool) -> Vec<Header> {
+    let mut headers_in_order: Vec<Header> = Vec::new();
+    let optional_list = if is_request {
+        http::request_optional_headers()
+    } else {
+        http::response_optional_headers()
+    };
+    let skip_value_list = if is_request {
+        http::request_skip_value_headers()
+    } else {
+        http::response_skip_value_headers()
+    };
+    let common_list = if is_request {
+        http::request_common_headers()
+    } else {
+        http::response_common_headers()
+    };
+
+    #[allow(clippy::if_same_then_else)]
+    for header in headers {
+        let value: Option<&str> = match std::str::from_utf8(header.value) {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        };
+
+        if optional_list.contains(&header.name) {
+            headers_in_order.push(Header::new(header.name).optional());
+        } else if skip_value_list.contains(&header.name) {
+            headers_in_order.push(Header::new(header.name));
+        } else if common_list.contains(&header.name) {
+            headers_in_order.push(Header::new(header.name).with_optional_value(value));
+        } else {
+            headers_in_order.push(Header::new(header.name).with_optional_value(value));
+        }
+    }
+
+    headers_in_order
 }
 
-// TODO: WIP
-fn build_headers_absent_in_order(headers: &[Header]) -> Vec<Header> {
-    // List of expected headers
-    let expected_headers = [
-        "User-Agent",
-        "Server",
-        "Accept-Language",
-        "Via",
-        "X-Forwarded-For",
-        "Date",
-    ];
-    let mut headers_absent = Vec::new();
-    for header_name in expected_headers.iter() {
-        let header_present = headers
-            .iter()
-            .any(|h| h.name.eq_ignore_ascii_case(header_name));
-        if !header_present {
-            headers_absent.push(Header::new(header_name));
+fn build_headers_absent_in_order(headers: &[httparse::Header], is_request: bool) -> Vec<Header> {
+    let mut headers_absent: Vec<Header> = Vec::new();
+    let common_list: Vec<&str> = if is_request {
+        http::request_common_headers()
+    } else {
+        http::response_common_headers()
+    };
+    let current_headers: Vec<&str> = headers.iter().map(|h| h.name).collect();
+
+    for header in &common_list {
+        if !current_headers.contains(header) {
+            headers_absent.push(Header::new(header));
         }
     }
     headers_absent
 }
 
-fn extract_user_agent(headers: &[Header]) -> Option<String> {
+fn extract_header_by_name(headers: &[httparse::Header], name: &str) -> Option<String> {
     headers
         .iter()
-        .find(|header| header.name.eq_ignore_ascii_case("User-Agent"))
-        .and_then(|header| header.value.clone())
+        .find(|header| header.name.eq_ignore_ascii_case(name))
+        .map(|header| String::from_utf8_lossy(header.value).to_string())
 }
 
-fn extract_accept_language(headers: &[Header]) -> Option<String> {
-    headers
-        .iter()
-        .find(|header| header.name.eq_ignore_ascii_case("Accept-Language"))
-        .and_then(|header| header.value.clone())
+fn extract_traffic_classification(value: Option<String>) -> String {
+    value.unwrap_or_else(|| "???".to_string())
 }
 
-fn extract_traffic_classification(user_agent: Option<String>) -> String {
-    user_agent.unwrap_or_else(|| "???".to_string())
-}
-
-fn extract_http_version(request: Request) -> Version {
-    match request.version {
+fn extract_http_version(version: Option<u8>) -> Version {
+    match version {
         Some(0) => Version::V10,
         Some(1) => Version::V11,
         _ => Version::Any,

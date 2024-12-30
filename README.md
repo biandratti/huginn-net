@@ -27,7 +27,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 ```text
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
 |
-| client   = 1.2.3.4
+| client   = 1.2.3.4/1524
 | os       = Windows XP
 | dist     = 8
 | params   = none
@@ -37,7 +37,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]-
 |
-| server   = 4.3.2.1
+| server   = 4.3.2.1/80
 | os       = Linux 3.x
 | dist     = 0
 | params   = none
@@ -47,7 +47,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (mtu) ]-
 |
-| client   = 1.2.3.4
+| client   = 1.2.3.4/1524
 | link     = DSL
 | raw_mtu  = 1492
 |
@@ -55,9 +55,28 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (uptime) ]-
 |
-| client   = 1.2.3.4
+| client   = 1.2.3.4/1524
 | uptime   = 0 days 11 hrs 16 min (modulo 198 days)
 | raw_freq = 250.00 Hz
+|
+`----
+
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]-
+|
+| client   = 1.2.3.4/1524
+| app      = Firefox:10.x or newer
+| lang     = English
+| params   = none
+| raw_sig  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
+|
+`----
+
+.-[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]-
+|
+| server   = 91.189.91.21/80
+| app      = nginx/1.14.0 (Ubuntu)
+| params   = anonymous
+| raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
 |
 `----
 ```
@@ -66,7 +85,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 To use passivetcp-rs in your Rust project, add the following dependency to your `Cargo.toml`:
 ```toml
 [dependencies]
-passivetcp-rs = "0.1.0-alpha.2"
+passivetcp-rs = "0.1.0-alpha.3"
 ```
 
 ### Usage
@@ -95,6 +114,12 @@ for output in receiver {
     }
     if let Some(uptime) = output.uptime {
         info!("{}", uptime);
+    }
+    if let Some(http_request) = output.http_request {
+        info!("{}", http_request);
+    }
+    if let Some(http_response) = output.http_response {
+        info!("{}", http_response);
     }
 }
 ```
