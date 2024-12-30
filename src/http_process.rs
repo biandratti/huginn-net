@@ -195,8 +195,8 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
 
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, true);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, true);
-            let user_agent: Option<String> = extract_user_agent(headers);
-            let lang: Option<String> = extract_accept_language(headers);
+            let user_agent: Option<String> = extract_header_by_name(headers, "User-Agent");
+            let lang: Option<String> = extract_header_by_name(headers, "Accept-Language");
             let http_version: Version = extract_http_version(req.version);
 
             Ok(Some(ObservableHttpRequest {
@@ -237,6 +237,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
 
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, false);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, false);
+            let server: Option<String> = extract_header_by_name(headers, "Server");
             let http_version: Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
@@ -244,7 +245,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
                     version: http_version,
                     horder: headers_in_order,
                     habsent: headers_absent,
-                    expsw: extract_traffic_classification(None),
+                    expsw: extract_traffic_classification(server),
                 },
             }))
         }
@@ -321,22 +322,15 @@ fn build_headers_absent_in_order(headers: &[httparse::Header], is_request: bool)
     headers_absent
 }
 
-fn extract_user_agent(headers: &[httparse::Header]) -> Option<String> {
+fn extract_header_by_name(headers: &[httparse::Header], name: &str) -> Option<String> {
     headers
         .iter()
-        .find(|header| header.name.eq_ignore_ascii_case("User-Agent"))
+        .find(|header| header.name.eq_ignore_ascii_case(name))
         .map(|header| String::from_utf8_lossy(header.value).to_string())
 }
 
-fn extract_accept_language(headers: &[httparse::Header]) -> Option<String> {
-    headers
-        .iter()
-        .find(|header| header.name.eq_ignore_ascii_case("Accept-Language"))
-        .map(|header| String::from_utf8_lossy(header.value).to_string())
-}
-
-fn extract_traffic_classification(user_agent: Option<String>) -> String {
-    user_agent.unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<String>) -> String {
+    value.unwrap_or_else(|| "???".to_string())
 }
 
 fn extract_http_version(version: Option<u8>) -> Version {

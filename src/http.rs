@@ -72,18 +72,6 @@ impl Header {
     }
 }
 
-//TODO: WIP
-/*pub fn expected_headers() -> Vec<&'static str> {
-    vec![
-        "User-Agent",
-        "Server",
-        "Accept-Language",
-        "Via",
-        "X-Forwarded-For",
-        "Date",
-    ]
-}*/
-
 pub fn request_optional_headers() -> Vec<&'static str> {
     vec![
         "Cookie",
