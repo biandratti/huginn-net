@@ -200,7 +200,8 @@ pub fn get_highest_quality_language(accept_language: String) -> Option<String> {
 
     for part in accept_language.split(',') {
         let mut lang_and_quality = part.split(';');
-        let language: String = lang_and_quality.next().unwrap().trim().to_string();
+        let full_language: String = lang_and_quality.next().unwrap().trim().to_string();
+        let language = full_language.split('-').next().unwrap_or("").to_string();
         let quality: f32 = lang_and_quality
             .next()
             .and_then(|q| q.trim_start_matches("q=").parse::<f32>().ok())
@@ -244,6 +245,13 @@ mod tests {
         let accept_language = "de,fr".to_string();
         let result = get_highest_quality_language(accept_language);
         assert_eq!(result, Some("German".to_string()));
+    }
+
+    #[test]
+    fn test_get_highest_quality_language_when_variant_used() {
+        let accept_language = "en-US;q=0.9,es;q=0.8".to_string();
+        let result = get_highest_quality_language(accept_language);
+        assert_eq!(result, Some("English".to_string()));
     }
 
     #[test]
