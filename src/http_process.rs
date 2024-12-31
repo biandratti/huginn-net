@@ -1,5 +1,5 @@
-use crate::http;
 use crate::http::{Header, Version};
+use crate::{http, http_languages};
 use failure::{bail, Error};
 use httparse::{Request, Response, EMPTY_HEADER};
 use log::debug;
@@ -196,7 +196,10 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, true);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, true);
             let user_agent: Option<String> = extract_header_by_name(headers, "User-Agent");
-            let lang: Option<String> = extract_header_by_name(headers, "Accept-Language");
+            let lang: Option<String> =
+                extract_header_by_name(headers, "Accept-Language").and_then(|accept_language| {
+                    http_languages::get_highest_quality_language(accept_language)
+                });
             let http_version: Version = extract_http_version(req.version);
 
             Ok(Some(ObservableHttpRequest {
