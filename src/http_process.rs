@@ -1,5 +1,5 @@
-use crate::http;
 use crate::http::{Header, Version};
+use crate::{http, http_languages};
 use failure::{bail, Error};
 use httparse::{Request, Response, EMPTY_HEADER};
 use log::debug;
@@ -196,7 +196,10 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             let headers_in_order: Vec<Header> = build_headers_in_order(headers, true);
             let headers_absent: Vec<Header> = build_headers_absent_in_order(headers, true);
             let user_agent: Option<String> = extract_header_by_name(headers, "User-Agent");
-            let lang: Option<String> = extract_header_by_name(headers, "Accept-Language");
+            let lang: Option<String> =
+                extract_header_by_name(headers, "Accept-Language").and_then(|accept_language| {
+                    http_languages::get_highest_quality_language(accept_language)
+                });
             let http_version: Version = extract_http_version(req.version);
 
             Ok(Some(ObservableHttpRequest {
@@ -365,9 +368,8 @@ mod tests {
         let valid_request = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test-agent\r\nAccept-Language: en-US\r\n\r\n";
         match parse_http_request(valid_request) {
             Ok(Some(request)) => {
-                assert_eq!(request.lang, Some("en-US".to_string()));
+                assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("test-agent".to_string()));
-                println!("Parsed HTTP Request: {:?}", request);
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {}", e),

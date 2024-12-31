@@ -2,6 +2,7 @@ pub mod db;
 mod db_parse;
 mod display;
 mod http;
+mod http_languages;
 mod http_process;
 mod mtu;
 mod p0f_output;
