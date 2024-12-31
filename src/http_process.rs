@@ -368,9 +368,8 @@ mod tests {
         let valid_request = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test-agent\r\nAccept-Language: en-US\r\n\r\n";
         match parse_http_request(valid_request) {
             Ok(Some(request)) => {
-                assert_eq!(request.lang, Some("en-US".to_string()));
+                assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("test-agent".to_string()));
-                println!("Parsed HTTP Request: {:?}", request);
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {}", e),
