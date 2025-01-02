@@ -205,7 +205,6 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             Ok(Some(ObservableHttpRequest {
                 lang,
                 user_agent: user_agent.clone(),
-                diagnosis: HttpDiagnosis::None,
                 signature: http::Signature {
                     version: http_version,
                     horder: headers_in_order,
@@ -245,7 +244,6 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
             let http_version: Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
-                diagnosis: HttpDiagnosis::None,
                 signature: http::Signature {
                     version: http_version,
                     horder: headers_in_order,
@@ -346,6 +344,20 @@ fn extract_http_version(version: Option<u8>) -> Version {
     }
 }
 
+// TODO: WIP
+pub fn get_diagnostic(
+    user_agent: Option<String>,
+    signature_matcher: Option<&http::Signature>,
+) -> HttpDiagnosis {
+    match user_agent {
+        None => HttpDiagnosis::Anonymous,
+        Some(_ua) => match signature_matcher {
+            None => HttpDiagnosis::None,
+            Some(_sig) => HttpDiagnosis::Generic,
+        },
+    }
+}
+
 pub struct ObservableHttpPackage {
     pub http_request: Option<ObservableHttpRequest>,
     pub http_response: Option<ObservableHttpResponse>,
@@ -355,12 +367,10 @@ pub struct ObservableHttpPackage {
 pub struct ObservableHttpRequest {
     pub lang: Option<String>,
     pub user_agent: Option<String>,
-    pub diagnosis: HttpDiagnosis,
     pub signature: http::Signature,
 }
 pub struct ObservableHttpResponse {
     pub signature: http::Signature,
-    pub diagnosis: HttpDiagnosis,
 }
 
 #[cfg(test)]
