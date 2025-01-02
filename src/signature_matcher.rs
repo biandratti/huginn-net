@@ -80,7 +80,7 @@ impl<'a> SignatureMatcher<'a> {
 
     pub fn matching_by_user_agent(
         &self,
-        user_agent: &str,
+        user_agent: String,
     ) -> Option<(&'a String, &'a Option<String>)> {
         for (ua, ua_family) in &self.database.ua_os {
             if user_agent.contains(ua) {

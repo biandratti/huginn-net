@@ -1,3 +1,4 @@
+use crate::db::Label;
 use crate::http::{Header, HttpDiagnosis, Version};
 use crate::{http, http_languages};
 use failure::{bail, Error};
@@ -344,16 +345,22 @@ fn extract_http_version(version: Option<u8>) -> Version {
     }
 }
 
-// TODO: WIP
 pub fn get_diagnostic(
     user_agent: Option<String>,
-    signature_matcher: Option<&http::Signature>,
+    ua_matcher: Option<(&String, &Option<String>)>,
+    signature_os_matcher: Option<&Label>,
 ) -> HttpDiagnosis {
     match user_agent {
         None => HttpDiagnosis::Anonymous,
-        Some(_ua) => match signature_matcher {
-            None => HttpDiagnosis::None,
-            Some(_sig) => HttpDiagnosis::Generic,
+        Some(_ua) => match (ua_matcher, signature_os_matcher) {
+            (Some(ua_db), Some(signature_label_db)) => {
+                if ua_db.0.eq_ignore_ascii_case(&signature_label_db.name) {
+                    HttpDiagnosis::Generic
+                } else {
+                    HttpDiagnosis::Dishonest
+                }
+            }
+            _ => HttpDiagnosis::None,
         },
     }
 }

@@ -178,9 +178,15 @@ impl<'a> P0f<'a> {
                                 .matcher
                                 .matching_by_http_request(&http_request.signature);
 
+                            let ua_matcher: Option<(&String, &Option<String>)> = http_request
+                                .user_agent
+                                .clone()
+                                .and_then(|ua| self.matcher.matching_by_user_agent(ua));
+
                             let http_diagnosis = http_process::get_diagnostic(
                                 http_request.user_agent.clone(),
-                                signature_matcher.map(|result| result.1),
+                                ua_matcher,
+                                signature_matcher.map(|result| result.0),
                             );
 
                             HttpRequestOutput {
