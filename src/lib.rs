@@ -184,7 +184,7 @@ impl<'a> P0f<'a> {
                                 .and_then(|ua| self.matcher.matching_by_user_agent(ua));
 
                             let http_diagnosis = http_process::get_diagnostic(
-                                http_request.user_agent.clone(),
+                                http_request.user_agent,
                                 ua_matcher,
                                 signature_matcher.map(|result| result.0),
                             );
@@ -193,7 +193,6 @@ impl<'a> P0f<'a> {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: http_request.lang,
-                                user_agent: http_request.user_agent,
                                 label: signature_matcher.map(|(label, _)| label.clone()),
                                 diagnosis: http_diagnosis,
                                 sig: http_request.signature,
