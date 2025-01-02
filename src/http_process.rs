@@ -1,4 +1,4 @@
-use crate::http::{Header, Version};
+use crate::http::{Header, HttpDiagnosis, Version};
 use crate::{http, http_languages};
 use failure::{bail, Error};
 use httparse::{Request, Response, EMPTY_HEADER};
@@ -205,6 +205,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
             Ok(Some(ObservableHttpRequest {
                 lang,
                 user_agent: user_agent.clone(),
+                diagnosis: HttpDiagnosis::None,
                 signature: http::Signature {
                     version: http_version,
                     horder: headers_in_order,
@@ -244,6 +245,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
             let http_version: Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
+                diagnosis: HttpDiagnosis::None,
                 signature: http::Signature {
                     version: http_version,
                     horder: headers_in_order,
@@ -353,10 +355,12 @@ pub struct ObservableHttpPackage {
 pub struct ObservableHttpRequest {
     pub lang: Option<String>,
     pub user_agent: Option<String>,
+    pub diagnosis: HttpDiagnosis,
     pub signature: http::Signature,
 }
 pub struct ObservableHttpResponse {
     pub signature: http::Signature,
+    pub diagnosis: HttpDiagnosis,
 }
 
 #[cfg(test)]

@@ -182,6 +182,7 @@ impl<'a> P0f<'a> {
                                 .matcher
                                 .matching_by_http_request(&http_request.signature)
                                 .map(|(label, _)| label.clone()),
+                            diagnosis: http_request.diagnosis,
                             sig: http_request.signature,
                         });
 
@@ -194,6 +195,7 @@ impl<'a> P0f<'a> {
                                 .matcher
                                 .matching_by_http_response(&http_response.signature)
                                 .map(|(label, _)| label.clone()),
+                            diagnosis: http_response.diagnosis,
                             sig: http_response.signature,
                         });
 

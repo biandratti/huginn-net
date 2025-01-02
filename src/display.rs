@@ -1,8 +1,9 @@
 use crate::db::Label;
 use core::fmt;
+use std::fmt::Formatter;
 
 impl fmt::Display for Label {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}:{}:{}:{}",
@@ -15,12 +16,12 @@ impl fmt::Display for Label {
 }
 
 mod tcp {
-    use core::fmt;
-
     use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+    use core::fmt;
+    use std::fmt::Formatter;
 
     impl fmt::Display for Signature {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             write!(f, "{}:{}:{}:", self.version, self.ittl, self.olen)?;
 
             if let Some(mss) = self.mss {
@@ -62,7 +63,7 @@ mod tcp {
     }
 
     impl fmt::Display for IpVersion {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             use IpVersion::*;
 
             f.write_str(match self {
@@ -74,7 +75,7 @@ mod tcp {
     }
 
     impl fmt::Display for Ttl {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             match self {
                 Ttl::Value(ttl) => write!(f, "{}", ttl),
                 Ttl::Distance(ttl, distance) => write!(f, "{}+{}", ttl, distance),
@@ -85,7 +86,7 @@ mod tcp {
     }
 
     impl fmt::Display for WindowSize {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             use WindowSize::*;
 
             match self {
@@ -99,7 +100,7 @@ mod tcp {
     }
 
     impl fmt::Display for TcpOption {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             use TcpOption::*;
 
             match self {
@@ -116,7 +117,7 @@ mod tcp {
     }
 
     impl fmt::Display for Quirk {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             use Quirk::*;
 
             match self {
@@ -142,7 +143,7 @@ mod tcp {
     }
 
     impl fmt::Display for PayloadSize {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             use PayloadSize::*;
 
             f.write_str(match self {
@@ -155,12 +156,12 @@ mod tcp {
 }
 
 mod http {
+    use crate::http::{Header, HttpDiagnosis, Signature, Version};
     use core::fmt;
-
-    use crate::http::{Header, Signature, Version};
+    use std::fmt::Formatter;
 
     impl fmt::Display for Signature {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             write!(f, "{}:", self.version)?;
 
             for (i, h) in self.horder.iter().enumerate() {
@@ -186,7 +187,7 @@ mod http {
     }
 
     impl fmt::Display for Version {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             f.write_str(match self {
                 Version::V10 => "0",
                 Version::V11 => "1",
@@ -196,7 +197,7 @@ mod http {
     }
 
     impl fmt::Display for Header {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             if self.optional {
                 f.write_str("?")?;
             }
@@ -208,6 +209,18 @@ mod http {
             }
 
             Ok(())
+        }
+    }
+    impl fmt::Display for HttpDiagnosis {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            use crate::http::HttpDiagnosis::*;
+
+            f.write_str(match self {
+                Dishonest => "dishonest",
+                Anonymous => "anonymous",
+                Generic => "generic",
+                None => "none",
+            })
         }
     }
 }

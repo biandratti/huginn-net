@@ -42,6 +42,14 @@ pub struct Header {
     pub value: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub enum HttpDiagnosis {
+    Dishonest,
+    Anonymous,
+    Generic,
+    None,
+}
+
 #[cfg(test)]
 pub fn header<S: AsRef<str>>(name: S) -> Header {
     Header::new(name)
