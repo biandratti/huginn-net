@@ -404,6 +404,7 @@ mod tests {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
                 assert_eq!(request.signature.version, http::Version::V11);
+
                 let expected_horder = vec![
                     http::Header {
                         optional: false,
@@ -447,6 +448,8 @@ mod tests {
                         value: None,
                     },
                 ];
+                assert_eq!(request.signature.horder, expected_horder);
+
                 let expected_habsent = vec![
                     http::Header {
                         optional: false,
@@ -464,12 +467,75 @@ mod tests {
                         value: None,
                     },
                 ];
-                assert_eq!(request.signature.horder, expected_horder);
                 assert_eq!(request.signature.habsent, expected_habsent);
+
                 assert_eq!(request.signature.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {}", e),
+        }
+    }
+
+    #[test]
+    fn test_parse_http_response() {
+        let valid_response = b"HTTP/1.1 200 OK\r\n\
+        Server: Apache\r\n\
+        Content-Type: text/html; charset=UTF-8\r\n\
+        Content-Length: 112\r\n\
+        Connection: keep-alive\r\n\
+        \r\n\
+        <html><body><h1>It works!</h1></body></html>";
+
+        match parse_http_response(valid_response) {
+            Ok(Some(response)) => {
+                assert_eq!(response.signature.expsw, "Apache");
+                assert_eq!(response.signature.version, http::Version::V11);
+
+                let expected_horder = vec![
+                    http::Header {
+                        optional: false,
+                        name: "Server".to_string(),
+                        value: None,
+                    },
+                    http::Header {
+                        optional: false,
+                        name: "Content-Type".to_string(),
+                        value: None,
+                    },
+                    http::Header {
+                        optional: true,
+                        name: "Content-Length".to_string(),
+                        value: None,
+                    },
+                    http::Header {
+                        optional: false,
+                        name: "Connection".to_string(),
+                        value: Some("keep-alive".to_string()),
+                    },
+                ];
+                assert_eq!(response.signature.horder, expected_horder);
+
+                let expected_absent = vec![
+                    http::Header {
+                        optional: false,
+                        name: "Keep-Alive".to_string(),
+                        value: None,
+                    },
+                    http::Header {
+                        optional: false,
+                        name: "Accept-Ranges".to_string(),
+                        value: None,
+                    },
+                    http::Header {
+                        optional: false,
+                        name: "Date".to_string(),
+                        value: None,
+                    },
+                ];
+                assert_eq!(response.signature.habsent, expected_absent);
+            }
+            Ok(None) => panic!("Incomplete HTTP response"),
+            Err(e) => panic!("Failed to parse HTTP response: {}", e),
         }
     }
 }
