@@ -1,5 +1,6 @@
 use crate::db::Label;
 use crate::http;
+use crate::http::HttpDiagnosis;
 use crate::process::IpPort;
 use crate::tcp::{Signature, Ttl};
 use std::fmt;
@@ -162,7 +163,7 @@ pub struct HttpRequestOutput {
     pub source: IpPort,
     pub destination: IpPort,
     pub lang: Option<String>,
-    pub user_agent: Option<String>,
+    pub diagnosis: HttpDiagnosis,
     pub label: Option<Label>,
     pub sig: http::Signature,
 }
@@ -185,11 +186,11 @@ impl fmt::Display for HttpRequestOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.user_agent.as_deref().unwrap_or("???"),
-            self.lang.as_deref().unwrap_or("???"),
             self.label
                 .as_ref()
-                .map_or("none".to_string(), |l| l.ty.to_string()),
+                .map_or("???".to_string(), |l| l.name.clone()),
+            self.lang.as_deref().unwrap_or("???"),
+            self.diagnosis,
             self.sig,
         )
     }
@@ -198,6 +199,7 @@ impl fmt::Display for HttpRequestOutput {
 pub struct HttpResponseOutput {
     pub source: IpPort,
     pub destination: IpPort,
+    pub diagnosis: HttpDiagnosis,
     pub label: Option<Label>,
     pub sig: http::Signature,
 }
@@ -222,9 +224,7 @@ impl fmt::Display for HttpResponseOutput {
             self.label
                 .as_ref()
                 .map_or("???".to_string(), |l| l.name.clone()),
-            self.label
-                .as_ref()
-                .map_or("none".to_string(), |l| l.ty.to_string()),
+            self.diagnosis,
             self.sig,
         )
     }

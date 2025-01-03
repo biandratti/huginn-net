@@ -12,7 +12,8 @@ mod tcp;
 mod tcp_process;
 mod uptime;
 
-use crate::db::Database;
+use crate::db::{Database, Label};
+use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
 use crate::p0f_output::{
     HttpRequestOutput, HttpResponseOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput,
@@ -171,18 +172,31 @@ impl<'a> P0f<'a> {
                             freq: update.freq,
                         });
 
-                    let http_request: Option<HttpRequestOutput> = observable_package
-                        .http_request
-                        .map(|http_request| HttpRequestOutput {
-                            source: observable_package.source.clone(),
-                            destination: observable_package.destination.clone(),
-                            lang: http_request.lang,
-                            user_agent: http_request.user_agent,
-                            label: self
+                    let http_request: Option<HttpRequestOutput> =
+                        observable_package.http_request.map(|http_request| {
+                            let signature_matcher: Option<(&Label, &Signature)> = self
                                 .matcher
-                                .matching_by_http_request(&http_request.signature)
-                                .map(|(label, _)| label.clone()),
-                            sig: http_request.signature,
+                                .matching_by_http_request(&http_request.signature);
+
+                            let ua_matcher: Option<(&String, &Option<String>)> = http_request
+                                .user_agent
+                                .clone()
+                                .and_then(|ua| self.matcher.matching_by_user_agent(ua));
+
+                            let http_diagnosis = http_process::get_diagnostic(
+                                http_request.user_agent,
+                                ua_matcher,
+                                signature_matcher.map(|result| result.0),
+                            );
+
+                            HttpRequestOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                lang: http_request.lang,
+                                label: signature_matcher.map(|(label, _)| label.clone()),
+                                diagnosis: http_diagnosis,
+                                sig: http_request.signature,
+                            }
                         });
 
                     let http_response: Option<HttpResponseOutput> = observable_package
@@ -194,6 +208,7 @@ impl<'a> P0f<'a> {
                                 .matcher
                                 .matching_by_http_response(&http_response.signature)
                                 .map(|(label, _)| label.clone()),
+                            diagnosis: HttpDiagnosis::None,
                             sig: http_response.signature,
                         });
 
