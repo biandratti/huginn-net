@@ -406,66 +406,22 @@ mod tests {
                 assert_eq!(request.signature.version, http::Version::V11);
 
                 let expected_horder = vec![
-                    http::Header {
-                        optional: false,
-                        name: "Host".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Accept".to_string(),
-                        value: Some("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string()),
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Accept-Language".to_string(),
-                        value: Some("en-US,en;q=0.9,es;q=0.8".to_string()),
-                    },
-                    http::Header {
-                        optional: true,
-                        name: "Cache-Control".to_string(),
-                        value: None,
-                    },
-                    http::Header { optional: false, name: "Connection".to_string(), value: Some("keep-alive".to_string()), },
-                    http::Header {
-                        optional: true,
-                        name: "If-Modified-Since".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: true,
-                        name: "If-None-Match".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Upgrade-Insecure-Requests".to_string(),
-                        value: Some("1".to_string()),
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "User-Agent".to_string(),
-                        value: None,
-                    },
+                    http::Header::new("Host"),
+                    http::Header::new("Accept").with_value("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
+                    http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
+                    http::Header::new("Cache-Control").optional(),
+                    http::Header::new("Connection").with_value("keep-alive"),
+                    http::Header::new("If-Modified-Since").optional(),
+                    http::Header::new("If-None-Match").optional(),
+                    http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
+                    http::Header::new("User-Agent"),
                 ];
                 assert_eq!(request.signature.horder, expected_horder);
 
                 let expected_habsent = vec![
-                    http::Header {
-                        optional: false,
-                        name: "Accept-Encoding".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Accept-Charset".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Keep-Alive".to_string(),
-                        value: None,
-                    },
+                    http::Header::new("Accept-Encoding"),
+                    http::Header::new("Accept-Charset"),
+                    http::Header::new("Keep-Alive"),
                 ];
                 assert_eq!(request.signature.habsent, expected_habsent);
 
@@ -492,45 +448,17 @@ mod tests {
                 assert_eq!(response.signature.version, http::Version::V11);
 
                 let expected_horder = vec![
-                    http::Header {
-                        optional: false,
-                        name: "Server".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Content-Type".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: true,
-                        name: "Content-Length".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Connection".to_string(),
-                        value: Some("keep-alive".to_string()),
-                    },
+                    http::Header::new("Server"),
+                    http::Header::new("Content-Type"),
+                    http::Header::new("Content-Length").optional(),
+                    http::Header::new("Connection").with_value("keep-alive"),
                 ];
                 assert_eq!(response.signature.horder, expected_horder);
 
                 let expected_absent = vec![
-                    http::Header {
-                        optional: false,
-                        name: "Keep-Alive".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Accept-Ranges".to_string(),
-                        value: None,
-                    },
-                    http::Header {
-                        optional: false,
-                        name: "Date".to_string(),
-                        value: None,
-                    },
+                    http::Header::new("Keep-Alive"),
+                    http::Header::new("Accept-Ranges"),
+                    http::Header::new("Date"),
                 ];
                 assert_eq!(response.signature.habsent, expected_absent);
             }
