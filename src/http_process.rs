@@ -355,7 +355,7 @@ pub fn get_diagnostic(
     match user_agent {
         None => http::HttpDiagnosis::Anonymous,
         Some(_ua) => match (ua_matcher, signature_os_matcher) {
-            (Some((ua_name_db, _)), Some(signature_label_db)) => {
+            (Some((ua_name_db, _ua_flavor_db)), Some(signature_label_db)) => {
                 if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
                     http::HttpDiagnosis::Generic
                 } else {
@@ -475,7 +475,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_diagnostic_with_existing_signature_label() {
+    fn test_get_diagnostic_with_existing_signature_matcher() {
         let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
         let os = "Linux".to_string();
         let browser = Some("Firefox".to_string());
@@ -490,5 +490,31 @@ mod tests {
 
         let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
+    }
+
+    #[test]
+    fn test_get_diagnostic_with_dishonest_user_agent() {
+        let user_agent = Some("Mozilla/5.0".to_string());
+        let os = "Windows".to_string();
+        let browser = Some("Firefox".to_string());
+        let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
+        let label = Label {
+            ty: db::Type::Specified,
+            class: None,
+            name: "Linux".to_string(),
+            flavor: None,
+        };
+        let signature_os_matcher: Option<&Label> = Some(&label);
+
+        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
+        assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
+    }
+
+    #[test]
+    fn test_get_diagnostic_without_user_agent_and_signature_matcher() {
+        let user_agent = Some("Mozilla/5.0".to_string());
+
+        let diagnosis = get_diagnostic(user_agent, None, None);
+        assert_eq!(diagnosis, http::HttpDiagnosis::None);
     }
 }
