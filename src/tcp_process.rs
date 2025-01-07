@@ -57,8 +57,8 @@ pub fn process_tcp_ipv4(
     }
 
     let version = IpVersion::V4;
-    let ttl_value: u8 = packet.get_ttl();
-    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); //TODO: WIP..
+    let ttl_observed: u8 = packet.get_ttl();
+    let ttl: Ttl = calculate_ttl(ttl_observed);
     let olen: u8 = packet.get_options_raw().len() as u8;
     let mut quirks = vec![];
 
@@ -112,8 +112,8 @@ pub fn process_tcp_ipv6(
         bail!("unsupported IPv6 protocol")
     }
     let version = IpVersion::V6;
-    let ttl_value: u8 = packet.get_hop_limit();
-    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); // TODO: WIP
+    let ttl_observed: u8 = packet.get_hop_limit();
+    let ttl: Ttl = calculate_ttl(ttl_observed);
     let olen = 0; // TODO handle extensions
     let mut quirks = vec![];
 
@@ -146,7 +146,7 @@ pub fn process_tcp_ipv6(
         })
 }
 
-fn guess_dist(ttl: u8) -> u8 {
+fn guess_distance(ttl: u8) -> u8 {
     if ttl <= 32 {
         32 - ttl
     } else if ttl <= 64 {
@@ -156,6 +156,26 @@ fn guess_dist(ttl: u8) -> u8 {
     } else {
         255 - ttl
     }
+}
+
+fn calculate_ttl(ttl_observed: u8) -> Ttl {
+    if ttl_observed == 0 {
+        return Ttl::Bad(ttl_observed);
+    }
+
+    // Common initial TTL values for different OSes (known defaults)
+    let common_initial_ttl_list = [64, 128, 255];
+
+    // If TTL is close to any of the common initial TTLs, it's likely a Distance
+    if let Some(&_initial_ttl) = common_initial_ttl_list
+        .iter()
+        .find(|&&initial| ttl_observed <= initial)
+    {
+        return Ttl::Distance(ttl_observed, guess_distance(ttl_observed));
+    }
+
+    // If TTL doesn't match common initial values, classify it as Ttl::Value (raw TTL)
+    Ttl::Value(ttl_observed)
 }
 
 #[allow(clippy::too_many_arguments)]
