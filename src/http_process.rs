@@ -355,8 +355,8 @@ pub fn get_diagnostic(
     match user_agent {
         None => http::HttpDiagnosis::Anonymous,
         Some(_ua) => match (ua_matcher, signature_os_matcher) {
-            (Some(ua_db), Some(signature_label_db)) => {
-                if ua_db.0.eq_ignore_ascii_case(&signature_label_db.name) {
+            (Some((ua_name_db, _)), Some(signature_label_db)) => {
+                if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
                     http::HttpDiagnosis::Generic
                 } else {
                     http::HttpDiagnosis::Dishonest
@@ -385,6 +385,7 @@ pub struct ObservableHttpResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db;
 
     #[test]
     fn test_parse_http_request() {
@@ -465,5 +466,29 @@ mod tests {
             Ok(None) => panic!("Incomplete HTTP response"),
             Err(e) => panic!("Failed to parse HTTP response: {}", e),
         }
+    }
+
+    #[test]
+    fn test_get_diagnostic_for_empty_sw() {
+        let diagnosis: http::HttpDiagnosis = get_diagnostic(None, None, None);
+        assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
+    }
+
+    #[test]
+    fn test_get_diagnostic_with_existing_signature_label() {
+        let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
+        let os = "Linux".to_string();
+        let browser = Some("Firefox".to_string());
+        let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
+        let label = Label {
+            ty: db::Type::Specified,
+            class: None,
+            name: "Linux".to_string(),
+            flavor: None,
+        };
+        let signature_os_matcher: Option<&Label> = Some(&label);
+
+        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
+        assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
     }
 }

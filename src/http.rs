@@ -42,7 +42,7 @@ pub struct Header {
     pub value: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum HttpDiagnosis {
     Dishonest,
     Anonymous,
