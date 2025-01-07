@@ -125,14 +125,14 @@ impl<'a> P0f<'a> {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response) = {
                     let mtu: Option<MTUOutput> =
                         observable_package.mtu.and_then(|observable_mtu| {
-                            self.matcher
-                                .matching_by_mtu(&observable_mtu.value)
-                                .map(|(link, _)| MTUOutput {
+                            self.matcher.matching_by_mtu(&observable_mtu.value).map(
+                                |(link, _mtu_result)| MTUOutput {
                                     source: observable_package.source.clone(),
                                     destination: observable_package.destination.clone(),
                                     link: link.clone(),
                                     mtu: observable_mtu.value,
-                                })
+                                },
+                            )
                         });
 
                     let syn: Option<SynTCPOutput> =
@@ -144,7 +144,7 @@ impl<'a> P0f<'a> {
                                 label: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _)| label.clone()),
+                                    .map(|(label, _signature)| label.clone()),
                                 sig: observable_tcp.signature,
                             });
 
@@ -157,7 +157,7 @@ impl<'a> P0f<'a> {
                                 label: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _)| label.clone()),
+                                    .map(|(label, _signature)| label.clone()),
                                 sig: observable_tcp.signature,
                             });
 
@@ -186,14 +186,14 @@ impl<'a> P0f<'a> {
                             let http_diagnosis = http_process::get_diagnostic(
                                 http_request.user_agent,
                                 ua_matcher,
-                                signature_matcher.map(|result| result.0),
+                                signature_matcher.map(|(label, _signature)| label),
                             );
 
                             HttpRequestOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: http_request.lang,
-                                label: signature_matcher.map(|(label, _)| label.clone()),
+                                label: signature_matcher.map(|(label, _signature)| label.clone()),
                                 diagnosis: http_diagnosis,
                                 sig: http_request.signature,
                             }
@@ -207,7 +207,7 @@ impl<'a> P0f<'a> {
                             label: self
                                 .matcher
                                 .matching_by_http_response(&http_response.signature)
-                                .map(|(label, _)| label.clone()),
+                                .map(|(label, _signature)| label.clone()),
                             diagnosis: HttpDiagnosis::None,
                             sig: http_response.signature,
                         });
