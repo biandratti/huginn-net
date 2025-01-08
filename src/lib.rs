@@ -10,6 +10,7 @@ mod process;
 mod signature_matcher;
 mod tcp;
 mod tcp_process;
+mod ttl;
 mod uptime;
 
 use crate::db::{Database, Label};

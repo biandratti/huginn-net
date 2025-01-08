@@ -1,10 +1,10 @@
-use crate::mtu;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
 use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
+use crate::{mtu, ttl};
 use failure::{bail, err_msg, Error};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
@@ -57,8 +57,8 @@ pub fn process_tcp_ipv4(
     }
 
     let version = IpVersion::V4;
-    let ttl_value: u8 = packet.get_ttl();
-    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); //TODO: WIP..
+    let ttl_observed: u8 = packet.get_ttl();
+    let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
     let olen: u8 = packet.get_options_raw().len() as u8;
     let mut quirks = vec![];
 
@@ -112,8 +112,8 @@ pub fn process_tcp_ipv6(
         bail!("unsupported IPv6 protocol")
     }
     let version = IpVersion::V6;
-    let ttl_value: u8 = packet.get_hop_limit();
-    let ttl = Ttl::Distance(ttl_value, guess_dist(ttl_value)); // TODO: WIP
+    let ttl_observed: u8 = packet.get_hop_limit();
+    let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
     let olen = 0; // TODO handle extensions
     let mut quirks = vec![];
 
@@ -144,18 +144,6 @@ pub fn process_tcp_ipv6(
                 destination_ip,
             )
         })
-}
-
-fn guess_dist(ttl: u8) -> u8 {
-    if ttl <= 32 {
-        32 - ttl
-    } else if ttl <= 64 {
-        64 - ttl
-    } else if ttl <= 128 {
-        128 - ttl
-    } else {
-        255 - ttl
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
