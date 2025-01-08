@@ -50,10 +50,10 @@ impl IpVersion {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Ttl {
-    Value(u8),
-    Distance(u8, u8),
-    Guess(u8),
-    Bad(u8),
+    Value(u8),        // Raw TTL value (when we don't have enough information)
+    Distance(u8, u8), // TTL value and estimated number of hops (distance)
+    Guess(u8),        // Guessed TTL value (when it's uncertain)
+    Bad(u8),          // Invalid TTL value (e.g., TTL is 0)
 }
 
 impl Ttl {
