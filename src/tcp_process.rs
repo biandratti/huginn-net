@@ -159,17 +159,33 @@ fn guess_distance(ttl: u8) -> u8 {
 }
 
 fn calculate_ttl(ttl_observed: u8) -> Ttl {
+    // TODO: WIP
+    // Known TTL initial values from common OSes
+    const TTL_WINDOWS: u8 = 128; // Windows typically uses 128
+    const TTL_LINUX: u8 = 64; // Linux typically uses 64
+    const TTL_OSX: u8 = 64; // macOS typically uses 64
+    const TTL_IOS: u8 = 64; // iOS typically uses 64
+    const TTL_ANDROID: u8 = 64; // Android typically uses 64
+    const TTL_FREEBSD: u8 = 255; // FreeBSD typically uses 255
+
     if ttl_observed == 0 {
-        return Ttl::Bad(ttl_observed);
+        return Ttl::Bad(ttl_observed); // Bad TTL value
     }
 
-    // Common initial TTL values for different OSes (known defaults)
-    let common_initial_ttl_list = [64, 128, 255];
+    // Known TTL initial values (this could be extended with more OSes)
+    let common_initial_ttl_list = [
+        TTL_WINDOWS,
+        TTL_LINUX,
+        TTL_OSX,
+        TTL_IOS,
+        TTL_ANDROID,
+        TTL_FREEBSD,
+    ];
 
-    // If TTL is close to any of the common initial TTLs, it's likely a Distance
+    // Check if ttl_observed matches any known initial TTL value
     if let Some(&_initial_ttl) = common_initial_ttl_list
         .iter()
-        .find(|&&initial| ttl_observed <= initial)
+        .find(|&&initial| ttl_observed == initial)
     {
         return Ttl::Distance(ttl_observed, guess_distance(ttl_observed));
     }
@@ -387,4 +403,38 @@ fn visit_tcp(
             port: destination_port,
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_guess_distance() {
+        assert_eq!(guess_distance(32), 0);
+        assert_eq!(guess_distance(64), 0);
+        assert_eq!(guess_distance(128), 0);
+        assert_eq!(guess_distance(200), 55);
+        assert_eq!(guess_distance(255), 0);
+    }
+
+    #[test]
+    fn test_calculate_bad_ttl() {
+        assert_eq!(calculate_ttl(0), Ttl::Bad(0));
+    }
+
+    #[test]
+    fn test_calculate_distance_ttl() {
+        assert_eq!(calculate_ttl(64), Ttl::Distance(64, 0));
+        assert_eq!(calculate_ttl(128), Ttl::Distance(128, 0));
+        assert_eq!(calculate_ttl(255), Ttl::Distance(255, 0));
+    }
+
+    #[test]
+    fn test_calculate_not_match_known_pattern_ttl() {
+        assert_eq!(calculate_ttl(20), Ttl::Value(20));
+        assert_eq!(calculate_ttl(32), Ttl::Value(32));
+        assert_eq!(calculate_ttl(150), Ttl::Value(150));
+        assert_eq!(calculate_ttl(200), Ttl::Value(200));
+    }
 }
