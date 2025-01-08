@@ -1,112 +1,88 @@
-/* Global Styles */
+/* General styles */
 body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f4f7f6;
-    color: #333;
 }
 
-a {
-    text-decoration: none;
-    color: inherit;
-}
-
-/* Header Styles */
-header {
-    background-color: #333;
-    color: white;
-    padding: 1rem 0;
-}
-
-nav .nav-container {
+.nav-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-nav ul {
-    list-style: none;
-    display: flex;
-    gap: 20px;
-}
-
-nav ul li a {
-    color: white;
-    font-size: 1.1rem;
-}
-
-nav .logo {
-    font-size: 1.5rem;
-    font-weight: bold;
-}
-
-/* Icon Styles */
-.logo-icon {
-    width: 40px;
-    height: 40px;
-    margin-right: 10px;
-    vertical-align: middle;
-    background-color: #333; /* Dark background to make the icon visible */
-    padding: 5px;  /* Add padding to keep icon away from the background */
-    border-radius: 5px; /* Optional: round the corners */
-}
-
-/* Hero Section */
-.hero {
-    background-color: #0066cc;
-    color: white;
-    text-align: center;
-    padding: 80px 20px;
-}
-
-.hero h1 {
-    font-size: 3rem;
-    margin-bottom: 20px;
-}
-
-.hero p {
-    font-size: 1.2rem;
-    margin-bottom: 30px;
-}
-
-.cta-btn {
-    background-color: #ff9900;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    font-size: 1.1rem;
-}
-
-/* Documentation Section */
-.documentation {
-    background-color: white;
-    padding: 60px 20px;
-    text-align: center;
-}
-
-.documentation h2 {
-    font-size: 2.5rem;
-    margin-bottom: 20px;
-}
-
-.documentation p {
-    font-size: 1.2rem;
-    margin-bottom: 30px;
-}
-
-/* Footer Section */
-footer {
     background-color: #333;
+    padding: 10px 20px;
+}
+
+.logo-icon {
+    width: 32px;
+    height: 32px;
+}
+
+.logo {
+    font-size: 24px;
+    color: #fff;
+    text-decoration: none;
+    margin-left: 10px;
+}
+
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+ul li {
+    margin-left: 20px;
+}
+
+ul li a {
     color: white;
-    padding: 20px 0;
+    text-decoration: none;
+    padding: 5px 10px;
+}
+
+ul li a:hover {
+    background-color: #555;
+    border-radius: 4px;
+}
+
+.main-content {
+    padding: 20px;
     text-align: center;
 }
 
-footer p {
-    margin: 0;
-    font-size: 1rem;
+.docs-container {
+    display: flex;
+    padding: 20px;
+}
+
+.docs-content {
+    flex: 70%;
+    padding: 20px;
+}
+
+.docs-sidebar {
+    flex: 30%;
+    padding: 20px;
+    background-color: #f4f4f4;
+    border-left: 1px solid #ddd;
+}
+
+.docs-sidebar ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.docs-sidebar ul li {
+    margin-bottom: 10px;
+}
+
+.docs-sidebar ul li a {
+    color: #333;
+    text-decoration: none;
+}
+
+.docs-sidebar ul li a:hover {
+    text-decoration: underline;
 }
