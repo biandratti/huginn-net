@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Transactions · FS2 Kafka</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Kafka transactions are supported through a [`TransactionalKafkaProducer`][transactionalkafkaproducer]. In order to use transactions, the following steps should be taken. For details on [consumers](/fs2-kafka/docs/consumers) and [producers](/fs2-kafka/docs/producers), see the respective sections."/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Transactions · FS2 Kafka"/><meta property="og:type" content="website"/><meta property="og:url" content="https://fd4s.github.io/fs2-kafka/fs2-kafka/"/><meta property="og:description" content="Kafka transactions are supported through a [`TransactionalKafkaProducer`][transactionalkafkaproducer]. In order to use transactions, the following steps should be taken. For details on [consumers](/fs2-kafka/docs/consumers) and [producers](/fs2-kafka/docs/producers), see the respective sections."/><meta name="twitter:card" content="summary"/><link rel="shortcut icon" href="/fs2-kafka/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css"/><script src="/fs2-kafka/js/scrollSpy.js"></script><link rel="stylesheet" href="/fs2-kafka/css/main.css"/><script src="/fs2-kafka/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/fs2-kafka/"><img class="logo" src="/fs2-kafka/img/fs2-kafka.white.svg" alt="FS2 Kafka"/><h2 class="headerTitleWithLogo">FS2 Kafka</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/fs2-kafka/api/fs2/kafka/index.html" target="_self">API Docs</a></li><li class="siteNavGroupActive"><a href="/fs2-kafka/docs/overview" target="_self">Documentation</a></li><li class=""><a href="https://github.com/fd4s/fs2-kafka" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>Documentation</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Documentation</h3><ul class=""><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/quick-example">Quick Example</a></li><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/consumers">Consumers</a></li><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/producers">Producers</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/fs2-kafka/docs/transactions">Transactions</a></li><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/admin">Admin</a></li><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/modules">Modules</a></li><li class="navListItem"><a class="navItem" href="/fs2-kafka/docs/technical-details">Technical Details</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Transactions</h1></header><article><div><span><p>Kafka transactions are supported through a <a href="/fs2-kafka/api/fs2/kafka/TransactionalKafkaProducer.html"><code>TransactionalKafkaProducer</code></a>. In order to use transactions, the following steps should be taken. For details on <a href="/fs2-kafka/docs/consumers">consumers</a> and <a href="/fs2-kafka/docs/producers">producers</a>, see the respective sections.</p>
+<ul>
+<li><p>Create <code>KafkaConsumer</code> then split its stream into sub-streams - one for each topic.</p></li>
+<li><p>Use <code>withIsolationLevel(IsolationLevel.ReadCommitted)</code> on <code>ConsumerSettings</code>.</p></li>
+<li><p>Create <code>TransactionalKafkaProducer</code> for each sub-stream with <code>TransactionalProducerSettings</code> to create a producer with support for transactions with <strong>partition unique</strong> transaction id. Kafka requires partition unique transactional ids for producer &quot;handover&quot; and zombie fencing.</p></li>
+<li><p>Use <code>.withEnableIdempotence(true)</code> and <code>.withRetries(n)</code> where <code>n &gt; 0</code> on <code>ProducerSettings</code></p></li>
+<li><p>Create <code>CommittableProducerRecords</code> and wrap them in <code>TransactionalProducerRecords</code>.</p></li>
+<li><p>Combine all sub-streams into one stream.</p></li>
+</ul>
+<blockquote>
+<p>Note that calls to <code>produce</code> are sequenced in the <code>TransactionalKafkaProducer</code> to ensure that, when used concurrently, transactions don't run into each other resulting in an invalid transaction transition exception.</p>
+<p>Because the <code>TransactionalKafkaProducer</code> waits for the record batch to be flushed and the transaction committed on the broker, this could lead to performance bottlenecks where a single producer is shared among many threads.
+To ensure the performance of <code>TransactionalKafkaProducer</code> aligns with your performance expectations when used concurrently, it is recommended you create a pool of transactional producers.</p>
+</blockquote>
+<p>Following is an example where transactions are used to consume, process, produce, and commit.</p>
+<pre><code class="hljs css language-scala"><span class="hljs-keyword">import</span> scala.concurrent.duration._
+
+<span class="hljs-keyword">import</span> cats.effect.{<span class="hljs-type">IO</span>, <span class="hljs-type">IOApp</span>}
+<span class="hljs-keyword">import</span> fs2.kafka._
+<span class="hljs-keyword">import</span> fs2.<span class="hljs-type">Stream</span>
+
+<span class="hljs-keyword">import</span> org.apache.kafka.common.<span class="hljs-type">TopicPartition</span>
+
+<span class="hljs-class"><span class="hljs-keyword">object</span> <span class="hljs-title">Main</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">IOApp</span>.<span class="hljs-title">Simple</span> </span>{
+
+  <span class="hljs-keyword">val</span> run: <span class="hljs-type">IO</span>[<span class="hljs-type">Unit</span>] = {
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">processRecord</span></span>(record: <span class="hljs-type">ConsumerRecord</span>[<span class="hljs-type">String</span>, <span class="hljs-type">String</span>]): <span class="hljs-type">IO</span>[(<span class="hljs-type">String</span>, <span class="hljs-type">String</span>)] =
+      <span class="hljs-type">IO</span>.pure(record.key -&gt; record.value)
+
+    <span class="hljs-keyword">val</span> consumerSettings =
+      <span class="hljs-type">ConsumerSettings</span>[<span class="hljs-type">IO</span>, <span class="hljs-type">String</span>, <span class="hljs-type">String</span>]
+        .withIsolationLevel(<span class="hljs-type">IsolationLevel</span>.<span class="hljs-type">ReadCommitted</span>)
+        .withAutoOffsetReset(<span class="hljs-type">AutoOffsetReset</span>.<span class="hljs-type">Earliest</span>)
+        .withBootstrapServers(<span class="hljs-string">"localhost:9092"</span>)
+        .withGroupId(<span class="hljs-string">"group"</span>)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">producerSettings</span></span>(partition: <span class="hljs-type">TopicPartition</span>) =
+      <span class="hljs-type">TransactionalProducerSettings</span>(
+        <span class="hljs-string">s"transactional-id-<span class="hljs-subst">$partition</span>"</span>,
+        <span class="hljs-type">ProducerSettings</span>[<span class="hljs-type">IO</span>, <span class="hljs-type">String</span>, <span class="hljs-type">String</span>]
+          .withBootstrapServers(<span class="hljs-string">"localhost:9092"</span>)
+          .withEnableIdempotence(<span class="hljs-literal">true</span>)
+          .withRetries(<span class="hljs-number">10</span>)
+      )
+
+    <span class="hljs-type">KafkaConsumer</span>
+      .stream(consumerSettings)
+      .subscribeTo(<span class="hljs-string">"topic"</span>)
+      .flatMap(_.partitionsMapStream)
+      .map(
+        _.map { <span class="hljs-keyword">case</span> (partition, stream) =&gt;
+          <span class="hljs-type">TransactionalKafkaProducer</span>
+            .stream(producerSettings(partition))
+            .flatMap { producer =&gt;
+              stream
+                .mapAsync(<span class="hljs-number">25</span>) { committable =&gt;
+                  processRecord(committable.record).map { <span class="hljs-keyword">case</span> (key, value) =&gt;
+                    <span class="hljs-keyword">val</span> record = <span class="hljs-type">ProducerRecord</span>(<span class="hljs-string">"topic"</span>, key, value)
+                    <span class="hljs-type">CommittableProducerRecords</span>.one(record, committable.offset)
+                  }
+                }
+                .groupWithin(<span class="hljs-number">500</span>, <span class="hljs-number">15.</span>seconds)
+                .evalMap(producer.produce)
+            }
+        }
+      )
+      .flatMap { partitionsMap =&gt;
+        <span class="hljs-type">Stream</span>.emits(partitionsMap.toVector).parJoinUnbounded
+      }
+      .compile
+      .drain
+  }
+
+}
+</code></pre>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/fs2-kafka/docs/producers"><span class="arrow-prev">← </span><span>Producers</span></a><a class="docs-next button" href="/fs2-kafka/docs/admin"><span>Admin</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"></nav></div><footer class="nav-footer" id="footer"><hr class="separator"/><section class="copyright">Copyright © 2018-2024 OVO Energy Limited.<br/>Icon by <a href="https://www.flaticon.com/authors/franco-averta" rel="noopener">Franco Averta</a>. <a href="https://creativecommons.org/licenses/by/3.0" rel="noopener">CC BY 3.0</a>.</section></footer></div></body></html>

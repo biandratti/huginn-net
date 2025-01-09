@@ -3,244 +3,23 @@
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="ALL" />
   </component>
-  <component name="CargoProjects">
-    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
-  </component>
   <component name="ChangeListManager">
-    <list default="true" id="38e5d557-f993-454e-813c-2310d99fd990" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/api/fs2/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Acks$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Acks.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/AdminClientSettings$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/AdminClientSettings.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/AutoOffsetReset$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/AutoOffsetReset.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommitRecovery$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommitRecovery.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommitRecoveryException$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommitRecoveryException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommitTimeoutException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableConsumerRecord$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableConsumerRecord.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableOffset$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableOffset.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableOffsetBatch$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableOffsetBatch.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableProducerRecords$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/CommittableProducerRecords.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ConsumerGroupException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ConsumerRecord$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ConsumerRecord.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ConsumerSettings$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ConsumerSettings.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ConsumerShutdownException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/DeserializationException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/GenericDeserializer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/GenericDeserializer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/GenericSerializer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/GenericSerializer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Header$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Header.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/HeaderDeserializer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/HeaderDeserializer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/HeaderSerializer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/HeaderSerializer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Headers$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Headers.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/IsolationLevel$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/IsolationLevel.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Jitter$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Jitter.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$$DescribeCluster.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$$ListConsumerGroupOffsets.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$$ListConsumerGroupOffsetsForPartitions.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$$ListConsumerGroups.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$$ListTopics.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$$ListTopicsIncludeInternal.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaAdminClient.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaConsumer$$StreamOps.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaConsumer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaConsumer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducer$$Metrics.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducer$$PartitionsFor.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducer$$ProducerOps.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducerConnection$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KafkaProducerConnection.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Key.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/KeyOrValue.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/NotSubscribedException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ProducerRecord$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ProducerRecord.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ProducerRecords$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ProducerSettings$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/ProducerSettings.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/SerializationException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Timestamp$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Timestamp.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalKafkaProducer$$Metrics.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalKafkaProducer$$WithoutOffsets.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalKafkaProducer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalKafkaProducer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalProducerRecords$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalProducerSettings$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/TransactionalProducerSettings.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/UnexpectedTopicException.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/Value.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/admin/MkAdminClient$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/admin/MkAdminClient.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/admin/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaAssignment.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaCommit.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaConsume.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaConsumeChunk$$CommitNow$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaConsumeChunk$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaConsumeChunk.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaConsumerLifecycle.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaMetrics.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaOffsets.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaOffsetsV2.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaSubscription.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaTopics.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/KafkaTopicsV2.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/MkConsumer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/MkConsumer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/consumer/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/instances$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/producer/MkProducer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/producer/MkProducer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/producer/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/security/KafkaCredentialStore$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/security/KafkaCredentialStore.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/security/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/Auth$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/Auth.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/AvroDeserializer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/AvroDeserializer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/AvroSerializer$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/AvroSerializer.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/AvroSettings$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/AvroSettings.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/SchemaRegistryClientSettings$.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/SchemaRegistryClientSettings.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/fs2/kafka/vulcan/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/index.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/MaterialIcons-Regular.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/MaterialIcons-Regular.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/MaterialIcons-Regular.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/abstract_type.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/annotation.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/annotation_comp.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/class.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/class_comp.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/class_diagram.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/diagrams.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/index.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/index.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/jquery.min.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/lato-v11-latin-100.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/lato-v11-latin-100.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/lato-v11-latin-100.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/lato-v11-latin-regular.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/lato-v11-latin-regular.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/lato-v11-latin-regular.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/object.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/object_comp.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/object_comp_annotation.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/object_comp_trait.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/object_diagram.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-400i.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-400i.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-400i.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-700.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-700.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-700.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-700i.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-700i.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-700i.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-regular.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-regular.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/open-sans-v13-latin-regular.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/ownderbg2.gif" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/ownerbg.gif" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/ownerbg2.gif" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/package.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/print.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/ref-index.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/scheduler.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/source-code-pro-v6-latin-700.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/source-code-pro-v6-latin-700.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/source-code-pro-v6-latin-700.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/source-code-pro-v6-latin-regular.eot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/source-code-pro-v6-latin-regular.ttf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/source-code-pro-v6-latin-regular.woff" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/template.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/template.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/trait.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/trait_comp.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/trait_diagram.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/api/lib/type_diagram.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/css/main.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/css/prism.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/admin.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/admin/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/consumers.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/consumers/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/modules.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/modules/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/overview/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/producers.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/producers/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/quick-example.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/quick-example/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/security.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/security/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/technical-details.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/technical-details/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/transactions.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/transactions/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/en/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/img/favicon.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/img/favicon/favicon.ico" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/" beforePathEscaped="$PROJECT_DIR$/#1d##1a#" beforeDir="false" afterPath="$PROJECT_DIR$/" afterPathEscaped="$PROJECT_DIR$/#1d##1a#" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/css/styles.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/getting-started.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/overview.html" beforeDir="false" afterPath="$PROJECT_DIR$/docs/overview.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/header.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/icon.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
-    </list>
+    <list default="true" id="771cd551-d6ed-49a2-9fc9-279a82c87773" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
-  <component name="FileTemplateManagerImpl">
-    <option name="RECENT_TEMPLATES">
-      <list>
-        <option value="Rust File" />
-      </list>
-    </option>
-  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="HighlightingSettingsPerFile">
-    <setting file="file://$PROJECT_DIR$/p0f.log" root0="SKIP_INSPECTION" />
-  </component>
   <component name="MacroExpansionManager">
-    <option name="directoryName" value="m2pbhlcx" />
+    <option name="directoryName" value="qsgnElJk" />
   </component>
-  <component name="ProjectColorInfo">{
-  &quot;associatedIndex&quot;: 6
-}</component>
-  <component name="ProjectId" id="2nybteZ29t7QhnoDADh8jqYTppO" />
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 0
+}]]></component>
+  <component name="ProjectId" id="2rOMcfofgXEyKe9FO0Xt9EHrdP8" />
   <component name="ProjectViewState">
     <option name="autoscrollToSource" value="true" />
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -249,231 +28,32 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Cargo.Build `Test http_process::tests::test_get_diagnostic_generic`.executor": "Run",
-    "Cargo.Test db::tests::test_default_database.executor": "Run",
-    "Cargo.Test http_languages::tests.executor": "Run",
-    "Cargo.Test http_languages::tests::test_get_highest_quality_language_when_variant_used.executor": "Run",
-    "Cargo.Test http_languages::testss::test_get_highest_quality_language.executor": "Run",
-    "Cargo.Test http_process::tests::test_get_diagnostic_anonymous.executor": "Run",
-    "Cargo.Test http_process::tests::test_get_diagnostic_generic.executor": "Run",
-    "Cargo.Test http_process::tests::test_get_diagnostic_with_dishonest_user_agent.executor": "Run",
-    "Cargo.Test http_process::tests::test_get_diagnostic_without_user_agent_and_signature_matcher.executor": "Run",
-    "Cargo.Test http_process::tests::test_parse_http_request.executor": "Run",
-    "Cargo.Test http_process::tests::test_parse_http_response.executor": "Run",
-    "Cargo.Test tcp_process::tests::test_calculate_ttl.executor": "Run",
-    "Cargo.Test tcp_process::tests::test_guess_distance.executor": "Run",
-    "Cargo.Test ttl::tests.executor": "Run",
-    "Cargo.build.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "ii/web",
-    "last_opened_file_path": "/home/biandra/development/repository/test/passivetcp-rs",
+    "git-widget-placeholder": "gh-pages",
+    "last_opened_file_path": "/home/biandra/development/repository/test/fs2-kafka",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
     "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RecentsManager">
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/css" />
-      <recent name="$PROJECT_DIR$/img" />
-      <recent name="$PROJECT_DIR$/config" />
-      <recent name="$PROJECT_DIR$/examples" />
-    </key>
-  </component>
-  <component name="RunManager" selected="Cargo.Test ttl::tests">
-    <configuration name="Test http_process::tests::test_get_diagnostic_with_dishonest_user_agent" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package passivetcp-rs --lib http_process::tests::test_get_diagnostic_with_dishonest_user_agent -- --exact" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test http_process::tests::test_get_diagnostic_without_user_agent_and_signature_matcher" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package passivetcp-rs --lib http_process::tests::test_get_diagnostic_without_user_agent_and_signature_matcher -- --exact" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test passivetcp-rs" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="buildProfileId" value="dev" />
-      <option name="command" value="test --workspace" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test tcp_process::tests::test_calculate_ttl" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package passivetcp-rs --lib tcp_process::tests::test_calculate_ttl -- --exact" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test tcp_process::tests::test_guess_distance" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package passivetcp-rs --lib tcp_process::tests::test_guess_distance -- --exact" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test ttl::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package passivetcp-rs --lib ttl::tests" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Cargo.Test ttl::tests" />
-        <item itemvalue="Cargo.Test tcp_process::tests::test_calculate_ttl" />
-        <item itemvalue="Cargo.Test tcp_process::tests::test_guess_distance" />
-        <item itemvalue="Cargo.Test http_process::tests::test_get_diagnostic_without_user_agent_and_signature_matcher" />
-        <item itemvalue="Cargo.Test http_process::tests::test_get_diagnostic_with_dishonest_user_agent" />
-      </list>
-    </recent_temporary>
-  </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
-  </component>
-  <component name="RustfmtProjectSettings">
-    <option name="useRustfmt" value="true" />
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="38e5d557-f993-454e-813c-2310d99fd990" name="Changes" comment="" />
-      <created>1729948478731</created>
+      <changelist id="771cd551-d6ed-49a2-9fc9-279a82c87773" name="Changes" comment="" />
+      <created>1736425749232</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1729948478731</updated>
-      <workItem from="1729948479781" duration="10443000" />
-      <workItem from="1730035084414" duration="9967000" />
-      <workItem from="1730095832673" duration="47000" />
-      <workItem from="1730098763209" duration="746000" />
-      <workItem from="1730449369936" duration="148000" />
-      <workItem from="1730452019841" duration="7064000" />
-      <workItem from="1730471225865" duration="3471000" />
-      <workItem from="1730632564968" duration="17040000" />
-      <workItem from="1731175426419" duration="20684000" />
-      <workItem from="1731781008279" duration="9579000" />
-      <workItem from="1731846940488" duration="15352000" />
-      <workItem from="1732374766064" duration="397000" />
-      <workItem from="1732375186362" duration="10577000" />
-      <workItem from="1732458187656" duration="8779000" />
-      <workItem from="1733056143078" duration="6645000" />
-      <workItem from="1733066407727" duration="7759000" />
-      <workItem from="1733595722624" duration="767000" />
-      <workItem from="1733653507187" duration="2615000" />
-      <workItem from="1734116033872" duration="15272000" />
-      <workItem from="1734179534269" duration="6211000" />
-      <workItem from="1734220937681" duration="7105000" />
-      <workItem from="1734349898761" duration="1371000" />
-      <workItem from="1734361503387" duration="645000" />
-      <workItem from="1734439441219" duration="18264000" />
-      <workItem from="1734565171814" duration="3937000" />
-      <workItem from="1734618251647" duration="9151000" />
-      <workItem from="1734631046606" duration="174000" />
-      <workItem from="1734631323269" duration="12128000" />
-      <workItem from="1734705723643" duration="4053000" />
-      <workItem from="1734736827549" duration="4732000" />
-      <workItem from="1734793531654" duration="20087000" />
-      <workItem from="1734879842917" duration="3909000" />
-      <workItem from="1734887539364" duration="507000" />
-      <workItem from="1735046409415" duration="16009000" />
-      <workItem from="1735082656403" duration="3656000" />
-      <workItem from="1735160814481" duration="1875000" />
-      <workItem from="1735166199379" duration="2680000" />
-      <workItem from="1735215880962" duration="6374000" />
-      <workItem from="1735240685338" duration="2465000" />
-      <workItem from="1735252394929" duration="4001000" />
-      <workItem from="1735301007676" duration="9449000" />
-      <workItem from="1735322710487" duration="2822000" />
-      <workItem from="1735336938233" duration="8303000" />
-      <workItem from="1735423221506" duration="8084000" />
-      <workItem from="1735476456115" duration="10274000" />
-      <workItem from="1735507894301" duration="7636000" />
-      <workItem from="1735562748697" duration="4052000" />
-      <workItem from="1735651300494" duration="6577000" />
-      <workItem from="1735659600080" duration="510000" />
-      <workItem from="1735664438530" duration="1389000" />
-      <workItem from="1735673588261" duration="7898000" />
-      <workItem from="1735757400071" duration="21038000" />
-      <workItem from="1735862731986" duration="768000" />
-      <workItem from="1735914232216" duration="9320000" />
-      <workItem from="1736282273257" duration="12292000" />
-      <workItem from="1736333375483" duration="17699000" />
+      <updated>1736425749232</updated>
+      <workItem from="1736425750470" duration="1100000" />
     </task>
     <servers />
   </component>
