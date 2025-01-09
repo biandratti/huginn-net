@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/fs2-kafka.iml" filepath="$PROJECT_DIR$/.idea/fs2-kafka.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/passivetcp-rs.iml" filepath="$PROJECT_DIR$/.idea/passivetcp-rs.iml" />
     </modules>
   </component>
 </project>
