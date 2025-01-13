@@ -20,7 +20,7 @@ lazy_static = "1.5.0"
 httparse = "1.9.5"
 
 [dev-dependencies]
-clap = { version = "4.5.23", features = ["derive"] }
+clap = { version = "4.5.26", features = ["derive"] }
 log4rs = "1.3.0"
 
 [[example]]
