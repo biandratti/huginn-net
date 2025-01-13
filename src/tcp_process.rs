@@ -39,7 +39,21 @@ pub struct ObservableTCPPackage {
 }
 
 fn from_client(tcp_flags: u8) -> bool {
-    tcp_flags & TcpFlags::SYN != 0 && tcp_flags & TcpFlags::ACK == 0
+    use TcpFlags::*;
+    tcp_flags & SYN != 0 && tcp_flags & ACK == 0
+}
+
+fn from_server(tcp_flags: u8) -> bool {
+    use TcpFlags::*;
+    tcp_flags & SYN != 0 && tcp_flags & ACK != 0
+}
+
+fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
+    use TcpFlags::*;
+
+    !(((tcp_flags & SYN) == SYN && (tcp_flags & (FIN | RST)) != 0)
+        || (tcp_flags & (FIN | RST)) == (FIN | RST)
+        || tcp_type == 0)
 }
 
 pub fn process_tcp_ipv4(
@@ -160,19 +174,35 @@ fn visit_tcp(
 ) -> Result<ObservableTCPPackage, Error> {
     use TcpFlags::*;
 
-    let flags: u8 = tcp.get_flags();
-    let from_client = from_client(flags);
-    let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
+    let source_port = tcp.get_source();
+    let destination_port = tcp.get_destination();
 
-    if ((flags & SYN) == SYN && (flags & (FIN | RST)) != 0)
-        || (flags & (FIN | RST)) == (FIN | RST)
-        || tcp_type == 0
-    {
+    let flags: u8 = tcp.get_flags();
+    let from_client: bool = from_client(flags);
+    let from_server: bool = from_server(flags);
+
+    if !from_client && !from_server {
+        return Ok(ObservableTCPPackage {
+            tcp_request: None,
+            tcp_response: None,
+            mtu: None,
+            uptime: None,
+            source: IpPort {
+                ip: source_ip,
+                port: source_port,
+            },
+            destination: IpPort {
+                ip: destination_ip,
+                port: destination_port,
+            },
+        });
+    }
+    let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
+    if !is_valid(flags, tcp_type) {
         bail!("invalid TCP flags: {}", flags);
     }
 
     if (flags & (ECE | CWR)) != 0 {
-        //TODO:    if (flags & (ECE | CWR | NS)) != 0 {
         quirks.push(Quirk::Ecn);
     }
     if tcp.get_sequence() == 0 {
@@ -301,9 +331,6 @@ fn visit_tcp(
         }
         _ => None,
     };
-
-    let source_port = tcp.get_source();
-    let destination_port = tcp.get_destination();
 
     let wsize: WindowSize = match (tcp.get_window(), mss) {
         (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
