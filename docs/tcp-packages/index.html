@@ -3,15 +3,21 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Quick Example · Passive TCP fingerprint</title>
+    <title>Overview · Passive TCP fingerprint</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta name="description" content="Following is an example showing how to:" />
+    <meta
+            name="description"
+            content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
+    />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="Quick Example · Passive TCP fingerprint" />
+    <meta property="og:title" content="Overview · Passive TCP fingerprint" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
-    <meta property="og:description" content="Following is an example showing how to:" />
+    <meta
+            property="og:description"
+            content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
+    />
     <meta name="twitter:card" content="summary" />
     <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
@@ -30,7 +36,7 @@
             <div class="navigationWrapper navigationSlider">
                 <nav class="slidingNav">
                     <ul class="nav-site nav-site-internal">
-                        <li class="siteNavGroupActive"><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
+                        <li class="siteNavGroupActive siteNavItemActive"><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
                         <li class=""><a href="https://github.com/biandratti/passivetcp-rs" target="_self">GitHub</a></li>
                     </ul>
                 </nav>
@@ -60,8 +66,8 @@
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
                                     <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/docs/tcp-packages">TCP Packages</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/docs/tcp-packages">TCP Packages</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -134,72 +140,35 @@
         <div class="container mainContainer docsContainer">
             <div class="wrapper">
                 <div class="post">
-                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Quick Example</h1></header>
+                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Overview</h1></header>
                     <article>
                         <div>
-    <span>
-        <p>Following is an example showing how to:</p>
-        <ul>
-            <li>Initialize the database and P0f engine.</li>
-            <li>Analyze network traffic using a specified interface.</li>
-            <li>Process and log various TCP and HTTP characteristics detected.</li>
-        </ul>
-        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use passivetcp_rs::db::Database;</span>
-<span class="hljs-keyword">use passivetcp_rs::P0f;</span>
-<span class="hljs-keyword">use std::sync::mpsc;</span>
-<span class="hljs-keyword">use std::thread;</span>
-<span class="hljs-keyword">use clap::Parser;</span>
-<span class="hljs-keyword">use log::info;</span>
-
-#[derive(Parser)]
-<span class="hljs-keyword">struct Args</span> {
-    #[clap(short, long)]
-    interface: String,
-}
-
-<span class="hljs-keyword">fn</span> <span class="hljs-title">main()</span> {
-    <span class="hljs-keyword">let</span> args = Args::parse();
-    <span class="hljs-keyword">let</span> db = Box::leak(Box::new(Database::default()));
-    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
-
-    thread::spawn(move || {
-        <span class="hljs-type">P0f::new(db, 100).analyze_network(&args.interface, sender)</span>;
-    });
-
-    <span class="hljs-keyword">for</span> output <span class="hljs-keyword">in</span> receiver {
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">syn</span>) = output.syn {
-            info!("{}", syn);
-        }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">syn_ack</span>) = output.syn_ack {
-            info!("{}", syn_ack);
-        }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">mtu</span>) = output.mtu {
-            info!("{}", mtu);
-        }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">uptime</span>) = output.uptime {
-            info!("{}", uptime);
-        }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">http_request</span>) = output.http_request {
-            info!("{}", http_request);
-        }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">http_response</span>) = output.http_response {
-            info!("{}", http_response);
-        }
-    }
-}
-</code></pre>
-    </span>
+                                    <span>
+                                        <p>
+                                            WIP
+                                        </p>
+                                    </span>
                         </div>
-
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-prev button" href="/passivetcp-rs/docs/overview"><span class="arrow-prev">← </span><span>Overview</span></a>
-                    <a class="docs-next button" href="/passivetcp-rs/docs/tcp-packages"><span>TCP Packages</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-prev button" href="/passivetcp-rs/docs/quick-example"><span class="arrow-prev">← </span><span>Overview</span></a>
                 </div>
             </div>
         </div>
-        <nav class="onPageNav"></nav>
+        <nav class="onPageNav">
+            <ul class="toc-headings">
+                <li>
+                    <a href="#getting-started">What is Passive TCP Fingerprinting?</a>
+                    <ul class="toc-headings">
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#use_cases">Use cases</a></li>
+                    </ul>
+                </li>
+                <li><a href="#inspiration">Inspiration</a></li>
+                <li><a href="#license">License</a></li>
+            </ul>
+        </nav>
     </div>
     <footer class="nav-footer" id="footer">
         <hr class="separator" />
