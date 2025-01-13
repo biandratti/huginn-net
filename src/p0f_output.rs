@@ -146,12 +146,12 @@ impl fmt::Display for UptimeOutput {
             | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
             | raw_freq = {} Hz\n\
             `----\n",
-            self.source.ip,
-            self.source.port,
             self.destination.ip,
             self.destination.port,
             self.source.ip,
             self.source.port,
+            self.destination.ip,
+            self.destination.port,
             self.days,
             self.hours,
             self.min,
