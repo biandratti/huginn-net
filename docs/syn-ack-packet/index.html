@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>SYN and SYN+ACK Packets · Passive TCP fingerprint</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content="Docusaurus" />
+    <meta
+            name="description"
+            content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
+    />
+    <meta name="docsearch:language" content="en" />
+    <meta property="og:title" content="SYN and SYN+ACK Packets · Passive TCP fingerprint" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
+    <meta
+            property="og:description"
+            content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
+    />
+    <meta name="twitter:card" content="summary" />
+    <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+    <script src="/passivetcp-rs/js/scrollSpy.js"></script>
+    <link rel="stylesheet" href="/passivetcp-rs/css/main.css" />
+    <script src="/passivetcp-rs/js/codetabs.js"></script>
+</head>
+<body class="sideNavVisible separateOnPageNav">
+<div class="fixedHeaderContainer">
+    <div class="headerWrapper wrapper">
+        <header>
+            <a href="/passivetcp-rs/">
+                <img class="logo" src="/passivetcp-rs/img/passivetcp-rs-white.svg" alt="Passive TCP fingerprint" />
+                <h2 class="headerTitleWithLogo">Passive TCP fingerprint</h2>
+            </a>
+            <div class="navigationWrapper navigationSlider">
+                <nav class="slidingNav">
+                    <ul class="nav-site nav-site-internal">
+                        <li class="siteNavGroupActive siteNavItemActive"><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
+                        <li class=""><a href="https://github.com/biandratti/passivetcp-rs" target="_self">GitHub</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
+</div>
+<div class="navPusher">
+    <div class="docMainWrapper wrapper">
+        <div class="docsNavContainer" id="docsNav">
+            <nav class="toc">
+                <div class="toggleNav">
+                    <section class="navWrapper wrapper">
+                        <div class="navBreadcrumb wrapper">
+                            <div class="navToggle" id="navToggler">
+                                <div class="hamburger-menu">
+                                    <div class="line1"></div>
+                                    <div class="line2"></div>
+                                    <div class="line3"></div>
+                                </div>
+                            </div>
+                            <h2><i>›</i><span>Documentation</span></h2>
+                            <div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div>
+                        </div>
+                        <div class="navGroups">
+                            <div class="navGroup">
+                                <h3 class="navGroupCategoryTitle">Documentation</h3>
+                                <ul class="">
+                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/docs/mtu">MTU</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/docs/uptime">Uptime</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/docs/http">Http request and response</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                <script>
+                    var coll = document.getElementsByClassName("collapsible");
+                    var checkActiveCategory = true;
+                    for (var i = 0; i < coll.length; i++) {
+                        var links = coll[i].nextElementSibling.getElementsByTagName("*");
+                        if (checkActiveCategory) {
+                            for (var j = 0; j < links.length; j++) {
+                                if (links[j].classList.contains("navListItemActive")) {
+                                    coll[i].nextElementSibling.classList.toggle("hide");
+                                    coll[i].childNodes[1].classList.toggle("rotate");
+                                    checkActiveCategory = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        coll[i].addEventListener("click", function () {
+                            var arrow = this.childNodes[1];
+                            arrow.classList.toggle("rotate");
+                            var content = this.nextElementSibling;
+                            content.classList.toggle("hide");
+                        });
+                    }
+
+                    document.addEventListener("DOMContentLoaded", function () {
+                        createToggler("#navToggler", "#docsNav", "docsSliderActive");
+                        createToggler("#tocToggler", "body", "tocActive");
+
+                        var headings = document.querySelector(".toc-headings");
+                        headings &&
+                        headings.addEventListener(
+                            "click",
+                            function (event) {
+                                var el = event.target;
+                                while (el !== headings) {
+                                    if (el.tagName === "A") {
+                                        document.body.classList.remove("tocActive");
+                                        break;
+                                    } else {
+                                        el = el.parentNode;
+                                    }
+                                }
+                            },
+                            false
+                        );
+
+                        function createToggler(togglerSelector, targetSelector, className) {
+                            var toggler = document.querySelector(togglerSelector);
+                            var target = document.querySelector(targetSelector);
+
+                            if (!toggler) {
+                                return;
+                            }
+
+                            toggler.onclick = function (event) {
+                                event.preventDefault();
+
+                                target.classList.toggle(className);
+                            };
+                        }
+                    });
+                </script>
+            </nav>
+        </div>
+        <div class="container mainContainer docsContainer">
+            <div class="wrapper">
+                <div class="post">
+                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">SYN and SYN+ACK Packets</h1></header>
+                    <article>
+                        <div>
+                                    <span>
+                                        <p>
+                                            TCP packets are the backbone of network communication, and two of the most significant types are SYN and SYN+ACK.<br />
+                                            TCP fingerprinting analyzes the behavior and characteristics of these packets to infer the operating system (OS) of the client or server,
+                                            and the geographic or logical distance (network hop count).
+                                        </p>
+
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="tcp-signature"></a>
+                                            <a href="#tcp-signature" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            TCP Signature
+                                        </h2>
+                                        <p>For TCP traffic, signature layout is as follows:</p>
+                                        <p><span class="hljs-title">sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass</span></p>
+                                        <ul>
+                                            <li><p><span class="hljs-title">ver</span>: signature for IPv4 ('4'), IPv6 ('6'), or both ('*').</p></li>
+                                            <li><p><span class="hljs-title">ittl</span>: initial TTL used by the OS. Almost all operating systems use 64, 128, or 255; ancient versions of Windows sometimes used 32, and several obscure systems sometimes resort to odd values such as 60.</p></li>
+                                            <li><p><span class="hljs-title">olen</span>: length of IPv4 options or IPv6 extension headers.</p></li>
+                                            <li><p><span class="hljs-title">mss</span>: maximum segment size, if specified in TCP options. Special value of '*' can be used to denote that MSS varies depending on the parameters of sender's network link, and should not be a part of the signature. In this case, MSS will be used to guess the type of network hookup according to the [mtu] rules.</p></li>
+                                            <li><p><span class="hljs-title">wsize</span>: window size. Can be expressed as a fixed value, but many operating systems set it to a multiple of MSS or MTU, or a multiple of some random integer. P0f automatically detects these cases, and allows notation such as 'mss*4', 'mtu*4', or '%8192' to be used. Wilcard ('*') is possible too.</p></li>
+                                            <li><p><span class="hljs-title">scale</span>: window scaling factor, if specified in TCP options. Fixed value or '*'.</p></li>
+                                            <li><p><span class="hljs-title">olayout</span>: comma-delimited layout and ordering of TCP options, if any. This is one of the most valuable TCP fingerprinting signals. Supported values:</p>
+                                                <p><span class="hljs-type">eol+n</span> explicit end of options, followed by n bytes of padding.</p>
+                                                <p><span class="hljs-type">nop</span> no-op option.</p>
+                                                <p><span class="hljs-type">mss</span> maximum segment size.</p>
+                                                <p><span class="hljs-type">ws</span> window scaling.</p>
+                                                <p><span class="hljs-type">sok</span> selective ACK permitted.</p>
+                                                <p><span class="hljs-type">sack</span> selective ACK (should not be seen).</p>
+                                                <p><span class="hljs-type">ts</span> timestamp.</p>
+                                                <p><span class="hljs-type">?n</span> unknown option ID n.</p>
+                                            </li>
+                                            <li><p><span class="hljs-title">quirks</span>: comma-delimited properties and quirks observed in IP or TCP headers:</p>
+                                                <p><span class="hljs-type">df</span>"don't fragment" set (probably PMTUD); ignored for IPv6</p>
+                                                <p><span class="hljs-type">id+</span> DF set but IPID non-zero; ignored for IPv6</p>
+                                                <p><span class="hljs-type">id-</span> DF not set but IPID is zero; ignored for IPv6</p>
+                                                <p><span class="hljs-type">ecn</span> explicit congestion notification support</p>
+                                                <p><span class="hljs-type">0+</span> "must be zero" field not zero; ignored for IPv6</p>
+                                                <p><span class="hljs-type">flow</span> non-zero IPv6 flow ID; ignored for IPv4</p>
+                                                <p><span class="hljs-type">seq-</span> sequence number is zero</p>
+                                                <p><span class="hljs-type">ack+</span> ACK number is non-zero, but ACK flag not set</p>
+                                                <p><span class="hljs-type">ack-</span> ACK number is zero, but ACK flag set</p>
+                                                <p><span class="hljs-type">uptr+</span> URG pointer is non-zero, but URG flag not set</p>
+                                                <p><span class="hljs-type">urgf+</span> URG flag used</p>
+                                                <p><span class="hljs-type">pushf+</span> PUSH flag used</p>
+                                                <p><span class="hljs-type">ts1-</span> own timestamp specified as zero</p>
+                                                <p><span class="hljs-type">ts2+</span> non-zero peer timestamp on initial SYN</p>
+                                                <p><span class="hljs-type">opt+</span> trailing non-zero data in options segment</p>
+                                                <p><span class="hljs-type">exws</span> excessive window scaling factor (> 14)</p>
+                                                <p><span class="hljs-type">bad</span> malformed TCP options</p>
+                                            </li>
+                                            <li><p><span class="hljs-title">pclass</span>: payload size classification: '0' for zero, '+' for non-zero, '*' for any. The packets we fingerprint right now normally have no payloads, but some corner cases exist.</p></li>
+                                        </ul>
+
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="syn-package"></a>
+                                            <a href="#syn-package" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            SYN Packet
+                                        </h2>
+                                        <p>
+                                            Initiate a TCP connection. Sent by the client to a server.
+                                        </p>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="syn-package-analyzed"></a>
+                                            <a href="#syn-package-analyzed" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            SYN Packet Analyzed
+                                        </h3>
+                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]</span>-<br />|<br />| <span class="hljs-type">client </span>  = 1.2.3.4/1524<br />| <span class="hljs-type">os</span>       = Windows XP<br />| <span class="hljs-type">dist</span>     = 8<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0<br />|<br />`----<br /></code></pre>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="syn-package-fields"></a>
+                                            <a href="#syn-package-fields" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            SYN Key Fields
+                                        </h3>
+                                        <ul>
+                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
+                                            <li><p><span class="hljs-type">os</span>: The identified operating system matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">dist</span>: The distance in network hops to the server.</p></li>
+                                            <li><p><span class="hljs-type">params</span>: Optional TCP parameters.</p></li>
+                                            <li><p><span class="hljs-type">raw_sig</span>: The raw TCP signature, representing how the packet is structured.</p></li>
+                                        </ul>
+
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="syn-ack-package"></a>
+                                            <a href="#syn-ack-package" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            SYN+ACK Packet
+                                        </h2>
+                                        <p>Sent by the server in response to a SYN, signaling acknowledgment and readiness to establish the connection.</p>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="syn-ack-package-analyzed"></a>
+                                            <a href="#syn-ack-package-analyzed" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            SYN+ACK Packet Analyzed
+                                        </h3>
+                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]</span>-<br />|<br />| <span class="hljs-type">server</span>   = 4.3.2.1/80<br />| <span class="hljs-type">os</span>       = Linux 3.x<br />| <span class="hljs-type">dist</span>     = 0<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0<br />|<br />`----<br /></code></pre>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="syn-ack-package-fields"></a>
+                                            <a href="#syn-ack-package-fields" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            SYN+ACK Key Fields
+                                        </h3>
+                                        <ul>
+                                            <li><p><span class="hljs-type">server</span>: The destination IP and port of the server connection.</p></li>
+                                            <li><p><span class="hljs-type">os</span>: The identified operating system matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">dist</span>: The distance in network hops (it's always 0).</p></li>
+                                            <li><p><span class="hljs-type">params</span>: Optional TCP parameters.</p></li>
+                                            <li><p><span class="hljs-type">raw_sig</span>: The raw TCP signature, representing how the packet is structured.</p></li>
+                                        </ul>
+
+                                    </span>
+                        </div>
+                    </article>
+                </div>
+                <div class="docs-prevnext">
+                    <a class="docs-prev button" href="/passivetcp-rs/docs/quick-example"><span class="arrow-prev">← </span><span>Quick Example</span></a>
+                    <a class="docs-next button" href="/passivetcp-rs/docs/mtu"><span>MTU</span><span class="arrow-next"> →</span></a>
+                </div>
+            </div>
+        </div>
+        <nav class="onPageNav">
+            <ul class="toc-headings">
+                <li><a href="#tcp-signature">TCP Signature</a></li>
+                <li>
+                    <a href="#syn-package">SYN Packet</a>
+                    <ul class="toc-headings">
+                        <li><a href="#syn-package-analyzed">SYN Packet Analyzed</a></li>
+                        <li><a href="#syn-package-fields">SYN Key Fields</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#syn-ack-package">SYN+ACK Packet</a>
+                    <ul class="toc-headings">
+                        <li><a href="#syn-ack-package-analyzed">SYN+ACK Packet Analyzed</a></li>
+                        <li><a href="#syn-ack-package-fields">SYN+ACK Key Fields</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    <footer class="nav-footer" id="footer">
+        <hr class="separator" />
+        <section class="copyright">
+            Passive TCP Fingerprinting Based on p0f
+        </section>
+    </footer>
+</div>
+</body>
+</html>

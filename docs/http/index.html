@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Overview · Passive TCP fingerprint</title>
+    <title>Http request and response · Passive TCP fingerprint</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
     <meta
@@ -11,7 +11,7 @@
             content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
     />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="Overview · Passive TCP fingerprint" />
+    <meta property="og:title" content="Http request and response · Passive TCP fingerprint" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
     <meta
@@ -65,8 +65,12 @@
                             <div class="navGroup">
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
                                     <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/docs/mtu">MTU</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/docs/uptime">Uptime</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/docs/http">Http request and response</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -139,55 +143,15 @@
         <div class="container mainContainer docsContainer">
             <div class="wrapper">
                 <div class="post">
-                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Overview</h1></header>
+                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Http request and response</h1></header>
                     <article>
                         <div>
                                     <span>
-                                        <p>
-                                            It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C.
-                                            This library aims to bring the power of passive TCP/IP fingerprinting to the Rust ecosystem while offering a more modern, efficient, and extensible implementation.<br />
-                                            This passive TCP fingerprint library uses <a href="https://crates.io/crates/pnet">pnet</a> and <a href="https://crates.io/crates/httparse">httparse</a> libraries to analyze and parse TCP packets to capture HTTP traffic.
-                                        </p>
-                                        <h2>
-                                            <a class="anchor" aria-hidden="true" id="getting-started"></a>
-                                            <a href="#getting-started" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            What is Passive TCP Fingerprinting?
-                                        </h2>
-                                        <p>
-                                            Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of incoming TCP packets (such as window size, TTL, and TCP options).
-                                            It's possible to make educated guesses about the remote system's OS, network setup, and sometimes even its uptime.
-                                        </p>
-                                        <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                        <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "0.1.0-alpha.3"</code></pre>
-                                        <h3>
-                                            <a class="anchor" aria-hidden="true" id="features"></a>
-                                            <a href="#features" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            Features
-                                        </h3>
-                                        <ul>
-                                            <li><p>Passive Analysis: Unlike active fingerprinting tools, passivetcp-rs does not send any packets to the target host, making it less intrusive and more stealthy.</p></li>
-                                            <li><p>Modern Rust Implementation: Leveraging Rust's safety and concurrency features, passivetcp-rs provides a reliable and efficient library for passive fingerprinting.</p></li>
-                                            <li><p>Extensibility: Designed with modularity in mind, allowing for easy addition of new fingerprinting signatures and heuristics.</p></li>
-                                            <li><p>Integration-Friendly: Can be integrated into various Rust-based network analysis tools and applications.</p></li>
-                                        </ul>
+                                        <p>HTTP requests and responses are another critical component analyzed to gather information about the client and server interactions. HTTP (Hypertext Transfer Protocol) is the foundation of web communication, and analyzing the characteristics of HTTP traffic can reveal useful details about the system's software, configuration, and behavior..</p>
 
-                                        <h3>
-                                            <a class="anchor" aria-hidden="true" id="use_cases"></a>
-                                            <a href="#use_cases" aria-hidden="true" class="hash-link">
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="http-signature"></a>
+                                            <a href="#http-signature" aria-hidden="true" class="hash-link">
                                                 <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                                     <path
                                                             fill-rule="evenodd"
@@ -195,17 +159,20 @@
                                                     ></path>
                                                 </svg>
                                             </a>
-                                            Use Cases
-                                        </h3>
+                                            HTTP signature
+                                        </h2>
+                                        <p>For HTTP traffic, signature layout is as follows:</p>
+                                        <p><span class="hljs-title">sig = ver:horder:habsent:expsw</span></p>
                                         <ul>
-                                            <li><p>Network Monitoring: Identify operating systems and network devices on your network without active scanning.</p></li>
-                                            <li><p>Security Analysis: Detect potentially unauthorized devices or unexpected changes in your network's landscape.</p></li>
-                                            <li><p>Research: Study the distribution of operating systems and network stacks in different environments.</p></li>
+                                            <li><p><span class="hljs-title">ver</span>: 0 for HTTP/1.0, 1 for HTTP/1.1, or '*' for any.</p></li>
+                                            <li><p><span class="hljs-title">horder</span>: comma-separated, ordered list of headers that should appear in matching traffic. Substrings to match within each of these headers may be specified using a name=[value] notation. The signature will be matched even if other headers appear in between, as long as the list itself is matched in the specified sequence.<br /> Headers that usually do appear in the traffic, but may go away (e.g. Accept-Language if the user has no languages defined, or Referer if no referring site exists) should be prefixed with '?', e.g. "?Referer". P0f will accept their disappearance, but will not allow them to appear at any other location.</p></li>
+                                            <li><p><span class="hljs-title">habsent</span>: comma-separated list of headers that must *not* appear in matching traffic. This is particularly useful for noting the absence of standard headers (e.g. 'Host'), or for differentiating between otherwise very similar signatures.</p></li>
+                                            <li><p><span class="hljs-title">expsw</span>: expected substring in 'User-Agent' or 'Server'. This is not used to match traffic, and merely serves to detect dishonest software. If you want to explicitly match User-Agent, you need to do this in the 'horder' section.</p></li>
                                         </ul>
 
                                         <h2>
-                                            <a class="anchor" aria-hidden="true" id="inspiration"></a>
-                                            <a href="#inspiration" aria-hidden="true" class="hash-link">
+                                            <a class="anchor" aria-hidden="true" id="http-request"></a>
+                                            <a href="#http-request" aria-hidden="true" class="hash-link">
                                                 <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                                     <path
                                                             fill-rule="evenodd"
@@ -213,12 +180,47 @@
                                                     ></path>
                                                 </svg>
                                             </a>
-                                            Inspiration
+                                            HTTP Request
                                         </h2>
-                                        <p>Library is heavily inspired by ideas from <a href="https://github.com/p0f/p0f">p0f</a>.</p>
+                                        <p>These are sent by the client (typically a web browser) to request resources from a server. The request includes information such as the HTTP method (GET, POST, etc.), headers, and sometimes cookies or other client-specific data.</p>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="http-request-analyzed"></a>
+                                            <a href="#http-request-analyzed" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Request Analyzed
+                                        </h3>
+                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]</span>-<br />|<br />| <span class="hljs-type">client</span>   = 1.2.3.4/1524<br />| <span class="hljs-type">app</span>      = Firefox:10.x or newer<br />| <span class="hljs-type">lang</span>     = English<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/<br />|<br />`----</code></pre>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="http-request-fields"></a>
+                                            <a href="#http-request-fields" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Request Key Fields
+                                        </h3>
+                                        <ul>
+                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
+                                            <li><p><span class="hljs-type">app</span>: The identified browser matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">lang</span>: The identified language matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">params</span>: Additional parameters or optional data included in the headers.</p></li>
+                                            <li><p><span class="hljs-type">raw_sig</span>: The raw HTTP request signature, representing how the packet is structured.</p></li>
+                                        </ul>
+
                                         <h2>
-                                            <a class="anchor" aria-hidden="true" id="license"></a>
-                                            <a href="#license" aria-hidden="true" class="hash-link">
+                                            <a class="anchor" aria-hidden="true" id="http-response"></a>
+                                            <a href="#http-response" aria-hidden="true" class="hash-link">
                                                 <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                                     <path
                                                             fill-rule="evenodd"
@@ -226,32 +228,70 @@
                                                     ></path>
                                                 </svg>
                                             </a>
-                                            License
+                                            HTTP Response
                                         </h2>
-                                        <p>
-                                            Licensed under the <a href="https://opensource.org/license/mit">MIT License </a>. Refer to the
-                                            <a href="https://github.com/biandratti/passivetcp-rs/blob/master/LICENSE">license file</a>.
-                                        </p>
+                                        <p>These are sent by the server in reply to the client’s request, containing the requested resource (HTML page, image, etc.) or a status message indicating the success or failure of the request.</p>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="http-response-analyzed"></a>
+                                            <a href="#http-response-analyzed" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Response Analyzed
+                                        </h3>
+                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]</span>-<br />|<br />| <span class="hljs-type">server</span>   = 91.189.91.21/80<br />| <span class="hljs-type">app</span>      = nginx/1.14.0 (Ubuntu)<br />| <span class="hljs-type">params</span>   = anonymous<br />| <span class="hljs-type">raw_sig</span>  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:<br />|<br />`----</code></pre>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="http-response-fields"></a>
+                                            <a href="#http-response-fields" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Response Key Fields
+                                        </h3>
+                                        <ul>
+                                            <li><p><span class="hljs-type">server</span>: The destination IP and port of the server connection.</p></li>
+                                            <li><p><span class="hljs-type">app</span>: The identified server matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">params</span>: Additional parameters or optional data included in the headers.</p></li>
+                                            <li><p><span class="hljs-type">raw_sig</span>: The raw HTTP response signature, representing how the packet is structured.</p></li>
+                                        </ul>
+
+
                                     </span>
                         </div>
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-next button" href="/passivetcp-rs/docs/quick-example"><span>Quick Example</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-prev button" href="/passivetcp-rs/docs/uptime"><span class="arrow-prev">← </span><span>Uptime</span></a>
                 </div>
             </div>
         </div>
         <nav class="onPageNav">
             <ul class="toc-headings">
+                <li><a href="#http-signature">HTTP signature</a></li>
                 <li>
-                    <a href="#getting-started">What is Passive TCP Fingerprinting?</a>
+                    <a href="#http-request">HTTP Request</a>
                     <ul class="toc-headings">
-                        <li><a href="#features">Features</a></li>
-                        <li><a href="#use_cases">Use cases</a></li>
+                        <li><a href="#http-request-analyzed">HTTP Request Analyzed</a></li>
+                        <li><a href="#http-request-fields">HTTP Request Key Fields</a></li>
                     </ul>
                 </li>
-                <li><a href="#inspiration">Inspiration</a></li>
-                <li><a href="#license">License</a></li>
+                <li>
+                    <a href="#http-response">HTTP Response</a>
+                    <ul class="toc-headings">
+                        <li><a href="#http-response-analyzed">HTTP Response Analyzed</a></li>
+                        <li><a href="#http-response-fields">HTTP Response Key Fields</a></li>
+                    </ul>
+                </li>
             </ul>
         </nav>
     </div>
