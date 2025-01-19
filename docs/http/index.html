@@ -147,13 +147,11 @@
                     <article>
                         <div>
                                     <span>
-                                        <p>
-                                            WIP.
-                                        </p>
+                                        <p>HTTP requests and responses are another critical component analyzed to gather information about the client and server interactions. HTTP (Hypertext Transfer Protocol) is the foundation of web communication, and analyzing the characteristics of HTTP traffic can reveal useful details about the system's software, configuration, and behavior..</p>
 
                                         <h2>
-                                            <a class="anchor" aria-hidden="true" id="http-request-fingerprint"></a>
-                                            <a href="#http-request-fingerprint" aria-hidden="true" class="hash-link">
+                                            <a class="anchor" aria-hidden="true" id="http-signature"></a>
+                                            <a href="#http-signature" aria-hidden="true" class="hash-link">
                                                 <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                                     <path
                                                             fill-rule="evenodd"
@@ -161,9 +159,66 @@
                                                     ></path>
                                                 </svg>
                                             </a>
-                                            Http request Fingerprinting
+                                            HTTP signature
                                         </h2>
-                                        WIP
+                                        <p>For HTTP traffic, signature layout is as follows:</p>
+                                        <p><span class="hljs-title">sig = ver:horder:habsent:expsw</span></p>
+                                        <ul>
+                                            <li><p><span class="hljs-title">ver</span>: 0 for HTTP/1.0, 1 for HTTP/1.1, or '*' for any.</p></li>
+                                            <li><p><span class="hljs-title">horder</span>: comma-separated, ordered list of headers that should appear in matching traffic. Substrings to match within each of these headers may be specified using a name=[value] notation. The signature will be matched even if other headers appear in between, as long as the list itself is matched in the specified sequence.<br /> Headers that usually do appear in the traffic, but may go away (e.g. Accept-Language if the user has no languages defined, or Referer if no referring site exists) should be prefixed with '?', e.g. "?Referer". P0f will accept their disappearance, but will not allow them to appear at any other location.</p></li>
+                                            <li><p><span class="hljs-title">habsent</span>: comma-separated list of headers that must *not* appear in matching traffic. This is particularly useful for noting the absence of standard headers (e.g. 'Host'), or for differentiating between otherwise very similar signatures.</p></li>
+                                            <li><p><span class="hljs-title">expsw</span>: expected substring in 'User-Agent' or 'Server'. This is not used to match traffic, and merely serves to detect dishonest software. If you want to explicitly match User-Agent, you need to do this in the 'horder' section.</p></li>
+                                        </ul>
+
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="http-request"></a>
+                                            <a href="#http-request" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Request
+                                        </h2>
+                                        <p>These are sent by the client (typically a web browser) to request resources from a server. The request includes information such as the HTTP method (GET, POST, etc.), headers, and sometimes cookies or other client-specific data.</p>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="http-request-analyzed"></a>
+                                            <a href="#http-request-analyzed" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Request Analyzed
+                                        </h3>
+                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]</span>-<br />|<br />| <span class="hljs-type">client</span>   = 1.2.3.4/1524<br />| <span class="hljs-type">app</span>      = Firefox:10.x or newer<br />| <span class="hljs-type">lang</span>     = English<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/<br />|<br />`----</code></pre>
+
+                                        <h3>
+                                            <a class="anchor" aria-hidden="true" id="http-request-fields"></a>
+                                            <a href="#http-request-fields" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            HTTP Request Key Fields
+                                        </h3>
+                                        <ul>
+                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
+                                            <li><p><span class="hljs-type">app</span>: The identified browser matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">lang</span>: The identified language matches the signature in the database.</p></li>
+                                            <li><p><span class="hljs-type">params</span>: Additional parameters or optional data included in the headers.</p></li>
+                                            <li><p><span class="hljs-type">raw_sig</span>: The raw HTTP request signature, representing how the packet is structured.</p></li>
+                                        </ul>
+
+
                                     </span>
                         </div>
                     </article>
@@ -175,10 +230,14 @@
         </div>
         <nav class="onPageNav">
             <ul class="toc-headings">
+                <li><a href="#http-signature">HTTP signature</a></li>
                 <li>
-                    <a href="#http-request-fingerprint">Http request Fingerprinting</a>
+                    <a href="#http-request">HTTP Request</a>
+                    <ul class="toc-headings">
+                        <li><a href="#http-request-analyzed">HTTP Request Analyzed</a></li>
+                        <li><a href="#http-request-fields">HTTP Request Key Fields</a></li>
+                    </ul>
                 </li>
-
             </ul>
         </nav>
     </div>
