@@ -165,7 +165,8 @@
                                             </a>
                                             TCP Signature
                                         </h2>
-                                        <p>For TCP traffic, signature layout is as follows: <span class="hljs-title">ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass</span></p>
+                                        <p>For TCP traffic, signature layout is as follows:</p>
+                                        <p><span class="hljs-title">sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass</span></p>
                                         <ul>
                                             <li><p><span class="hljs-title">ver</span>: signature for IPv4 ('4'), IPv6 ('6'), or both ('*').</p></li>
                                             <li><p><span class="hljs-title">ittl</span>: initial TTL used by the OS. Almost all operating systems use 64, 128, or 255; ancient versions of Windows sometimes used 32, and several obscure systems sometimes resort to odd values such as 60.</p></li>
