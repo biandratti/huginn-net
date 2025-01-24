@@ -336,7 +336,7 @@ fn visit_tcp(
         (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
             WindowSize::Mss((wsize / mss_value) as u8)
         }
-        (wsize, _) if mtu.as_ref().map_or(false, |mtu| wsize % mtu.value == 0) => {
+        (wsize, _) if mtu.as_ref().is_some_and(|mtu| wsize % mtu.value == 0) => {
             WindowSize::Mtu((wsize / mtu.as_ref().unwrap().value) as u8)
         }
         (wsize, _) => WindowSize::Value(wsize),
