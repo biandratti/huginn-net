@@ -214,8 +214,9 @@ fn parse_classes(input: &str) -> IResult<&str, Vec<String>> {
         space0,
         tag("="),
         space0,
-        separated_list0(tag(","), alphanumeric1)
-    ).parse(input)?;
+        separated_list0(tag(","), alphanumeric1),
+    )
+        .parse(input)?;
 
     let class_vec = classes.into_iter().map(|s| s.to_string()).collect();
     Ok((input, class_vec))
@@ -237,7 +238,8 @@ fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<String>)>> {
         tag("="),
         space0,
         separated_list0(tag(","), parse_key_value),
-    ).parse(input)?;
+    )
+        .parse(input)?;
 
     let result = values
         .into_iter()
@@ -252,7 +254,8 @@ fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
         alphanumeric1,
         space0,
         opt(preceded((space0, tag("="), space0), alphanumeric1)),
-    ).parse(input)?;
+    )
+        .parse(input)?;
 
     Ok((input, (name, value)))
 }
@@ -268,7 +271,8 @@ fn parse_label(input: &str) -> IResult<&str, Label> {
         tag(":"),
         take_until(":"),
         opt(preceded(tag(":"), rest)),
-    ).parse(input)?;
+    )
+        .parse(input)?;
 
     Ok((
         input,
@@ -285,7 +289,8 @@ fn parse_type(input: &str) -> IResult<&str, Type> {
     alt((
         tag("s").map(|_| Type::Specified),
         tag("g").map(|_| Type::Generic),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
@@ -316,7 +321,8 @@ fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
         separated_list0(tag(","), parse_quirk),
         tag(":"),
         parse_payload_size,
-    ).parse(input)?;
+    )
+        .parse(input)?;
 
     Ok((
         input,
@@ -339,7 +345,8 @@ fn parse_ip_version(input: &str) -> IResult<&str, IpVersion> {
         map(tag("4"), |_| IpVersion::V4),
         map(tag("6"), |_| IpVersion::V6),
         map(tag("*"), |_| IpVersion::Any),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
@@ -362,7 +369,8 @@ fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
             },
         ),
         map_res(digit1, |s: &str| s.parse::<u8>().map(Ttl::Value)),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
@@ -378,7 +386,8 @@ fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
             s.parse::<u16>().map(WindowSize::Mod)
         }),
         map_res(digit1, |s: &str| s.parse::<u16>().map(WindowSize::Value)),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
@@ -397,7 +406,8 @@ fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
             map(digit1, |s: &str| s.parse::<u8>().unwrap_or(0)),
         )
         .map(TcpOption::Unknown),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
@@ -419,7 +429,8 @@ fn parse_quirk(input: &str) -> IResult<&str, Quirk> {
         map(tag("opt+"), |_| Quirk::TrailinigNonZero),
         map(tag("exws"), |_| Quirk::ExcessiveWindowScaling),
         map(tag("bad"), |_| Quirk::OptBad),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
@@ -427,7 +438,8 @@ fn parse_payload_size(input: &str) -> IResult<&str, PayloadSize> {
         map(tag("0"), |_| PayloadSize::Zero),
         map(tag("+"), |_| PayloadSize::NonZero),
         map(tag("*"), |_| PayloadSize::Any),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
@@ -439,7 +451,8 @@ fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
         opt(separated_list0(tag(","), parse_http_header)),
         tag(":"),
         rest,
-    ).parse(input)?;
+    )
+        .parse(input)?;
 
     let habsent = habsent
         .unwrap_or_default()
@@ -463,14 +476,16 @@ fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {
         map(tag("0"), |_| HttpVersion::V10),
         map(tag("1"), |_| HttpVersion::V11),
         map(tag("*"), |_| HttpVersion::Any),
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
 fn parse_header_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
     pair(
         take_while(|c: char| (c.is_ascii_alphanumeric() || c == '-') && c != ':' && c != '='),
         opt(preceded(tag("=["), terminated(take_until("]"), char(']')))),
-    ).parse(input)
+    )
+    .parse(input)
 }
 
 fn parse_http_header(input: &str) -> IResult<&str, HttpHeader> {
