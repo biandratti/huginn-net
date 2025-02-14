@@ -119,7 +119,8 @@ pub fn process_ipv4(
         let tcp_response = tcp_handle.join().unwrap();
 
         handle_http_tcp_responses(http_response, tcp_response)
-    }).unwrap()
+    })
+    .unwrap()
 }
 
 pub fn process_ipv6(
@@ -151,7 +152,8 @@ pub fn process_ipv6(
         let tcp_response = tcp_handle.join().unwrap();
 
         handle_http_tcp_responses(http_response, tcp_response)
-    }).unwrap()
+    })
+    .unwrap()
 }
 
 fn handle_http_tcp_responses(
