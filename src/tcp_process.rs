@@ -1,3 +1,4 @@
+use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
 use crate::tcp;
@@ -73,7 +74,7 @@ pub fn process_tcp_ipv4(
     let version = IpVersion::V4;
     let ttl_observed: u8 = packet.get_ttl();
     let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
-    let olen: u8 = packet.get_options_raw().len() as u8;
+    let olen: u8 = IpOptions::calculate_ipv4_length(packet);
     let mut quirks = vec![];
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
@@ -128,7 +129,7 @@ pub fn process_tcp_ipv6(
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
     let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
-    let olen = 0; // TODO handle extensions
+    let olen: u8 = IpOptions::calculate_ipv6_length(packet);
     let mut quirks = vec![];
 
     if packet.get_flow_label() != 0 {

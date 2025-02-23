@@ -4,6 +4,7 @@ mod display;
 mod http;
 mod http_languages;
 mod http_process;
+mod ip_options;
 mod mtu;
 mod p0f_output;
 mod process;
