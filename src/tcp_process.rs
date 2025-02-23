@@ -1,3 +1,4 @@
+use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
 use crate::tcp;
@@ -73,7 +74,7 @@ pub fn process_tcp_ipv4(
     let version = IpVersion::V4;
     let ttl_observed: u8 = packet.get_ttl();
     let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
-    let olen: u8 = calculate_ipv4_options_length(packet);
+    let olen: u8 = IpOptions::calculate_ipv4_length(packet);
     let mut quirks = vec![];
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
@@ -128,7 +129,7 @@ pub fn process_tcp_ipv6(
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
     let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
-    let olen: u8 = calculate_ipv6_extension_length(packet);
+    let olen: u8 = IpOptions::calculate_ipv6_length(packet);
     let mut quirks = vec![];
 
     if packet.get_flow_label() != 0 {
@@ -384,43 +385,6 @@ fn visit_tcp(
     })
 }
 
-fn calculate_ipv4_options_length(packet: &Ipv4Packet) -> u8 {
-    // IHL (Internet Header Length) is in 32-bit words
-    // Subtract minimum header length (20 bytes = 5 words)
-    let ihl = packet.get_header_length();
-    let options_length: u8 = if ihl > 5 {
-        (ihl - 5) * 4  // Convert words to bytes
-    } else {
-        0 // No options: standard header only
-    };
-    options_length
-}
-
-fn calculate_ipv6_extension_length(packet: &Ipv6Packet) -> u8 {
-    // Most packets will be direct TCP
-    if packet.get_next_header() == IpNextHeaderProtocols::Tcp {
-        return 0;
-    }
-
-    // Check if we have any extension headers
-    let payload = packet.payload();
-    if payload.is_empty() {
-        return 0;
-    }
-
-    // Calculate extension length if they exist
-    let len = match packet.get_next_header() {
-        IpNextHeaderProtocols::Ipv6Frag => 8,
-        _ => if payload.len() >= 2 {
-            (payload[1] as usize + 1) * 8
-        } else {
-            0
-        }
-    };
-
-    len as u8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -456,53 +420,5 @@ mod tests {
             false
         );
         assert_eq!(is_valid(TcpFlags::SYN, 0), false);
-    }
-
-    #[test]
-    fn test_ipv4_options_length() {
-        // Create test packet with IHL = 6 (24 bytes header)
-        let mut data = vec![0u8; 24];
-        data[0] = 0x46;  // Version 4, IHL 6
-        let packet = Ipv4Packet::new(&data).unwrap();
-        
-        assert_eq!(calculate_ipv4_options_length(&packet), 4);
-    }
-
-    #[test]
-    fn test_ipv6_direct_tcp() {
-        let mut data = vec![0u8; 40]; // IPv6 base header
-        data[0] = 0x60;  // Version 6
-        data[6] = IpNextHeaderProtocols::Tcp.0;  // Next Header = TCP
-        
-        let packet = Ipv6Packet::new(&data).unwrap();
-        assert_eq!(calculate_ipv6_extension_length(&packet), 0);
-    }
-
-    #[test]
-    fn test_ipv6_fragment() {
-        let mut data = vec![0u8; 48]; // IPv6 header + fragment header
-        data[0] = 0x60;  // Version 6
-        data[6] = IpNextHeaderProtocols::Ipv6Frag.0;  // Next Header = Fragment
-        
-        // Set payload length (8 bytes for fragment header)
-        data[4] = 0;     // Length high byte
-        data[5] = 8;     // Length low byte
-        
-        // Add fragment header
-        data[40] = IpNextHeaderProtocols::Tcp.0;  // Next Header = TCP
-        // data[41..48] can remain zero (fragment header fields)
-        
-        let packet = Ipv6Packet::new(&data).unwrap();
-        assert_eq!(calculate_ipv6_extension_length(&packet), 8);
-    }
-
-    #[test]
-    fn test_ipv6_empty_payload() {
-        let mut data = vec![0u8; 40]; // IPv6 header only
-        data[0] = 0x60;  // Version 6
-        data[6] = IpNextHeaderProtocols::Hopopt.0;  // Next Header = Hop-by-hop
-        
-        let packet = Ipv6Packet::new(&data).unwrap();
-        assert_eq!(calculate_ipv6_extension_length(&packet), 0);
     }
 }
