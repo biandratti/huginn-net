@@ -1,4 +1,5 @@
 pub mod db;
+pub mod p0f_output;
 mod db_parse;
 mod display;
 mod http;
@@ -6,7 +7,6 @@ mod http_languages;
 mod http_process;
 mod ip_options;
 mod mtu;
-mod p0f_output;
 mod process;
 mod signature_matcher;
 mod tcp;
