@@ -6,8 +6,10 @@ use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
 use passivetcp_rs::db::Database;
+use passivetcp_rs::p0f_output::P0fOutput;
 use passivetcp_rs::P0f;
 use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
 #[derive(Parser, Debug)]
@@ -62,7 +64,7 @@ fn main() {
     let db = Box::leak(Box::new(Database::default()));
     debug!("Loaded database: {:?}", db);
 
-    let (sender, receiver) = mpsc::channel();
+    let (sender, receiver): (Sender<P0fOutput>, Receiver<P0fOutput>) = mpsc::channel();
 
     thread::spawn(move || {
         P0f::new(db, 100).analyze_network(&args.interface, sender);

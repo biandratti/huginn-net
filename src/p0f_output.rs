@@ -6,12 +6,27 @@ use crate::tcp::{Signature, Ttl};
 use std::fmt;
 use std::fmt::Formatter;
 
+/// Represents the output from the passive TCP fingerprinting tool.
+///
+/// This struct contains various optional outputs that can be derived
+/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and HTTP data.
 pub struct P0fOutput {
+    /// Information derived from SYN packets.
     pub syn: Option<SynTCPOutput>,
+
+    /// Information derived from SYN-ACK packets.
     pub syn_ack: Option<SynAckTCPOutput>,
+
+    /// Information about the Maximum Transmission Unit (MTU).
     pub mtu: Option<MTUOutput>,
+
+    /// Information about the system uptime.
     pub uptime: Option<UptimeOutput>,
+
+    /// Information derived from HTTP request headers.
     pub http_request: Option<HttpRequestOutput>,
+
+    /// Information derived from HTTP response headers.
     pub http_response: Option<HttpResponseOutput>,
 }
 
