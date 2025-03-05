@@ -6,11 +6,11 @@ use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
 use passivetcp_rs::db::Database;
+use passivetcp_rs::p0f_output::P0fOutput;
 use passivetcp_rs::P0f;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use passivetcp_rs::p0f_output::P0fOutput;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
