@@ -85,7 +85,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 To use passivetcp-rs in your Rust project, add the following dependency to your `Cargo.toml`:
 ```toml
 [dependencies]
-passivetcp-rs = "0.1.0-beta.1"
+passivetcp-rs = "0.1.0-beta.2"
 ```
 
 ### Usage

@@ -1,6 +1,6 @@
 [package]
 name = "passivetcp-rs"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 edition = "2021"
 description = "Passive traffic fingerprinting [p0f]"
 license = "MIT"
