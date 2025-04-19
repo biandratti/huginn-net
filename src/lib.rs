@@ -9,9 +9,9 @@ mod mtu;
 pub mod p0f_output;
 mod process;
 mod signature_matcher;
-mod tcp;
+pub mod tcp;
 mod tcp_process;
-mod ttl;
+pub mod ttl;
 mod uptime;
 
 use crate::db::{Database, Label};
@@ -240,3 +240,5 @@ impl<'a> P0f<'a> {
         }
     }
 }
+
+pub use tcp::Ttl;
