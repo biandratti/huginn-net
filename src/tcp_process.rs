@@ -333,15 +333,62 @@ fn visit_tcp(
         _ => None,
     };
 
-    let wsize: WindowSize = match (tcp.get_window(), mss) {
-        (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
-            WindowSize::Mss((wsize / mss_value) as u8)
+    fn detect_win_multi(window_size: u16, mss: u16, total_header: u16, has_ts: bool, ip_ver: IpVersion) -> WindowSize {
+        if window_size == 0 || mss < 100 {
+            return WindowSize::Value(window_size);
         }
-        (wsize, _) if mtu.as_ref().is_some_and(|mtu| wsize % mtu.value == 0) => {
-            WindowSize::Mtu((wsize / mtu.as_ref().unwrap().value) as u8)
+
+        const MIN_TCP4: u16 = 40;  // 20 IP + 20 TCP
+        const MIN_TCP6: u16 = 60;  // 40 IP + 20 TCP
+
+        // Helper macro similar a RET_IF_DIV
+        macro_rules! check_div {
+            ($div:expr) => {
+                if $div != 0 && window_size % $div == 0 {
+                    let multiplier = window_size / $div;
+                    if multiplier <= 255 {
+                        return WindowSize::Mss(multiplier as u8);
+                    }
+                }
+            };
         }
-        (wsize, _) => WindowSize::Value(wsize),
-    };
+
+        // Check MSS
+        check_div!(mss);
+
+        // Some systems subtract 12 bytes when timestamps are in use
+        if has_ts {
+            check_div!(mss - 12);
+        }
+
+        // Common MTU cases
+        check_div!(1500 - MIN_TCP4);
+        check_div!(1500 - MIN_TCP4 - 12);
+
+        if matches!(ip_ver, IpVersion::V6) {
+            check_div!(1500 - MIN_TCP6);
+            check_div!(1500 - MIN_TCP6 - 12);
+        }
+
+        // MTU-based checks
+        check_div!(mss + MIN_TCP4);
+        check_div!(mss + total_header);
+        if matches!(ip_ver, IpVersion::V6) {
+            check_div!(mss + MIN_TCP6);
+        }
+        check_div!(1500);
+
+        // If nothing matches, return raw value
+        WindowSize::Value(window_size)
+    }
+
+    let wsize = detect_win_multi(
+        tcp.get_window(),
+        mss.unwrap_or(0),
+        ip_package_header_length as u16,
+        olayout.contains(&TcpOption::TS),
+        version.clone()
+    );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
         signature: tcp::Signature {
