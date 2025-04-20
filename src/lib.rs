@@ -13,6 +13,7 @@ pub mod tcp;
 mod tcp_process;
 pub mod ttl;
 mod uptime;
+pub mod window_size;
 
 use crate::db::{Database, Label};
 use crate::http::{HttpDiagnosis, Signature};

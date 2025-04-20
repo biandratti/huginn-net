@@ -33,7 +33,7 @@ impl Signature {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum IpVersion {
     V4,
     V6,

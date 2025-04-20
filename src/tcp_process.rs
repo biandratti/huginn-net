@@ -5,6 +5,7 @@ use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
+use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, ttl};
 use failure::{bail, err_msg, Error};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -333,61 +334,12 @@ fn visit_tcp(
         _ => None,
     };
 
-    fn detect_win_multi(window_size: u16, mss: u16, total_header: u16, has_ts: bool, ip_ver: IpVersion) -> WindowSize {
-        if window_size == 0 || mss < 100 {
-            return WindowSize::Value(window_size);
-        }
-
-        const MIN_TCP4: u16 = 40;  // 20 IP + 20 TCP
-        const MIN_TCP6: u16 = 60;  // 40 IP + 20 TCP
-
-        // Helper macro similar a RET_IF_DIV
-        macro_rules! check_div {
-            ($div:expr) => {
-                if $div != 0 && window_size % $div == 0 {
-                    let multiplier = window_size / $div;
-                    if multiplier <= 255 {
-                        return WindowSize::Mss(multiplier as u8);
-                    }
-                }
-            };
-        }
-
-        // Check MSS
-        check_div!(mss);
-
-        // Some systems subtract 12 bytes when timestamps are in use
-        if has_ts {
-            check_div!(mss - 12);
-        }
-
-        // Common MTU cases
-        check_div!(1500 - MIN_TCP4);
-        check_div!(1500 - MIN_TCP4 - 12);
-
-        if matches!(ip_ver, IpVersion::V6) {
-            check_div!(1500 - MIN_TCP6);
-            check_div!(1500 - MIN_TCP6 - 12);
-        }
-
-        // MTU-based checks
-        check_div!(mss + MIN_TCP4);
-        check_div!(mss + total_header);
-        if matches!(ip_ver, IpVersion::V6) {
-            check_div!(mss + MIN_TCP6);
-        }
-        check_div!(1500);
-
-        // If nothing matches, return raw value
-        WindowSize::Value(window_size)
-    }
-
-    let wsize = detect_win_multi(
+    let wsize: WindowSize = detect_win_multiplicator(
         tcp.get_window(),
         mss.unwrap_or(0),
         ip_package_header_length as u16,
         olayout.contains(&TcpOption::TS),
-        version.clone()
+        &version,
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
