@@ -1,13 +1,14 @@
-use log::debug;
+use log::info;
 use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ttl_cache::TtlCache;
 
-const MIN_TWAIT: u64 = 25;
-const MAX_TWAIT: u64 = 10 * 60 * 1000;
+const MIN_TWAIT: u64 = 1;
+const MAX_TWAIT: u64 = 600000;
 const TSTAMP_GRACE: u64 = 1000;
 const MAX_TSCALE: f64 = 1000.0;
-const MIN_TSCALE: f64 = 0.01;
+const MIN_TSCALE: f64 = 1.0;
+const HZ_SCALE: f64 = 1.0;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct Connection {
@@ -43,6 +44,11 @@ pub fn check_ts_tcp(
     from_client: bool,
     ts_val: u32,
 ) -> Option<ObservableUptime> {
+    info!(
+        "Processing packet - from_client: {}, ts_val: {}",
+        from_client, ts_val
+    );
+
     let syn_data: Option<SynData> = if !from_client {
         let client_connection = Connection {
             src_ip: connection.dst_ip,
@@ -50,8 +56,14 @@ pub fn check_ts_tcp(
             dst_ip: connection.src_ip,
             dst_port: connection.src_port,
         };
-        cache.remove(&client_connection)
+        info!("Server response - looking for client SYN data");
+        let data = cache.remove(&client_connection);
+        if data.is_none() {
+            info!("No SYN data found in cache for connection");
+        }
+        data
     } else {
+        info!("Client SYN - storing timestamp data");
         cache.insert(
             connection.clone(),
             SynData {
@@ -63,58 +75,69 @@ pub fn check_ts_tcp(
         None
     };
 
-    // If there's no valid SYN data yet, return early
-    let last_syn_data = syn_data?;
-    let ms_diff = get_unix_time_ms().saturating_sub(last_syn_data.recv_ms);
-    // TODO: check if ts_diff is in nanoseconds
-    let ts_diff = (ts_val.saturating_sub(last_syn_data.ts1) / 1000000) as u64;
+    let last_syn_data = match syn_data {
+        Some(data) => data,
+        None => {
+            info!("No SYN data available, skipping uptime calculation");
+            return None;
+        }
+    };
 
-    // Check if the time differences are valid
-    if !(MIN_TWAIT..=MAX_TWAIT).contains(&ms_diff) {
-        return None;
-    }
+    let current_time = get_unix_time_ms();
+    let ms_diff = current_time.saturating_sub(last_syn_data.recv_ms);
 
-    if ts_diff < 5
-        || (ms_diff < TSTAMP_GRACE
-            && ts_diff.wrapping_neg() / 1000 < (MAX_TSCALE as u64 / TSTAMP_GRACE))
-    {
-        return None;
-    }
-
-    // Calculate the timestamp frequency
-    let ffreq: f64 = if ts_diff > ts_diff.wrapping_neg() {
-        ts_diff.wrapping_neg() as f64 * -1000.0 / ms_diff as f64
+    let ts_diff = if ts_val >= last_syn_data.ts1 {
+        ts_val - last_syn_data.ts1
     } else {
-        ts_diff as f64 * 1000.0 / ms_diff as f64
-    };
+        (u32::MAX - last_syn_data.ts1) + ts_val + 1
+    } as u64;
 
-    // Check if the frequency is within acceptable bounds
-    if !(MIN_TSCALE..=MAX_TSCALE).contains(&ffreq) {
-        debug!(
-            "Invalid frequency: ffreq={}, ts_diff={}, ms_diff={}",
-            ffreq, ts_diff, ms_diff
-        );
+    info!(
+        "Time differences - ms_diff: {}ms, ts_diff: {} ticks",
+        ms_diff, ts_diff
+    );
+    info!(
+        "Original timestamps - current: {}, original: {}",
+        ts_val, last_syn_data.ts1
+    );
+    info!(
+        "Time values - current: {}ms, original: {}ms",
+        current_time, last_syn_data.recv_ms
+    );
+
+    if ms_diff > MAX_TWAIT || ms_diff < MIN_TWAIT {
+        info!("Invalid time difference: {}ms", ms_diff);
         return None;
     }
 
-    // Round the frequency to the nearest valid value
-    let freq = match ffreq.round() as u32 {
-        0 => 1,
-        1..=10 => ffreq.round() as u32,
-        11..=50 => ((ffreq.round() + 3.0) / 5.0).round() as u32 * 5,
-        51..=100 => ((ffreq.round() + 7.0) / 10.0).round() as u32 * 10,
-        101..=500 => ((ffreq.round() + 33.0) / 50.0).round() as u32 * 50,
-        _ => ((ffreq.round() + 67.0) / 100.0).round() as u32 * 100,
-    };
+    let raw_freq = (ts_diff as f64 * 1000.0) / (ms_diff as f64);
+    info!("Raw frequency (Hz): {:.2}", raw_freq);
 
-    // Calculate uptime in minutes and modulo days
-    let up_min = ts_val / freq / 60;
-    let up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
+    let ffreq = raw_freq.min(MAX_TSCALE).max(MIN_TSCALE);
+    info!("Adjusted frequency (Hz): {:.2}", ffreq);
+
+    let freq = (ffreq * 100.0).round() as u32;
+
+    let up_secs = ts_val as f64 / ffreq;
+    let up_min = (up_secs / 60.0).round() as u64;
+
+    let wrap_secs = (u32::MAX as f64) / ffreq;
+    let up_mod_days = (wrap_secs / (24.0 * 60.0 * 60.0)).round() as u32;
+
+    let days = up_min / (60 * 24);
+    let hours = (up_min / 60) % 24;
+    let minutes = up_min % 60;
+
+    info!(
+        "Calculated uptime - days: {}, hours: {}, minutes: {}",
+        days, hours, minutes
+    );
+    info!("Modulo days: {}", up_mod_days);
 
     Some(ObservableUptime {
-        days: up_min / 60 / 24,
-        hours: (up_min / 60) % 24,
-        min: up_min % 60,
+        days: days as u32,
+        hours: hours as u32,
+        min: minutes as u32,
         up_mod_days,
         freq,
     })
