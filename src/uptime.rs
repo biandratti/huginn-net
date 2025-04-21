@@ -153,7 +153,7 @@ pub fn check_ts_tcp(
             freq, raw_freq
         );
         final_freq_hz = freq;
-    } else if raw_freq >= MIN_FINAL_HZ && raw_freq <= MAX_FINAL_HZ {
+    } else if (MIN_FINAL_HZ..=MAX_FINAL_HZ).contains(&raw_freq) {
         debug!(
             "Raw frequency is within normal range ({:.1} Hz - {:.1} Hz). Using rounded value.",
             MIN_FINAL_HZ, MAX_FINAL_HZ
@@ -174,7 +174,7 @@ pub fn check_ts_tcp(
     let wrap_secs = (u32::MAX as f64) / final_freq_hz;
     let up_mod_days = (wrap_secs / (24.0 * 3600.0)).round() as u32;
 
-    if up_mod_days < 1 || up_mod_days > 300 {
+    if !(1..=300).contains(&up_mod_days) {
         debug!(
             "Calculated modulo days ({}) seems unreasonable. Discarding.",
             up_mod_days
