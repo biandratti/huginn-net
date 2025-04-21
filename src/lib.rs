@@ -29,6 +29,7 @@ use log::{debug, error};
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
+pub use tcp::Ttl;
 use ttl_cache::TtlCache;
 
 pub struct P0f<'a> {
@@ -241,5 +242,3 @@ impl<'a> P0f<'a> {
         }
     }
 }
-
-pub use tcp::Ttl;
