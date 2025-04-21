@@ -9,10 +9,11 @@ mod mtu;
 pub mod p0f_output;
 mod process;
 mod signature_matcher;
-mod tcp;
+pub mod tcp;
 mod tcp_process;
-mod ttl;
+pub mod ttl;
 mod uptime;
+pub mod window_size;
 
 use crate::db::{Database, Label};
 use crate::http::{HttpDiagnosis, Signature};
@@ -28,6 +29,7 @@ use log::{debug, error};
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
+pub use tcp::Ttl;
 use ttl_cache::TtlCache;
 
 pub struct P0f<'a> {

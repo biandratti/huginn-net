@@ -30,17 +30,18 @@ pub struct P0fOutput {
     pub http_response: Option<HttpResponseOutput>,
 }
 
+/// Holds information derived from analyzing a TCP SYN packet (client initiation).
+///
+/// This structure contains details about the client system based on its SYN packet,
+/// including the identified OS/application label and the raw TCP signature.
 pub struct SynTCPOutput {
+    /// The source IP address and port of the client sending the SYN.
     pub source: IpPort,
+    /// The destination IP address and port of the server receiving the SYN.
     pub destination: IpPort,
+    /// The label identifying the likely client OS or application.
     pub label: Option<Label>,
-    pub sig: Signature,
-}
-
-pub struct SynAckTCPOutput {
-    pub source: IpPort,
-    pub destination: IpPort,
-    pub label: Option<Label>,
+    /// The raw TCP signature extracted from the SYN packet.
     pub sig: Signature,
 }
 
@@ -75,6 +76,21 @@ impl fmt::Display for SynTCPOutput {
             self.sig,
         )
     }
+}
+
+/// Holds information derived from analyzing a TCP SYN+ACK packet (server response).
+///
+/// This structure contains details about the server system based on its SYN+ACK packet,
+/// including the identified OS/application label and the raw TCP signature.
+pub struct SynAckTCPOutput {
+    /// The source IP address and port of the server sending the SYN+ACK.
+    pub source: IpPort,
+    /// The destination IP address and port of the client receiving the SYN+ACK.
+    pub destination: IpPort,
+    /// The label identifying the likely server OS or application.
+    pub label: Option<Label>,
+    /// The raw TCP signature extracted from the SYN+ACK packet.
+    pub sig: Signature,
 }
 
 impl fmt::Display for SynAckTCPOutput {
@@ -112,10 +128,18 @@ impl fmt::Display for SynAckTCPOutput {
     }
 }
 
+/// Holds information about the estimated Maximum Transmission Unit (MTU) of a link.
+///
+/// This structure contains the source and destination addresses, an estimation
+/// of the link type based on common MTU values, and the calculated raw MTU value.
 pub struct MTUOutput {
+    /// The source IP address and port (usually the client).
     pub source: IpPort,
+    /// The destination IP address and port (usually the server).
     pub destination: IpPort,
+    /// An estimated link type (e.g., "Ethernet", "PPPoE") based on the calculated MTU.
     pub link: String,
+    /// The calculated Maximum Transmission Unit (MTU) value in bytes.
     pub mtu: u16,
 }
 
@@ -141,14 +165,27 @@ impl fmt::Display for MTUOutput {
     }
 }
 
+/// Holds uptime information derived from TCP timestamp analysis.
+///
+/// This structure contains the estimated uptime components (days, hours, minutes),
+/// the timestamp clock's wraparound period (`up_mod_days`), and the calculated
+/// clock frequency (`freq`). Note that the days/hours/minutes calculation based
+/// on the timestamp value might be approximate.
 pub struct UptimeOutput {
+    /// The source IP address and port of the connection.
     pub source: IpPort,
+    /// The destination IP address and port of the connection.
     pub destination: IpPort,
+    /// Estimated uptime in days, derived from the TCP timestamp value. Potentially approximate.
     pub days: u32,
+    /// Estimated uptime component in hours. Potentially approximate.
     pub hours: u32,
+    /// Estimated uptime component in minutes. Potentially approximate.
     pub min: u32,
+    /// The calculated period in days after which the timestamp counter wraps around (2^32 ticks).
     pub up_mod_days: u32,
-    pub freq: u32,
+    /// The calculated frequency of the remote system's timestamp clock in Hertz (Hz).
+    pub freq: f64,
 }
 
 impl fmt::Display for UptimeOutput {
@@ -159,7 +196,7 @@ impl fmt::Display for UptimeOutput {
             |\n\
             | client   = {}/{}\n\
             | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
-            | raw_freq = {} Hz\n\
+            | raw_freq = {:.2} Hz\n\
             `----\n",
             self.destination.ip,
             self.destination.port,
@@ -176,12 +213,23 @@ impl fmt::Display for UptimeOutput {
     }
 }
 
+/// Holds information derived from analyzing HTTP request headers.
+///
+/// This structure contains details about the client, the detected application
+/// (if any), the preferred language, diagnostic parameters related to HTTP behavior,
+/// and the raw HTTP signature.
 pub struct HttpRequestOutput {
+    /// The source IP address and port of the client making the request.
     pub source: IpPort,
+    /// The destination IP address and port of the server receiving the request.
     pub destination: IpPort,
+    /// The preferred language indicated in the `Accept-Language` header, if present.
     pub lang: Option<String>,
+    /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
+    /// The label identifying the likely client application (e.g., browser, crawler).
     pub label: Option<Label>,
+    /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
 
@@ -213,11 +261,20 @@ impl fmt::Display for HttpRequestOutput {
     }
 }
 
+/// Holds information derived from analyzing HTTP response headers.
+///
+/// This structure contains details about the server, the detected application
+/// (if any), diagnostic parameters related to HTTP behavior, and the raw HTTP signature.
 pub struct HttpResponseOutput {
+    /// The source IP address and port of the server sending the response.
     pub source: IpPort,
+    /// The destination IP address and port of the client receiving the response.
     pub destination: IpPort,
+    /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
+    /// The label identifying the likely server application (e.g., Apache, Nginx).
     pub label: Option<Label>,
+    /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
 
