@@ -111,7 +111,7 @@ pub fn check_ts_tcp(
         return None;
     }
 
-    let effective_ms_diff = ms_diff.max(1); // Usar 1ms si ms_diff es 0
+    let effective_ms_diff = ms_diff.max(1); // Use 1ms if ms_diff is 0
 
     let ts_diff = ts_val.wrapping_sub(last_syn_data.ts1);
     if ts_diff == 0 && effective_ms_diff <= 1 {
