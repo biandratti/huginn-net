@@ -1,4 +1,4 @@
-use log::info;
+use log::debug;
 use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ttl_cache::TtlCache;
@@ -29,7 +29,7 @@ pub struct ObservableUptime {
     pub hours: u32,
     pub min: u32,
     pub up_mod_days: u32,
-    pub freq: u32,
+    pub freq: f64,
 }
 
 fn get_unix_time_ms() -> u64 {
@@ -61,7 +61,7 @@ pub fn check_ts_tcp(
     from_client: bool,
     ts_val: u32,
 ) -> Option<ObservableUptime> {
-    info!(
+    debug!(
         "Processing packet - from_client: {}, ts_val: {}",
         from_client, ts_val
     );
@@ -73,14 +73,14 @@ pub fn check_ts_tcp(
             dst_ip: connection.src_ip,
             dst_port: connection.src_port,
         };
-        info!("Server response - looking for client SYN data");
+        debug!("Server response - looking for client SYN data");
         let data = cache.remove(&client_connection);
         if data.is_none() {
-            info!("No SYN data found in cache for connection");
+            debug!("No SYN data found in cache for connection");
         }
         data
     } else {
-        info!("Client SYN - storing timestamp data");
+        debug!("Client SYN - storing timestamp data");
         cache.insert(
             connection.clone(),
             SynData {
@@ -95,7 +95,7 @@ pub fn check_ts_tcp(
     let last_syn_data = match syn_data {
         Some(data) => data,
         None => {
-            info!("No SYN data available, skipping uptime calculation");
+            debug!("No SYN data available, skipping uptime calculation");
             return None;
         }
     };
@@ -104,7 +104,7 @@ pub fn check_ts_tcp(
     let ms_diff = current_time.saturating_sub(last_syn_data.recv_ms);
 
     if ms_diff > MAX_TWAIT {
-        info!(
+        debug!(
             "Time difference {}ms exceeds MAX_TWAIT {}ms",
             ms_diff, MAX_TWAIT
         );
@@ -115,76 +115,77 @@ pub fn check_ts_tcp(
 
     let ts_diff = ts_val.wrapping_sub(last_syn_data.ts1);
     if ts_diff == 0 && effective_ms_diff <= 1 {
-        info!("Timestamp difference is zero and effective time difference is <= 1ms, skipping");
+        debug!("Timestamp difference is zero and effective time difference is <= 1ms, skipping");
         return None;
     }
 
-    info!(
+    debug!(
         "Time differences - measured ms_diff: {}ms, effective ms_diff: {}ms, ts_diff: {} ticks",
         ms_diff, effective_ms_diff, ts_diff
     );
-    info!(
+    debug!(
         "Original timestamps - current: {}, original: {}",
         ts_val, last_syn_data.ts1
     );
-    info!(
+    debug!(
         "Time values - current: {}ms, original: {}ms",
         current_time, last_syn_data.recv_ms
     );
 
     let raw_freq = (ts_diff as f64 * 1000.0) / (effective_ms_diff as f64);
-    info!("Raw frequency (Hz): {:.2}", raw_freq);
+    debug!("Raw frequency (Hz): {:.2}", raw_freq);
 
     if raw_freq <= 0.0 || !raw_freq.is_finite() {
-        info!("Invalid or non-finite raw frequency {:.2} Hz", raw_freq);
+        debug!("Invalid or non-finite raw frequency {:.2} Hz", raw_freq);
         return None;
     }
 
     let final_freq_hz: f64;
     if let Some(freq) = guess_frequency(raw_freq, GUESS_HZ_1K, GUESS_TOLERANCE) {
-        info!(
+        debug!(
             "Guessed base frequency {:.2} Hz from raw {:.2} Hz",
             freq, raw_freq
         );
         final_freq_hz = freq;
     } else if let Some(freq) = guess_frequency(raw_freq, GUESS_HZ_100, GUESS_TOLERANCE) {
-        info!(
+        debug!(
             "Guessed base frequency {:.2} Hz from raw {:.2} Hz",
             freq, raw_freq
         );
         final_freq_hz = freq;
     } else if raw_freq >= MIN_FINAL_HZ && raw_freq <= MAX_FINAL_HZ {
-        info!(
+        debug!(
             "Raw frequency is within normal range ({:.1} Hz - {:.1} Hz). Using rounded value.",
             MIN_FINAL_HZ, MAX_FINAL_HZ
         );
         final_freq_hz = raw_freq.round();
     } else {
-        info!(
+        debug!(
             "Could not determine a reliable frequency from raw value {:.2} Hz. Discarding.",
             raw_freq
         );
         return None;
     };
 
-    info!("Using final frequency (Hz): {:.2}", final_freq_hz);
-    let freq = (final_freq_hz * 100.0).round() as u32;
+    debug!("Using final frequency (Hz): {:.2}", final_freq_hz);
+
+    let freq = final_freq_hz;
 
     let wrap_secs = (u32::MAX as f64) / final_freq_hz;
     let up_mod_days = (wrap_secs / (24.0 * 3600.0)).round() as u32;
 
     if up_mod_days < 1 || up_mod_days > 300 {
-        info!(
+        debug!(
             "Calculated modulo days ({}) seems unreasonable. Discarding.",
             up_mod_days
         );
         return None;
     }
-    info!("Modulo days: {}", up_mod_days);
+    debug!("Modulo days: {}", up_mod_days);
 
     let uptime_secs_from_tsval = ts_val as f64 / final_freq_hz;
     if uptime_secs_from_tsval > wrap_secs * 1.1 {
-        info!(
+        debug!(
             "Uptime from ts_val ({:.0}s) significantly exceeds wrap-around time ({:.0}s).",
             uptime_secs_from_tsval, wrap_secs
         );
@@ -194,7 +195,7 @@ pub fn check_ts_tcp(
     let hours = (total_secs_from_tsval % (24 * 3600)) / 3600;
     let minutes = (total_secs_from_tsval % 3600) / 60;
 
-    info!(
+    debug!(
         "Uptime based on ts_val (MAY BE INACCURATE) - days: {}, hours: {}, minutes: {}",
         days, hours, minutes
     );

@@ -148,7 +148,7 @@ pub struct UptimeOutput {
     pub hours: u32,
     pub min: u32,
     pub up_mod_days: u32,
-    pub freq: u32,
+    pub freq: f64,
 }
 
 impl fmt::Display for UptimeOutput {
@@ -171,7 +171,7 @@ impl fmt::Display for UptimeOutput {
             self.hours,
             self.min,
             self.up_mod_days,
-            self.freq as f64 / 100.0,
+            self.freq,
         )
     }
 }
