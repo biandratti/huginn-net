@@ -47,7 +47,7 @@ impl Database {
     /// # Arguments
     ///
     /// * `config_path` - An optional path to a configuration file. If `None`, the default
-    ///                   configuration file is used.
+    ///   configuration file is used.
     ///
     /// # Returns
     /// A `Database` instance initialized with the provided or default configuration.

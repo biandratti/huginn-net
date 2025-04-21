@@ -5,6 +5,7 @@ use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
+use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, ttl};
 use failure::{bail, err_msg, Error};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -333,15 +334,13 @@ fn visit_tcp(
         _ => None,
     };
 
-    let wsize: WindowSize = match (tcp.get_window(), mss) {
-        (wsize, Some(mss_value)) if wsize % mss_value == 0 => {
-            WindowSize::Mss((wsize / mss_value) as u8)
-        }
-        (wsize, _) if mtu.as_ref().is_some_and(|mtu| wsize % mtu.value == 0) => {
-            WindowSize::Mtu((wsize / mtu.as_ref().unwrap().value) as u8)
-        }
-        (wsize, _) => WindowSize::Value(wsize),
-    };
+    let wsize: WindowSize = detect_win_multiplicator(
+        tcp.get_window(),
+        mss.unwrap_or(0),
+        ip_package_header_length as u16,
+        olayout.contains(&TcpOption::TS),
+        &version,
+    );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
         signature: tcp::Signature {

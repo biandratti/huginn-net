@@ -289,10 +289,7 @@ fn build_headers_in_order(headers: &[httparse::Header], is_request: bool) -> Vec
 
     #[allow(clippy::if_same_then_else)]
     for header in headers {
-        let value: Option<&str> = match std::str::from_utf8(header.value) {
-            Ok(v) => Some(v),
-            Err(_) => None,
-        };
+        let value: Option<&str> = std::str::from_utf8(header.value).ok();
 
         if optional_list.contains(&header.name) {
             headers_in_order.push(http::Header::new(header.name).optional());

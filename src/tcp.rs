@@ -33,7 +33,7 @@ impl Signature {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum IpVersion {
     V4,
     V6,
@@ -48,12 +48,25 @@ impl IpVersion {
     }
 }
 
+/// Time To Live (TTL) representation used for OS fingerprinting and network distance calculation
 #[derive(Clone, Debug, PartialEq)]
 pub enum Ttl {
-    Value(u8),        // Raw TTL value (when we don't have enough information)
-    Distance(u8, u8), // TTL value and estimated number of hops (distance)
-    Guess(u8),        // Guessed TTL value (when it's uncertain)
-    Bad(u8),          // Invalid TTL value (e.g., TTL is 0)
+    /// Raw TTL value when we don't have enough context to determine initial TTL
+    /// Contains the observed TTL value from the IP header
+    Value(u8),
+
+    /// TTL with calculated network distance
+    /// First u8 is the observed TTL value
+    /// Second u8 is the estimated number of hops (distance = initial_ttl - observed_ttl)
+    Distance(u8, u8),
+
+    /// TTL value that's been guessed based on common OS initial values
+    /// Contains the estimated initial TTL (e.g., 64 for Linux, 128 for Windows)
+    Guess(u8),
+
+    /// Invalid or problematic TTL value
+    /// Contains the raw TTL value that was deemed invalid (e.g., 0)
+    Bad(u8),
 }
 
 impl Ttl {
@@ -71,12 +84,26 @@ impl Ttl {
     }
 }
 
+/// TCP Window Size representation used for fingerprinting different TCP stacks
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowSize {
+    /// Window size is a multiple of MSS (Maximum Segment Size)
+    /// The u8 value represents the multiplier (e.g., Mss(4) means window = MSS * 4)
     Mss(u8),
+
+    /// Window size is a multiple of MTU (Maximum Transmission Unit)
+    /// The u8 value represents the multiplier (e.g., Mtu(4) means window = MTU * 4)
     Mtu(u8),
+
+    /// Raw window size value when it doesn't match any pattern
+    /// Contains the actual window size value from the TCP header
     Value(u16),
+
+    /// Window size follows a modulo pattern
+    /// The u16 value represents the modulo base (e.g., Mod(1024) means window % 1024 == 0)
     Mod(u16),
+
+    /// Represents any window size (wildcard matcher)
     Any,
 }
 
@@ -153,10 +180,19 @@ pub enum Quirk {
     OptBad,
 }
 
+/// Classification of TCP payload sizes used in fingerprinting
 #[derive(Clone, Debug, PartialEq)]
 pub enum PayloadSize {
+    /// Packet has no payload (empty)
+    /// Common in SYN packets and some control messages
     Zero,
+
+    /// Packet contains data in the payload
+    /// Typical for data transfer packets
     NonZero,
+
+    /// Matches any payload size
+    /// Used as a wildcard in signature matching
     Any,
 }
 
