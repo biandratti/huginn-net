@@ -25,7 +25,9 @@ impl Signature {
             && self.ittl.matches_ttl(&db_signature.ittl)
             && self.olen == db_signature.olen
             && (self.mss == db_signature.mss || db_signature.mss.is_none())
-            && self.wsize.matches_window_size(&db_signature.wsize)
+            && self
+                .wsize
+                .matches_window_size(&db_signature.wsize, self.mss)
             && (self.wscale == db_signature.wscale || db_signature.wscale.is_none())
             && self.olayout == db_signature.olayout
             && self.quirks == db_signature.quirks
@@ -108,14 +110,21 @@ pub enum WindowSize {
 }
 
 impl WindowSize {
-    pub fn matches_window_size(&self, other: &WindowSize) -> bool {
+    //TODO: wip
+    pub fn matches_window_size(&self, other: &WindowSize, mss: Option<u16>) -> bool {
         match (self, other) {
             (WindowSize::Mss(a), WindowSize::Mss(b)) => a == b,
             (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
             (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
+            (WindowSize::Value(a), WindowSize::Mss(b)) => {
+                if let Some(mss_value) = mss {
+                    let ratio_self = a / mss_value;
+                    ratio_self == *b as u16
+                } else {
+                    false
+                }
+            }
             (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
-            // (WindowSize::Mod(mod_val), WindowSize::Value(val))
-            // | (WindowSize::Value(val), WindowSize::Mod(mod_val)) => val % mod_val == 0,
             (_, WindowSize::Any) => true,
             _ => false,
         }
