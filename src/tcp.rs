@@ -20,18 +20,85 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub fn matches(&self, db_signature: &Self) -> bool {
-        self.version.matches_ip_version(&db_signature.version)
-            && self.ittl.matches_ttl(&db_signature.ittl)
-            && self.olen == db_signature.olen
-            && (self.mss == db_signature.mss || db_signature.mss.is_none())
-            && self
-                .wsize
-                .matches_window_size(&db_signature.wsize, self.mss)
-            && (self.wscale == db_signature.wscale || db_signature.wscale.is_none())
-            && self.olayout == db_signature.olayout
-            && self.quirks == db_signature.quirks
-            && self.pclass.matches_payload_size(&db_signature.pclass)
+
+    fn distance_olen(&self, other: &Self) -> Option<u32> {
+        if self.olen == other.olen {
+            Some(0)
+        } else {
+            Some(5)
+        }
+    }
+
+    fn distance_mss(&self, other: &Self) -> Option<u32> {
+        if other.mss.is_none() {
+            Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
+        } else {            
+            if self.mss == other.mss {
+                Some(0)
+            } else {
+                Some(5)
+            }
+        }
+    }
+
+    fn distance_wscale(&self, other: &Self) -> Option<u32> {
+        if other.wscale.is_none() {
+            Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
+        } else {            
+            if self.wscale == other.wscale {
+                Some(0)
+            } else {
+                Some(5)
+            }
+        }
+    }
+
+    fn distance_olayout(&self, other: &Self) -> Option<u32> {
+        if self.olayout == other.olayout {
+            Some(0)
+        } else {
+            None
+        }
+    }
+
+    fn distance_quirks(&self, other: &Self) -> Option<u32> {
+        if self.quirks == other.quirks {
+            Some(0)
+        } else {
+            None
+        }
+    }
+
+    // Function to calculate the distance between two signatures
+    fn calculate_distance(&self, other: &Self) -> Option<u32> {
+
+        let distance = self.version.distance_ip_version(&other.version)?
+            + self.ittl.distance_ttl(&other.ittl)?  
+            + self.distance_olen(other)?
+            + self.distance_mss(&other)?
+            + self.wsize.distance_window_size(&other.wsize, self.mss)?
+            + self.distance_wscale(&other)?
+            + self.distance_olayout(&other)?
+            + self.distance_quirks(&other)?
+            + self.pclass.distance_payload_size(&other.pclass)?;
+
+        Some(distance)
+    }
+
+    pub fn find_closest_signature<'a>(&self, db_signatures: &'a [Self]) -> Option<&'a Self> {
+        let mut closest_signature = None;
+        let mut min_distance = u32::MAX;
+
+        for db_signature in db_signatures {
+            if let Some(distance) = self.calculate_distance(db_signature) {
+                if distance < min_distance {
+                    min_distance = distance;
+                    closest_signature = Some(db_signature);
+                }
+            }
+        }
+
+        closest_signature
     }
 }
 
@@ -42,11 +109,16 @@ pub enum IpVersion {
     Any,
 }
 impl IpVersion {
-    pub fn matches_ip_version(&self, other: &IpVersion) -> bool {
-        matches!(
-            (self, other),
-            (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) | (_, IpVersion::Any)
-        )
+
+    pub fn distance_ip_version(&self, other: &IpVersion) -> Option<u32> {
+        if other == &IpVersion::Any {
+            Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
+        } else {
+            match (self, other) {
+                (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) => Some(0),
+                _ => None,
+            }
+        }
     }
 }
 
@@ -72,16 +144,61 @@ pub enum Ttl {
 }
 
 impl Ttl {
-    pub fn matches_ttl(&self, other: &Ttl) -> bool {
+    // pub fn matches_ttl(&self, other: &Ttl) -> bool {
+    //     match (self, other) {
+    //         (Ttl::Value(a), Ttl::Value(b)) => a == b,
+    //         (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => a1 == b1 && a2 == b2,
+    //         (Ttl::Distance(a1, _a2), Ttl::Value(b1)) => a1 == b1,
+    //         (Ttl::Guess(a), Ttl::Guess(b)) => a == b,
+    //         (Ttl::Bad(a), Ttl::Bad(b)) => a == b,
+    //         (Ttl::Guess(a), Ttl::Value(b)) => a == b,
+    //         (Ttl::Value(a), Ttl::Guess(b)) => a == b,
+    //         _ => false,
+    //     }
+    // }
+
+    // Function to calculate the distance between two TTL values
+    pub fn distance_ttl(&self, other: &Ttl) -> Option<u32> {
         match (self, other) {
-            (Ttl::Value(a), Ttl::Value(b)) => a == b,
-            (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => a1 == b1 && a2 == b2,
-            (Ttl::Distance(a1, _a2), Ttl::Value(b1)) => a1 == b1,
-            (Ttl::Guess(a), Ttl::Guess(b)) => a == b,
-            (Ttl::Bad(a), Ttl::Bad(b)) => a == b,
-            (Ttl::Guess(a), Ttl::Value(b)) => a == b,
-            (Ttl::Value(a), Ttl::Guess(b)) => a == b,
-            _ => false,
+            (Ttl::Value(a), Ttl::Value(b)) => {
+                if a == b {
+                    Some(0)
+                } else {
+                    Some(((*a as i32) - (*b as i32)).abs() as u32)
+                }
+            }
+            (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => {
+                if a1 == b1 && a2 == b2 {
+                    Some(0)
+                } else {
+                    Some(5)
+                }
+            }
+            (Ttl::Distance(a1, _), Ttl::Value(b1)) => {
+                if a1 == b1 {
+                    Some(0)
+                } else {
+                    Some(5)
+                }
+            }
+            (Ttl::Guess(a), Ttl::Guess(b)) => {
+                if a == b {
+                    Some(0)
+                } else {
+                    Some(5)
+                }
+            }
+            (Ttl::Bad(a), Ttl::Bad(b)) => {
+                if a == b {
+                    Some(0)
+                } else {
+                    Some(5)
+                }
+            }
+            (Ttl::Guess(_), Ttl::Value(_)) | (Ttl::Value(_), Ttl::Guess(_)) => {
+                Some(5)
+            }
+            _ => None,
         }
     }
 }
@@ -110,23 +227,90 @@ pub enum WindowSize {
 }
 
 impl WindowSize {
-    //TODO: wip
-    pub fn matches_window_size(&self, other: &WindowSize, mss: Option<u16>) -> bool {
+    // pub fn matches_window_size(&self, other: &WindowSize, mss: Option<u16>) -> bool {
+    //     match (self, other) {
+    //         (WindowSize::Mss(a), WindowSize::Mss(b)) => a == b,
+    //         (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
+    //         (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
+    //         (WindowSize::Value(a), WindowSize::Mss(b)) => {
+    //             if let Some(mss_value) = mss {
+    //                 let ratio_self = a / mss_value;
+    //                 ratio_self == *b as u16
+    //             } else {
+    //                 false
+    //             }
+    //         }
+    //         (WindowSize::Mss(a), WindowSize::Value(b)) => {
+    //             if let Some(mss_value) = mss {
+    //                 let ratio_other = b / mss_value;
+    //                 *a as u16 == ratio_other
+    //             } else {
+    //                 false
+    //             }
+    //         }
+    //         (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
+    //         (_, WindowSize::Any) => true,
+    //         _ => false,
+    //     }
+    // }
+
+    // Function to calculate the distance between two window sizes
+    pub fn distance_window_size(&self, other: &WindowSize, mss: Option<u16>) -> Option<u32> {
         match (self, other) {
-            (WindowSize::Mss(a), WindowSize::Mss(b)) => a == b,
-            (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
-            (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
-            (WindowSize::Value(a), WindowSize::Mss(b)) => {
-                if let Some(mss_value) = mss {
-                    let ratio_self = a / mss_value;
-                    ratio_self == *b as u16
+            (WindowSize::Mss(a), WindowSize::Mss(b)) => {
+                if a == b {
+                    Some(0)
                 } else {
-                    false
+                    None
                 }
             }
-            (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
-            (_, WindowSize::Any) => true,
-            _ => false,
+            (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {   
+                if a == b {
+                    Some(0)
+                } else {
+                    None    
+                }
+            }
+            (WindowSize::Value(a), WindowSize::Value(b)) => {
+                if a == b {
+                    Some(0)
+                } else {
+                    None
+                }
+            }
+           (WindowSize::Value(a), WindowSize::Mss(b)) => {
+                if let Some(mss_value) = mss {
+                    let ratio_self = a / mss_value;
+                    if ratio_self == *b as u16 {
+                        Some(0)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            (WindowSize::Mss(a), WindowSize::Value(b)) => {
+                if let Some(mss_value) = mss {
+                    let ratio_other = b / mss_value;
+                    if *a as u16 == ratio_other {
+                        Some(0)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            (WindowSize::Mod(a), WindowSize::Mod(b)) => {
+                if a == b {
+                    Some(0)
+                } else {
+                    None
+                }
+            }
+            (_, WindowSize::Any) | (WindowSize::Any, _) => Some(0),
+            _ => None,
         }
     }
 }
@@ -206,12 +390,15 @@ pub enum PayloadSize {
 }
 
 impl PayloadSize {
-    pub fn matches_payload_size(&self, other: &PayloadSize) -> bool {
-        matches!(
-            (self, other),
-            (PayloadSize::Zero, PayloadSize::Zero)
-                | (PayloadSize::NonZero, PayloadSize::NonZero)
-                | (_, PayloadSize::Any)
-        )
+
+    pub fn distance_payload_size(&self, other: &PayloadSize) -> Option<u32> {
+        if other == &PayloadSize::Any {
+            Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
+        } else if self == other {
+            Some(0)
+        } else {
+            None
+        }
     }
+
 }

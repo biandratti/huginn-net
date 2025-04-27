@@ -16,10 +16,8 @@ impl<'a> SignatureMatcher<'a> {
         signature: &tcp::Signature,
     ) -> Option<(&'a Label, &'a tcp::Signature)> {
         for (label, db_signatures) in &self.database.tcp_request {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
+            if let Some(closest_signature) = signature.find_closest_signature(db_signatures) {
+                return Some((label, closest_signature));
             }
         }
         None
@@ -30,10 +28,8 @@ impl<'a> SignatureMatcher<'a> {
         signature: &tcp::Signature,
     ) -> Option<(&'a Label, &'a tcp::Signature)> {
         for (label, db_signatures) in &self.database.tcp_response {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
+            if let Some(closest_signature) = signature.find_closest_signature(db_signatures) {
+                return Some((label, closest_signature));
             }
         }
         None
