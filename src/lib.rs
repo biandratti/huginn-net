@@ -26,6 +26,7 @@ use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
 use log::{debug, error};
+use p0f_output::MatchedLabel;
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
@@ -145,10 +146,13 @@ impl<'a> P0f<'a> {
                             .map(|observable_tcp| SynTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                label: self
+                                matched_label: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _signature)| label.clone()),
+                                    .map(|(label, _signature, quality)| MatchedLabel {
+                                        label: label.clone(),
+                                        quality: quality,
+                                    }),
                                 sig: observable_tcp.signature,
                             });
 
@@ -158,10 +162,13 @@ impl<'a> P0f<'a> {
                             .map(|observable_tcp| SynAckTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                label: self
+                                matched_label: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _signature)| label.clone()),
+                                    .map(|(label, _signature, quality)| MatchedLabel {
+                                        label: label.clone(),
+                                        quality: quality,
+                                    }),
                                 sig: observable_tcp.signature,
                             });
 

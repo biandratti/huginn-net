@@ -20,7 +20,6 @@ pub struct Signature {
 }
 
 impl Signature {
-
     fn distance_olen(&self, other: &Self) -> Option<u32> {
         if self.olen == other.olen {
             Some(0)
@@ -32,7 +31,7 @@ impl Signature {
     fn distance_mss(&self, other: &Self) -> Option<u32> {
         if other.mss.is_none() {
             Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
-        } else {            
+        } else {
             if self.mss == other.mss {
                 Some(0)
             } else {
@@ -44,7 +43,7 @@ impl Signature {
     fn distance_wscale(&self, other: &Self) -> Option<u32> {
         if other.wscale.is_none() {
             Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
-        } else {            
+        } else {
             if self.wscale == other.wscale {
                 Some(0)
             } else {
@@ -71,9 +70,8 @@ impl Signature {
 
     // Function to calculate the distance between two signatures
     fn calculate_distance(&self, other: &Self) -> Option<u32> {
-
         let distance = self.version.distance_ip_version(&other.version)?
-            + self.ittl.distance_ttl(&other.ittl)?  
+            + self.ittl.distance_ttl(&other.ittl)?
             + self.distance_olen(other)?
             + self.distance_mss(&other)?
             + self.wsize.distance_window_size(&other.wsize, self.mss)?
@@ -85,7 +83,7 @@ impl Signature {
         Some(distance)
     }
 
-    pub fn find_closest_signature<'a>(&self, db_signatures: &'a [Self]) -> Option<&'a Self> {
+    pub fn find_closest_signature<'a>(&self, db_signatures: &'a [Self]) -> Option<(&'a Self, u32)> {
         let mut closest_signature = None;
         let mut min_distance = u32::MAX;
 
@@ -93,7 +91,7 @@ impl Signature {
             if let Some(distance) = self.calculate_distance(db_signature) {
                 if distance < min_distance {
                     min_distance = distance;
-                    closest_signature = Some(db_signature);
+                    closest_signature = Some((db_signature, distance));
                 }
             }
         }
@@ -109,7 +107,6 @@ pub enum IpVersion {
     Any,
 }
 impl IpVersion {
-
     pub fn distance_ip_version(&self, other: &IpVersion) -> Option<u32> {
         if other == &IpVersion::Any {
             Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
@@ -195,9 +192,7 @@ impl Ttl {
                     Some(5)
                 }
             }
-            (Ttl::Guess(_), Ttl::Value(_)) | (Ttl::Value(_), Ttl::Guess(_)) => {
-                Some(5)
-            }
+            (Ttl::Guess(_), Ttl::Value(_)) | (Ttl::Value(_), Ttl::Guess(_)) => Some(5),
             _ => None,
         }
     }
@@ -264,11 +259,11 @@ impl WindowSize {
                     None
                 }
             }
-            (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {   
+            (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {
                 if a == b {
                     Some(0)
                 } else {
-                    None    
+                    None
                 }
             }
             (WindowSize::Value(a), WindowSize::Value(b)) => {
@@ -278,7 +273,7 @@ impl WindowSize {
                     None
                 }
             }
-           (WindowSize::Value(a), WindowSize::Mss(b)) => {
+            (WindowSize::Value(a), WindowSize::Mss(b)) => {
                 if let Some(mss_value) = mss {
                     let ratio_self = a / mss_value;
                     if ratio_self == *b as u16 {
@@ -390,7 +385,6 @@ pub enum PayloadSize {
 }
 
 impl PayloadSize {
-
     pub fn distance_payload_size(&self, other: &PayloadSize) -> Option<u32> {
         if other == &PayloadSize::Any {
             Some(0) // TODO: analize if is not better to return 1 to avoid lack of quality
@@ -400,5 +394,4 @@ impl PayloadSize {
             None
         }
     }
-
 }

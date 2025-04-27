@@ -11,13 +11,19 @@ impl<'a> SignatureMatcher<'a> {
         Self { database }
     }
 
+    fn get_quality(distance: u32) -> f32 {
+        (100 - distance) as f32 / 100.0
+    }
+
     pub fn matching_by_tcp_request(
         &self,
         signature: &tcp::Signature,
-    ) -> Option<(&'a Label, &'a tcp::Signature)> {
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         for (label, db_signatures) in &self.database.tcp_request {
-            if let Some(closest_signature) = signature.find_closest_signature(db_signatures) {
-                return Some((label, closest_signature));
+            if let Some((closest_signature, distance)) =
+                signature.find_closest_signature(db_signatures)
+            {
+                return Some((label, closest_signature, Self::get_quality(distance)));
             }
         }
         None
@@ -26,10 +32,12 @@ impl<'a> SignatureMatcher<'a> {
     pub fn matching_by_tcp_response(
         &self,
         signature: &tcp::Signature,
-    ) -> Option<(&'a Label, &'a tcp::Signature)> {
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         for (label, db_signatures) in &self.database.tcp_response {
-            if let Some(closest_signature) = signature.find_closest_signature(db_signatures) {
-                return Some((label, closest_signature));
+            if let Some((closest_signature, distance)) =
+                signature.find_closest_signature(db_signatures)
+            {
+                return Some((label, closest_signature, Self::get_quality(distance)));
             }
         }
         None
