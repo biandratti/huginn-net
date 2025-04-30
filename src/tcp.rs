@@ -40,9 +40,6 @@ impl MatchQuality {
 }
 
 impl Signature {
-
-
-
     fn distance_olen(&self, other: &Self) -> Option<u32> {
         if self.olen == other.olen {
             Some(MatchQuality::High.as_score())
@@ -52,26 +49,18 @@ impl Signature {
     }
 
     fn distance_mss(&self, other: &Self) -> Option<u32> {
-        if other.mss.is_none() {
+        if other.mss.is_none() || self.mss == other.mss {
             Some(MatchQuality::High.as_score())
         } else {
-            if self.mss == other.mss {
-                Some(MatchQuality::High.as_score())
-            } else {
-                Some(MatchQuality::Low.as_score())
-            }
+            Some(MatchQuality::Low.as_score())
         }
     }
 
     fn distance_wscale(&self, other: &Self) -> Option<u32> {
-        if other.wscale.is_none() {
+        if other.wscale.is_none() || self.wscale == other.wscale {
             Some(MatchQuality::High.as_score())
         } else {
-            if self.wscale == other.wscale {
-                Some(MatchQuality::High.as_score())
-            } else {
-                Some(MatchQuality::Medium.as_score())
-            }
+            Some(MatchQuality::Medium.as_score())
         }
     }
 
@@ -96,11 +85,11 @@ impl Signature {
         let distance = self.version.distance_ip_version(&other.version)?
             + self.ittl.distance_ttl(&other.ittl)?
             + self.distance_olen(other)?
-            + self.distance_mss(&other)?
+            + self.distance_mss(other)?
             + self.wsize.distance_window_size(&other.wsize, self.mss)?
-            + self.distance_wscale(&other)?
-            + self.distance_olayout(&other)?
-            + self.distance_quirks(&other)?
+            + self.distance_wscale(other)?
+            + self.distance_olayout(other)?
+            + self.distance_quirks(other)?
             + self.pclass.distance_payload_size(&other.pclass)?;
 
         Some(distance)
@@ -148,7 +137,9 @@ impl IpVersion {
             Some(MatchQuality::High.as_score())
         } else {
             match (self, other) {
-                (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) => Some(MatchQuality::High.as_score()),
+                (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) => {
+                    Some(MatchQuality::High.as_score())
+                }
                 _ => None,
             }
         }
@@ -372,9 +363,7 @@ pub enum PayloadSize {
 
 impl PayloadSize {
     pub fn distance_payload_size(&self, other: &PayloadSize) -> Option<u32> {
-        if other == &PayloadSize::Any {
-            Some(MatchQuality::High.as_score())
-        } else if self == other {
+        if other == &PayloadSize::Any || self == other {
             Some(MatchQuality::High.as_score())
         } else {
             None

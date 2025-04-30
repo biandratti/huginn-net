@@ -20,7 +20,7 @@ impl<'a> SignatureMatcher<'a> {
         signature: &tcp::Signature,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         if let Some((label, closest_signature, distance)) =
-            signature.find_closest_signature(&signature, &self.database.tcp_request)
+            signature.find_closest_signature(signature, &self.database.tcp_request)
         {
             Some((label, closest_signature, Self::get_quality(distance)))
         } else {
@@ -33,7 +33,7 @@ impl<'a> SignatureMatcher<'a> {
         signature: &tcp::Signature,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         if let Some((label, closest_signature, distance)) =
-            signature.find_closest_signature(&signature, &self.database.tcp_response)
+            signature.find_closest_signature(signature, &self.database.tcp_response)
         {
             Some((label, closest_signature, Self::get_quality(distance)))
         } else {

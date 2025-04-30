@@ -151,7 +151,7 @@ impl<'a> P0f<'a> {
                                     .matching_by_tcp_request(&observable_tcp.signature)
                                     .map(|(label, _signature, quality)| MatchedLabel {
                                         label: label.clone(),
-                                        quality: quality,
+                                        quality,
                                     }),
                                 sig: observable_tcp.signature,
                             });
@@ -167,7 +167,7 @@ impl<'a> P0f<'a> {
                                     .matching_by_tcp_request(&observable_tcp.signature)
                                     .map(|(label, _signature, quality)| MatchedLabel {
                                         label: label.clone(),
-                                        quality: quality,
+                                        quality,
                                     }),
                                 sig: observable_tcp.signature,
                             });
