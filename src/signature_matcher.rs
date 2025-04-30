@@ -19,28 +19,26 @@ impl<'a> SignatureMatcher<'a> {
         &self,
         signature: &tcp::Signature,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        for (label, db_signatures) in &self.database.tcp_request {
-            if let Some((closest_signature, distance)) =
-                signature.find_closest_signature(db_signatures)
-            {
-                return Some((label, closest_signature, Self::get_quality(distance)));
-            }
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(&signature, &self.database.tcp_request)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_tcp_response(
         &self,
         signature: &tcp::Signature,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        for (label, db_signatures) in &self.database.tcp_response {
-            if let Some((closest_signature, distance)) =
-                signature.find_closest_signature(db_signatures)
-            {
-                return Some((label, closest_signature, Self::get_quality(distance)));
-            }
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(&signature, &self.database.tcp_response)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
@@ -92,5 +90,83 @@ impl<'a> SignatureMatcher<'a> {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Type;
+    use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+    use crate::Database;
+
+    #[test]
+    fn matching_linux_by_tcp_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let linux_signature = Signature {
+            version: IpVersion::V4,
+            ittl: Ttl::Value(64),
+            olen: 0,
+            mss: Some(1460),
+            wsize: WindowSize::Mss(44),
+            wscale: Some(7),
+            olayout: vec![
+                TcpOption::Mss,
+                TcpOption::Sok,
+                TcpOption::TS,
+                TcpOption::Nop,
+                TcpOption::Ws,
+            ],
+            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            pclass: PayloadSize::Zero,
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_tcp_request(&linux_signature) {
+            assert_eq!(label.name, "Linux");
+            assert_eq!(label.class, Some("unix".to_string()));
+            assert_eq!(label.flavor, Some("2.2.x-3.x".to_string()));
+            assert_eq!(label.ty, Type::Generic);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found");
+        }
+    }
+
+    #[test]
+    fn matching_android_by_tcp_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let android_signature = Signature {
+            version: IpVersion::V4,
+            ittl: Ttl::Value(64),
+            olen: 0,
+            mss: Some(1460),
+            wsize: WindowSize::Value(65535),
+            wscale: Some(3),
+            olayout: vec![
+                TcpOption::Mss,
+                TcpOption::Sok,
+                TcpOption::TS,
+                TcpOption::Nop,
+                TcpOption::Ws,
+            ],
+            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            pclass: PayloadSize::Zero,
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_tcp_request(&android_signature) {
+            assert_eq!(label.name, "Linux");
+            assert_eq!(label.class, Some("unix".to_string()));
+            assert_eq!(label.flavor, Some("(Android)".to_string()));
+            assert_eq!(label.ty, Type::Specified);
+            assert_eq!(quality, 1.0); // Adjust the expected quality as needed
+        } else {
+            panic!("No match found");
+        }
     }
 }
