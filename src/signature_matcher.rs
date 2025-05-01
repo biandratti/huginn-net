@@ -55,29 +55,27 @@ impl<'a> SignatureMatcher<'a> {
     pub fn matching_by_http_request(
         &self,
         signature: &http::Signature,
-    ) -> Option<(&'a Label, &'a http::Signature)> {
-        for (label, db_signatures) in &self.database.http_request {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
-            }
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> {
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(signature, &self.database.http_request)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_http_response(
         &self,
         signature: &http::Signature,
-    ) -> Option<(&'a Label, &'a http::Signature)> {
-        for (label, db_signatures) in &self.database.http_response {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
-            }
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> {
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(signature, &self.database.http_response)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_user_agent(
@@ -164,7 +162,7 @@ mod tests {
             assert_eq!(label.class, Some("unix".to_string()));
             assert_eq!(label.flavor, Some("(Android)".to_string()));
             assert_eq!(label.ty, Type::Specified);
-            assert_eq!(quality, 1.0); // Adjust the expected quality as needed
+            assert_eq!(quality, 1.0);
         } else {
             panic!("No match found");
         }

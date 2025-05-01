@@ -1,3 +1,6 @@
+use crate::db::Label;
+use log::debug;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
     /// HTTP version
@@ -10,12 +13,83 @@ pub struct Signature {
     pub expsw: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HttpMatchQuality {
+    High,
+    // Medium,
+    // Low,
+}
+
+impl HttpMatchQuality {
+    pub fn as_score(self) -> u32 {
+        match self {
+            HttpMatchQuality::High => 0,
+            // HttpMatchQuality::Medium => 5,
+            // HttpMatchQuality::Low => 10,
+        }
+    }
+}
+
 impl Signature {
-    pub fn matches(&self, db_signature: &Self) -> bool {
-        self.version.matches_version(&db_signature.version)
-            && self.horder == db_signature.horder
-            && self.habsent == db_signature.habsent
-            && self.expsw == db_signature.expsw
+    fn distance_horder(&self, other: &Self) -> Option<u32> {
+        if self.horder == other.horder {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+
+    fn distance_habsent(&self, other: &Self) -> Option<u32> {
+        if self.habsent == other.habsent {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+
+    fn distance_expsw(&self, other: &Self) -> Option<u32> {
+        if self.expsw == other.expsw {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+
+    pub fn get_distance(&self, other: &Self) -> Option<u32> {
+        let distance = self.distance_horder(other)?
+            + self.distance_habsent(other)?
+            + self.distance_expsw(other)?;
+
+        Some(distance)
+    }
+
+    pub fn find_closest_signature<'a>(
+        &self,
+        signature: &Signature,
+        db: &'a Vec<(Label, Vec<Signature>)>,
+    ) -> Option<(&'a Label, &'a Signature, u32)> {
+        let mut best_label = None;
+        let mut best_sig = None;
+        let mut min_distance = u32::MAX;
+
+        for (label, sigs) in db {
+            for db_sig in sigs {
+                if let Some(distance) = signature.get_distance(db_sig) {
+                    debug!("db_sig: {:?}, distance: {:?}", db_sig.to_string(), distance);
+                    if distance < min_distance {
+                        min_distance = distance;
+                        best_label = Some(label);
+                        best_sig = Some(db_sig);
+                    }
+                }
+            }
+        }
+
+        if let (Some(label), Some(sig)) = (best_label, best_sig) {
+            Some((label, sig, min_distance))
+        } else {
+            None
+        }
     }
 }
 
@@ -27,11 +101,12 @@ pub enum Version {
 }
 
 impl Version {
-    pub fn matches_version(&self, other: &Version) -> bool {
-        matches!(
-            (self, other),
-            (Version::V10, Version::V10) | (Version::V11, Version::V11) | (_, Version::Any)
-        )
+    pub fn distance_matched_version(&self, other: &Version) -> Option<u32> {
+        if other == &Version::Any || self == other {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
     }
 }
 

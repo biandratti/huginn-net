@@ -241,8 +241,8 @@ pub struct HttpRequestOutput {
     pub lang: Option<String>,
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
-    /// The label identifying the likely client application (e.g., browser, crawler).
-    pub label: Option<Label>,
+    /// The label identifying the likely client application (e.g., browser, crawler) and the quality.
+    pub matched_label: Option<MatchedLabel>,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
@@ -265,9 +265,13 @@ impl fmt::Display for HttpRequestOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.label
-                .as_ref()
-                .map_or("???".to_string(), |l| l.name.clone()),
+            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+                format!(
+                    "{}/{}",
+                    l.label.name,
+                    l.label.flavor.as_deref().unwrap_or("???")
+                )
+            }),
             self.lang.as_deref().unwrap_or("???"),
             self.diagnosis,
             self.sig,
@@ -286,8 +290,8 @@ pub struct HttpResponseOutput {
     pub destination: IpPort,
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
-    /// The label identifying the likely server application (e.g., Apache, Nginx).
-    pub label: Option<Label>,
+    /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
+    pub matched_label: Option<MatchedLabel>,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
@@ -309,9 +313,13 @@ impl fmt::Display for HttpResponseOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.label
-                .as_ref()
-                .map_or("???".to_string(), |l| l.name.clone()),
+            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+                format!(
+                    "{}/{}",
+                    l.label.name,
+                    l.label.flavor.as_deref().unwrap_or("???")
+                )
+            }),
             self.diagnosis,
             self.sig,
         )

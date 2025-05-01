@@ -23,18 +23,18 @@ pub struct Signature {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MatchQuality {
+pub enum TcpMatchQuality {
     High,
     Medium,
     Low,
 }
 
-impl MatchQuality {
+impl TcpMatchQuality {
     pub fn as_score(self) -> u32 {
         match self {
-            MatchQuality::High => 0,
-            MatchQuality::Medium => 5,
-            MatchQuality::Low => 10,
+            TcpMatchQuality::High => 0,
+            TcpMatchQuality::Medium => 5,
+            TcpMatchQuality::Low => 10,
         }
     }
 }
@@ -42,31 +42,31 @@ impl MatchQuality {
 impl Signature {
     fn distance_olen(&self, other: &Self) -> Option<u32> {
         if self.olen == other.olen {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
-            Some(MatchQuality::Low.as_score())
+            Some(TcpMatchQuality::Low.as_score())
         }
     }
 
     fn distance_mss(&self, other: &Self) -> Option<u32> {
         if other.mss.is_none() || self.mss == other.mss {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
-            Some(MatchQuality::Low.as_score())
+            Some(TcpMatchQuality::Low.as_score())
         }
     }
 
     fn distance_wscale(&self, other: &Self) -> Option<u32> {
         if other.wscale.is_none() || self.wscale == other.wscale {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
-            Some(MatchQuality::Medium.as_score())
+            Some(TcpMatchQuality::Medium.as_score())
         }
     }
 
     fn distance_olayout(&self, other: &Self) -> Option<u32> {
         if self.olayout == other.olayout {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
             None
         }
@@ -74,14 +74,14 @@ impl Signature {
 
     fn distance_quirks(&self, other: &Self) -> Option<u32> {
         if self.quirks == other.quirks {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
             None
         }
     }
 
     // Function to calculate the distance between two signatures
-    fn calculate_distance(&self, other: &Self) -> Option<u32> {
+    fn get_distance(&self, other: &Self) -> Option<u32> {
         let distance = self.version.distance_ip_version(&other.version)?
             + self.ittl.distance_ttl(&other.ittl)?
             + self.distance_olen(other)?
@@ -106,7 +106,7 @@ impl Signature {
 
         for (label, sigs) in db {
             for db_sig in sigs {
-                if let Some(distance) = signature.calculate_distance(db_sig) {
+                if let Some(distance) = signature.get_distance(db_sig) {
                     debug!("db_sig: {:?}, distance: {:?}", db_sig.to_string(), distance);
                     if distance < min_distance {
                         min_distance = distance;
@@ -134,11 +134,11 @@ pub enum IpVersion {
 impl IpVersion {
     pub fn distance_ip_version(&self, other: &IpVersion) -> Option<u32> {
         if other == &IpVersion::Any {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
             match (self, other) {
                 (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) => {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 }
                 _ => None,
             }
@@ -172,44 +172,44 @@ impl Ttl {
         match (self, other) {
             (Ttl::Value(a), Ttl::Value(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => {
                 if a1 == b1 && a2 == b2 {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (Ttl::Distance(a1, _), Ttl::Value(b1)) => {
                 if a1 == b1 {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (Ttl::Guess(a), Ttl::Guess(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (Ttl::Bad(a), Ttl::Bad(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (Ttl::Guess(a), Ttl::Value(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             _ => None,
@@ -246,16 +246,16 @@ impl WindowSize {
         match (self, other) {
             (WindowSize::Mss(a), WindowSize::Mss(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (WindowSize::Value(a), WindowSize::Mss(b)) => {
@@ -266,22 +266,22 @@ impl WindowSize {
                             "window size difference: a {}, b {} == ratio_other {}",
                             a, b, ratio_other
                         );
-                        Some(MatchQuality::High.as_score())
+                        Some(TcpMatchQuality::High.as_score())
                     } else {
-                        Some(MatchQuality::Low.as_score())
+                        Some(TcpMatchQuality::Low.as_score())
                     }
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
             (WindowSize::Mod(a), WindowSize::Mod(b)) => {
                 if a == b {
-                    Some(MatchQuality::High.as_score())
+                    Some(TcpMatchQuality::High.as_score())
                 } else {
-                    Some(MatchQuality::Low.as_score())
+                    Some(TcpMatchQuality::Low.as_score())
                 }
             }
-            (_, WindowSize::Any) | (WindowSize::Any, _) => Some(MatchQuality::High.as_score()),
+            (_, WindowSize::Any) | (WindowSize::Any, _) => Some(TcpMatchQuality::High.as_score()),
             _ => None,
         }
     }
@@ -364,7 +364,7 @@ pub enum PayloadSize {
 impl PayloadSize {
     pub fn distance_payload_size(&self, other: &PayloadSize) -> Option<u32> {
         if other == &PayloadSize::Any || self == other {
-            Some(MatchQuality::High.as_score())
+            Some(TcpMatchQuality::High.as_score())
         } else {
             None
         }
