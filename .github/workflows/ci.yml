@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -34,6 +37,9 @@ jobs:
         run: cargo clippy -- -D warnings
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     container:
       image: xd009642/tarpaulin:develop-nightly
       options: --security-opt seccomp=unconfined
