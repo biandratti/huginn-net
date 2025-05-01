@@ -30,6 +30,12 @@ pub struct P0fOutput {
     pub http_response: Option<HttpResponseOutput>,
 }
 
+/// The label identifying the likely client OS or application.
+pub struct MatchedLabel {
+    pub label: Label,
+    pub quality: f32,
+}
+
 /// Holds information derived from analyzing a TCP SYN packet (client initiation).
 ///
 /// This structure contains details about the client system based on its SYN packet,
@@ -39,8 +45,8 @@ pub struct SynTCPOutput {
     pub source: IpPort,
     /// The destination IP address and port of the server receiving the SYN.
     pub destination: IpPort,
-    /// The label identifying the likely client OS or application.
-    pub label: Option<Label>,
+    /// The label with the highest quality that matches the SYN packet.
+    pub matched_label: Option<MatchedLabel>,
     /// The raw TCP signature extracted from the SYN packet.
     pub sig: Signature,
 }
@@ -63,16 +69,20 @@ impl fmt::Display for SynTCPOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.label.as_ref().map_or("???".to_string(), |l| {
-                format!("{}/{}", l.name, l.flavor.as_deref().unwrap_or("???"))
+            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+                format!(
+                    "{}/{}",
+                    l.label.name,
+                    l.label.flavor.as_deref().unwrap_or("???")
+                )
             }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
                 _ => "Unknown".parse().unwrap(),
             },
-            self.label
+            self.matched_label
                 .as_ref()
-                .map_or("none".to_string(), |l| l.ty.to_string()),
+                .map_or("none".to_string(), |l| l.label.ty.to_string()),
             self.sig,
         )
     }
@@ -87,8 +97,8 @@ pub struct SynAckTCPOutput {
     pub source: IpPort,
     /// The destination IP address and port of the client receiving the SYN+ACK.
     pub destination: IpPort,
-    /// The label identifying the likely server OS or application.
-    pub label: Option<Label>,
+    /// The label with the highest quality that matches the SYN+ACK packet.
+    pub matched_label: Option<MatchedLabel>,
     /// The raw TCP signature extracted from the SYN+ACK packet.
     pub sig: Signature,
 }
@@ -111,8 +121,12 @@ impl fmt::Display for SynAckTCPOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.label.as_ref().map_or("???".to_string(), |l| {
-                format!("{}/{}", l.name, l.flavor.as_deref().unwrap_or("???"))
+            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+                format!(
+                    "{}/{}",
+                    l.label.name,
+                    l.label.flavor.as_deref().unwrap_or("???")
+                )
             }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
@@ -120,9 +134,9 @@ impl fmt::Display for SynAckTCPOutput {
                 Ttl::Value(value) => value,
                 Ttl::Guess(value) => value,
             },
-            self.label
+            self.matched_label
                 .as_ref()
-                .map_or("none".to_string(), |l| l.ty.to_string()),
+                .map_or("none".to_string(), |l| l.label.ty.to_string()),
             self.sig,
         )
     }
@@ -227,8 +241,8 @@ pub struct HttpRequestOutput {
     pub lang: Option<String>,
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
-    /// The label identifying the likely client application (e.g., browser, crawler).
-    pub label: Option<Label>,
+    /// The label identifying the likely client application (e.g., browser, crawler) and the quality.
+    pub matched_label: Option<MatchedLabel>,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
@@ -251,9 +265,13 @@ impl fmt::Display for HttpRequestOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.label
-                .as_ref()
-                .map_or("???".to_string(), |l| l.name.clone()),
+            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+                format!(
+                    "{}/{}",
+                    l.label.name,
+                    l.label.flavor.as_deref().unwrap_or("???")
+                )
+            }),
             self.lang.as_deref().unwrap_or("???"),
             self.diagnosis,
             self.sig,
@@ -272,8 +290,8 @@ pub struct HttpResponseOutput {
     pub destination: IpPort,
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
-    /// The label identifying the likely server application (e.g., Apache, Nginx).
-    pub label: Option<Label>,
+    /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
+    pub matched_label: Option<MatchedLabel>,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
@@ -295,9 +313,13 @@ impl fmt::Display for HttpResponseOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.label
-                .as_ref()
-                .map_or("???".to_string(), |l| l.name.clone()),
+            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+                format!(
+                    "{}/{}",
+                    l.label.name,
+                    l.label.flavor.as_deref().unwrap_or("???")
+                )
+            }),
             self.diagnosis,
             self.sig,
         )

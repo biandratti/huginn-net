@@ -11,32 +11,34 @@ impl<'a> SignatureMatcher<'a> {
         Self { database }
     }
 
+    fn get_quality(distance: u32) -> f32 {
+        (100 - distance) as f32 / 100.0
+    }
+
     pub fn matching_by_tcp_request(
         &self,
         signature: &tcp::Signature,
-    ) -> Option<(&'a Label, &'a tcp::Signature)> {
-        for (label, db_signatures) in &self.database.tcp_request {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
-            }
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(signature, &self.database.tcp_request)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_tcp_response(
         &self,
         signature: &tcp::Signature,
-    ) -> Option<(&'a Label, &'a tcp::Signature)> {
-        for (label, db_signatures) in &self.database.tcp_response {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
-            }
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(signature, &self.database.tcp_response)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
@@ -53,29 +55,27 @@ impl<'a> SignatureMatcher<'a> {
     pub fn matching_by_http_request(
         &self,
         signature: &http::Signature,
-    ) -> Option<(&'a Label, &'a http::Signature)> {
-        for (label, db_signatures) in &self.database.http_request {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
-            }
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> {
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(signature, &self.database.http_request)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_http_response(
         &self,
         signature: &http::Signature,
-    ) -> Option<(&'a Label, &'a http::Signature)> {
-        for (label, db_signatures) in &self.database.http_response {
-            for db_signature in db_signatures {
-                if signature.matches(db_signature) {
-                    return Some((label, db_signature));
-                }
-            }
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> {
+        if let Some((label, closest_signature, distance)) =
+            signature.find_closest_signature(signature, &self.database.http_response)
+        {
+            Some((label, closest_signature, Self::get_quality(distance)))
+        } else {
+            None
         }
-        None
     }
 
     pub fn matching_by_user_agent(
@@ -88,5 +88,116 @@ impl<'a> SignatureMatcher<'a> {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Type;
+    use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+    use crate::Database;
+
+    #[test]
+    fn matching_linux_by_tcp_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let linux_signature = Signature {
+            version: IpVersion::V4,
+            ittl: Ttl::Value(64),
+            olen: 0,
+            mss: Some(1460),
+            wsize: WindowSize::Mss(44),
+            wscale: Some(7),
+            olayout: vec![
+                TcpOption::Mss,
+                TcpOption::Sok,
+                TcpOption::TS,
+                TcpOption::Nop,
+                TcpOption::Ws,
+            ],
+            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            pclass: PayloadSize::Zero,
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_tcp_request(&linux_signature) {
+            assert_eq!(label.name, "Linux");
+            assert_eq!(label.class, Some("unix".to_string()));
+            assert_eq!(label.flavor, Some("2.2.x-3.x".to_string()));
+            assert_eq!(label.ty, Type::Generic);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found");
+        }
+    }
+
+    #[test]
+    fn matching_android_by_tcp_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let android_signature = Signature {
+            version: IpVersion::V4,
+            ittl: Ttl::Value(64),
+            olen: 0,
+            mss: Some(1460),
+            wsize: WindowSize::Value(65535),
+            wscale: Some(3),
+            olayout: vec![
+                TcpOption::Mss,
+                TcpOption::Sok,
+                TcpOption::TS,
+                TcpOption::Nop,
+                TcpOption::Ws,
+            ],
+            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            pclass: PayloadSize::Zero,
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_tcp_request(&android_signature) {
+            assert_eq!(label.name, "Linux");
+            assert_eq!(label.class, Some("unix".to_string()));
+            assert_eq!(label.flavor, Some("(Android)".to_string()));
+            assert_eq!(label.ty, Type::Specified);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found");
+        }
+    }
+
+    #[test]
+    fn matching_firefox2_by_http_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let firefox_signature = http::Signature {
+            version: http::Version::V10,
+            horder: vec![
+                http::Header::new("Host"),
+                http::Header::new("User-Agent"),
+                http::Header::new("Accept").with_value(",*/*;q="),
+                http::Header::new("Accept-Language").optional(),
+                http::Header::new("Accept-Encoding").with_value("gzip,deflate"),
+                http::Header::new("Accept-Charset").with_value("utf-8;q=0.7,*;q=0.7"),
+                http::Header::new("Keep-Alive").with_value("300"),
+                http::Header::new("Connection").with_value("keep-alive"),
+            ],
+            habsent: vec![],
+            expsw: "Firefox/".to_string(),
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_http_request(&firefox_signature) {
+            assert_eq!(label.name, "Firefox");
+            assert_eq!(label.class, None);
+            assert_eq!(label.flavor, Some("2.x".to_string()));
+            assert_eq!(label.ty, Type::Specified);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found for Firefox 2.x HTTP signature");
+        }
     }
 }

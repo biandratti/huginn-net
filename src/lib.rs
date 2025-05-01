@@ -26,6 +26,7 @@ use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
 use log::{debug, error};
+use p0f_output::MatchedLabel;
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
@@ -145,10 +146,13 @@ impl<'a> P0f<'a> {
                             .map(|observable_tcp| SynTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                label: self
+                                matched_label: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _signature)| label.clone()),
+                                    .map(|(label, _signature, quality)| MatchedLabel {
+                                        label: label.clone(),
+                                        quality,
+                                    }),
                                 sig: observable_tcp.signature,
                             });
 
@@ -158,10 +162,13 @@ impl<'a> P0f<'a> {
                             .map(|observable_tcp| SynAckTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                label: self
+                                matched_label: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _signature)| label.clone()),
+                                    .map(|(label, _signature, quality)| MatchedLabel {
+                                        label: label.clone(),
+                                        quality,
+                                    }),
                                 sig: observable_tcp.signature,
                             });
 
@@ -178,7 +185,7 @@ impl<'a> P0f<'a> {
 
                     let http_request: Option<HttpRequestOutput> =
                         observable_package.http_request.map(|http_request| {
-                            let signature_matcher: Option<(&Label, &Signature)> = self
+                            let signature_matcher: Option<(&Label, &Signature, f32)> = self
                                 .matcher
                                 .matching_by_http_request(&http_request.signature);
 
@@ -190,14 +197,19 @@ impl<'a> P0f<'a> {
                             let http_diagnosis = http_process::get_diagnostic(
                                 http_request.user_agent,
                                 ua_matcher,
-                                signature_matcher.map(|(label, _signature)| label),
+                                signature_matcher.map(|(label, _signature, _quality)| label),
                             );
 
                             HttpRequestOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: http_request.lang,
-                                label: signature_matcher.map(|(label, _signature)| label.clone()),
+                                matched_label: signature_matcher.map(
+                                    |(label, _signature, quality)| MatchedLabel {
+                                        label: label.clone(),
+                                        quality,
+                                    },
+                                ),
                                 diagnosis: http_diagnosis,
                                 sig: http_request.signature,
                             }
@@ -208,10 +220,13 @@ impl<'a> P0f<'a> {
                         .map(|http_response| HttpResponseOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
-                            label: self
+                            matched_label: self
                                 .matcher
                                 .matching_by_http_response(&http_response.signature)
-                                .map(|(label, _signature)| label.clone()),
+                                .map(|(label, _signature, quality)| MatchedLabel {
+                                    label: label.clone(),
+                                    quality,
+                                }),
                             diagnosis: HttpDiagnosis::None,
                             sig: http_response.signature,
                         });
