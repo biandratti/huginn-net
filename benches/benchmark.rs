@@ -18,7 +18,11 @@ fn load_packets_from_pcap(path: &str) -> Vec<Vec<u8>> {
     packets
 }
 
-// To run the benchmark, you need to have the dump.pca file in your home directory.
+// Before running the benchmark, you need to create the dump.pca file with tcpdump from the following command:
+// ```sh
+// sudo tcpdump -w dump.pca
+// ```
+// Then to run the test, you need to have the dump.pca file in your home directory.
 fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     let db = Box::leak(Box::new(Database::default()));
     let mut p0f = P0f::new(db, 100);
