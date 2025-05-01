@@ -167,4 +167,37 @@ mod tests {
             panic!("No match found");
         }
     }
+
+    #[test]
+    fn matching_firefox2_by_http_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let firefox_signature = http::Signature {
+            version: http::Version::V10,
+            horder: vec![
+                http::Header::new("Host"),
+                http::Header::new("User-Agent"),
+                http::Header::new("Accept").with_value(",*/*;q="),
+                http::Header::new("Accept-Language").optional(),
+                http::Header::new("Accept-Encoding").with_value("gzip,deflate"),
+                http::Header::new("Accept-Charset").with_value("utf-8;q=0.7,*;q=0.7"),
+                http::Header::new("Keep-Alive").with_value("300"),
+                http::Header::new("Connection").with_value("keep-alive"),
+            ],
+            habsent: vec![],
+            expsw: "Firefox/".to_string(),
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_http_request(&firefox_signature) {
+            assert_eq!(label.name, "Firefox");
+            assert_eq!(label.class, None);
+            assert_eq!(label.flavor, Some("2.x".to_string()));
+            assert_eq!(label.ty, Type::Specified);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found for Firefox 2.x HTTP signature");
+        }
+    }
 }

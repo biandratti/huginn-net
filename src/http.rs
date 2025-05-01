@@ -31,6 +31,13 @@ impl HttpMatchQuality {
 }
 
 impl Signature {
+    pub fn distance_ip_version(&self, other: &Self) -> Option<u32> {
+        if other.version == Version::Any || self.version == other.version {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
     fn distance_horder(&self, other: &Self) -> Option<u32> {
         if self.horder == other.horder {
             Some(HttpMatchQuality::High.as_score())
@@ -56,7 +63,8 @@ impl Signature {
     }
 
     pub fn get_distance(&self, other: &Self) -> Option<u32> {
-        let distance = self.distance_horder(other)?
+        let distance = self.distance_ip_version(other)?
+            + self.distance_horder(other)?
             + self.distance_habsent(other)?
             + self.distance_expsw(other)?;
 
@@ -71,7 +79,6 @@ impl Signature {
         let mut best_label = None;
         let mut best_sig = None;
         let mut min_distance = u32::MAX;
-
         for (label, sigs) in db {
             for db_sig in sigs {
                 if let Some(distance) = signature.get_distance(db_sig) {
@@ -98,16 +105,6 @@ pub enum Version {
     V10,
     V11,
     Any,
-}
-
-impl Version {
-    pub fn distance_matched_version(&self, other: &Version) -> Option<u32> {
-        if other == &Version::Any || self == other {
-            Some(HttpMatchQuality::High.as_score())
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
