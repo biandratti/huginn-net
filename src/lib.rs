@@ -124,7 +124,14 @@ impl<'a> P0f<'a> {
         }
     }
 
-    fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
+    /// Analyzes a TCP packet and returns a `P0fOutput` object.
+    ///
+    /// # Parameters
+    /// - `packet`: A reference to the TCP packet to analyze.
+    ///
+    /// # Returns
+    /// A `P0fOutput` object containing the analysis results.
+    pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response) = {

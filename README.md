@@ -8,7 +8,7 @@
 An experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C. This library aims to bring the power of passive TCP/IP fingerprinting to the Rust ecosystem while offering a more modern, efficient, and extensible implementation.
 
 #### What is Passive TCP Fingerprinting?
-Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system’s OS type, version, and network stack implementation.
+Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
 
 #### This technique is useful for a variety of purposes, including:
 - Network analysis: Identifying the types of devices and systems on a network without active scanning.
@@ -89,7 +89,7 @@ passivetcp-rs = "0.1.0-beta.2"
 ```
 
 ### Usage
-Here’s a basic example of how to use passivetcp-rs:
+Here's a basic example of how to use passivetcp-rs:
 ```rust
 use passivetcp_rs::db::Database;
 use passivetcp_rs::P0f;
@@ -123,6 +123,43 @@ for output in receiver {
     }
 }
 ```
+
+### Benchmark
+
+The following benchmark was run using `cargo bench` in release mode on a real pcap file containing a mix of SYN, SYN-ACK, MTU, Uptime, and HTTP packets.
+
+**Packages analyzed:**
+- SYN:           164
+- SYN-ACK:       152
+- MTU:           164
+- Uptime:        144
+- HTTP Request:  2
+- HTTP Response: 4
+
+**Performance results:**
+
+| Metric                | Value                |
+|-----------------------|---------------------|
+| Total packets         | 164 (SYN, main ref) |
+| Total time (mean)     | 513.67 ms           |
+| Time per packet (mean)| ~3.13 ms            |
+| Throughput            | ~320 packets/sec    |
+| Criterion sample size | 100                 |
+| Measurement time      | 60 seconds          |
+
+**How to reproduce:**
+```sh
+cargo build --release
+cargo bench
+```
+
+> _Note: The benchmark measures only the core library processing, not the full CLI binary. For end-to-end timing, use `/usr/bin/time ./target/release/your_binary`._
+
+---
+
+**Interpretation:**  
+- The library processes each packet in approximately 3.1 ms on this dataset.
+
 
 ### Contributing
 This library is in its early stages, and contributions are very welcome. If you have ideas for additional features, bug fixes, or optimizations, please feel free to open issues or submit pull requests. We are particularly looking for help with extending the feature set and improving the performance of the library.
