@@ -16,16 +16,18 @@ pub struct Signature {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpMatchQuality {
     High,
-    // Medium,
-    // Low,
+    Medium,
+    Low,
+    Bad,
 }
 
 impl HttpMatchQuality {
     pub fn as_score(self) -> u32 {
         match self {
             HttpMatchQuality::High => 0,
-            // HttpMatchQuality::Medium => 5,
-            // HttpMatchQuality::Low => 10,
+            HttpMatchQuality::Medium => 5,
+            HttpMatchQuality::Low => 10,
+            HttpMatchQuality::Bad => 20,
         }
     }
 }
@@ -38,27 +40,41 @@ impl Signature {
             None
         }
     }
-    fn distance_horder(&self, other: &Self) -> Option<u32> {
-        if self.horder == other.horder {
-            Some(HttpMatchQuality::High.as_score())
-        } else {
-            None
+
+    // Compare two header vectors and return the number of matching headers.
+    // The quality is based on the number of matching headers.
+    fn distance_header(a: &[Header], b: &[Header]) -> Option<u32> {
+        let min_len = a.len().min(b.len());
+        let mut matches = 0;
+
+        for i in 0..min_len {
+            if a[i] == b[i] {
+                matches += 1;
+            }
+        }
+
+        match matches {
+            n if n == min_len && a.len() == b.len() => Some(HttpMatchQuality::High.as_score()),
+            4 => Some(HttpMatchQuality::Medium.as_score()),
+            3 => Some(HttpMatchQuality::Low.as_score()),
+            2 => Some(HttpMatchQuality::Bad.as_score()),
+            _ => None,
         }
     }
 
+    fn distance_horder(&self, other: &Self) -> Option<u32> {
+        Self::distance_header(&self.horder, &other.horder)
+    }
+
     fn distance_habsent(&self, other: &Self) -> Option<u32> {
-        if self.habsent == other.habsent {
-            Some(HttpMatchQuality::High.as_score())
-        } else {
-            None
-        }
+        Self::distance_header(&self.habsent, &other.habsent)
     }
 
     fn distance_expsw(&self, other: &Self) -> Option<u32> {
         if self.expsw == other.expsw {
             Some(HttpMatchQuality::High.as_score())
         } else {
-            None
+            Some(HttpMatchQuality::Low.as_score())
         }
     }
 
