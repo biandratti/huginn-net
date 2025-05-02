@@ -746,7 +746,7 @@ dependencies = [
 
 [[package]]
 name = "passivetcp-rs"
-version = "0.1.0-beta.2"
+version = "1.0.0"
 dependencies = [
  "clap",
  "criterion",
