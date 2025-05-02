@@ -5,7 +5,8 @@
 [![CI](https://github.com/biandratti/passivetcp-rs/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
 [![codecov](https://codecov.io/github/biandratti/passivetcp-rs/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/passivetcp-rs)
 
-An experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C. This library aims to bring the power of passive TCP/IP fingerprinting to the Rust ecosystem while offering a more modern, efficient, and extensible implementation.
+#### Why use passivetcp-rs?
+Thanks to its modern Rust implementation, passivetcp-rs achieves performance results comparable to the original p0f tool, while offering significant advantages in maintainability and safety. The codebase is fully typed, leveraging Rust’s powerful type system to prevent entire classes of bugs at compile time. The library is designed for easy extension and comes with comprehensive unit and integration tests, making it robust and reliable for both research and production use. Its modular architecture and clear APIs make it straightforward to integrate, adapt, and maintain, even as your needs evolve. If you’re looking for a passive fingerprinting engine that combines the proven accuracy of p0f with the safety, speed, and maintainability of Rust, passivetcp-rs is the ideal choice.
 
 #### What is Passive TCP Fingerprinting?
 Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
@@ -16,7 +17,7 @@ Passive TCP fingerprinting is a technique that allows you to infer information a
 - Fingerprinting for research: Understanding patterns in network traffic and improving security posture.
 About passivetcp-rs
 
-This Rust implementation of passive TCP fingerprinting is still in its experimental phase, and while it builds upon the established ideas of p0f, it is not yet feature-complete. The library currently provides basic functionality, but we plan to expand its capabilities as the project matures.
+This Rust implementation of passive TCP fingerprinting builds on the proven concepts of p0f, delivering a modern, type-safe, and maintainable codebase. While the library already offers robust core functionality, we are actively working to expand its features and capabilities as the project evolves. Our goal is to provide a powerful, extensible, and production-ready toolkit for passive network analysis in the Rust ecosystem.
 
 ### Example
 ```
@@ -126,40 +127,9 @@ for output in receiver {
 
 ### Benchmark
 
-The following benchmark was run using `cargo bench` in release mode on a real pcap file containing a mix of SYN, SYN-ACK, MTU, Uptime, and HTTP packets.
+Performance benchmarks are available in the [benches/README.md](benches/README.md).
 
-**Packages analyzed:**
-- SYN:           164
-- SYN-ACK:       152
-- MTU:           164
-- Uptime:        144
-- HTTP Request:  2
-- HTTP Response: 4
-
-**Performance results:**
-
-| Metric                | Value                |
-|-----------------------|---------------------|
-| Total packets         | 164 (SYN, main ref) |
-| Total time (mean)     | 513.67 ms           |
-| Time per packet (mean)| ~3.13 ms            |
-| Throughput            | ~320 packets/sec    |
-| Criterion sample size | 100                 |
-| Measurement time      | 60 seconds          |
-
-**How to reproduce:**
-```sh
-cargo build --release
-cargo bench
-```
-
-> _Note: The benchmark measures only the core library processing, not the full CLI binary. For end-to-end timing, use `/usr/bin/time ./target/release/your_binary`._
-
----
-
-**Interpretation:**  
-- The library processes each packet in approximately 3.1 ms on this dataset.
-
+In summary, the library processes each packet in approximately **3.1 ms** on a real-world dataset (see details in the benches folder).
 
 ### Contributing
 This library is in its early stages, and contributions are very welcome. If you have ideas for additional features, bug fixes, or optimizations, please feel free to open issues or submit pull requests. We are particularly looking for help with extending the feature set and improving the performance of the library.
