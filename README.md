@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/github/biandratti/passivetcp-rs/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/passivetcp-rs)
 
 #### Why use passivetcp-rs?
-Thanks to its modern Rust implementation, passivetcp-rs achieves performance results comparable to the original p0f tool, while offering significant advantages in maintainability and safety. The codebase is fully typed, leveraging Rust’s powerful type system to prevent entire classes of bugs at compile time. The library is designed for easy extension and comes with comprehensive unit and integration tests, making it robust and reliable for both research and production use. Its modular architecture and clear APIs make it straightforward to integrate, adapt, and maintain, even as your needs evolve. If you’re looking for a passive fingerprinting engine that combines the proven accuracy of p0f with the safety, speed, and maintainability of Rust, passivetcp-rs is the ideal choice.
+Thanks to its modern Rust implementation, passivetcp-rs achieves performance results comparable to the original p0f tool, while offering significant advantages in maintainability and safety. The codebase is fully typed, leveraging Rust's powerful type system to prevent entire classes of bugs at compile time. The library is designed for easy extension and comes with comprehensive unit and integration tests, making it robust and reliable for both research and production use. Its modular architecture and clear APIs make it straightforward to integrate, adapt, and maintain, even as your needs evolve. If you're looking for a passive fingerprinting engine that combines the proven accuracy of p0f with the safety, speed, and maintainability of Rust, passivetcp-rs is the ideal choice.
 
 #### What is Passive TCP Fingerprinting?
 Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
@@ -130,6 +130,16 @@ for output in receiver {
 Performance benchmarks are available in the [benches/README.md](benches/README.md).
 
 In summary, the library processes each packet in approximately **3.1 ms** on a real-world dataset (see details in the benches folder).
+
+### UI for Testing
+For interactive analysis and visualization of fingerprinting results, you can use the companion web application:
+
+**[tcp-profiler: Passive TCP Fingerprint Analyzer](https://github.com/biandratti/tcp-profiler)**
+This tool allows you to:
+- Visualize detected fingerprints and their details
+- Experiment with different signature databases
+
+Visit the [tcp-profiler GitHub page](https://github.com/biandratti/tcp-profiler) for setup instructions and more information.
 
 ### Contributing
 Contributions are very welcome! If you have ideas for additional features, bug fixes, or optimizations, please feel free to open issues or submit pull requests. We are particularly looking for help with extending the feature set and improving the performance of the library.
