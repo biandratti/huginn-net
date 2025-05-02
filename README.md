@@ -20,7 +20,7 @@ About passivetcp-rs
 This Rust implementation of passive TCP fingerprinting builds on the proven concepts of p0f, delivering a modern, type-safe, and maintainable codebase. While the library already offers robust core functionality, we are actively working to expand its features and capabilities as the project evolves. Our goal is to provide a powerful, extensible, and production-ready toolkit for passive network analysis in the Rust ecosystem.
 
 ### Example
-```
+```sh
 cargo build --release --examples
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE> -l <LOG_FILE.LOG>
 ```
@@ -86,7 +86,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE>
 To use passivetcp-rs in your Rust project, add the following dependency to your `Cargo.toml`:
 ```toml
 [dependencies]
-passivetcp-rs = "0.1.0-beta.2"
+passivetcp-rs = "1.0.0"
 ```
 
 ### Usage
@@ -132,7 +132,20 @@ Performance benchmarks are available in the [benches/README.md](benches/README.m
 In summary, the library processes each packet in approximately **3.1 ms** on a real-world dataset (see details in the benches folder).
 
 ### Contributing
-This library is in its early stages, and contributions are very welcome. If you have ideas for additional features, bug fixes, or optimizations, please feel free to open issues or submit pull requests. We are particularly looking for help with extending the feature set and improving the performance of the library.
+Contributions are very welcome! If you have ideas for additional features, bug fixes, or optimizations, please feel free to open issues or submit pull requests. We are particularly looking for help with extending the feature set and improving the performance of the library.
+
+**Database contributions are especially important:**  
+The accuracy of passive fingerprinting depends heavily on the quality and diversity of the signature database. You can find different database versions in the `config/` directory (with the `.fp` extension).  
+If you have new or improved detection patterns, unusual device signatures, or updated fingerprints, please consider contributing them!  
+Your contributions will help improve detection quality for everyone.
+
+### Next steps
+The plan for this library is to continue improving the quality and coverage of fingerprint detection. Upcoming goals include:
+
+- **Expanding the signature database:** Continuously adding new and updated fingerprints for better detection accuracy.
+- **New protocol support:** Adding support for additional fingerprinting methods, such as **TLS fingerprinting** and potentially other protocols.
+- **Feature enhancements:** Improving detection algorithms, performance, and usability based on community feedback.
+- **Better tooling:** Providing utilities for easier database updates, visualization, and integration with other security tools.
 
 ### License
 This project is licensed under the MIT License.
