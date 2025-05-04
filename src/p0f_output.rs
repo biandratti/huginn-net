@@ -1,4 +1,4 @@
-use crate::db::Label;
+use crate::db::{Label, Type};
 use crate::http;
 use crate::http::HttpDiagnosis;
 use crate::process::IpPort;
@@ -30,9 +30,34 @@ pub struct P0fOutput {
     pub http_response: Option<HttpResponseOutput>,
 }
 
-/// The label identifying the likely client OS or application.
-pub struct MatchedLabel {
-    pub label: Label,
+/// Represents an operative system.
+///
+/// This struct contains the name, family, variant, and kind of operative system.
+/// Examples:
+/// - name: "Linux", family: "unix", variant: "2.2.x-3.x", kind: Type::Specified
+/// - name: "Windows", family: "win", variant: "NT kernel 6.x", kind: Type::Specified
+/// - name: "iOS", family: "unix", variant: "iPhone or iPad", kind: Type::Specified
+pub struct OperativeSystem {
+    pub name: String,
+    pub family: Option<String>,
+    pub variant: Option<String>,
+    pub kind: Type,
+}
+
+impl From<&Label> for OperativeSystem {
+    fn from(label: &Label) -> Self {
+        OperativeSystem {
+            name: label.name.clone(),
+            family: label.class.clone(),
+            variant: label.flavor.clone(),
+            kind: label.ty.clone(),
+        }
+    }
+}
+
+/// The operative system with the highest quality that matches the packet. Quality is a value between 0.0 and 1.0. 1.0 is a perfect match.
+pub struct OSQualityMatched {
+    pub os: OperativeSystem,
     pub quality: f32,
 }
 
@@ -45,8 +70,8 @@ pub struct SynTCPOutput {
     pub source: IpPort,
     /// The destination IP address and port of the server receiving the SYN.
     pub destination: IpPort,
-    /// The label with the highest quality that matches the SYN packet.
-    pub matched_label: Option<MatchedLabel>,
+    /// The operative system with the highest quality that matches the SYN packet.
+    pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN packet.
     pub sig: Signature,
 }
@@ -69,20 +94,21 @@ impl fmt::Display for SynTCPOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+            self.os_matched.as_ref().map_or("???".to_string(), |l| {
                 format!(
-                    "{}/{}",
-                    l.label.name,
-                    l.label.flavor.as_deref().unwrap_or("???")
+                    "{}/{}/{}",
+                    l.os.name,
+                    l.os.family.as_deref().unwrap_or("???"),
+                    l.os.variant.as_deref().unwrap_or("??")
                 )
             }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
                 _ => "Unknown".parse().unwrap(),
             },
-            self.matched_label
+            self.os_matched
                 .as_ref()
-                .map_or("none".to_string(), |l| l.label.ty.to_string()),
+                .map_or("none".to_string(), |l| l.os.kind.to_string()),
             self.sig,
         )
     }
@@ -97,8 +123,8 @@ pub struct SynAckTCPOutput {
     pub source: IpPort,
     /// The destination IP address and port of the client receiving the SYN+ACK.
     pub destination: IpPort,
-    /// The label with the highest quality that matches the SYN+ACK packet.
-    pub matched_label: Option<MatchedLabel>,
+    /// The operative system with the highest quality that matches the SYN+ACK packet.
+    pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN+ACK packet.
     pub sig: Signature,
 }
@@ -121,11 +147,12 @@ impl fmt::Display for SynAckTCPOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+            self.os_matched.as_ref().map_or("???".to_string(), |l| {
                 format!(
-                    "{}/{}",
-                    l.label.name,
-                    l.label.flavor.as_deref().unwrap_or("???")
+                    "{}/{}/{}",
+                    l.os.name,
+                    l.os.family.as_deref().unwrap_or("???"),
+                    l.os.variant.as_deref().unwrap_or("??")
                 )
             }),
             match self.sig.ittl {
@@ -134,9 +161,9 @@ impl fmt::Display for SynAckTCPOutput {
                 Ttl::Value(value) => value,
                 Ttl::Guess(value) => value,
             },
-            self.matched_label
+            self.os_matched
                 .as_ref()
-                .map_or("none".to_string(), |l| l.label.ty.to_string()),
+                .map_or("none".to_string(), |l| l.os.kind.to_string()),
             self.sig,
         )
     }
@@ -227,6 +254,35 @@ impl fmt::Display for UptimeOutput {
     }
 }
 
+pub struct BrowserQualityMatched {
+    pub browser: Browser,
+    pub quality: f32,
+}
+
+/// Represents a browser.
+///
+/// This struct contains the name, family, variant, and kind of browser.
+/// Examples:
+/// - name: "", family: "chrome", variant: "11.x to 26.x", kind: Type::Specified
+/// - name: "", family: "firefox", variant: "3.x", kind: Type::Specified
+pub struct Browser {
+    pub name: String,
+    pub family: Option<String>,
+    pub variant: Option<String>,
+    pub kind: Type,
+}
+
+impl From<&Label> for Browser {
+    fn from(label: &Label) -> Self {
+        Browser {
+            name: label.name.clone(),
+            family: label.class.clone(),
+            variant: label.flavor.clone(),
+            kind: label.ty.clone(),
+        }
+    }
+}
+
 /// Holds information derived from analyzing HTTP request headers.
 ///
 /// This structure contains details about the client, the detected application
@@ -241,8 +297,8 @@ pub struct HttpRequestOutput {
     pub lang: Option<String>,
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
-    /// The label identifying the likely client application (e.g., browser, crawler) and the quality.
-    pub matched_label: Option<MatchedLabel>,
+    /// The browser with the highest quality that matches the HTTP request.
+    pub browser_matched: Option<BrowserQualityMatched>,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
@@ -265,17 +321,49 @@ impl fmt::Display for HttpRequestOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.matched_label.as_ref().map_or("???".to_string(), |l| {
-                format!(
-                    "{}/{}",
-                    l.label.name,
-                    l.label.flavor.as_deref().unwrap_or("???")
-                )
-            }),
+            self.browser_matched
+                .as_ref()
+                .map_or("???".to_string(), |l| {
+                    format!(
+                        "{}/{}/{}",
+                        l.browser.name,
+                        l.browser.family.as_deref().unwrap_or("???"),
+                        l.browser.variant.as_deref().unwrap_or("???")
+                    )
+                }),
             self.lang.as_deref().unwrap_or("???"),
             self.diagnosis,
             self.sig,
         )
+    }
+}
+
+pub struct WebServerQualityMatched {
+    pub web_server: WebServer,
+    pub quality: f32,
+}
+
+/// Represents a web server.
+///
+/// This struct contains the name, family, variant, and kind of browser.
+/// Examples:
+/// - name: "", family: "apache", variant: "2.x", kind: Type::Specified
+/// - name: "", family: "nginx", variant: "1.x", kind: Type::Specified
+pub struct WebServer {
+    pub name: String,
+    pub family: Option<String>,
+    pub variant: Option<String>,
+    pub kind: Type,
+}
+
+impl From<&Label> for WebServer {
+    fn from(label: &Label) -> Self {
+        WebServer {
+            name: label.name.clone(),
+            family: label.class.clone(),
+            variant: label.flavor.clone(),
+            kind: label.ty.clone(),
+        }
     }
 }
 
@@ -291,7 +379,7 @@ pub struct HttpResponseOutput {
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
     /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
-    pub matched_label: Option<MatchedLabel>,
+    pub web_server_matched: Option<WebServerQualityMatched>,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: http::Signature,
 }
@@ -313,13 +401,16 @@ impl fmt::Display for HttpResponseOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.matched_label.as_ref().map_or("???".to_string(), |l| {
-                format!(
-                    "{}/{}",
-                    l.label.name,
-                    l.label.flavor.as_deref().unwrap_or("???")
-                )
-            }),
+            self.web_server_matched
+                .as_ref()
+                .map_or("???".to_string(), |l| {
+                    format!(
+                        "{}/{}/{}",
+                        l.web_server.name,
+                        l.web_server.family.as_deref().unwrap_or("???"),
+                        l.web_server.variant.as_deref().unwrap_or("???")
+                    )
+                }),
             self.diagnosis,
             self.sig,
         )
