@@ -8,7 +8,7 @@
     <meta name="generator" content="Docusaurus" />
     <meta
             name="description"
-            content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
+            content="A modern Rust library inspired by p0f, the renowned passive OS fingerprinting tool. Designed for extensibility, this project aims to advance the state of passive TCP fingerprinting by supporting new features, protocols, and detection standards."
     />
     <meta name="docsearch:language" content="en" />
     <meta property="og:title" content="Overview · Passive TCP fingerprint" />
@@ -16,7 +16,7 @@
     <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
     <meta
             property="og:description"
-            content="It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C."
+            content="A modern Rust library inspired by p0f, the renowned passive OS fingerprinting tool. Designed for extensibility, this project aims to advance the state of passive TCP fingerprinting by supporting new features, protocols, and detection standards."
     />
     <meta name="twitter:card" content="summary" />
     <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
@@ -148,9 +148,9 @@
                         <div>
                                     <span>
                                         <p>
-                                            It is an experimental Rust library inspired by p0f, the well-known passive OS fingerprinting tool originally written in C.
-                                            This library aims to bring the power of passive TCP/IP fingerprinting to the Rust ecosystem while offering a more modern, efficient, and extensible implementation.<br />
-                                            This passive TCP fingerprint library uses <a href="https://crates.io/crates/pnet">pnet</a> and <a href="https://crates.io/crates/httparse">httparse</a> libraries to analyze and parse TCP packets to capture HTTP traffic.
+                                            <strong>passivetcp-rs</strong> is a modern Rust library for passive TCP/IP fingerprinting, inspired by the classic <em>p0f</em> tool. Its goal is to provide a robust, extensible, and efficient foundation for identifying operating systems and applications from network traffic.<br />
+                                            Designed for easy integration and future expansion, <strong>passivetcp-rs</strong> supports new fingerprinting features, protocols, and detection standards.<br />
+                                            The library leverages <a href="https://crates.io/crates/pnet">pnet</a> for packet capture and <a href="https://crates.io/crates/httparse">httparse</a> for HTTP parsing, enabling accurate analysis of TCP and HTTP flows in both live and offline environments.
                                         </p>
 
                                         <h2>
@@ -170,7 +170,7 @@
                                             It's possible to make educated guesses about the remote system's OS, network setup, and sometimes even its uptime.
                                         </p>
                                         <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                        <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "0.1.0-alpha.3"</code></pre>
+                                        <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "1.0.0"</code></pre>
 
                                         <h3>
                                             <a class="anchor" aria-hidden="true" id="features"></a>
