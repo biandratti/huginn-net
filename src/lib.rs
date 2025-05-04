@@ -19,8 +19,8 @@ use crate::db::{Database, Label};
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
 use crate::p0f_output::{
-    HttpRequestOutput, HttpResponseOutput, MTUOutput, P0fOutput, SynAckTCPOutput, SynTCPOutput,
-    UptimeOutput,
+    HttpRequestOutput, HttpResponseOutput, MTUOutput, OSQualityMatched, OperativeSystem, P0fOutput,
+    SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
@@ -153,11 +153,11 @@ impl<'a> P0f<'a> {
                             .map(|observable_tcp| SynTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                matched_label: self
+                                os_matched: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _signature, quality)| MatchedLabel {
-                                        label: label.clone(),
+                                    .map(|(label, _signature, quality)| OSQualityMatched {
+                                        os: OperativeSystem::from(label),
                                         quality,
                                     }),
                                 sig: observable_tcp.signature,
@@ -169,11 +169,11 @@ impl<'a> P0f<'a> {
                             .map(|observable_tcp| SynAckTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                matched_label: self
+                                os_matched: self
                                     .matcher
                                     .matching_by_tcp_request(&observable_tcp.signature)
-                                    .map(|(label, _signature, quality)| MatchedLabel {
-                                        label: label.clone(),
+                                    .map(|(label, _signature, quality)| OSQualityMatched {
+                                        os: OperativeSystem::from(label),
                                         quality,
                                     }),
                                 sig: observable_tcp.signature,

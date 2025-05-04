@@ -1,4 +1,4 @@
-use crate::db::Label;
+use crate::db::{Label, Type};
 use crate::http;
 use crate::http::HttpDiagnosis;
 use crate::process::IpPort;
@@ -30,7 +30,33 @@ pub struct P0fOutput {
     pub http_response: Option<HttpResponseOutput>,
 }
 
-/// The label identifying the likely client OS or application.
+/// Represents an operative system.
+///
+/// This struct contains the name, family, variant, and kind of operative system.
+pub struct OperativeSystem {
+    pub name: String,
+    pub family: Option<String>,
+    pub variant: Option<String>,
+    pub kind: Type,
+}
+
+impl From<&Label> for OperativeSystem {
+    fn from(label: &Label) -> Self {
+        OperativeSystem {
+            name: label.name.clone(),
+            family: label.class.clone(),
+            variant: label.flavor.clone(),
+            kind: label.ty.clone(),
+        }
+    }
+}
+
+/// The operative system with the highest quality that matches the packet. Quality is a value between 0.0 and 1.0. 1.0 is a perfect match.
+pub struct OSQualityMatched {
+    pub os: OperativeSystem,
+    pub quality: f32,
+}
+
 pub struct MatchedLabel {
     pub label: Label,
     pub quality: f32,
@@ -45,8 +71,8 @@ pub struct SynTCPOutput {
     pub source: IpPort,
     /// The destination IP address and port of the server receiving the SYN.
     pub destination: IpPort,
-    /// The label with the highest quality that matches the SYN packet.
-    pub matched_label: Option<MatchedLabel>,
+    /// The operative system with the highest quality that matches the SYN packet.
+    pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN packet.
     pub sig: Signature,
 }
@@ -69,20 +95,21 @@ impl fmt::Display for SynTCPOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+            self.os_matched.as_ref().map_or("???".to_string(), |l| {
                 format!(
-                    "{}/{}",
-                    l.label.name,
-                    l.label.flavor.as_deref().unwrap_or("???")
+                    "{}/{}/{}",
+                    l.os.name,
+                    l.os.family.as_deref().unwrap_or("???"),
+                    l.os.variant.as_deref().unwrap_or("??")
                 )
             }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
                 _ => "Unknown".parse().unwrap(),
             },
-            self.matched_label
+            self.os_matched
                 .as_ref()
-                .map_or("none".to_string(), |l| l.label.ty.to_string()),
+                .map_or("none".to_string(), |l| l.os.kind.to_string()),
             self.sig,
         )
     }
@@ -97,8 +124,8 @@ pub struct SynAckTCPOutput {
     pub source: IpPort,
     /// The destination IP address and port of the client receiving the SYN+ACK.
     pub destination: IpPort,
-    /// The label with the highest quality that matches the SYN+ACK packet.
-    pub matched_label: Option<MatchedLabel>,
+    /// The operative system with the highest quality that matches the SYN+ACK packet.
+    pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN+ACK packet.
     pub sig: Signature,
 }
@@ -121,11 +148,12 @@ impl fmt::Display for SynAckTCPOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.matched_label.as_ref().map_or("???".to_string(), |l| {
+            self.os_matched.as_ref().map_or("???".to_string(), |l| {
                 format!(
-                    "{}/{}",
-                    l.label.name,
-                    l.label.flavor.as_deref().unwrap_or("???")
+                    "{}/{}/{}",
+                    l.os.name,
+                    l.os.family.as_deref().unwrap_or("???"),
+                    l.os.variant.as_deref().unwrap_or("??")
                 )
             }),
             match self.sig.ittl {
@@ -134,9 +162,9 @@ impl fmt::Display for SynAckTCPOutput {
                 Ttl::Value(value) => value,
                 Ttl::Guess(value) => value,
             },
-            self.matched_label
+            self.os_matched
                 .as_ref()
-                .map_or("none".to_string(), |l| l.label.ty.to_string()),
+                .map_or("none".to_string(), |l| l.os.kind.to_string()),
             self.sig,
         )
     }
