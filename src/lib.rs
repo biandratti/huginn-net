@@ -19,14 +19,16 @@ use crate::db::{Database, Label};
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
 use crate::p0f_output::{
-    Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, MTUOutput,
-    OSQualityMatched, OperativeSystem, P0fOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
-    WebServer, WebServerQualityMatched,
+    Browser, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem, P0fOutput,
+    SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
 };
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
 use log::{debug, error};
+use p0f_output::BrowserQualityMatched;
+use p0f_output::OSQualityMatched;
+use p0f_output::WebServerQualityMatched;
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
