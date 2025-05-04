@@ -263,7 +263,8 @@ pub struct BrowserQualityMatched {
 ///
 /// This struct contains the name, family, variant, and kind of browser.
 /// Examples:
-// TODO: Check possible values for family and variant
+/// - name: "", family: "chrome", variant: "11.x to 26.x", kind: Type::Specified
+/// - name: "", family: "firefox", variant: "3.x", kind: Type::Specified
 pub struct Browser {
     pub name: String,
     pub family: Option<String>,
@@ -346,7 +347,8 @@ pub struct WebServerQualityMatched {
 ///
 /// This struct contains the name, family, variant, and kind of browser.
 /// Examples:
-// TODO: Check possible values for family and variant
+/// - name: "", family: "apache", variant: "2.x", kind: Type::Specified
+/// - name: "", family: "nginx", variant: "1.x", kind: Type::Specified
 pub struct WebServer {
     pub name: String,
     pub family: Option<String>,
