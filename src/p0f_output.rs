@@ -33,6 +33,10 @@ pub struct P0fOutput {
 /// Represents an operative system.
 ///
 /// This struct contains the name, family, variant, and kind of operative system.
+/// Examples:
+/// - name: "Linux", family: "unix", variant: "2.2.x-3.x", kind: Type::Specified
+/// - name: "Windows", family: "win", variant: "NT kernel 6.x", kind: Type::Specified
+/// - name: "iOS", family: "unix", variant: "iPhone or iPad", kind: Type::Specified
 pub struct OperativeSystem {
     pub name: String,
     pub family: Option<String>,
