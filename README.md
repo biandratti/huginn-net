@@ -1,4 +1,4 @@
-# Passive traffic fingerprinting
+# Passive TCP Fingerprint<img align="right" src="passivetcp-rs.svg" height="150px" style="padding-left: 20px"/>
 [![docs](https://docs.rs/passivetcp-rs/badge.svg)](https://docs.rs/passivetcp-rs)
 [![crates.io](https://img.shields.io/crates/v/passivetcp-rs.svg)](https://crates.io/crates/passivetcp-rs)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/clippy.svg)](#license)
@@ -8,8 +8,8 @@
 #### Why use passivetcp-rs?
 Thanks to its modern Rust implementation, passivetcp-rs achieves performance results comparable to the original p0f tool, while offering significant advantages in maintainability and safety. The codebase is fully typed, leveraging Rust's powerful type system to prevent entire classes of bugs at compile time. The library is designed for easy extension and comes with comprehensive unit and integration tests, making it robust and reliable for both research and production use. Its modular architecture and clear APIs make it straightforward to integrate, adapt, and maintain, even as your needs evolve. If you're looking for a passive fingerprinting engine that combines the proven accuracy of p0f with the safety, speed, and maintainability of Rust, passivetcp-rs is the ideal choice.
 
-#### What is Passive TCP Fingerprinting?
-Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
+#### What is Passive TCP Fingerprint?
+Passive TCP Fingerprint is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
 
 #### This technique is useful for a variety of purposes, including:
 - Network analysis: Identifying the types of devices and systems on a network without active scanning.
