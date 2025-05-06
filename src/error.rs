@@ -3,7 +3,7 @@ use thiserror::Error;
 
 /// Error handling during TCP processing and Database parsing.
 #[derive(Error, Debug)]
-pub enum TcpProcessError {
+pub enum PassiveTcpError {
     /// An error occurred while parsing data.
     ///
     /// This variant is used when a parsing operation fails.

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::db::{Label, Type};
-use crate::error::TcpProcessError;
+use crate::error::PassiveTcpError;
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
@@ -24,7 +24,7 @@ use nom::{
 use tracing::{trace, warn};
 
 impl FromStr for Database {
-    type Err = TcpProcessError;
+    type Err = PassiveTcpError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut classes = vec![];
@@ -47,7 +47,7 @@ impl FromStr for Database {
                 classes.append(
                     &mut parse_classes(line)
                         .map_err(|err| {
-                            TcpProcessError::Parse(format!(
+                            PassiveTcpError::Parse(format!(
                                 "fail to parse `classes`: {}, {}",
                                 line, err
                             ))
@@ -58,7 +58,7 @@ impl FromStr for Database {
                 ua_os.append(
                     &mut parse_ua_os(line)
                         .map_err(|err| {
-                            TcpProcessError::Parse(format!(
+                            PassiveTcpError::Parse(format!(
                                 "fail to parse `ua_os`: {}, {}",
                                 line, err
                             ))
@@ -69,7 +69,7 @@ impl FromStr for Database {
                 cur_mod = Some(
                     parse_module(line)
                         .map_err(|err| {
-                            TcpProcessError::Parse(format!(
+                            PassiveTcpError::Parse(format!(
                                 "fail to parse `module`: {}, {}",
                                 line, err
                             ))
@@ -78,7 +78,7 @@ impl FromStr for Database {
                 );
             } else if let Some((module, direction)) = cur_mod.as_ref() {
                 let (_, (name, value)) = parse_named_value(line).map_err(|err| {
-                    TcpProcessError::Parse(format!("fail to parse named value: {}, {}", line, err))
+                    PassiveTcpError::Parse(format!("fail to parse named value: {}, {}", line, err))
                 })?;
 
                 match name {
@@ -88,7 +88,7 @@ impl FromStr for Database {
                     "sig" if module == "mtu" => {
                         if let Some((label, values)) = mtu.last_mut() {
                             let sig = value.parse::<u16>().map_err(|err| {
-                                TcpProcessError::Parse(format!(
+                                PassiveTcpError::Parse(format!(
                                     "fail to parse `mtu` value: {}, {}",
                                     value, err
                                 ))
@@ -98,7 +98,7 @@ impl FromStr for Database {
 
                             values.push(sig);
                         } else {
-                            return Err(TcpProcessError::Parse(format!(
+                            return Err(PassiveTcpError::Parse(format!(
                                 "`mtu` value without `label`: {}",
                                 value
                             )));
@@ -106,7 +106,7 @@ impl FromStr for Database {
                     }
                     "label" => {
                         let (_, label) = parse_label(value).map_err(|err| {
-                            TcpProcessError::Parse(format!(
+                            PassiveTcpError::Parse(format!(
                                 "fail to parse `label`: {}, {}",
                                 value, err
                             ))
@@ -131,7 +131,7 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                return Err(TcpProcessError::Parse(format!(
+                                return Err(PassiveTcpError::Parse(format!(
                                     "tcp signature without `label`: {}",
                                     value
                                 )));
@@ -145,7 +145,7 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                return Err(TcpProcessError::Parse(format!(
+                                return Err(PassiveTcpError::Parse(format!(
                                     "tcp signature without `label`: {}",
                                     value
                                 )));
@@ -159,7 +159,7 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                return Err(TcpProcessError::Parse(format!(
+                                return Err(PassiveTcpError::Parse(format!(
                                     "http signature without `label`: {}",
                                     value
                                 )));
@@ -173,7 +173,7 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                return Err(TcpProcessError::Parse(format!(
+                                return Err(PassiveTcpError::Parse(format!(
                                     "http signature without `label`: {}",
                                     value
                                 )));
@@ -189,7 +189,7 @@ impl FromStr for Database {
                     }
                 }
             } else {
-                return Err(TcpProcessError::Parse(format!(
+                return Err(PassiveTcpError::Parse(format!(
                     "unexpected line outside the module: {}",
                     line
                 )));
@@ -211,11 +211,11 @@ impl FromStr for Database {
 macro_rules! impl_from_str {
     ($ty:ty, $parse:ident) => {
         impl FromStr for $ty {
-            type Err = TcpProcessError;
+            type Err = PassiveTcpError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 let (remaining, res) = $parse(s).map_err(|err| {
-                    TcpProcessError::Parse(format!(
+                    PassiveTcpError::Parse(format!(
                         "parse {} failed: {}, {}",
                         stringify!($ty),
                         s,
@@ -224,7 +224,7 @@ macro_rules! impl_from_str {
                 })?;
 
                 if !remaining.is_empty() {
-                    Err(TcpProcessError::Parse(format!(
+                    Err(PassiveTcpError::Parse(format!(
                         "parse {} failed, remaining: {}",
                         stringify!($ty),
                         remaining

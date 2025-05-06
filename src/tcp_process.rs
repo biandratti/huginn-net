@@ -1,4 +1,4 @@
-use crate::error::TcpProcessError;
+use crate::error::PassiveTcpError;
 use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
@@ -61,15 +61,15 @@ fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 pub fn process_tcp_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv4Packet,
-) -> Result<ObservableTCPPackage, TcpProcessError> {
+) -> Result<ObservableTCPPackage, PassiveTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        return Err(TcpProcessError::UnsupportedProtocol("IPv4".to_string()));
+        return Err(PassiveTcpError::UnsupportedProtocol("IPv4".to_string()));
     }
 
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
-        return Err(TcpProcessError::UnexpectedPackage("IPv4".to_string()));
+        return Err(PassiveTcpError::UnexpectedPackage("IPv4".to_string()));
     }
 
     let version = IpVersion::V4;
@@ -104,7 +104,7 @@ pub fn process_tcp_ipv4(
     let ip_package_header_length: u8 = packet.get_header_length();
 
     TcpPacket::new(tcp_payload)
-        .ok_or_else(|| TcpProcessError::UnexpectedPackage("TCP packet too short".to_string()))
+        .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
             visit_tcp(
                 cache,
@@ -123,9 +123,9 @@ pub fn process_tcp_ipv4(
 pub fn process_tcp_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv6Packet,
-) -> Result<ObservableTCPPackage, TcpProcessError> {
+) -> Result<ObservableTCPPackage, PassiveTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        return Err(TcpProcessError::UnsupportedProtocol("IPv6".to_string()));
+        return Err(PassiveTcpError::UnsupportedProtocol("IPv6".to_string()));
     }
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
@@ -146,7 +146,7 @@ pub fn process_tcp_ipv6(
     let ip_package_header_length: u8 = 40; //IPv6 header is always 40 bytes
 
     TcpPacket::new(packet.payload())
-        .ok_or_else(|| TcpProcessError::UnexpectedPackage("TCP packet too short".to_string()))
+        .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
             visit_tcp(
                 cache,
@@ -173,7 +173,7 @@ fn visit_tcp(
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
     destination_ip: IpAddr,
-) -> Result<ObservableTCPPackage, TcpProcessError> {
+) -> Result<ObservableTCPPackage, PassiveTcpError> {
     use TcpFlags::*;
 
     let source_port = tcp.get_source();
@@ -201,7 +201,7 @@ fn visit_tcp(
     }
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
     if !is_valid(flags, tcp_type) {
-        return Err(TcpProcessError::InvalidTcpFlags(flags));
+        return Err(PassiveTcpError::InvalidTcpFlags(flags));
     }
 
     if (flags & (ECE | CWR)) != 0 {
@@ -294,7 +294,7 @@ fn visit_tcp(
 
                 if data.len() >= 4 {
                     let ts_val_bytes: [u8; 4] = data[..4].try_into().map_err(|_| {
-                        TcpProcessError::Parse(
+                        PassiveTcpError::Parse(
                             "Failed to convert slice to array for timestamp value".to_string(),
                         )
                     })?;
@@ -305,7 +305,7 @@ fn visit_tcp(
 
                 if data.len() >= 8 && tcp_type == SYN {
                     let ts_peer_bytes: [u8; 4] = data[4..8].try_into().map_err(|_| {
-                        TcpProcessError::Parse(
+                        PassiveTcpError::Parse(
                             "Failed to convert slice to array for peer timestamp value".to_string(),
                         )
                     })?;
@@ -316,7 +316,7 @@ fn visit_tcp(
 
                 if data.len() >= 8 {
                     let ts_val_bytes: [u8; 4] = data[..4].try_into().map_err(|_| {
-                        TcpProcessError::Parse(
+                        PassiveTcpError::Parse(
                             "Failed to convert slice to array for timestamp value".to_string(),
                         )
                     })?;

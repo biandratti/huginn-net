@@ -1,4 +1,4 @@
-use crate::error::TcpProcessError;
+use crate::error::PassiveTcpError;
 use crate::http_process::{
     FlowKey, ObservableHttpPackage, ObservableHttpRequest, ObservableHttpResponse, TcpFlow,
 };
@@ -40,10 +40,10 @@ impl ObservablePackage {
         packet: &[u8],
         tcp_cache: &mut TtlCache<Connection, SynData>,
         http_cache: &mut TtlCache<FlowKey, TcpFlow>,
-    ) -> Result<Self, TcpProcessError> {
+    ) -> Result<Self, PassiveTcpError> {
         EthernetPacket::new(packet)
             .ok_or_else(|| {
-                TcpProcessError::UnexpectedPackage("ethernet packet too short".to_string())
+                PassiveTcpError::UnexpectedPackage("ethernet packet too short".to_string())
             })
             .and_then(|packet| {
                 visit_ethernet(
@@ -61,21 +61,21 @@ fn visit_ethernet(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     payload: &[u8],
-) -> Result<ObservablePackage, TcpProcessError> {
+) -> Result<ObservablePackage, PassiveTcpError> {
     match ether_type {
         EtherTypes::Vlan => VlanPacket::new(payload)
-            .ok_or_else(|| TcpProcessError::UnexpectedPackage("vlan packet too short".to_string()))
+            .ok_or_else(|| PassiveTcpError::UnexpectedPackage("vlan packet too short".to_string()))
             .and_then(|packet| visit_vlan(tcp_cache, http_cache, packet)),
 
         EtherTypes::Ipv4 => Ipv4Packet::new(payload)
-            .ok_or_else(|| TcpProcessError::UnexpectedPackage("ipv4 packet too short".to_string()))
+            .ok_or_else(|| PassiveTcpError::UnexpectedPackage("ipv4 packet too short".to_string()))
             .and_then(|packet| process_ipv4(tcp_cache, http_cache, packet)),
 
         EtherTypes::Ipv6 => Ipv6Packet::new(payload)
-            .ok_or_else(|| TcpProcessError::UnexpectedPackage("ipv6 packet too short".to_string()))
+            .ok_or_else(|| PassiveTcpError::UnexpectedPackage("ipv6 packet too short".to_string()))
             .and_then(|packet| process_ipv6(tcp_cache, http_cache, packet)),
 
-        ty => Err(TcpProcessError::UnsupportedEthernetType(ty)),
+        ty => Err(PassiveTcpError::UnsupportedEthernetType(ty)),
     }
 }
 
@@ -83,7 +83,7 @@ fn visit_vlan(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     packet: VlanPacket,
-) -> Result<ObservablePackage, TcpProcessError> {
+) -> Result<ObservablePackage, PassiveTcpError> {
     visit_ethernet(
         packet.get_ethertype(),
         tcp_cache,
@@ -96,9 +96,9 @@ pub fn process_ipv4(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     packet: Ipv4Packet,
-) -> Result<ObservablePackage, TcpProcessError> {
+) -> Result<ObservablePackage, PassiveTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        return Err(TcpProcessError::UnsupportedProtocol(format!(
+        return Err(PassiveTcpError::UnsupportedProtocol(format!(
             "unsupported IPv4 packet with non-TCP payload: {}",
             packet.get_next_level_protocol()
         )));
@@ -129,9 +129,9 @@ pub fn process_ipv6(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     packet: Ipv6Packet,
-) -> Result<ObservablePackage, TcpProcessError> {
+) -> Result<ObservablePackage, PassiveTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        return Err(TcpProcessError::UnsupportedProtocol(format!(
+        return Err(PassiveTcpError::UnsupportedProtocol(format!(
             "IPv6 packet with non-TCP payload: {}",
             packet.get_next_header()
         )));
@@ -159,9 +159,9 @@ pub fn process_ipv6(
 }
 
 fn handle_http_tcp_responses(
-    http_response: Result<ObservableHttpPackage, TcpProcessError>,
-    tcp_response: Result<ObservableTCPPackage, TcpProcessError>,
-) -> Result<ObservablePackage, TcpProcessError> {
+    http_response: Result<ObservableHttpPackage, PassiveTcpError>,
+    tcp_response: Result<ObservableTCPPackage, PassiveTcpError>,
+) -> Result<ObservablePackage, PassiveTcpError> {
     match (http_response, tcp_response) {
         (Ok(http_package), Ok(tcp_package)) => Ok(ObservablePackage {
             source: tcp_package.source,
