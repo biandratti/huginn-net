@@ -1,6 +1,6 @@
-use log::debug;
 use pnet::packet::tcp::TcpFlags::SYN;
 use pnet::packet::tcp::TcpPacket;
+use tracing::debug;
 
 pub struct ObservableMtu {
     pub value: u16,

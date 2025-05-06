@@ -1,5 +1,5 @@
 use crate::db::Label;
-use log::debug;
+use tracing::debug;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {

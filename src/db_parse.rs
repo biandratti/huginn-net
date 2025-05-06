@@ -7,7 +7,6 @@ use crate::{
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
 };
-use log::{trace, warn};
 use nom::branch::alt;
 use nom::bytes::complete::{take_until, take_while};
 use nom::character::complete::{alpha1, char, digit1};
@@ -22,6 +21,7 @@ use nom::{
     sequence::preceded,
     IResult,
 };
+use tracing::{trace, warn};
 
 impl FromStr for Database {
     type Err = TcpProcessError;

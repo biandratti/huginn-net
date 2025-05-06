@@ -26,7 +26,6 @@ use crate::p0f_output::{
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
-use log::{debug, error};
 use p0f_output::BrowserQualityMatched;
 use p0f_output::OSQualityMatched;
 use p0f_output::WebServerQualityMatched;
@@ -34,6 +33,7 @@ use pnet::datalink;
 use pnet::datalink::Config;
 use std::sync::mpsc::Sender;
 pub use tcp::Ttl;
+use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
 pub struct P0f<'a> {

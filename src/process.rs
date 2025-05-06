@@ -57,12 +57,12 @@ impl ObservablePackage {
 }
 
 fn visit_ethernet(
-    ethertype: EtherType,
+    ether_type: EtherType,
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     payload: &[u8],
 ) -> Result<ObservablePackage, TcpProcessError> {
-    match ethertype {
+    match ether_type {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| TcpProcessError::UnexpectedPackage("vlan packet too short".to_string()))
             .and_then(|packet| visit_vlan(tcp_cache, http_cache, packet)),

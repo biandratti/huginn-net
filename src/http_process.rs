@@ -2,7 +2,6 @@ use crate::db::Label;
 use crate::error::TcpProcessError;
 use crate::{http, http_languages};
 use httparse::{Request, Response, EMPTY_HEADER};
-use log::debug;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -10,6 +9,7 @@ use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use std::net::IpAddr;
 use std::time::Duration;
+use tracing::debug;
 use ttl_cache::TtlCache;
 
 /// Maximum number of HTTP headers

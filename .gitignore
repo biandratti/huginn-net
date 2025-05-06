@@ -1,3 +1,4 @@
 /target
 .idea/
 cobertura.xml
+*.log
