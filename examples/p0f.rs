@@ -1,16 +1,15 @@
 use clap::Parser;
-use log::{debug, info};
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use log4rs::Config;
 use passivetcp_rs::db::Database;
 use passivetcp_rs::p0f_output::P0fOutput;
 use passivetcp_rs::P0f;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
+use tracing::{debug, info};
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::fmt;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
+use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -22,39 +21,24 @@ struct Args {
 }
 
 fn initialize_logging(log_file: Option<String>) {
-    let pattern = "{d} - {l} - {m}{n}";
-    let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new(pattern)))
-        .build();
+    let console_writer = std::io::stdout.with_max_level(tracing::Level::INFO);
 
-    let config = if let Some(log_file) = log_file {
-        let file = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new(pattern)))
-            .build(log_file)
-            .expect("Failed to create log file appender");
-
-        Config::builder()
-            .appender(Appender::builder().build("console", Box::new(console)))
-            .appender(Appender::builder().build("file", Box::new(file)))
-            .build(
-                Root::builder()
-                    .appender("console")
-                    .appender("file")
-                    .build(log::LevelFilter::Info),
-            )
-            .expect("Failed to build log4rs config")
+    let file_appender = if let Some(log_file) = log_file {
+        RollingFileAppender::new(Rotation::NEVER, ".", log_file)
+            .with_max_level(tracing::Level::INFO)
     } else {
-        Config::builder()
-            .appender(Appender::builder().build("console", Box::new(console)))
-            .build(
-                Root::builder()
-                    .appender("console")
-                    .build(log::LevelFilter::Info),
-            )
-            .expect("Failed to build log4rs config")
+        RollingFileAppender::new(Rotation::NEVER, ".", "default.log")
+            .with_max_level(tracing::Level::INFO)
     };
 
-    log4rs::init_config(config).expect("Failed to initialize log4rs");
+    let writer = console_writer.and(file_appender);
+
+    let subscriber = fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_writer(writer)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
 }
 
 fn main() {

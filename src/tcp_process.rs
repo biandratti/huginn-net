@@ -1,3 +1,4 @@
+use crate::error::PassiveTcpError;
 use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
@@ -7,7 +8,6 @@ use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, ttl};
-use failure::{bail, err_msg, Error};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ipv4::{Ipv4Flags, Ipv4Packet},
@@ -61,15 +61,15 @@ fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 pub fn process_tcp_ipv4(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv4Packet,
-) -> Result<ObservableTCPPackage, Error> {
+) -> Result<ObservableTCPPackage, PassiveTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        bail!("unsupported IPv4 protocol")
+        return Err(PassiveTcpError::UnsupportedProtocol("IPv4".to_string()));
     }
 
     if packet.get_fragment_offset() > 0
         || (packet.get_flags() & Ipv4Flags::MoreFragments) == Ipv4Flags::MoreFragments
     {
-        bail!("unsupported IPv4 fragment")
+        return Err(PassiveTcpError::UnexpectedPackage("IPv4".to_string()));
     }
 
     let version = IpVersion::V4;
@@ -104,7 +104,7 @@ pub fn process_tcp_ipv4(
     let ip_package_header_length: u8 = packet.get_header_length();
 
     TcpPacket::new(tcp_payload)
-        .ok_or_else(|| err_msg("TCP packet too short"))
+        .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
             visit_tcp(
                 cache,
@@ -123,9 +123,9 @@ pub fn process_tcp_ipv4(
 pub fn process_tcp_ipv6(
     cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv6Packet,
-) -> Result<ObservableTCPPackage, Error> {
+) -> Result<ObservableTCPPackage, PassiveTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        bail!("unsupported IPv6 protocol")
+        return Err(PassiveTcpError::UnsupportedProtocol("IPv6".to_string()));
     }
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
@@ -146,7 +146,7 @@ pub fn process_tcp_ipv6(
     let ip_package_header_length: u8 = 40; //IPv6 header is always 40 bytes
 
     TcpPacket::new(packet.payload())
-        .ok_or_else(|| err_msg("TCP packet too short"))
+        .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
             visit_tcp(
                 cache,
@@ -173,7 +173,7 @@ fn visit_tcp(
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
     destination_ip: IpAddr,
-) -> Result<ObservableTCPPackage, Error> {
+) -> Result<ObservableTCPPackage, PassiveTcpError> {
     use TcpFlags::*;
 
     let source_port = tcp.get_source();
@@ -201,7 +201,7 @@ fn visit_tcp(
     }
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
     if !is_valid(flags, tcp_type) {
-        bail!("invalid TCP flags: {}", flags);
+        return Err(PassiveTcpError::InvalidTcpFlags(flags));
     }
 
     if (flags & (ECE | CWR)) != 0 {
@@ -292,19 +292,35 @@ fn visit_tcp(
             TIMESTAMPS => {
                 olayout.push(TcpOption::TS);
 
-                if data.len() >= 4 && u32::from_ne_bytes(data[..4].try_into()?) == 0 {
-                    quirks.push(Quirk::OwnTimestampZero);
+                if data.len() >= 4 {
+                    let ts_val_bytes: [u8; 4] = data[..4].try_into().map_err(|_| {
+                        PassiveTcpError::Parse(
+                            "Failed to convert slice to array for timestamp value".to_string(),
+                        )
+                    })?;
+                    if u32::from_ne_bytes(ts_val_bytes) == 0 {
+                        quirks.push(Quirk::OwnTimestampZero);
+                    }
                 }
 
-                if data.len() >= 8
-                    && tcp_type == SYN
-                    && u32::from_ne_bytes(data[4..8].try_into()?) != 0
-                {
-                    quirks.push(Quirk::PeerTimestampNonZero);
+                if data.len() >= 8 && tcp_type == SYN {
+                    let ts_peer_bytes: [u8; 4] = data[4..8].try_into().map_err(|_| {
+                        PassiveTcpError::Parse(
+                            "Failed to convert slice to array for peer timestamp value".to_string(),
+                        )
+                    })?;
+                    if u32::from_ne_bytes(ts_peer_bytes) != 0 {
+                        quirks.push(Quirk::PeerTimestampNonZero);
+                    }
                 }
 
                 if data.len() >= 8 {
-                    let ts_val: u32 = u32::from_ne_bytes(data[..4].try_into()?);
+                    let ts_val_bytes: [u8; 4] = data[..4].try_into().map_err(|_| {
+                        PassiveTcpError::Parse(
+                            "Failed to convert slice to array for timestamp value".to_string(),
+                        )
+                    })?;
+                    let ts_val: u32 = u32::from_ne_bytes(ts_val_bytes);
                     let connection: Connection = Connection {
                         src_ip: source_ip,
                         src_port: tcp.get_source(),

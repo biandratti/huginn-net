@@ -1,13 +1,12 @@
 use std::str::FromStr;
 
 use crate::db::{Label, Type};
+use crate::error::PassiveTcpError;
 use crate::{
     db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
 };
-use failure::{bail, format_err, Error};
-use log::{trace, warn};
 use nom::branch::alt;
 use nom::bytes::complete::{take_until, take_while};
 use nom::character::complete::{alpha1, char, digit1};
@@ -22,9 +21,10 @@ use nom::{
     sequence::preceded,
     IResult,
 };
+use tracing::{trace, warn};
 
 impl FromStr for Database {
-    type Err = Error;
+    type Err = PassiveTcpError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut classes = vec![];
@@ -46,24 +46,40 @@ impl FromStr for Database {
             if line.starts_with("classes") {
                 classes.append(
                     &mut parse_classes(line)
-                        .map_err(|err| format_err!("fail to parse `classes`: {}, {}", line, err))?
+                        .map_err(|err| {
+                            PassiveTcpError::Parse(format!(
+                                "fail to parse `classes`: {}, {}",
+                                line, err
+                            ))
+                        })?
                         .1,
                 );
             } else if line.starts_with("ua_os") {
                 ua_os.append(
                     &mut parse_ua_os(line)
-                        .map_err(|err| format_err!("fail to parse `ua_os`: {}, {}", line, err))?
+                        .map_err(|err| {
+                            PassiveTcpError::Parse(format!(
+                                "fail to parse `ua_os`: {}, {}",
+                                line, err
+                            ))
+                        })?
                         .1,
                 );
             } else if line.starts_with('[') && line.ends_with(']') {
                 cur_mod = Some(
                     parse_module(line)
-                        .map_err(|err| format_err!("fail to parse `module`: {}, {}", line, err))?
+                        .map_err(|err| {
+                            PassiveTcpError::Parse(format!(
+                                "fail to parse `module`: {}, {}",
+                                line, err
+                            ))
+                        })?
                         .1,
                 );
             } else if let Some((module, direction)) = cur_mod.as_ref() {
-                let (_, (name, value)) = parse_named_value(line)
-                    .map_err(|err| format_err!("fail to parse named value: {}, {}", line, err))?;
+                let (_, (name, value)) = parse_named_value(line).map_err(|err| {
+                    PassiveTcpError::Parse(format!("fail to parse named value: {}, {}", line, err))
+                })?;
 
                 match name {
                     "label" if module == "mtu" => {
@@ -71,18 +87,29 @@ impl FromStr for Database {
                     }
                     "sig" if module == "mtu" => {
                         if let Some((label, values)) = mtu.last_mut() {
-                            let sig = value.parse()?;
+                            let sig = value.parse::<u16>().map_err(|err| {
+                                PassiveTcpError::Parse(format!(
+                                    "fail to parse `mtu` value: {}, {}",
+                                    value, err
+                                ))
+                            })?;
 
                             trace!("`{}` MTU : {}", label, sig);
 
                             values.push(sig);
                         } else {
-                            bail!("`mtu` value without `label`: {}", value);
+                            return Err(PassiveTcpError::Parse(format!(
+                                "`mtu` value without `label`: {}",
+                                value
+                            )));
                         }
                     }
                     "label" => {
                         let (_, label) = parse_label(value).map_err(|err| {
-                            format_err!("fail to parse `label`: {}, {}", value, err)
+                            PassiveTcpError::Parse(format!(
+                                "fail to parse `label`: {}, {}",
+                                value, err
+                            ))
                         })?;
 
                         match (module.as_str(), direction.as_ref().map(|s| s.as_ref())) {
@@ -104,7 +131,10 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                bail!("tcp signature without `label`: {}", value)
+                                return Err(PassiveTcpError::Parse(format!(
+                                    "tcp signature without `label`: {}",
+                                    value
+                                )));
                             }
                         }
                         ("tcp", Some("response")) => {
@@ -115,7 +145,10 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                bail!("tcp signature without `label`: {}", value)
+                                return Err(PassiveTcpError::Parse(format!(
+                                    "tcp signature without `label`: {}",
+                                    value
+                                )));
                             }
                         }
                         ("http", Some("request")) => {
@@ -126,7 +159,10 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                bail!("http signature without `label`: {}", value)
+                                return Err(PassiveTcpError::Parse(format!(
+                                    "http signature without `label`: {}",
+                                    value
+                                )));
                             }
                         }
                         ("http", Some("response")) => {
@@ -137,7 +173,10 @@ impl FromStr for Database {
 
                                 values.push(sig);
                             } else {
-                                bail!("http signature without `label`: {}", value)
+                                return Err(PassiveTcpError::Parse(format!(
+                                    "http signature without `label`: {}",
+                                    value
+                                )));
                             }
                         }
                         _ => {
@@ -150,7 +189,10 @@ impl FromStr for Database {
                     }
                 }
             } else {
-                bail!("unexpected line outside the module: {}", line);
+                return Err(PassiveTcpError::Parse(format!(
+                    "unexpected line outside the module: {}",
+                    line
+                )));
             }
         }
 
@@ -169,19 +211,24 @@ impl FromStr for Database {
 macro_rules! impl_from_str {
     ($ty:ty, $parse:ident) => {
         impl FromStr for $ty {
-            type Err = Error;
+            type Err = PassiveTcpError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 let (remaining, res) = $parse(s).map_err(|err| {
-                    format_err!("parse {} failed: {}, {}", stringify!($ty), s, err)
+                    PassiveTcpError::Parse(format!(
+                        "parse {} failed: {}, {}",
+                        stringify!($ty),
+                        s,
+                        err
+                    ))
                 })?;
 
                 if !remaining.is_empty() {
-                    Err(format_err!(
+                    Err(PassiveTcpError::Parse(format!(
                         "parse {} failed, remaining: {}",
                         stringify!($ty),
                         remaining
-                    ))
+                    )))
                 } else {
                     Ok(res)
                 }

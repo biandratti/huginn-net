@@ -1,6 +1,6 @@
 use crate::{http, tcp};
-use log::error;
 use std::fmt;
+use tracing::error;
 
 /// Represents the database used by `P0f` to store signatures and associated metadata.
 /// The database contains signatures for analyzing TCP and HTTP traffic, as well as

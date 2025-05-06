@@ -1,6 +1,6 @@
-use log::debug;
 use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tracing::debug;
 use ttl_cache::TtlCache;
 
 // const MIN_TWAIT: u64 = 0;
