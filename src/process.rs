@@ -75,7 +75,7 @@ fn visit_ethernet(
             .ok_or_else(|| TcpProcessError::UnexpectedPackage("ipv6 packet too short".to_string()))
             .and_then(|packet| process_ipv6(tcp_cache, http_cache, packet)),
 
-        ty => return Err(TcpProcessError::UnsupportedEthernetType(ty)),
+        ty => Err(TcpProcessError::UnsupportedEthernetType(ty)),
     }
 }
 
