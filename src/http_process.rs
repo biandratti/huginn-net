@@ -1,6 +1,6 @@
 use crate::db::Label;
+use crate::error::TcpProcessError;
 use crate::{http, http_languages};
-use failure::{bail, Error};
 use httparse::{Request, Response, EMPTY_HEADER};
 use log::debug;
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -75,9 +75,9 @@ impl TcpFlow {
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-) -> Result<ObservableHttpPackage, Error> {
+) -> Result<ObservableHttpPackage, TcpProcessError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        bail!("unsupported IPv4 protocol")
+        return Err(TcpProcessError::UnsupportedProtocol("IPv4".to_string()));
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
@@ -97,9 +97,9 @@ pub fn process_http_ipv4(
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-) -> Result<ObservableHttpPackage, Error> {
+) -> Result<ObservableHttpPackage, TcpProcessError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        bail!("unsupported IPv6 protocol")
+        return Err(TcpProcessError::UnsupportedProtocol("IPv6".to_string()));
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
@@ -121,7 +121,7 @@ fn process_tcp_packet(
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
-) -> Result<ObservableHttpPackage, Error> {
+) -> Result<ObservableHttpPackage, TcpProcessError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
     let mut observable_http_package = ObservableHttpPackage {
@@ -185,7 +185,7 @@ fn process_tcp_packet(
     Ok(observable_http_package)
 }
 
-fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Error> {
+fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, TcpProcessError> {
     let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut req = Request::new(&mut headers);
 
@@ -222,7 +222,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
                 "Failed to parse HTTP request with Data: {:?}. Error: {}",
                 data, e
             );
-            Err(failure::err_msg(format!(
+            Err(TcpProcessError::Parse(format!(
                 "Failed to parse HTTP request: {}",
                 e
             )))
@@ -230,7 +230,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Erro
     }
 }
 
-fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Error> {
+fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, TcpProcessError> {
     let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut res = Response::new(&mut headers);
 
@@ -261,7 +261,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Er
                 "Failed to parse HTTP response with Data: {:?}. Error: {}",
                 data, e
             );
-            Err(failure::err_msg(format!(
+            Err(TcpProcessError::Parse(format!(
                 "Failed to parse HTTP response: {}",
                 e
             )))
