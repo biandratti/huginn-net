@@ -246,7 +246,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_distance_header_user_case_mismatch() {
+    fn test_distance_header_with_one_optional_header_mismatch() {
         let a = vec![
             Header::new("Date"),
             Header::new("Server"),
@@ -277,11 +277,6 @@ mod tests {
             Header::new("Content-Type"),
         ];
 
-        // len_a = 10, len_b = 10. max_len = 10.
-        // Headers a[6] and b[6] differ due to the 'optional' flag.
-        // actual_matches = 9 (0-5 match, 6 differs, 7-9 match).
-        // errors = max_len - actual_matches = 10 - 9 = 1.
-        // Expected: Medium quality.
         assert!(a[6].optional);
         assert!(!b[6].optional);
         assert_ne!(a[6], b[6]);

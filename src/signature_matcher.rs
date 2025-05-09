@@ -231,7 +231,7 @@ mod tests {
 
         if let Some((label, _, quality)) = matcher.matching_by_http_response(&apache_signature) {
             assert_eq!(label.name, "Apache");
-            assert_eq!(label.class, None); // Apache in p0f.fp doesn't have a 'class'
+            assert_eq!(label.class, None);
             assert_eq!(label.flavor, Some("2.x".to_string()));
             assert_eq!(label.ty, Type::Specified);
             assert_eq!(quality, 1.0);
