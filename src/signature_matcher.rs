@@ -200,4 +200,43 @@ mod tests {
             panic!("No match found for Firefox 2.x HTTP signature");
         }
     }
+
+    #[test]
+    fn matching_apache_by_http_response() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let apache_signature = http::Signature {
+            version: http::Version::V11,
+            horder: vec![
+                http::Header::new("Date"),
+                http::Header::new("Server"),
+                http::Header::new("Last-Modified").optional(),
+                http::Header::new("Accept-Ranges")
+                    .optional()
+                    .with_value("bytes"),
+                http::Header::new("Content-Length").optional(),
+                http::Header::new("Content-Range").optional(),
+                http::Header::new("Keep-Alive").with_value("timeout"),
+                http::Header::new("Connection").with_value("Keep-Alive"),
+                http::Header::new("Transfer-Encoding")
+                    .optional()
+                    .with_value("chunked"),
+                http::Header::new("Content-Type"),
+            ],
+            habsent: vec![],
+            expsw: "Apache".to_string(),
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        if let Some((label, _, quality)) = matcher.matching_by_http_response(&apache_signature) {
+            assert_eq!(label.name, "Apache");
+            assert_eq!(label.class, None); // Apache in p0f.fp doesn't have a 'class'
+            assert_eq!(label.flavor, Some("2.x".to_string()));
+            assert_eq!(label.ty, Type::Specified);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found for Apache 2.x HTTP response signature");
+        }
+    }
 }

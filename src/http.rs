@@ -231,3 +231,201 @@ pub fn response_common_headers() -> Vec<&'static str> {
         "Date",
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_header_user_case_mismatch() {
+        // Scenario provided by the user
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Content-Length").optional(),
+            Header::new("Content-Range").optional(),
+            Header::new("Keep-Alive").optional().with_value("timeout"), // optional: true
+            Header::new("Connection").with_value("Keep-Alive"),
+            Header::new("Transfer-Encoding")
+                .optional()
+                .with_value("chunked"),
+            Header::new("Content-Type"),
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Content-Length").optional(),
+            Header::new("Content-Range").optional(),
+            Header::new("Keep-Alive").with_value("timeout"), // optional: false (default behavior of .with_value())
+            Header::new("Connection").with_value("Keep-Alive"),
+            Header::new("Transfer-Encoding")
+                .optional()
+                .with_value("chunked"),
+            Header::new("Content-Type"),
+        ];
+
+        // Verify the specific difference that causes a mismatch at index 6
+        assert!(a[6].optional);
+        assert!(!b[6].optional); // Header::new("...").with_value("...") results in optional: false
+        assert_ne!(a[6], b[6]);
+
+        // With 9 matches out of 10, and lengths being equal, this should be None
+        // as it doesn't hit `n == min_len` (9 != 10) for High quality, nor 2, 3, or 4.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(
+            result, None,
+            "Expected None for 9 matches out of 10 (equal length)"
+        );
+    }
+
+    #[test]
+    fn test_distance_header_perfect_match() {
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+        ];
+        // All headers match, lengths are equal.
+        // min_len = 4, matches = 4.
+        // `n == min_len && a.len() == b.len()` is true.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, Some(HttpMatchQuality::High.as_score()));
+    }
+
+    #[test]
+    fn test_distance_header_medium_match_due_to_length_diff() {
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Extra-Header-A"), // Extra header in 'a'
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+        ];
+        // min_len = 4, matches = 4. a.len() != b.len().
+        // `n == min_len && a.len() == b.len()` is false.
+        // Hits `4 => Some(HttpMatchQuality::Medium.as_score())`.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, Some(HttpMatchQuality::Medium.as_score()));
+
+        let result_swapped = Signature::distance_header(&b, &a);
+        assert_eq!(result_swapped, Some(HttpMatchQuality::Medium.as_score()));
+    }
+
+    #[test]
+    fn test_distance_header_low_match() {
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Different-Header-A"), // This one won't match
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"), // This one won't match
+        ];
+        // min_len = 4, matches = 3.
+        // Hits `3 => Some(HttpMatchQuality::Low.as_score())`.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, Some(HttpMatchQuality::Low.as_score()));
+    }
+
+    #[test]
+    fn test_distance_header_bad_match() {
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Different-Header-A"),
+            Header::new("Different-Header-B"),
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+        ];
+        // min_len = 4, matches = 2.
+        // Hits `2 => Some(HttpMatchQuality::Bad.as_score())`.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, Some(HttpMatchQuality::Bad.as_score()));
+    }
+
+    #[test]
+    fn test_distance_header_very_few_matches() {
+        let a = vec![
+            Header::new("Date"), // Match
+            Header::new("Different-Header-A"),
+            Header::new("Different-Header-B"),
+            Header::new("Different-Header-C"),
+        ];
+
+        let b = vec![
+            Header::new("Date"), // Match
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+        ];
+        // min_len = 4, matches = 1.
+        // Hits `_ => None`.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_distance_header_no_matches() {
+        let a = vec![Header::new("Header1"), Header::new("Header2")];
+
+        let b = vec![Header::new("Header3"), Header::new("Header4")];
+        // min_len = 2, matches = 0.
+        // Hits `_ => None`.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_distance_header_empty_slices() {
+        let a: Vec<Header> = vec![];
+        let b: Vec<Header> = vec![];
+        // min_len = 0, matches = 0.
+        // `n == min_len && a.len() == b.len()` is true.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, Some(HttpMatchQuality::High.as_score()));
+    }
+
+    #[test]
+    fn test_distance_header_one_empty_one_not() {
+        let a: Vec<Header> = vec![Header::new("Test")];
+        let b: Vec<Header> = vec![];
+        // min_len = 0, matches = 0.
+        // `n == min_len && a.len() == b.len()` -> `0 == 0 && 1 == 0` is false.
+        // Hits `_ => None`.
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(result, None);
+
+        let result_swapped = Signature::distance_header(&b, &a);
+        assert_eq!(result_swapped, None);
+    }
+}
