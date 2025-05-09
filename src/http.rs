@@ -44,20 +44,29 @@ impl Signature {
     // Compare two header vectors and return the number of matching headers.
     // The quality is based on the number of matching headers.
     fn distance_header(a: &[Header], b: &[Header]) -> Option<u32> {
-        let min_len = a.len().min(b.len());
-        let mut matches = 0;
+        let len_a = a.len();
+        let len_b = b.len();
+        let min_len = len_a.min(len_b);
+        let max_len = len_a.max(len_b);
 
+        let mut actual_matches = 0;
         for i in 0..min_len {
+            //The match is based on the header name and value.
+            // If the header is optional, it is not considered a match.
             if a[i] == b[i] {
-                matches += 1;
+                actual_matches += 1;
             }
         }
 
-        match matches {
-            n if n == min_len && a.len() == b.len() => Some(HttpMatchQuality::High.as_score()),
-            4 => Some(HttpMatchQuality::Medium.as_score()),
-            3 => Some(HttpMatchQuality::Low.as_score()),
-            2 => Some(HttpMatchQuality::Bad.as_score()),
+        // Calculate errors based on the difference between the length of the longer list
+        // and the number of actual matches in the common part.
+        let errors = max_len - actual_matches;
+
+        match errors {
+            0 => Some(HttpMatchQuality::High.as_score()),
+            1 => Some(HttpMatchQuality::Medium.as_score()),
+            2 => Some(HttpMatchQuality::Low.as_score()),
+            3 => Some(HttpMatchQuality::Bad.as_score()),
             _ => None,
         }
     }
@@ -230,4 +239,53 @@ pub fn response_common_headers() -> Vec<&'static str> {
         "Accept-Ranges",
         "Date",
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_header_with_one_optional_header_mismatch() {
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Content-Length").optional(),
+            Header::new("Content-Range").optional(),
+            Header::new("Keep-Alive").optional().with_value("timeout"), // optional: true
+            Header::new("Connection").with_value("Keep-Alive"),
+            Header::new("Transfer-Encoding")
+                .optional()
+                .with_value("chunked"),
+            Header::new("Content-Type"),
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Content-Length").optional(),
+            Header::new("Content-Range").optional(),
+            Header::new("Keep-Alive").with_value("timeout"), // optional: false
+            Header::new("Connection").with_value("Keep-Alive"),
+            Header::new("Transfer-Encoding")
+                .optional()
+                .with_value("chunked"),
+            Header::new("Content-Type"),
+        ];
+
+        assert!(a[6].optional);
+        assert!(!b[6].optional);
+        assert_ne!(a[6], b[6]);
+
+        let result = Signature::distance_header(&a, &b);
+        assert_eq!(
+            result,
+            Some(HttpMatchQuality::Medium.as_score()),
+            "Expected Medium quality for 1 error in lists of 10"
+        );
+    }
 }
