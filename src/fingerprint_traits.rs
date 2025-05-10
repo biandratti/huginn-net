@@ -1,11 +1,10 @@
 use crate::db::Label;
 use std::fmt::{Debug, Display};
 
-/// Represents a quality score for a match.
-/// We'll use f32 (0.0 to 1.0), where 1.0 is a perfect match.
+/// Represents a quality score for a match. Values (0.0 to 1.0), where 1.0 is a perfect match.
 pub type MatchQuality = f32;
 
-/// An observed fingerprint from live network traffic or a test case.
+/// An observed fingerprint from live network traffic
 pub trait ObservedFingerprint: Clone + Debug {}
 
 /// A fingerprint signature as defined in a database.
