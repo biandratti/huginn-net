@@ -1,4 +1,4 @@
-use crate::db::Label;
+use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use tracing::debug;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -79,49 +79,24 @@ impl Signature {
             None
         }
     }
+}
 
-    // Function to calculate the distance between two signatures
-    fn get_distance(&self, other: &Self) -> Option<u32> {
-        let distance = self.version.distance_ip_version(&other.version)?
-            + self.ittl.distance_ttl(&other.ittl)?
-            + self.distance_olen(other)?
-            + self.distance_mss(other)?
-            + self.wsize.distance_window_size(&other.wsize, self.mss)?
-            + self.distance_wscale(other)?
-            + self.distance_olayout(other)?
-            + self.distance_quirks(other)?
-            + self.pclass.distance_payload_size(&other.pclass)?;
+impl ObservedFingerprint for Signature {}
 
+impl DatabaseSignature<Signature> for Signature {
+    fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
+        let distance = observed.version.distance_ip_version(&self.version)?
+            + observed.ittl.distance_ttl(&self.ittl)?
+            + observed.distance_olen(self)?
+            + observed.distance_mss(self)?
+            + observed
+                .wsize
+                .distance_window_size(&self.wsize, observed.mss)?
+            + observed.distance_wscale(self)?
+            + observed.distance_olayout(self)?
+            + observed.distance_quirks(self)?
+            + observed.pclass.distance_payload_size(&self.pclass)?;
         Some(distance)
-    }
-
-    pub fn find_closest_signature<'a>(
-        &self,
-        signature: &Signature,
-        db: &'a Vec<(Label, Vec<Signature>)>,
-    ) -> Option<(&'a Label, &'a Signature, u32)> {
-        let mut best_label = None;
-        let mut best_sig = None;
-        let mut min_distance = u32::MAX;
-
-        for (label, sigs) in db {
-            for db_sig in sigs {
-                if let Some(distance) = signature.get_distance(db_sig) {
-                    debug!("db_sig: {:?}, distance: {:?}", db_sig.to_string(), distance);
-                    if distance < min_distance {
-                        min_distance = distance;
-                        best_label = Some(label);
-                        best_sig = Some(db_sig);
-                    }
-                }
-            }
-        }
-
-        if let (Some(label), Some(sig)) = (best_label, best_sig) {
-            Some((label, sig, min_distance))
-        } else {
-            None
-        }
     }
 }
 

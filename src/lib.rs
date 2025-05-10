@@ -2,6 +2,7 @@ pub mod db;
 mod db_parse;
 mod display;
 mod error;
+pub mod fingerprint_traits;
 mod http;
 mod http_languages;
 mod http_process;

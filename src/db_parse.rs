@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
-use crate::db::{Label, Type};
+use crate::db::{Database, FingerprintCollection, Label, Type};
 use crate::error::PassiveTcpError;
 use crate::{
-    db::Database,
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
 };
@@ -28,12 +27,14 @@ impl FromStr for Database {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut classes = vec![];
-        let mut mtu = vec![];
-        let mut ua_os = vec![];
-        let mut tcp_request = vec![];
-        let mut tcp_response = vec![];
-        let mut http_request = vec![];
-        let mut http_response = vec![];
+        let mut mtu_entries = vec![];
+        let mut ua_os_entries = vec![];
+
+        let mut temp_tcp_request_entries: Vec<(Label, Vec<TcpSignature>)> = vec![];
+        let mut temp_tcp_response_entries: Vec<(Label, Vec<TcpSignature>)> = vec![];
+        let mut temp_http_request_entries: Vec<(Label, Vec<HttpSignature>)> = vec![];
+        let mut temp_http_response_entries: Vec<(Label, Vec<HttpSignature>)> = vec![];
+
         let mut cur_mod = None;
 
         for line in s.lines() {
@@ -55,7 +56,7 @@ impl FromStr for Database {
                         .1,
                 );
             } else if line.starts_with("ua_os") {
-                ua_os.append(
+                ua_os_entries.append(
                     &mut parse_ua_os(line)
                         .map_err(|err| {
                             PassiveTcpError::Parse(format!(
@@ -83,19 +84,16 @@ impl FromStr for Database {
 
                 match name {
                     "label" if module == "mtu" => {
-                        mtu.push((value.to_string(), vec![]));
+                        mtu_entries.push((value.to_string(), vec![]));
                     }
                     "sig" if module == "mtu" => {
-                        if let Some((label, values)) = mtu.last_mut() {
+                        if let Some((_label, values)) = mtu_entries.last_mut() {
                             let sig = value.parse::<u16>().map_err(|err| {
                                 PassiveTcpError::Parse(format!(
                                     "fail to parse `mtu` value: {}, {}",
                                     value, err
                                 ))
                             })?;
-
-                            trace!("`{}` MTU : {}", label, sig);
-
                             values.push(sig);
                         } else {
                             return Err(PassiveTcpError::Parse(format!(
@@ -113,10 +111,18 @@ impl FromStr for Database {
                         })?;
 
                         match (module.as_str(), direction.as_ref().map(|s| s.as_ref())) {
-                            ("tcp", Some("request")) => tcp_request.push((label, vec![])),
-                            ("tcp", Some("response")) => tcp_response.push((label, vec![])),
-                            ("http", Some("request")) => http_request.push((label, vec![])),
-                            ("http", Some("response")) => http_response.push((label, vec![])),
+                            ("tcp", Some("request")) => {
+                                temp_tcp_request_entries.push((label, vec![]))
+                            }
+                            ("tcp", Some("response")) => {
+                                temp_tcp_response_entries.push((label, vec![]))
+                            }
+                            ("http", Some("request")) => {
+                                temp_http_request_entries.push((label, vec![]))
+                            }
+                            ("http", Some("response")) => {
+                                temp_http_response_entries.push((label, vec![]))
+                            }
                             _ => {
                                 warn!("skip `label` in unknown module `{}`: {}", module, value);
                             }
@@ -124,11 +130,9 @@ impl FromStr for Database {
                     }
                     "sig" => match (module.as_str(), direction.as_ref().map(|s| s.as_ref())) {
                         ("tcp", Some("request")) => {
-                            if let Some((label, values)) = tcp_request.last_mut() {
+                            if let Some((label, values)) = temp_tcp_request_entries.last_mut() {
                                 let sig = value.parse()?;
-
                                 trace!("sig for `{}` tcp request: {}", label, sig);
-
                                 values.push(sig);
                             } else {
                                 return Err(PassiveTcpError::Parse(format!(
@@ -138,11 +142,9 @@ impl FromStr for Database {
                             }
                         }
                         ("tcp", Some("response")) => {
-                            if let Some((label, values)) = tcp_response.last_mut() {
+                            if let Some((label, values)) = temp_tcp_response_entries.last_mut() {
                                 let sig = value.parse()?;
-
                                 trace!("sig for `{}` tcp response: {}", label, sig);
-
                                 values.push(sig);
                             } else {
                                 return Err(PassiveTcpError::Parse(format!(
@@ -152,11 +154,9 @@ impl FromStr for Database {
                             }
                         }
                         ("http", Some("request")) => {
-                            if let Some((label, values)) = http_request.last_mut() {
+                            if let Some((label, values)) = temp_http_request_entries.last_mut() {
                                 let sig = value.parse()?;
-
                                 trace!("sig for `{}` http request: {}", label, sig);
-
                                 values.push(sig);
                             } else {
                                 return Err(PassiveTcpError::Parse(format!(
@@ -166,11 +166,9 @@ impl FromStr for Database {
                             }
                         }
                         ("http", Some("response")) => {
-                            if let Some((label, values)) = http_response.last_mut() {
+                            if let Some((label, values)) = temp_http_response_entries.last_mut() {
                                 let sig = value.parse()?;
-
                                 trace!("sig for `{}` http response: {}", label, sig);
-
                                 values.push(sig);
                             } else {
                                 return Err(PassiveTcpError::Parse(format!(
@@ -198,12 +196,12 @@ impl FromStr for Database {
 
         Ok(Database {
             classes,
-            mtu,
-            ua_os,
-            tcp_request,
-            tcp_response,
-            http_request,
-            http_response,
+            mtu: mtu_entries,
+            ua_os: ua_os_entries,
+            tcp_request: FingerprintCollection::new(temp_tcp_request_entries),
+            tcp_response: FingerprintCollection::new(temp_tcp_response_entries),
+            http_request: FingerprintCollection::new(temp_http_request_entries),
+            http_response: FingerprintCollection::new(temp_http_response_entries),
         })
     }
 }
