@@ -1,5 +1,8 @@
-use crate::{http, tcp};
+use crate::fingerprint_traits::{
+    DatabaseSignature, FingerprintDb, MatchQuality, ObservedFingerprint,
+};
 use std::fmt;
+use std::marker::PhantomData;
 use tracing::error;
 
 /// Represents the database used by `P0f` to store signatures and associated metadata.
@@ -10,10 +13,10 @@ pub struct Database {
     pub classes: Vec<String>,
     pub mtu: Vec<(String, Vec<u16>)>,
     pub ua_os: Vec<(String, Option<String>)>,
-    pub tcp_request: Vec<(Label, Vec<tcp::Signature>)>,
-    pub tcp_response: Vec<(Label, Vec<tcp::Signature>)>,
-    pub http_request: Vec<(Label, Vec<http::Signature>)>,
-    pub http_response: Vec<(Label, Vec<http::Signature>)>,
+    pub tcp_request: FingerprintCollection<crate::tcp::Signature, crate::tcp::Signature>,
+    pub tcp_response: FingerprintCollection<crate::tcp::Signature, crate::tcp::Signature>,
+    pub http_request: FingerprintCollection<crate::http::Signature, crate::http::Signature>,
+    pub http_response: FingerprintCollection<crate::http::Signature, crate::http::Signature>,
 }
 
 /// Represents a label associated with a signature, which provides metadata about
@@ -112,5 +115,75 @@ mod tests {
                 ("loopback".to_owned(), vec![3924, 16384, 16436])
             ]
         );
+    }
+}
+
+#[derive(Debug)]
+pub struct FingerprintCollection<OF, DS>
+where
+    OF: ObservedFingerprint,
+    DS: DatabaseSignature<OF>,
+{
+    pub entries: Vec<(Label, Vec<DS>)>,
+    _observed_marker: PhantomData<OF>,
+}
+
+impl<OF, DS> Default for FingerprintCollection<OF, DS>
+where
+    OF: ObservedFingerprint,
+    DS: DatabaseSignature<OF>,
+{
+    fn default() -> Self {
+        Self {
+            entries: Vec::new(),
+            _observed_marker: PhantomData,
+        }
+    }
+}
+
+impl<OF, DS> FingerprintCollection<OF, DS>
+where
+    OF: ObservedFingerprint,
+    DS: DatabaseSignature<OF>,
+{
+    pub fn new(entries: Vec<(Label, Vec<DS>)>) -> Self {
+        Self {
+            entries,
+            _observed_marker: PhantomData,
+        }
+    }
+
+    fn get_quality_from_distance(distance: u32) -> MatchQuality {
+        (100_u32.saturating_sub(distance)) as f32 / 100.0
+    }
+}
+
+impl<OF, DS> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS>
+where
+    OF: ObservedFingerprint,
+    DS: DatabaseSignature<OF>,
+{
+    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, MatchQuality)> {
+        let mut best_label_ref = None;
+        let mut best_sig_ref = None;
+        let mut min_distance = u32::MAX;
+
+        for (label, sigs_in_db_entry) in &self.entries {
+            for db_sig in sigs_in_db_entry {
+                if let Some(distance) = db_sig.calculate_distance(observed) {
+                    if distance < min_distance {
+                        min_distance = distance;
+                        best_label_ref = Some(label);
+                        best_sig_ref = Some(db_sig);
+                    }
+                }
+            }
+        }
+
+        if let (Some(label), Some(sig)) = (best_label_ref, best_sig_ref) {
+            Some((label, sig, Self::get_quality_from_distance(min_distance)))
+        } else {
+            None
+        }
     }
 }

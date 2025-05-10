@@ -1,5 +1,4 @@
-use crate::db::Label;
-use tracing::debug;
+use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
@@ -29,6 +28,18 @@ impl HttpMatchQuality {
             HttpMatchQuality::Low => 10,
             HttpMatchQuality::Bad => 20,
         }
+    }
+}
+
+impl ObservedFingerprint for Signature {}
+
+impl DatabaseSignature<Signature> for Signature {
+    fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
+        let distance = observed.distance_ip_version(self)?
+            + observed.distance_horder(self)?
+            + observed.distance_habsent(self)?
+            + observed.distance_expsw(self)?;
+        Some(distance)
     }
 }
 
@@ -84,43 +95,6 @@ impl Signature {
             Some(HttpMatchQuality::High.as_score())
         } else {
             Some(HttpMatchQuality::Low.as_score())
-        }
-    }
-
-    pub fn get_distance(&self, other: &Self) -> Option<u32> {
-        let distance = self.distance_ip_version(other)?
-            + self.distance_horder(other)?
-            + self.distance_habsent(other)?
-            + self.distance_expsw(other)?;
-
-        Some(distance)
-    }
-
-    pub fn find_closest_signature<'a>(
-        &self,
-        signature: &Signature,
-        db: &'a Vec<(Label, Vec<Signature>)>,
-    ) -> Option<(&'a Label, &'a Signature, u32)> {
-        let mut best_label = None;
-        let mut best_sig = None;
-        let mut min_distance = u32::MAX;
-        for (label, sigs) in db {
-            for db_sig in sigs {
-                if let Some(distance) = signature.get_distance(db_sig) {
-                    debug!("db_sig: {:?}, distance: {:?}", db_sig.to_string(), distance);
-                    if distance < min_distance {
-                        min_distance = distance;
-                        best_label = Some(label);
-                        best_sig = Some(db_sig);
-                    }
-                }
-            }
-        }
-
-        if let (Some(label), Some(sig)) = (best_label, best_sig) {
-            Some((label, sig, min_distance))
-        } else {
-            None
         }
     }
 }
