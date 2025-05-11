@@ -1,3 +1,4 @@
+use crate::db::TcpP0fIndexKey;
 use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use tracing::debug;
 
@@ -81,7 +82,19 @@ impl Signature {
     }
 }
 
-impl ObservedFingerprint for Signature {}
+impl ObservedFingerprint for Signature {
+    type Key = TcpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        let olayout_parts: Vec<String> =
+            self.olayout.iter().map(|opt| format!("{}", opt)).collect();
+        TcpP0fIndexKey {
+            ip_version_key: self.version,
+            olayout_key: olayout_parts.join(","),
+            pclass_key: self.pclass,
+        }
+    }
+}
 
 impl DatabaseSignature<Signature> for Signature {
     fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
@@ -98,9 +111,42 @@ impl DatabaseSignature<Signature> for Signature {
             + observed.pclass.distance_payload_size(&self.pclass)?;
         Some(distance)
     }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
+        let mut keys = Vec::new();
+        let olayout_key_str = self
+            .olayout
+            .iter()
+            .map(|opt| format!("{}", opt))
+            .collect::<Vec<String>>()
+            .join(",");
+
+        let versions_for_keys = if self.version == IpVersion::Any {
+            vec![IpVersion::V4, IpVersion::V6]
+        } else {
+            vec![self.version]
+        };
+
+        let pclasses_for_keys = if self.pclass == PayloadSize::Any {
+            vec![PayloadSize::Zero, PayloadSize::NonZero]
+        } else {
+            vec![self.pclass]
+        };
+
+        for v_key_part in &versions_for_keys {
+            for pc_key_part in &pclasses_for_keys {
+                keys.push(TcpP0fIndexKey {
+                    ip_version_key: *v_key_part,
+                    olayout_key: olayout_key_str.clone(),
+                    pclass_key: *pc_key_part,
+                });
+            }
+        }
+        keys
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IpVersion {
     V4,
     V6,
@@ -321,7 +367,7 @@ pub enum Quirk {
 }
 
 /// Classification of TCP payload sizes used in fingerprinting
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PayloadSize {
     /// Packet has no payload (empty)
     /// Common in SYN packets and some control messages

@@ -1,3 +1,4 @@
+use crate::db::HttpP0fIndexKey;
 use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,7 +32,16 @@ impl HttpMatchQuality {
     }
 }
 
-impl ObservedFingerprint for Signature {}
+impl ObservedFingerprint for Signature {
+    type Key = HttpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpP0fIndexKey {
+            http_version_key: self.version,
+            expsw_key: self.expsw.clone(),
+        }
+    }
+}
 
 impl DatabaseSignature<Signature> for Signature {
     fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
@@ -40,6 +50,26 @@ impl DatabaseSignature<Signature> for Signature {
             + observed.distance_habsent(self)?
             + observed.distance_expsw(self)?;
         Some(distance)
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+        let mut keys = Vec::new();
+        if self.version == Version::Any {
+            keys.push(HttpP0fIndexKey {
+                http_version_key: Version::V10,
+                expsw_key: self.expsw.clone(),
+            });
+            keys.push(HttpP0fIndexKey {
+                http_version_key: Version::V11,
+                expsw_key: self.expsw.clone(),
+            });
+        } else {
+            keys.push(HttpP0fIndexKey {
+                http_version_key: self.version,
+                expsw_key: self.expsw.clone(),
+            });
+        }
+        keys
     }
 }
 
@@ -99,10 +129,16 @@ impl Signature {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+/// Version of the HTTP protocol used in a request or response.
+/// Used in signatures to distinguish behavior between HTTP/1.0 and HTTP/1.1.
+/// The `Any` variant is used in database signatures to match any HTTP version.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Version {
+    /// HTTP/1.0
     V10,
+    /// HTTP/1.1
     V11,
+    /// Matches any HTTP version (used in database signatures).
     Any,
 }
 

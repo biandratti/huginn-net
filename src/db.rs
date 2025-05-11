@@ -1,9 +1,13 @@
 use crate::fingerprint_traits::{
-    DatabaseSignature, FingerprintDb, MatchQuality, ObservedFingerprint,
+    DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
 };
+use crate::http::{self, Version as HttpVersion};
+use crate::tcp::{self, IpVersion, PayloadSize};
+use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Display;
 use std::marker::PhantomData;
-use tracing::error;
+use std::str::FromStr;
 
 /// Represents the database used by `P0f` to store signatures and associated metadata.
 /// The database contains signatures for analyzing TCP and HTTP traffic, as well as
@@ -13,10 +17,10 @@ pub struct Database {
     pub classes: Vec<String>,
     pub mtu: Vec<(String, Vec<u16>)>,
     pub ua_os: Vec<(String, Option<String>)>,
-    pub tcp_request: FingerprintCollection<crate::tcp::Signature, crate::tcp::Signature>,
-    pub tcp_response: FingerprintCollection<crate::tcp::Signature, crate::tcp::Signature>,
-    pub http_request: FingerprintCollection<crate::http::Signature, crate::http::Signature>,
-    pub http_response: FingerprintCollection<crate::http::Signature, crate::http::Signature>,
+    pub tcp_request: FingerprintCollection<tcp::Signature, tcp::Signature, TcpP0fIndexKey>,
+    pub tcp_response: FingerprintCollection<tcp::Signature, tcp::Signature, TcpP0fIndexKey>,
+    pub http_request: FingerprintCollection<http::Signature, http::Signature, HttpP0fIndexKey>,
+    pub http_response: FingerprintCollection<http::Signature, http::Signature, HttpP0fIndexKey>,
 }
 
 /// Represents a label associated with a signature, which provides metadata about
@@ -44,42 +48,26 @@ impl fmt::Display for Type {
     }
 }
 
-impl Database {
-    /// Creates a new instance of the `Database`.
-    ///
-    /// # Arguments
-    ///
-    /// * `config_path` - An optional path to a configuration file. If `None`, the default
-    ///   configuration file is used.
-    ///
-    /// # Returns
-    /// A `Database` instance initialized with the provided or default configuration.
-    pub fn new(config_path: Option<&str>) -> Self {
-        if let Some(path) = config_path {
-            std::fs::read_to_string(path)
-                .ok()
-                .and_then(|content| content.parse().ok())
-                .unwrap_or_else(|| {
-                    error!(
-                        "Failed to load configuration from {}. Falling back to default.",
-                        path
-                    );
-                    Self::default()
-                })
-        } else {
-            Self::default()
-        }
-    }
-}
-
 impl Default for Database {
-    /// Creates a default instance of the `Database` by parsing a configuration file
-    /// located at `config/p0f.fp`. This file is expected to define the default
+    /// Creates a default instance of the `Database` by parsing an embedded configuration file.
+    /// This file (`config/p0f.fp` relative to the crate root) is expected to define the default
     /// signatures and mappings used for analysis.
+    ///
+    /// # Panics
+    /// Panic if the embedded default fingerprint file cannot be parsed. This indicates
+    /// a critical issue with the bundled fingerprint data or the parser itself.
     fn default() -> Self {
-        include_str!("../config/p0f.fp")
-            .parse()
-            .expect("parse default database")
+        const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
+
+        match Database::from_str(DEFAULT_FP_CONTENTS) {
+            Ok(db) => db,
+            Err(e) => {
+                panic!(
+                    "CRITICAL: Failed to parse embedded default fingerprint file. This is a bug or a corrupted built-in DB. Error: {}",
+                    e
+                );
+            }
+        }
     }
 }
 
@@ -118,64 +106,136 @@ mod tests {
     }
 }
 
-#[derive(Debug)]
-pub struct FingerprintCollection<OF, DS>
-where
-    OF: ObservedFingerprint,
-    DS: DatabaseSignature<OF>,
-{
-    pub entries: Vec<(Label, Vec<DS>)>,
-    _observed_marker: PhantomData<OF>,
+/// Index key for TCP p0f signatures, used to optimize database lookups.
+///
+/// This key is generated from a `tcp::Signature` and combines several
+/// of its most discriminative fields to allow for a fast initial filtering
+/// of potential matches in the signature database. The goal is to quickly
+/// narrow down the search space before performing more detailed and costly
+/// distance calculations.
+///
+/// The fields included are chosen for their balance of providing good
+/// discrimination while not being overly specific to avoid missing matches
+/// due to minor variations (which are handled by the distance calculation).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TcpP0fIndexKey {
+    pub ip_version_key: IpVersion,
+    pub olayout_key: String,
+    pub pclass_key: PayloadSize,
 }
 
-impl<OF, DS> Default for FingerprintCollection<OF, DS>
+impl IndexKey for TcpP0fIndexKey {}
+
+/// Index key for HTTP p0f signatures, used to optimize database lookups.
+///
+/// Similar to `TcpP0fIndexKey`, this key is generated from an `http::Signature`
+/// to enable faster filtering of HTTP signatures. It combines key characteristics
+/// of an HTTP request or response.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct HttpP0fIndexKey {
+    pub http_version_key: HttpVersion,
+    pub expsw_key: String,
+}
+
+impl IndexKey for HttpP0fIndexKey {}
+
+#[derive(Debug)]
+pub struct FingerprintCollection<OF, DS, K>
 where
-    OF: ObservedFingerprint,
+    OF: ObservedFingerprint<Key = K>,
     DS: DatabaseSignature<OF>,
+    K: IndexKey,
+{
+    pub entries: Vec<(Label, Vec<DS>)>,
+    pub(crate) index: HashMap<K, Vec<(usize, usize)>>,
+    _observed_marker: PhantomData<OF>,
+    _database_sig_marker: PhantomData<DS>,
+    _key_marker: PhantomData<K>,
+}
+
+impl<OF, DS, K> Default for FingerprintCollection<OF, DS, K>
+where
+    OF: ObservedFingerprint<Key = K>,
+    DS: DatabaseSignature<OF>,
+    K: IndexKey,
 {
     fn default() -> Self {
         Self {
             entries: Vec::new(),
+            index: HashMap::new(),
             _observed_marker: PhantomData,
+            _database_sig_marker: PhantomData,
+            _key_marker: PhantomData,
         }
     }
 }
 
-impl<OF, DS> FingerprintCollection<OF, DS>
+impl<OF, DS, K> FingerprintCollection<OF, DS, K>
 where
-    OF: ObservedFingerprint,
+    OF: ObservedFingerprint<Key = K>,
     DS: DatabaseSignature<OF>,
+    K: IndexKey,
 {
+    /// Creates a new collection and builds an index for it.
     pub fn new(entries: Vec<(Label, Vec<DS>)>) -> Self {
-        Self {
+        let mut index_map = HashMap::new();
+        for (label_idx, (_label, sig_vec)) in entries.iter().enumerate() {
+            for (sig_idx, db_sig) in sig_vec.iter().enumerate() {
+                for key in db_sig.generate_index_keys_for_db_entry() {
+                    index_map
+                        .entry(key)
+                        .or_insert_with(Vec::new)
+                        .push((label_idx, sig_idx));
+                }
+            }
+        }
+        FingerprintCollection {
             entries,
+            index: index_map,
             _observed_marker: PhantomData,
+            _database_sig_marker: PhantomData,
+            _key_marker: PhantomData,
         }
     }
 
-    fn get_quality_from_distance(distance: u32) -> MatchQuality {
+    pub(crate) fn get_quality_from_distance(distance: u32) -> MatchQuality {
         (100_u32.saturating_sub(distance)) as f32 / 100.0
     }
 }
 
-impl<OF, DS> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS>
+impl<OF, DS, K> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS, K>
 where
-    OF: ObservedFingerprint,
-    DS: DatabaseSignature<OF>,
+    OF: ObservedFingerprint<Key = K>,
+    DS: DatabaseSignature<OF> + Display,
+    K: IndexKey,
 {
     fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, MatchQuality)> {
+        let observed_key = observed.generate_index_key();
+
+        let candidate_indices = match self.index.get(&observed_key) {
+            Some(indices) => indices,
+            None => {
+                return None;
+            }
+        };
+
+        if candidate_indices.is_empty() {
+            return None;
+        }
+
         let mut best_label_ref = None;
         let mut best_sig_ref = None;
         let mut min_distance = u32::MAX;
 
-        for (label, sigs_in_db_entry) in &self.entries {
-            for db_sig in sigs_in_db_entry {
-                if let Some(distance) = db_sig.calculate_distance(observed) {
-                    if distance < min_distance {
-                        min_distance = distance;
-                        best_label_ref = Some(label);
-                        best_sig_ref = Some(db_sig);
-                    }
+        for &(label_idx, sig_idx) in candidate_indices {
+            let (label, sig_vec) = &self.entries[label_idx];
+            let db_sig = &sig_vec[sig_idx];
+
+            if let Some(distance) = db_sig.calculate_distance(observed) {
+                if distance < min_distance {
+                    min_distance = distance;
+                    best_label_ref = Some(label);
+                    best_sig_ref = Some(db_sig);
                 }
             }
         }
