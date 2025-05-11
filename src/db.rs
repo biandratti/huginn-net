@@ -106,20 +106,34 @@ mod tests {
     }
 }
 
-/// Index key for TCP p0f signatures, used to optimize lookups.
+/// Index key for TCP p0f signatures, used to optimize database lookups.
+///
+/// This key is generated from a `tcp::Signature` and combines several
+/// of its most discriminative fields to allow for a fast initial filtering
+/// of potential matches in the signature database. The goal is to quickly
+/// narrow down the search space before performing more detailed and costly
+/// distance calculations.
+///
+/// The fields included are chosen for their balance of providing good
+/// discrimination while not being overly specific to avoid missing matches
+/// due to minor variations (which are handled by the distance calculation).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TcpP0fIndexKey {
-    pub ip_version: IpVersion,
+    pub ip_version_key: IpVersion,
     pub olayout_key: String,
-    pub pclass: PayloadSize,
+    pub pclass_key: PayloadSize,
 }
 
 impl IndexKey for TcpP0fIndexKey {}
 
-/// Index key for HTTP p0f signatures.
+/// Index key for HTTP p0f signatures, used to optimize database lookups.
+///
+/// Similar to `TcpP0fIndexKey`, this key is generated from an `http::Signature`
+/// to enable faster filtering of HTTP signatures. It combines key characteristics
+/// of an HTTP request or response.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HttpP0fIndexKey {
-    pub http_version: HttpVersion,
+    pub http_version_key: HttpVersion,
     pub expsw_key: String,
 }
 

@@ -89,9 +89,9 @@ impl ObservedFingerprint for Signature {
         let olayout_parts: Vec<String> =
             self.olayout.iter().map(|opt| format!("{}", opt)).collect();
         TcpP0fIndexKey {
-            ip_version: self.version,
+            ip_version_key: self.version,
             olayout_key: olayout_parts.join(","),
-            pclass: self.pclass,
+            pclass_key: self.pclass,
         }
     }
 }
@@ -114,26 +114,33 @@ impl DatabaseSignature<Signature> for Signature {
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
         let mut keys = Vec::new();
-        let olayout_parts: Vec<String> =
-            self.olayout.iter().map(|opt| format!("{}", opt)).collect();
+        let olayout_key_str = self
+            .olayout
+            .iter()
+            .map(|opt| format!("{}", opt))
+            .collect::<Vec<String>>()
+            .join(",");
 
-        if self.version == IpVersion::Any {
-            keys.push(TcpP0fIndexKey {
-                ip_version: IpVersion::V4,
-                olayout_key: olayout_parts.join(","),
-                pclass: self.pclass,
-            });
-            keys.push(TcpP0fIndexKey {
-                ip_version: IpVersion::V6,
-                olayout_key: olayout_parts.join(","),
-                pclass: self.pclass,
-            });
+        let versions_for_keys = if self.version == IpVersion::Any {
+            vec![IpVersion::V4, IpVersion::V6]
         } else {
-            keys.push(TcpP0fIndexKey {
-                ip_version: self.version,
-                olayout_key: olayout_parts.join(","),
-                pclass: self.pclass,
-            });
+            vec![self.version]
+        };
+
+        let pclasses_for_keys = if self.pclass == PayloadSize::Any {
+            vec![PayloadSize::Zero, PayloadSize::NonZero]
+        } else {
+            vec![self.pclass]
+        };
+
+        for v_key_part in &versions_for_keys {
+            for pc_key_part in &pclasses_for_keys {
+                keys.push(TcpP0fIndexKey {
+                    ip_version_key: *v_key_part,
+                    olayout_key: olayout_key_str.clone(),
+                    pclass_key: *pc_key_part,
+                });
+            }
         }
         keys
     }

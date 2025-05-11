@@ -37,7 +37,7 @@ impl ObservedFingerprint for Signature {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpP0fIndexKey {
-            http_version: self.version,
+            http_version_key: self.version,
             expsw_key: self.expsw.clone(),
         }
     }
@@ -56,16 +56,16 @@ impl DatabaseSignature<Signature> for Signature {
         let mut keys = Vec::new();
         if self.version == Version::Any {
             keys.push(HttpP0fIndexKey {
-                http_version: Version::V10,
+                http_version_key: Version::V10,
                 expsw_key: self.expsw.clone(),
             });
             keys.push(HttpP0fIndexKey {
-                http_version: Version::V11,
+                http_version_key: Version::V11,
                 expsw_key: self.expsw.clone(),
             });
         } else {
             keys.push(HttpP0fIndexKey {
-                http_version: self.version,
+                http_version_key: self.version,
                 expsw_key: self.expsw.clone(),
             });
         }
