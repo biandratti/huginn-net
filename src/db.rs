@@ -58,7 +58,7 @@ impl Default for Database {
     /// a critical issue with the bundled fingerprint data or the parser itself.
     fn default() -> Self {
         const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
-        
+
         match Database::from_str(DEFAULT_FP_CONTENTS) {
             Ok(db) => db,
             Err(e) => {
