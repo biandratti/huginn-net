@@ -198,10 +198,10 @@ impl FromStr for Database {
             classes,
             mtu: mtu_entries,
             ua_os: ua_os_entries,
-            tcp_request: FingerprintCollection::new(temp_tcp_request_entries),
-            tcp_response: FingerprintCollection::new(temp_tcp_response_entries),
-            http_request: FingerprintCollection::new(temp_http_request_entries),
-            http_response: FingerprintCollection::new(temp_http_response_entries),
+            tcp_request: FingerprintCollection::new_tcp_collection(temp_tcp_request_entries),
+            tcp_response: FingerprintCollection::new_tcp_collection(temp_tcp_response_entries),
+            http_request: FingerprintCollection::new_http_collection(temp_http_request_entries),
+            http_response: FingerprintCollection::new_http_collection(temp_http_response_entries),
         })
     }
 }

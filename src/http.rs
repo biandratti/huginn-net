@@ -99,10 +99,16 @@ impl Signature {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+/// Version of the HTTP protocol used in a request or response.
+/// Used in signatures to distinguish behavior between HTTP/1.0 and HTTP/1.1.
+/// The `Any` variant is used in database signatures to match any HTTP version.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Version {
+    /// HTTP/1.0
     V10,
+    /// HTTP/1.1
     V11,
+    /// Matches any HTTP version (used in database signatures).
     Any,
 }
 

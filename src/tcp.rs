@@ -100,7 +100,7 @@ impl DatabaseSignature<Signature> for Signature {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IpVersion {
     V4,
     V6,
@@ -321,7 +321,7 @@ pub enum Quirk {
 }
 
 /// Classification of TCP payload sizes used in fingerprinting
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PayloadSize {
     /// Packet has no payload (empty)
     /// Common in SYN packets and some control messages
