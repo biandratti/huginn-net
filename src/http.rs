@@ -1,3 +1,4 @@
+use crate::db::HttpP0fIndexKey;
 use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,7 +32,16 @@ impl HttpMatchQuality {
     }
 }
 
-impl ObservedFingerprint for Signature {}
+impl ObservedFingerprint for Signature {
+    type Key = HttpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpP0fIndexKey {
+            http_version: self.version,
+            expsw_key: self.expsw.clone(),
+        }
+    }
+}
 
 impl DatabaseSignature<Signature> for Signature {
     fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
@@ -40,6 +50,26 @@ impl DatabaseSignature<Signature> for Signature {
             + observed.distance_habsent(self)?
             + observed.distance_expsw(self)?;
         Some(distance)
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+        let mut keys = Vec::new();
+        if self.version == Version::Any {
+            keys.push(HttpP0fIndexKey {
+                http_version: Version::V10,
+                expsw_key: self.expsw.clone(),
+            });
+            keys.push(HttpP0fIndexKey {
+                http_version: Version::V11,
+                expsw_key: self.expsw.clone(),
+            });
+        } else {
+            keys.push(HttpP0fIndexKey {
+                http_version: self.version,
+                expsw_key: self.expsw.clone(),
+            });
+        }
+        keys
     }
 }
 

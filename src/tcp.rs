@@ -1,3 +1,4 @@
+use crate::db::TcpP0fIndexKey;
 use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use tracing::debug;
 
@@ -81,7 +82,19 @@ impl Signature {
     }
 }
 
-impl ObservedFingerprint for Signature {}
+impl ObservedFingerprint for Signature {
+    type Key = TcpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        let olayout_parts: Vec<String> =
+            self.olayout.iter().map(|opt| format!("{}", opt)).collect();
+        TcpP0fIndexKey {
+            ip_version: self.version,
+            olayout_key: olayout_parts.join(","),
+            pclass: self.pclass,
+        }
+    }
+}
 
 impl DatabaseSignature<Signature> for Signature {
     fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
@@ -97,6 +110,32 @@ impl DatabaseSignature<Signature> for Signature {
             + observed.distance_quirks(self)?
             + observed.pclass.distance_payload_size(&self.pclass)?;
         Some(distance)
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
+        let mut keys = Vec::new();
+        let olayout_parts: Vec<String> =
+            self.olayout.iter().map(|opt| format!("{}", opt)).collect();
+
+        if self.version == IpVersion::Any {
+            keys.push(TcpP0fIndexKey {
+                ip_version: IpVersion::V4,
+                olayout_key: olayout_parts.join(","),
+                pclass: self.pclass,
+            });
+            keys.push(TcpP0fIndexKey {
+                ip_version: IpVersion::V6,
+                olayout_key: olayout_parts.join(","),
+                pclass: self.pclass,
+            });
+        } else {
+            keys.push(TcpP0fIndexKey {
+                ip_version: self.version,
+                olayout_key: olayout_parts.join(","),
+                pclass: self.pclass,
+            });
+        }
+        keys
     }
 }
 
