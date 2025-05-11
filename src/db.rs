@@ -8,7 +8,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::str::FromStr;
-use tracing::error;
 
 /// Represents the database used by `P0f` to store signatures and associated metadata.
 /// The database contains signatures for analyzing TCP and HTTP traffic, as well as
@@ -49,66 +48,24 @@ impl fmt::Display for Type {
     }
 }
 
-impl Database {
-    /// Creates a new instance of the `Database`.
-    ///
-    /// # Arguments
-    ///
-    /// * `config_path` - An optional path to a configuration file. If `None`, the default
-    ///   configuration file is used.
-    ///
-    /// # Returns
-    /// A `Database` instance initialized with the provided or default configuration.
-    pub fn new(config_path: Option<&str>) -> Self {
-        if let Some(path) = config_path {
-            std::fs::read_to_string(path)
-                .ok()
-                .and_then(|content| content.parse().ok())
-                .unwrap_or_else(|| {
-                    error!(
-                        "Failed to load configuration from {}. Falling back to default.",
-                        path
-                    );
-                    Self::default()
-                })
-        } else {
-            Self::default()
-        }
-    }
-}
-
 impl Default for Database {
-    /// Creates a default instance of the `Database` by parsing a configuration file
-    /// located at `config/p0f.fp`. This file is expected to define the default
+    /// Creates a default instance of the `Database` by parsing an embedded configuration file.
+    /// This file (`config/p0f.fp` relative to the crate root) is expected to define the default
     /// signatures and mappings used for analysis.
+    ///
+    /// # Panics
+    /// Panic if the embedded default fingerprint file cannot be parsed. This indicates
+    /// a critical issue with the bundled fingerprint data or the parser itself.
     fn default() -> Self {
-        match std::fs::read_to_string("config/p0f.fp") {
-            Ok(contents) => Database::from_str(&contents).unwrap_or_else(|e| {
-                eprintln!("Failed to parse default fingerprint file: {}", e);
-                Database {
-                    classes: Vec::new(),
-                    mtu: Vec::new(),
-                    ua_os: Vec::new(),
-                    tcp_request: FingerprintCollection::new(Vec::new()),
-                    tcp_response: FingerprintCollection::new(Vec::new()),
-                    http_request: FingerprintCollection::new(Vec::new()),
-                    http_response: FingerprintCollection::new(Vec::new()),
-                }
-            }),
+        const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
+        
+        match Database::from_str(DEFAULT_FP_CONTENTS) {
+            Ok(db) => db,
             Err(e) => {
-                eprintln!(
-                    "Failed to read default fingerprint file 'config/p0f.fp': {}",
+                panic!(
+                    "CRITICAL: Failed to parse embedded default fingerprint file. This is a bug or a corrupted built-in DB. Error: {}",
                     e
                 );
-                Database {
-                    classes: Vec::new(),
-                    mtu: Vec::new(),
-                    ua_os: Vec::new(),
-                    tcp_request: FingerprintCollection::new(Vec::new()),
-                    tcp_response: FingerprintCollection::new(Vec::new()),
-                    http_request: FingerprintCollection::new(Vec::new()),
-                    http_response: FingerprintCollection::new(Vec::new()),
-                }
             }
         }
     }
