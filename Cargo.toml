@@ -21,7 +21,7 @@ httparse = "1.10.1"
 crossbeam = "0.8.4"
 
 [dev-dependencies]
-clap = { version = "4.5.37", features = ["derive"] }
+clap = { version = "4.5.38", features = ["derive"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 criterion = { version = "0.5.1", features = ["html_reports"] }
