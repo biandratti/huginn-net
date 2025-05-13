@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use crate::db::{Database, FingerprintCollection, Label, Type};
 use crate::error::PassiveTcpError;
+use crate::tcp::WindowSizeType;
 use crate::{
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
@@ -420,17 +421,34 @@ fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
 
 fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
     alt((
-        map(tag("*"), |_| WindowSize::Any),
+        map(tag("*"), |_| WindowSize {
+            raw: None,
+            ty: WindowSizeType::Any,
+        }),
         map_res(preceded(tag("mss*"), digit1), |s: &str| {
-            s.parse::<u8>().map(WindowSize::Mss)
+            s.parse::<u8>().map(|value| WindowSize {
+                raw: None,
+                ty: WindowSizeType::Mss(value),
+            })
         }),
         map_res(preceded(tag("mtu*"), digit1), |s: &str| {
-            s.parse::<u8>().map(WindowSize::Mtu)
+            s.parse::<u8>().map(|value| WindowSize {
+                raw: None,
+                ty: WindowSizeType::Mtu(value),
+            })
         }),
         map_res(preceded(tag("%"), digit1), |s: &str| {
-            s.parse::<u16>().map(WindowSize::Mod)
+            s.parse::<u16>().map(|value| WindowSize {
+                raw: None,
+                ty: WindowSizeType::Mod(value),
+            })
         }),
-        map_res(digit1, |s: &str| s.parse::<u16>().map(WindowSize::Value)),
+        map_res(digit1, |s: &str| {
+            s.parse::<u16>().map(|value| WindowSize {
+                raw: None,
+                ty: WindowSizeType::Value(value),
+            })
+        }),
     ))
     .parse(input)
 }
@@ -602,7 +620,10 @@ mod tests {
                     ittl: Ttl::Value(64),
                     olen: 0,
                     mss: None,
-                    wsize: WindowSize::Mss(20),
+                    wsize: WindowSize {
+                        raw: None,
+                        ty: WindowSizeType::Mss(20),
+                    },
                     wscale: Some(10),
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
                     quirks: vec![Df, NonZeroID],
@@ -616,7 +637,10 @@ mod tests {
                     ittl: Ttl::Value(64),
                     olen: 0,
                     mss: None,
-                    wsize: WindowSize::Value(16384),
+                    wsize: WindowSize {
+                        raw: None,
+                        ty: WindowSizeType::Value(16384),
+                    },
                     wscale: Some(0),
                     olayout: vec![Mss],
                     quirks: vec![],
@@ -630,7 +654,10 @@ mod tests {
                     ittl: Ttl::Value(128),
                     olen: 0,
                     mss: Some(1460),
-                    wsize: WindowSize::Mtu(2),
+                    wsize: WindowSize {
+                        raw: None,
+                        ty: WindowSizeType::Mtu(2),
+                    },
                     wscale: Some(0),
                     olayout: vec![Mss, Nop, Ws],
                     quirks: vec![],
@@ -644,7 +671,10 @@ mod tests {
                     ittl: Ttl::Bad(64),
                     olen: 0,
                     mss: Some(265),
-                    wsize: WindowSize::Mod(512),
+                    wsize: WindowSize {
+                        raw: None,
+                        ty: WindowSizeType::Mod(512),
+                    },
                     wscale: Some(0),
                     olayout: vec![Mss, Sok, TS],
                     quirks: vec![AckNumNonZero],
@@ -658,7 +688,10 @@ mod tests {
                     ittl: Ttl::Value(64),
                     olen: 0,
                     mss: None,
-                    wsize: WindowSize::Mss(44),
+                    wsize: WindowSize {
+                        raw: None,
+                        ty: WindowSizeType::Mss(44),
+                    },
                     wscale: Some(1),
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
                     quirks: vec![Df, NonZeroID],
@@ -672,7 +705,10 @@ mod tests {
                     ittl: Ttl::Value(64),
                     olen: 0,
                     mss: None,
-                    wsize: WindowSize::Any,
+                    wsize: WindowSize {
+                        raw: None,
+                        ty: WindowSizeType::Any,
+                    },
                     wscale: None,
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
                     quirks: vec![Df, NonZeroID],

@@ -70,6 +70,7 @@ mod tests {
     use crate::http::{Signature as HttpDbSignature, Version as HttpVersion};
     use crate::tcp::{
         IpVersion, PayloadSize, Quirk, Signature as TcpDbSignature, TcpOption, Ttl, WindowSize,
+        WindowSizeType,
     };
     use crate::Database;
 
@@ -82,7 +83,10 @@ mod tests {
             ittl: Ttl::Value(64),
             olen: 0,
             mss: Some(1460),
-            wsize: WindowSize::Mss(44),
+            wsize: WindowSize {
+                raw: None,
+                ty: WindowSizeType::Mss(44),
+            },
             wscale: Some(7),
             olayout: vec![
                 TcpOption::Mss,
@@ -119,7 +123,10 @@ mod tests {
             ittl: Ttl::Value(64),
             olen: 0,
             mss: Some(1460),
-            wsize: WindowSize::Value(65535),
+            wsize: WindowSize {
+                raw: None,
+                ty: WindowSizeType::Value(65535),
+            },
             wscale: Some(3),
             olayout: vec![
                 TcpOption::Mss,
