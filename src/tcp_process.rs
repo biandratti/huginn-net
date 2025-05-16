@@ -397,6 +397,7 @@ fn visit_tcp(
             },
             timestamp,
             ip_total_length: Some(ip_total_packet_length),
+            tcp_header_len_words: Some(tcp.get_data_offset()),
         },
     };
 

@@ -23,8 +23,10 @@ pub struct Signature {
     pub pclass: PayloadSize,
     /// timestamp values
     pub timestamp: Option<Timestamp>,
-    /// total length of IP packet
+    /// Raw IP Total Length.
     pub ip_total_length: Option<u16>,
+    /// Raw TCP Data Offset (header length in 32-bit words).
+    pub tcp_header_len_words: Option<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
