@@ -103,6 +103,8 @@ pub fn process_tcp_ipv4(
 
     let ip_package_header_length: u8 = packet.get_header_length();
 
+    let total_ip_length = packet.get_total_length();
+
     TcpPacket::new(tcp_payload)
         .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
@@ -112,6 +114,7 @@ pub fn process_tcp_ipv4(
                 version,
                 ttl,
                 ip_package_header_length,
+                total_ip_length,
                 olen,
                 quirks,
                 source_ip,
@@ -145,6 +148,8 @@ pub fn process_tcp_ipv6(
 
     let ip_package_header_length: u8 = 40; //IPv6 header is always 40 bytes
 
+    let total_ip_length = packet.get_payload_length() + 40;
+
     TcpPacket::new(packet.payload())
         .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
@@ -154,6 +159,7 @@ pub fn process_tcp_ipv6(
                 version,
                 ttl,
                 ip_package_header_length,
+                total_ip_length,
                 olen,
                 quirks,
                 source_ip,
@@ -169,6 +175,7 @@ fn visit_tcp(
     version: IpVersion,
     ittl: Ttl,
     ip_package_header_length: u8,
+    ip_total_packet_length: u16,
     olen: u8,
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
@@ -389,6 +396,7 @@ fn visit_tcp(
                 PayloadSize::NonZero
             },
             timestamp,
+            ip_total_length: Some(ip_total_packet_length),
         },
     };
 

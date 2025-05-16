@@ -383,6 +383,7 @@ fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
             quirks,
             pclass,
             timestamp: None,
+            ip_total_length: None,
         },
     ))
 }
@@ -630,6 +631,7 @@ mod tests {
                     quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
                     timestamp: None,
+                    ip_total_length: None,
                 }
             ),
             (
@@ -648,6 +650,7 @@ mod tests {
                     quirks: vec![],
                     pclass: PayloadSize::Zero,
                     timestamp: None,
+                    ip_total_length: None,
                 }
             ),
             (
@@ -666,6 +669,7 @@ mod tests {
                     quirks: vec![],
                     pclass: PayloadSize::Zero,
                     timestamp: None,
+                    ip_total_length: None,
                 }
             ),
             (
@@ -684,6 +688,7 @@ mod tests {
                     quirks: vec![AckNumNonZero],
                     pclass: PayloadSize::Zero,
                     timestamp: None,
+                    ip_total_length: None,
                 }
             ),
             (
@@ -702,6 +707,7 @@ mod tests {
                     quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
                     timestamp: None,
+                    ip_total_length: None,
                 }
             ),
             (
@@ -720,6 +726,7 @@ mod tests {
                     quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
                     timestamp: None,
+                    ip_total_length: None,
                 }
 
             )

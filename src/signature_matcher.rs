@@ -98,6 +98,7 @@ mod tests {
             quirks: vec![Quirk::Df, Quirk::NonZeroID],
             pclass: PayloadSize::Zero,
             timestamp: None,
+            ip_total_length: None,
         };
 
         let matcher = SignatureMatcher::new(db);
@@ -139,6 +140,7 @@ mod tests {
             quirks: vec![Quirk::Df, Quirk::NonZeroID],
             pclass: PayloadSize::Zero,
             timestamp: None,
+            ip_total_length: None,
         };
 
         let matcher = SignatureMatcher::new(db);
