@@ -21,6 +21,16 @@ pub struct Signature {
     pub quirks: Vec<Quirk>,
     /// payload size classification
     pub pclass: PayloadSize,
+    /// timestamp values
+    pub timestamp: Option<Timestamp>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Timestamp {
+    /// timestamp value
+    pub tsval: Option<u32>,
+    /// timestamp echo reply
+    pub tsecr: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

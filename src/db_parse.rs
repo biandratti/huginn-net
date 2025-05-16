@@ -382,6 +382,7 @@ fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
             olayout,
             quirks,
             pclass,
+            timestamp: None,
         },
     ))
 }
@@ -628,6 +629,7 @@ mod tests {
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
                     quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
+                    timestamp: None,
                 }
             ),
             (
@@ -645,6 +647,7 @@ mod tests {
                     olayout: vec![Mss],
                     quirks: vec![],
                     pclass: PayloadSize::Zero,
+                    timestamp: None,
                 }
             ),
             (
@@ -662,6 +665,7 @@ mod tests {
                     olayout: vec![Mss, Nop, Ws],
                     quirks: vec![],
                     pclass: PayloadSize::Zero,
+                    timestamp: None,
                 }
             ),
             (
@@ -679,6 +683,7 @@ mod tests {
                     olayout: vec![Mss, Sok, TS],
                     quirks: vec![AckNumNonZero],
                     pclass: PayloadSize::Zero,
+                    timestamp: None,
                 }
             ),
             (
@@ -696,6 +701,7 @@ mod tests {
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
                     quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
+                    timestamp: None,
                 }
             ),
             (
@@ -713,6 +719,7 @@ mod tests {
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
                     quirks: vec![Df, NonZeroID],
                     pclass: PayloadSize::Zero,
+                    timestamp: None,
                 }
 
             )
