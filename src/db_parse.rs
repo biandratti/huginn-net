@@ -385,6 +385,7 @@ fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
             timestamp: None,
             ip_total_length: None,
             tcp_header_len_words: None,
+            ip_id: None,
         },
     ))
 }
@@ -634,6 +635,7 @@ mod tests {
                     timestamp: None,
                     ip_total_length: None,
                     tcp_header_len_words: None,
+                ip_id: None,
                 }
             ),
             (
@@ -654,6 +656,7 @@ mod tests {
                     timestamp: None,
                     ip_total_length: None,
                     tcp_header_len_words: None,
+                ip_id: None,
                 }
             ),
             (
@@ -674,6 +677,7 @@ mod tests {
                     timestamp: None,
                     ip_total_length: None,
                     tcp_header_len_words: None,
+                ip_id: None,
                 }
             ),
             (
@@ -694,6 +698,7 @@ mod tests {
                     timestamp: None,
                     ip_total_length: None,
                  tcp_header_len_words: None,
+                ip_id: None,
                 }
             ),
             (
@@ -713,7 +718,8 @@ mod tests {
                     pclass: PayloadSize::Zero,
                     timestamp: None,
                     ip_total_length: None,
-                 tcp_header_len_words: None,
+                    tcp_header_len_words: None,
+                ip_id: None,
                 }
             ),
             (
@@ -734,6 +740,7 @@ mod tests {
                     timestamp: None,
                     ip_total_length: None,
                     tcp_header_len_words: None,
+                ip_id: None,
                 }
 
             )

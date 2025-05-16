@@ -27,6 +27,9 @@ pub struct Signature {
     pub ip_total_length: Option<u16>,
     /// Raw TCP Data Offset (header length in 32-bit words).
     pub tcp_header_len_words: Option<u8>,
+    /// Raw IP ID.  identification field and is primarily used for uniquely identifying the group of fragments of a single IP datagram
+    /// It is required only in ip v4.
+    pub ip_id: Option<u16>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

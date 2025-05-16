@@ -105,6 +105,8 @@ pub fn process_tcp_ipv4(
 
     let total_ip_length = packet.get_total_length();
 
+    let packet_ip_id = Some(packet.get_identification());
+
     TcpPacket::new(tcp_payload)
         .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
@@ -116,6 +118,7 @@ pub fn process_tcp_ipv4(
                 ip_package_header_length,
                 total_ip_length,
                 olen,
+                packet_ip_id,
                 quirks,
                 source_ip,
                 destination_ip,
@@ -150,6 +153,8 @@ pub fn process_tcp_ipv6(
 
     let total_ip_length = packet.get_payload_length() + 40;
 
+    let packet_ip_id = None;
+
     TcpPacket::new(packet.payload())
         .ok_or_else(|| PassiveTcpError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
@@ -161,6 +166,7 @@ pub fn process_tcp_ipv6(
                 ip_package_header_length,
                 total_ip_length,
                 olen,
+                packet_ip_id,
                 quirks,
                 source_ip,
                 destination_ip,
@@ -177,6 +183,7 @@ fn visit_tcp(
     ip_package_header_length: u8,
     ip_total_packet_length: u16,
     olen: u8,
+    raw_ip_id: Option<u16>,
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
     destination_ip: IpAddr,
@@ -372,6 +379,8 @@ fn visit_tcp(
         _ => None,
     };
 
+    let tcp_data_offset_val = tcp.get_data_offset();
+
     let wsize: WindowSize = detect_win_multiplicator(
         tcp.get_window(),
         mss.unwrap_or(0),
@@ -380,35 +389,38 @@ fn visit_tcp(
         &version,
     );
 
-    let tcp_signature: ObservableTcp = ObservableTcp {
-        signature: tcp::Signature {
-            version,
-            ittl,
-            olen,
-            mss,
-            wsize,
-            wscale,
-            olayout,
-            quirks,
-            pclass: if tcp.payload().is_empty() {
-                PayloadSize::Zero
-            } else {
-                PayloadSize::NonZero
-            },
-            timestamp,
-            ip_total_length: Some(ip_total_packet_length),
-            tcp_header_len_words: Some(tcp.get_data_offset()),
+    let tcp_signature_struct = tcp::Signature {
+        version,
+        ittl,
+        olen,
+        mss,
+        wsize,
+        wscale,
+        olayout,
+        quirks,
+        pclass: if tcp.payload().is_empty() {
+            PayloadSize::Zero
+        } else {
+            PayloadSize::NonZero
         },
+        timestamp,
+        ip_total_length: Some(ip_total_packet_length),
+        tcp_header_len_words: Some(tcp_data_offset_val),
+        ip_id: raw_ip_id,
+    };
+
+    let observable_tcp = ObservableTcp {
+        signature: tcp_signature_struct,
     };
 
     Ok(ObservableTCPPackage {
         tcp_request: if from_client {
-            Some(tcp_signature.clone())
+            Some(observable_tcp.clone())
         } else {
             None
         },
         tcp_response: if !from_client {
-            Some(tcp_signature)
+            Some(observable_tcp)
         } else {
             None
         },

@@ -100,6 +100,7 @@ mod tests {
             timestamp: None,
             ip_total_length: None,
             tcp_header_len_words: None,
+            ip_id: None,
         };
 
         let matcher = SignatureMatcher::new(db);
@@ -143,6 +144,7 @@ mod tests {
             timestamp: None,
             ip_total_length: None,
             tcp_header_len_words: None,
+            ip_id: None,
         };
 
         let matcher = SignatureMatcher::new(db);
