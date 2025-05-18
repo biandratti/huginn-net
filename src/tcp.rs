@@ -17,8 +17,6 @@ pub struct Signature {
     pub wscale: Option<u8>,
     /// layout and ordering of TCP options, if any.
     pub olayout: Vec<TcpOption>,
-    /// properties and quirks observed in IP or TCP headers.
-    pub quirks: Vec<Quirk>,
     /// payload size classification
     pub pclass: PayloadSize,
     /// timestamp values
@@ -30,6 +28,10 @@ pub struct Signature {
     /// Raw IP ID.  identification field and is primarily used for uniquely identifying the group of fragments of a single IP datagram
     /// It is required only in ip v4.
     pub ip_id: Option<u16>,
+    /// Raw TCP flags value from the packet (e.g., SYN=2, SYN+ECE+CWR=194)
+    pub tcp_raw_flags: Option<u8>,
+    /// Derived properties and quirks (p0f style)
+    pub quirks: Vec<Quirk>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -3,7 +3,7 @@ use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
 use crate::tcp;
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use crate::window_size::detect_win_multiplicator;
@@ -219,7 +219,7 @@ fn visit_tcp(
     }
 
     if (flags & (ECE | CWR)) != 0 {
-        quirks.push(Quirk::Ecn);
+        // Asumiendo que el quirk ECN se añade desde el nivel IP o de forma más específica
     }
     if tcp.get_sequence() == 0 {
         quirks.push(Quirk::SeqNumZero);
@@ -231,36 +231,37 @@ fn visit_tcp(
     } else if tcp.get_acknowledgement() != 0 && flags & RST == 0 {
         quirks.push(Quirk::AckNumNonZero);
     }
-
     if flags & URG == URG {
         quirks.push(Quirk::Urg);
-    } else if tcp.get_urgent_ptr() != 0 {
+    } else if tcp.get_urgent_ptr() != 0 && (flags & URG) == 0 {
         quirks.push(Quirk::NonZeroURG);
     }
-
     if flags & PSH == PSH {
         quirks.push(Quirk::Push);
     }
 
-    let mut buf = tcp.get_options_raw();
+    let raw_tcp_flags_for_signature: u8 = tcp.get_flags();
+
     let mut mss = None;
     let mut wscale = None;
     let mut olayout = vec![];
-    let mut timestamp = None;
+    let mut tsval_opt: Option<u32> = None;
+    let mut tsecr_opt: Option<u32> = None;
     let mut uptime: Option<ObservableUptime> = None;
+    let mut options_buf = tcp.get_options_raw();
 
-    while let Some(opt) = TcpOptionPacket::new(buf) {
-        buf = &buf[opt.packet_size().min(buf.len())..];
-
+    while let Some(opt) = TcpOptionPacket::new(options_buf) {
+        options_buf = &options_buf[opt.packet_size().min(options_buf.len())..];
         let data: &[u8] = opt.payload();
 
         match opt.get_number() {
             EOL => {
-                olayout.push(TcpOption::Eol(buf.len() as u8));
-
-                if buf.iter().any(|&b| b != 0) {
+                olayout.push(TcpOption::Eol(options_buf.len() as u8));
+                if options_buf.iter().any(|&b| b != 0) && !quirks.contains(&Quirk::TrailinigNonZero)
+                {
                     quirks.push(Quirk::TrailinigNonZero);
                 }
+                break;
             }
             NOP => {
                 olayout.push(TcpOption::Nop);
@@ -268,100 +269,78 @@ fn visit_tcp(
             MSS => {
                 olayout.push(TcpOption::Mss);
                 if data.len() >= 2 {
-                    let mss_value: u16 = u16::from_be_bytes([data[0], data[1]]);
-                    //quirks.push(Quirk::mss);
-                    mss = Some(mss_value);
+                    mss = Some(u16::from_be_bytes([data[0], data[1]]));
                 }
-
-                /*if data.len() != 4 {
-                    quirks.push(Quirk::OptBad);
-                }*/
+                // if opt.get_length() != 4 {
+                //      if !quirks.contains(&Quirk::OptBad) { quirks.push(Quirk::OptBad); }
+                // }
             }
             WSCALE => {
                 olayout.push(TcpOption::Ws);
-
-                wscale = Some(data[0]);
-
-                if data[0] > 14 {
-                    quirks.push(Quirk::ExcessiveWindowScaling);
+                if !data.is_empty() {
+                    wscale = Some(data[0]);
+                    if data[0] > 14 && !quirks.contains(&Quirk::ExcessiveWindowScaling) {
+                        quirks.push(Quirk::ExcessiveWindowScaling);
+                    }
                 }
-                /*if data.len() != 3 {
-                    quirks.push(Quirk::OptBad);
-                }*/
+                // if opt.get_length() != 3 {
+                //      if !quirks.contains(&Quirk::OptBad) { quirks.push(Quirk::OptBad); }
+                // }
             }
             SACK_PERMITTED => {
                 olayout.push(TcpOption::Sok);
-
-                /*if data.len() != 2 {
-                    quirks.push(Quirk::OptBad);
-                }*/
+                // if opt.get_length() != 2 {
+                //     if !quirks.contains(&Quirk::OptBad) { quirks.push(Quirk::OptBad); }
+                // }
             }
             SACK => {
                 olayout.push(TcpOption::Sack);
-
-                /*match data.len() {
-                    10 | 18 | 26 | 34 => {}
-                    _ => quirks.push(Quirk::OptBad),
-                }*/
             }
             TIMESTAMPS => {
                 olayout.push(TcpOption::TS);
-
                 if data.len() >= 4 {
-                    let ts_val_bytes_for_quirk: [u8; 4] = data[..4].try_into().map_err(|_| {
-                        PassiveTcpError::Parse(
-                            "Failed to convert slice to array for timestamp value (quirk check)"
-                                .to_string(),
-                        )
-                    })?;
-                    if u32::from_ne_bytes(ts_val_bytes_for_quirk) == 0 {
+                    let extracted_tsval =
+                        u32::from_be_bytes(data[..4].try_into().map_err(|_| {
+                            PassiveTcpError::Parse(
+                                "Failed to convert slice to array for TSval".to_string(),
+                            )
+                        })?);
+                    tsval_opt = Some(extracted_tsval);
+                    if extracted_tsval == 0 && !quirks.contains(&Quirk::OwnTimestampZero) {
                         quirks.push(Quirk::OwnTimestampZero);
                     }
                 }
-
                 if data.len() >= 8 {
-                    if tcp_type == SYN {
-                        let ts_peer_bytes_for_quirk: [u8; 4] = data[4..8].try_into().map_err(|_| {
+                    let extracted_tsecr =
+                        u32::from_be_bytes(data[4..8].try_into().map_err(|_| {
                             PassiveTcpError::Parse(
-                                "Failed to convert slice to array for peer timestamp value (quirk check)".to_string(),
+                                "Failed to convert slice to array for TSecr".to_string(),
                             )
-                        })?;
-                        if u32::from_ne_bytes(ts_peer_bytes_for_quirk) != 0 {
-                            quirks.push(Quirk::PeerTimestampNonZero);
-                        }
+                        })?);
+                    tsecr_opt = Some(extracted_tsecr);
+
+                    if from_client
+                        && (flags & SYN) != 0
+                        && (flags & ACK) == 0
+                        && extracted_tsecr != 0
+                        && !quirks.contains(&Quirk::PeerTimestampNonZero)
+                    {
+                        quirks.push(Quirk::PeerTimestampNonZero);
                     }
 
-                    let ts_val_bytes: [u8; 4] = data[..4].try_into().map_err(|_| {
-                        PassiveTcpError::Parse(
-                            "Failed to convert slice to array for timestamp value".to_string(),
-                        )
-                    })?;
-                    let ts_val_extracted: u32 = u32::from_ne_bytes(ts_val_bytes);
-
-                    let ts_ecr_bytes: [u8; 4] = data[4..8].try_into().map_err(|_| {
-                        PassiveTcpError::Parse(
-                            "Failed to convert slice to array for timestamp echo reply value"
-                                .to_string(),
-                        )
-                    })?;
-                    let ts_ecr_extracted: u32 = u32::from_ne_bytes(ts_ecr_bytes);
-                    timestamp = Some(tcp::Timestamp {
-                        tsval: Some(ts_val_extracted),
-                        tsecr: Some(ts_ecr_extracted),
-                    });
-
-                    let connection: Connection = Connection {
-                        src_ip: source_ip,
-                        src_port: tcp.get_source(),
-                        dst_ip: destination_ip,
-                        dst_port: tcp.get_destination(),
-                    };
-                    uptime = check_ts_tcp(cache, &connection, from_client, ts_val_extracted);
+                    if let Some(ts_val_for_uptime) = tsval_opt {
+                        let connection = Connection {
+                            src_ip: source_ip,
+                            src_port: tcp.get_source(),
+                            dst_ip: destination_ip,
+                            dst_port: tcp.get_destination(),
+                        };
+                        uptime = check_ts_tcp(cache, &connection, from_client, ts_val_for_uptime);
+                    }
                 }
-
-                /*if data.len() != 10 {
-                    quirks.push(Quirk::OptBad);
-                }*/
+                // if opt.get_length() != 10 {
+                //     if !quirks.contains(&Quirk::OptBad) { quirks.push(Quirk::OptBad); }
+                // }
             }
             _ => {
                 olayout.push(TcpOption::Unknown(opt.get_number().0));
@@ -369,19 +348,8 @@ fn visit_tcp(
         }
     }
 
-    let mtu: Option<ObservableMtu> = match (mss, &version) {
-        (Some(mss_value), IpVersion::V4) => {
-            mtu::extract_from_ipv4(tcp, ip_package_header_length, mss_value)
-        }
-        (Some(mss_value), IpVersion::V6) => {
-            mtu::extract_from_ipv6(tcp, ip_package_header_length, mss_value)
-        }
-        _ => None,
-    };
-
     let tcp_data_offset_val = tcp.get_data_offset();
-
-    let wsize: WindowSize = detect_win_multiplicator(
+    let wsize_val = detect_win_multiplicator(
         tcp.get_window(),
         mss.unwrap_or(0),
         ip_package_header_length as u16,
@@ -389,12 +357,21 @@ fn visit_tcp(
         &version,
     );
 
+    let final_timestamp = if tsval_opt.is_some() || tsecr_opt.is_some() {
+        Some(tcp::Timestamp {
+            tsval: tsval_opt,
+            tsecr: tsecr_opt,
+        })
+    } else {
+        None
+    };
+
     let tcp_signature_struct = tcp::Signature {
         version,
         ittl,
         olen,
         mss,
-        wsize,
+        wsize: wsize_val,
         wscale,
         olayout,
         quirks,
@@ -403,14 +380,25 @@ fn visit_tcp(
         } else {
             PayloadSize::NonZero
         },
-        timestamp,
+        timestamp: final_timestamp,
         ip_total_length: Some(ip_total_packet_length),
         tcp_header_len_words: Some(tcp_data_offset_val),
         ip_id: raw_ip_id,
+        tcp_raw_flags: Some(raw_tcp_flags_for_signature),
     };
 
     let observable_tcp = ObservableTcp {
         signature: tcp_signature_struct,
+    };
+
+    let calculated_mtu: Option<ObservableMtu> = match (mss, &version) {
+        (Some(mss_value), IpVersion::V4) => {
+            mtu::extract_from_ipv4(tcp, ip_package_header_length, mss_value)
+        }
+        (Some(mss_value), IpVersion::V6) => {
+            mtu::extract_from_ipv6(tcp, ip_package_header_length, mss_value)
+        }
+        _ => None,
     };
 
     Ok(ObservableTCPPackage {
@@ -424,8 +412,8 @@ fn visit_tcp(
         } else {
             None
         },
-        mtu: if from_client { mtu } else { None },
-        uptime: if !from_client { uptime } else { None },
+        mtu: if from_client { calculated_mtu } else { None },
+        uptime,
         source: IpPort {
             ip: source_ip,
             port: source_port,
