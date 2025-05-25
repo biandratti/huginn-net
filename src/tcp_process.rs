@@ -4,7 +4,7 @@ use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpMatchQuality, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use crate::window_size::detect_win_multiplicator;
@@ -41,6 +41,48 @@ pub struct ObservableTcp {
     pub pclass: PayloadSize,
 }
 
+impl ObservableTcp {
+    fn distance_olen(&self, other: &tcp::Signature) -> Option<u32> {
+        if self.olen == other.olen {
+            Some(TcpMatchQuality::High.as_score())
+        } else {
+            Some(TcpMatchQuality::Low.as_score())
+        }
+    }
+
+    fn distance_mss(&self, other: &tcp::Signature) -> Option<u32> {
+        if other.mss.is_none() || self.mss == other.mss {
+            Some(TcpMatchQuality::High.as_score())
+        } else {
+            Some(TcpMatchQuality::Low.as_score())
+        }
+    }
+
+    fn distance_wscale(&self, other: &tcp::Signature) -> Option<u32> {
+        if other.wscale.is_none() || self.wscale == other.wscale {
+            Some(TcpMatchQuality::High.as_score())
+        } else {
+            Some(TcpMatchQuality::Medium.as_score())
+        }
+    }
+
+    fn distance_olayout(&self, other: &tcp::Signature) -> Option<u32> {
+        if self.olayout == other.olayout {
+            Some(TcpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+
+    fn distance_quirks(&self, other: &tcp::Signature) -> Option<u32> {
+        if self.quirks == other.quirks {
+            Some(TcpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+}
+
 impl ObservedFingerprint for ObservableTcp {
     type Key = TcpP0fIndexKey;
 
@@ -57,20 +99,18 @@ impl ObservedFingerprint for ObservableTcp {
 
 impl DatabaseSignature<ObservableTcp> for tcp::Signature {
     fn calculate_distance(&self, observed: &ObservableTcp) -> Option<u32> {
-        // let distance = observed.version.distance_ip_version(&self.version)?
-        //     + observed.ittl.distance_ttl(&self.ittl)?
-        //     + observed.distance_olen(self)?
-        //     + observed.distance_mss(self)?
-        //     + observed
-        //     .wsize
-        //     .distance_window_size(&self.wsize, observed.mss)?
-        //     + observed.distance_wscale(self)?
-        //     + observed.distance_olayout(self)?
-        //     + observed.distance_quirks(self)?
-        //     + observed.pclass.distance_payload_size(&self.pclass)?;
-        // Some(distance)
-        //TODO: WIP
-        None
+        let distance = observed.version.distance_ip_version(&self.version)?
+            + observed.ittl.distance_ttl(&self.ittl)?
+            + observed.distance_olen(self)?
+            + observed.distance_mss(self)?
+            + observed
+                .wsize
+                .distance_window_size(&self.wsize, observed.mss)?
+            + observed.distance_wscale(self)?
+            + observed.distance_olayout(self)?
+            + observed.distance_quirks(self)?
+            + observed.pclass.distance_payload_size(&self.pclass)?;
+        Some(distance)
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {

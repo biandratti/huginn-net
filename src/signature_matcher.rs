@@ -69,16 +69,14 @@ mod tests {
     use super::*;
     use crate::db::Type;
     use crate::http::{Signature as HttpDbSignature, Version as HttpVersion};
-    use crate::tcp::{
-        IpVersion, PayloadSize, Quirk, Signature as TcpDbSignature, TcpOption, Ttl, WindowSize,
-    };
+    use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
 
     #[test]
     fn matching_linux_by_tcp_request() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let linux_signature = TcpDbSignature {
+        let linux_signature = ObservableTcp {
             version: IpVersion::V4,
             ittl: Ttl::Value(64),
             olen: 0,
@@ -115,7 +113,7 @@ mod tests {
     fn matching_android_by_tcp_request() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let android_signature = TcpDbSignature {
+        let android_signature = ObservableTcp {
             version: IpVersion::V4,
             ittl: Ttl::Value(64),
             olen: 0,
