@@ -1,5 +1,6 @@
 use crate::db::{Database, Label};
 use crate::fingerprint_traits::{FingerprintDb, MatchQuality};
+use crate::tcp_process::ObservableTcp;
 use crate::{http, tcp};
 
 pub struct SignatureMatcher<'a> {
@@ -13,14 +14,14 @@ impl<'a> SignatureMatcher<'a> {
 
     pub fn matching_by_tcp_request(
         &self,
-        signature: &tcp::Signature,
+        signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, MatchQuality)> {
         self.database.tcp_request.find_best_match(signature)
     }
 
     pub fn matching_by_tcp_response(
         &self,
-        signature: &tcp::Signature,
+        signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, MatchQuality)> {
         self.database.tcp_response.find_best_match(signature)
     }

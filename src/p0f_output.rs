@@ -2,7 +2,8 @@ use crate::db::{Label, Type};
 use crate::http;
 use crate::http::HttpDiagnosis;
 use crate::process::IpPort;
-use crate::tcp::{Signature, Ttl};
+use crate::tcp::Ttl;
+use crate::tcp_process::ObservableTcp;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -73,7 +74,7 @@ pub struct SynTCPOutput {
     /// The operative system with the highest quality that matches the SYN packet.
     pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN packet.
-    pub sig: Signature,
+    pub sig: ObservableTcp,
 }
 
 impl fmt::Display for SynTCPOutput {
@@ -126,7 +127,7 @@ pub struct SynAckTCPOutput {
     /// The operative system with the highest quality that matches the SYN+ACK packet.
     pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN+ACK packet.
-    pub sig: Signature,
+    pub sig: ObservableTcp,
 }
 
 impl fmt::Display for SynAckTCPOutput {

@@ -17,8 +17,52 @@ impl fmt::Display for Label {
 
 mod tcp {
     use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+    use crate::tcp_process::ObservableTcp;
     use core::fmt;
     use std::fmt::Formatter;
+
+    //TODO: unify with Signature
+    impl fmt::Display for ObservableTcp {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            write!(f, "{}:{}:{}:", self.version, self.ittl, self.olen)?;
+
+            if let Some(mss) = self.mss {
+                write!(f, "{}", mss)?;
+            } else {
+                f.write_str("*")?;
+            }
+
+            write!(f, ":{},", self.wsize)?;
+
+            if let Some(scale) = self.wscale {
+                write!(f, "{}", scale)?;
+            } else {
+                f.write_str("*")?;
+            }
+
+            f.write_str(":")?;
+
+            for (i, o) in self.olayout.iter().enumerate() {
+                if i > 0 {
+                    f.write_str(",")?;
+                }
+
+                write!(f, "{}", o)?;
+            }
+
+            f.write_str(":")?;
+
+            for (i, q) in self.quirks.iter().enumerate() {
+                if i > 0 {
+                    f.write_str(",")?;
+                }
+
+                write!(f, "{}", q)?;
+            }
+
+            write!(f, ":{}", self.pclass)
+        }
+    }
 
     impl fmt::Display for Signature {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

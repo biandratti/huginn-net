@@ -159,12 +159,12 @@ impl<'a> P0f<'a> {
                                 destination: observable_package.destination.clone(),
                                 os_matched: self
                                     .matcher
-                                    .matching_by_tcp_request(&observable_tcp.signature)
+                                    .matching_by_tcp_request(&observable_tcp)
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: OperativeSystem::from(label),
                                         quality,
                                     }),
-                                sig: observable_tcp.signature,
+                                sig: observable_tcp,
                             });
 
                     let syn_ack: Option<SynAckTCPOutput> =
@@ -175,12 +175,12 @@ impl<'a> P0f<'a> {
                                 destination: observable_package.destination.clone(),
                                 os_matched: self
                                     .matcher
-                                    .matching_by_tcp_response(&observable_tcp.signature)
+                                    .matching_by_tcp_response(&observable_tcp)
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: OperativeSystem::from(label),
                                         quality,
                                     }),
-                                sig: observable_tcp.signature,
+                                sig: observable_tcp,
                             });
 
                     let uptime: Option<UptimeOutput> =

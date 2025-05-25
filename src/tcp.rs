@@ -1,5 +1,5 @@
 use crate::db::TcpP0fIndexKey;
-use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
+use crate::fingerprint_traits::ObservedFingerprint;
 use tracing::debug;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -96,55 +96,55 @@ impl ObservedFingerprint for Signature {
     }
 }
 
-impl DatabaseSignature<Signature> for Signature {
-    fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
-        let distance = observed.version.distance_ip_version(&self.version)?
-            + observed.ittl.distance_ttl(&self.ittl)?
-            + observed.distance_olen(self)?
-            + observed.distance_mss(self)?
-            + observed
-                .wsize
-                .distance_window_size(&self.wsize, observed.mss)?
-            + observed.distance_wscale(self)?
-            + observed.distance_olayout(self)?
-            + observed.distance_quirks(self)?
-            + observed.pclass.distance_payload_size(&self.pclass)?;
-        Some(distance)
-    }
-
-    fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
-        let mut keys = Vec::new();
-        let olayout_key_str = self
-            .olayout
-            .iter()
-            .map(|opt| format!("{}", opt))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        let versions_for_keys = if self.version == IpVersion::Any {
-            vec![IpVersion::V4, IpVersion::V6]
-        } else {
-            vec![self.version]
-        };
-
-        let pclasses_for_keys = if self.pclass == PayloadSize::Any {
-            vec![PayloadSize::Zero, PayloadSize::NonZero]
-        } else {
-            vec![self.pclass]
-        };
-
-        for v_key_part in &versions_for_keys {
-            for pc_key_part in &pclasses_for_keys {
-                keys.push(TcpP0fIndexKey {
-                    ip_version_key: *v_key_part,
-                    olayout_key: olayout_key_str.clone(),
-                    pclass_key: *pc_key_part,
-                });
-            }
-        }
-        keys
-    }
-}
+// impl DatabaseSignature<Signature> for Signature {
+//     fn calculate_distance(&self, observed: &Signature) -> Option<u32> {
+//         let distance = observed.version.distance_ip_version(&self.version)?
+//             + observed.ittl.distance_ttl(&self.ittl)?
+//             + observed.distance_olen(self)?
+//             + observed.distance_mss(self)?
+//             + observed
+//                 .wsize
+//                 .distance_window_size(&self.wsize, observed.mss)?
+//             + observed.distance_wscale(self)?
+//             + observed.distance_olayout(self)?
+//             + observed.distance_quirks(self)?
+//             + observed.pclass.distance_payload_size(&self.pclass)?;
+//         Some(distance)
+//     }
+//
+//     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
+//         let mut keys = Vec::new();
+//         let olayout_key_str = self
+//             .olayout
+//             .iter()
+//             .map(|opt| format!("{}", opt))
+//             .collect::<Vec<String>>()
+//             .join(",");
+//
+//         let versions_for_keys = if self.version == IpVersion::Any {
+//             vec![IpVersion::V4, IpVersion::V6]
+//         } else {
+//             vec![self.version]
+//         };
+//
+//         let pclasses_for_keys = if self.pclass == PayloadSize::Any {
+//             vec![PayloadSize::Zero, PayloadSize::NonZero]
+//         } else {
+//             vec![self.pclass]
+//         };
+//
+//         for v_key_part in &versions_for_keys {
+//             for pc_key_part in &pclasses_for_keys {
+//                 keys.push(TcpP0fIndexKey {
+//                     ip_version_key: *v_key_part,
+//                     olayout_key: olayout_key_str.clone(),
+//                     pclass_key: *pc_key_part,
+//                 });
+//             }
+//         }
+//         keys
+//     }
+// }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IpVersion {

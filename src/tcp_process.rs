@@ -1,13 +1,14 @@
+use crate::db::TcpP0fIndexKey;
 use crate::error::PassiveTcpError;
+use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;
-use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::{check_ts_tcp, ObservableUptime};
 use crate::uptime::{Connection, SynData};
 use crate::window_size::detect_win_multiplicator;
-use crate::{mtu, ttl};
+use crate::{mtu, tcp, ttl};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ipv4::{Ipv4Flags, Ipv4Packet},
@@ -19,9 +20,91 @@ use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ObservableTcp {
-    pub signature: tcp::Signature,
+    pub version: IpVersion,
+    /// initial TTL used by the OS.
+    pub ittl: Ttl,
+    /// length of IPv4 options or IPv6 extension headers.
+    pub olen: u8,
+    /// maximum segment size, if specified in TCP options.
+    pub mss: Option<u16>,
+    /// window size.
+    pub wsize: WindowSize,
+    /// window scaling factor, if specified in TCP options.
+    pub wscale: Option<u8>,
+    /// layout and ordering of TCP options, if any.
+    pub olayout: Vec<TcpOption>,
+    /// properties and quirks observed in IP or TCP headers.
+    pub quirks: Vec<Quirk>,
+    /// payload size classification
+    pub pclass: PayloadSize,
+}
+
+impl ObservedFingerprint for ObservableTcp {
+    type Key = TcpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        let olayout_parts: Vec<String> =
+            self.olayout.iter().map(|opt| format!("{}", opt)).collect();
+        TcpP0fIndexKey {
+            ip_version_key: self.version,
+            olayout_key: olayout_parts.join(","),
+            pclass_key: self.pclass,
+        }
+    }
+}
+
+impl DatabaseSignature<ObservableTcp> for tcp::Signature {
+    fn calculate_distance(&self, observed: &ObservableTcp) -> Option<u32> {
+        // let distance = observed.version.distance_ip_version(&self.version)?
+        //     + observed.ittl.distance_ttl(&self.ittl)?
+        //     + observed.distance_olen(self)?
+        //     + observed.distance_mss(self)?
+        //     + observed
+        //     .wsize
+        //     .distance_window_size(&self.wsize, observed.mss)?
+        //     + observed.distance_wscale(self)?
+        //     + observed.distance_olayout(self)?
+        //     + observed.distance_quirks(self)?
+        //     + observed.pclass.distance_payload_size(&self.pclass)?;
+        // Some(distance)
+        //TODO: WIP
+        None
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
+        let mut keys = Vec::new();
+        let olayout_key_str = self
+            .olayout
+            .iter()
+            .map(|opt| format!("{}", opt))
+            .collect::<Vec<String>>()
+            .join(",");
+
+        let versions_for_keys = if self.version == IpVersion::Any {
+            vec![IpVersion::V4, IpVersion::V6]
+        } else {
+            vec![self.version]
+        };
+
+        let pclasses_for_keys = if self.pclass == PayloadSize::Any {
+            vec![PayloadSize::Zero, PayloadSize::NonZero]
+        } else {
+            vec![self.pclass]
+        };
+
+        for v_key_part in &versions_for_keys {
+            for pc_key_part in &pclasses_for_keys {
+                keys.push(TcpP0fIndexKey {
+                    ip_version_key: *v_key_part,
+                    olayout_key: olayout_key_str.clone(),
+                    pclass_key: *pc_key_part,
+                });
+            }
+        }
+        keys
+    }
 }
 
 /// Congestion encountered
@@ -359,20 +442,18 @@ fn visit_tcp(
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
-        signature: tcp::Signature {
-            version,
-            ittl,
-            olen,
-            mss,
-            wsize,
-            wscale,
-            olayout,
-            quirks,
-            pclass: if tcp.payload().is_empty() {
-                PayloadSize::Zero
-            } else {
-                PayloadSize::NonZero
-            },
+        version,
+        ittl,
+        olen,
+        mss,
+        wsize,
+        wscale,
+        olayout,
+        quirks,
+        pclass: if tcp.payload().is_empty() {
+            PayloadSize::Zero
+        } else {
+            PayloadSize::NonZero
         },
     };
 
