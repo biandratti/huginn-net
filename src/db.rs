@@ -2,6 +2,7 @@ use crate::fingerprint_traits::{
     DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
 };
 use crate::http::{self, Version as HttpVersion};
+use crate::http_process::ObservableHttpRequest;
 use crate::tcp::{self, IpVersion, PayloadSize};
 use crate::tcp_process::ObservableTcp;
 use std::collections::HashMap;
@@ -20,7 +21,8 @@ pub struct Database {
     pub ua_os: Vec<(String, Option<String>)>,
     pub tcp_request: FingerprintCollection<ObservableTcp, tcp::Signature, TcpP0fIndexKey>,
     pub tcp_response: FingerprintCollection<ObservableTcp, tcp::Signature, TcpP0fIndexKey>,
-    pub http_request: FingerprintCollection<http::Signature, http::Signature, HttpP0fIndexKey>,
+    pub http_request:
+        FingerprintCollection<ObservableHttpRequest, http::Signature, HttpP0fIndexKey>,
     pub http_response: FingerprintCollection<http::Signature, http::Signature, HttpP0fIndexKey>,
 }
 

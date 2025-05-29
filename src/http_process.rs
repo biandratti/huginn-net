@@ -1,5 +1,7 @@
-use crate::db::Label;
+use crate::db::{HttpP0fIndexKey, Label};
 use crate::error::PassiveTcpError;
+use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
+use crate::http::{Header, HttpMatchQuality, Version};
 use crate::{http, http_languages};
 use httparse::{Request, Response, EMPTY_HEADER};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -205,12 +207,10 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Pass
             Ok(Some(ObservableHttpRequest {
                 lang,
                 user_agent: user_agent.clone(),
-                signature: http::Signature {
-                    version: http_version,
-                    horder: headers_in_order,
-                    habsent: headers_absent,
-                    expsw: extract_traffic_classification(user_agent),
-                },
+                version: http_version,
+                horder: headers_in_order,
+                habsent: headers_absent,
+                expsw: extract_traffic_classification(user_agent),
             }))
         }
         Ok(httparse::Status::Partial) => {
@@ -369,12 +369,116 @@ pub struct ObservableHttpPackage {
     pub http_response: Option<ObservableHttpResponse>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ObservableHttpRequest {
     pub lang: Option<String>,
     pub user_agent: Option<String>,
-    pub signature: http::Signature,
+    /// HTTP version
+    pub version: Version,
+    /// ordered list of headers that should appear in matching traffic.
+    pub horder: Vec<Header>,
+    /// list of headers that must *not* appear in matching traffic.
+    pub habsent: Vec<Header>,
+    /// expected substring in 'User-Agent' or 'Server'.
+    pub expsw: String,
 }
+
+impl ObservableHttpRequest {
+    pub fn distance_ip_version(&self, other: &http::Signature) -> Option<u32> {
+        if other.version == Version::Any || self.version == other.version {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+
+    // Compare two header vectors and return the number of matching headers.
+    // The quality is based on the number of matching headers.
+    fn distance_header(a: &[Header], b: &[Header]) -> Option<u32> {
+        let len_a = a.len();
+        let len_b = b.len();
+        let min_len = len_a.min(len_b);
+        let max_len = len_a.max(len_b);
+
+        let mut actual_matches = 0;
+        for i in 0..min_len {
+            //The match is based on the header name and value.
+            // If the header is optional, it is not considered a match.
+            if a[i] == b[i] {
+                actual_matches += 1;
+            }
+        }
+
+        // Calculate errors based on the difference between the length of the longer list
+        // and the number of actual matches in the common part.
+        let errors = max_len - actual_matches;
+
+        match errors {
+            0 => Some(HttpMatchQuality::High.as_score()),
+            1 => Some(HttpMatchQuality::Medium.as_score()),
+            2 => Some(HttpMatchQuality::Low.as_score()),
+            3 => Some(HttpMatchQuality::Bad.as_score()),
+            _ => None,
+        }
+    }
+
+    fn distance_horder(&self, other: &http::Signature) -> Option<u32> {
+        Self::distance_header(&self.horder, &other.horder)
+    }
+
+    fn distance_habsent(&self, other: &http::Signature) -> Option<u32> {
+        Self::distance_header(&self.habsent, &other.habsent)
+    }
+
+    fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
+        if self.expsw == other.expsw {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            Some(HttpMatchQuality::Low.as_score())
+        }
+    }
+}
+impl ObservedFingerprint for ObservableHttpRequest {
+    type Key = HttpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpP0fIndexKey {
+            http_version_key: self.version,
+            expsw_key: self.expsw.clone(),
+        }
+    }
+}
+
+impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
+    fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
+        let distance = observed.distance_ip_version(self)?
+            + observed.distance_horder(self)?
+            + observed.distance_habsent(self)?
+            + observed.distance_expsw(self)?;
+        Some(distance)
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+        let mut keys = Vec::new();
+        if self.version == Version::Any {
+            keys.push(HttpP0fIndexKey {
+                http_version_key: Version::V10,
+                expsw_key: self.expsw.clone(),
+            });
+            keys.push(HttpP0fIndexKey {
+                http_version_key: Version::V11,
+                expsw_key: self.expsw.clone(),
+            });
+        } else {
+            keys.push(HttpP0fIndexKey {
+                http_version_key: self.version,
+                expsw_key: self.expsw.clone(),
+            });
+        }
+        keys
+    }
+}
+
 pub struct ObservableHttpResponse {
     pub signature: http::Signature,
 }
@@ -401,7 +505,7 @@ mod tests {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
-                assert_eq!(request.signature.version, http::Version::V11);
+                assert_eq!(request.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Host"),
@@ -414,16 +518,16 @@ mod tests {
                     http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
                     http::Header::new("User-Agent"),
                 ];
-                assert_eq!(request.signature.horder, expected_horder);
+                assert_eq!(request.horder, expected_horder);
 
                 let expected_habsent = vec![
                     http::Header::new("Accept-Encoding"),
                     http::Header::new("Accept-Charset"),
                     http::Header::new("Keep-Alive"),
                 ];
-                assert_eq!(request.signature.habsent, expected_habsent);
+                assert_eq!(request.habsent, expected_habsent);
 
-                assert_eq!(request.signature.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                assert_eq!(request.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {}", e),

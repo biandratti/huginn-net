@@ -1,6 +1,7 @@
 use crate::db::{Label, Type};
 use crate::http;
 use crate::http::HttpDiagnosis;
+use crate::http_process::ObservableHttpRequest;
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use crate::tcp_process::ObservableTcp;
@@ -301,7 +302,7 @@ pub struct HttpRequestOutput {
     /// The browser with the highest quality that matches the HTTP request.
     pub browser_matched: Option<BrowserQualityMatched>,
     /// The raw signature representing the HTTP headers and their order.
-    pub sig: http::Signature,
+    pub sig: ObservableHttpRequest,
 }
 
 impl fmt::Display for HttpRequestOutput {

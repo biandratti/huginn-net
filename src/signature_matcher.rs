@@ -1,5 +1,6 @@
 use crate::db::{Database, Label};
 use crate::fingerprint_traits::{FingerprintDb, MatchQuality};
+use crate::http_process::ObservableHttpRequest;
 use crate::tcp_process::ObservableTcp;
 use crate::{http, tcp};
 
@@ -39,7 +40,7 @@ impl<'a> SignatureMatcher<'a> {
 
     pub fn matching_by_http_request(
         &self,
-        signature: &http::Signature,
+        signature: &ObservableHttpRequest,
     ) -> Option<(&'a Label, &'a http::Signature, MatchQuality)> {
         self.database.http_request.find_best_match(signature)
     }
@@ -150,7 +151,9 @@ mod tests {
     fn matching_firefox2_by_http_request() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let firefox_signature = HttpDbSignature {
+        let firefox_signature = ObservableHttpRequest {
+            lang: None,
+            user_agent: None,
             version: HttpVersion::V10,
             horder: vec![
                 http::Header::new("Host"),

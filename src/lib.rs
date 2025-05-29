@@ -194,19 +194,21 @@ impl<'a> P0f<'a> {
                             freq: update.freq,
                         });
 
-                    let http_request: Option<HttpRequestOutput> =
-                        observable_package.http_request.map(|http_request| {
+                    let http_request: Option<HttpRequestOutput> = observable_package
+                        .http_request
+                        .map(|observable_http_request| {
                             let signature_matcher: Option<(&Label, &Signature, f32)> = self
                                 .matcher
-                                .matching_by_http_request(&http_request.signature);
+                                .matching_by_http_request(&observable_http_request);
 
-                            let ua_matcher: Option<(&String, &Option<String>)> = http_request
-                                .user_agent
-                                .clone()
-                                .and_then(|ua| self.matcher.matching_by_user_agent(ua));
+                            let ua_matcher: Option<(&String, &Option<String>)> =
+                                observable_http_request
+                                    .user_agent
+                                    .clone()
+                                    .and_then(|ua| self.matcher.matching_by_user_agent(ua));
 
                             let http_diagnosis = http_process::get_diagnostic(
-                                http_request.user_agent,
+                                observable_http_request.user_agent.clone(),
                                 ua_matcher,
                                 signature_matcher.map(|(label, _signature, _quality)| label),
                             );
@@ -214,7 +216,7 @@ impl<'a> P0f<'a> {
                             HttpRequestOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                lang: http_request.lang,
+                                lang: observable_http_request.lang.clone(),
                                 browser_matched: signature_matcher.map(
                                     |(label, _signature, quality)| BrowserQualityMatched {
                                         browser: Browser::from(label),
@@ -222,7 +224,7 @@ impl<'a> P0f<'a> {
                                     },
                                 ),
                                 diagnosis: http_diagnosis,
-                                sig: http_request.signature,
+                                sig: observable_http_request,
                             }
                         });
 
