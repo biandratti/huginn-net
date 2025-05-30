@@ -201,7 +201,7 @@ mod tcp {
 
 mod http {
     use crate::http::{Header, HttpDiagnosis, Signature, Version};
-    use crate::http_process::ObservableHttpRequest;
+    use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
     use core::fmt;
     use std::fmt::Formatter;
 
@@ -231,6 +231,34 @@ mod http {
             write!(f, ":{}", self.expsw)
         }
     }
+
+    //TODO: Duplicated code...
+    impl fmt::Display for ObservableHttpResponse {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            write!(f, "{}:", self.version)?;
+
+            for (i, h) in self.horder.iter().enumerate() {
+                if i > 0 {
+                    f.write_str(",")?;
+                }
+
+                write!(f, "{}", h)?;
+            }
+
+            f.write_str(":")?;
+
+            for (i, h) in self.habsent.iter().enumerate() {
+                if i > 0 {
+                    f.write_str(",")?;
+                }
+
+                write!(f, "{}", h)?;
+            }
+
+            write!(f, ":{}", self.expsw)
+        }
+    }
+
     impl fmt::Display for Signature {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             write!(f, "{}:", self.version)?;

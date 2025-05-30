@@ -1,7 +1,6 @@
 use crate::db::{Label, Type};
-use crate::http;
 use crate::http::HttpDiagnosis;
-use crate::http_process::ObservableHttpRequest;
+use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use crate::tcp_process::ObservableTcp;
@@ -383,7 +382,7 @@ pub struct HttpResponseOutput {
     /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
     pub web_server_matched: Option<WebServerQualityMatched>,
     /// The raw signature representing the HTTP headers and their order.
-    pub sig: http::Signature,
+    pub sig: ObservableHttpResponse,
 }
 
 impl fmt::Display for HttpResponseOutput {

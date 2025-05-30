@@ -230,18 +230,18 @@ impl<'a> P0f<'a> {
 
                     let http_response: Option<HttpResponseOutput> = observable_package
                         .http_response
-                        .map(|http_response| HttpResponseOutput {
+                        .map(|observable_http_response| HttpResponseOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
                             web_server_matched: self
                                 .matcher
-                                .matching_by_http_response(&http_response.signature)
+                                .matching_by_http_response(&observable_http_response)
                                 .map(|(label, _signature, quality)| WebServerQualityMatched {
                                     web_server: WebServer::from(label),
                                     quality,
                                 }),
                             diagnosis: HttpDiagnosis::None,
-                            sig: http_response.signature,
+                            sig: observable_http_response,
                         });
 
                     (syn, syn_ack, mtu, uptime, http_request, http_response)

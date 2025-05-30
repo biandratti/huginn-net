@@ -2,7 +2,7 @@ use crate::fingerprint_traits::{
     DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
 };
 use crate::http::{self, Version as HttpVersion};
-use crate::http_process::ObservableHttpRequest;
+use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::tcp::{self, IpVersion, PayloadSize};
 use crate::tcp_process::ObservableTcp;
 use std::collections::HashMap;
@@ -23,7 +23,8 @@ pub struct Database {
     pub tcp_response: FingerprintCollection<ObservableTcp, tcp::Signature, TcpP0fIndexKey>,
     pub http_request:
         FingerprintCollection<ObservableHttpRequest, http::Signature, HttpP0fIndexKey>,
-    pub http_response: FingerprintCollection<http::Signature, http::Signature, HttpP0fIndexKey>,
+    pub http_response:
+        FingerprintCollection<ObservableHttpResponse, http::Signature, HttpP0fIndexKey>,
 }
 
 /// Represents a label associated with a signature, which provides metadata about

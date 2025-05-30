@@ -1,6 +1,6 @@
 use crate::db::{Database, Label};
 use crate::fingerprint_traits::{FingerprintDb, MatchQuality};
-use crate::http_process::ObservableHttpRequest;
+use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::tcp_process::ObservableTcp;
 use crate::{http, tcp};
 
@@ -47,7 +47,7 @@ impl<'a> SignatureMatcher<'a> {
 
     pub fn matching_by_http_response(
         &self,
-        signature: &http::Signature,
+        signature: &ObservableHttpResponse,
     ) -> Option<(&'a Label, &'a http::Signature, MatchQuality)> {
         self.database.http_response.find_best_match(signature)
     }
@@ -188,7 +188,7 @@ mod tests {
     fn matching_apache_by_http_response() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let apache_signature = HttpDbSignature {
+        let apache_signature = ObservableHttpResponse {
             version: HttpVersion::V11,
             horder: vec![
                 http::Header::new("Date"),

@@ -244,12 +244,10 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Pa
             let http_version: http::Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
-                signature: http::Signature {
-                    version: http_version,
-                    horder: headers_in_order,
-                    habsent: headers_absent,
-                    expsw: extract_traffic_classification(server),
-                },
+                version: http_version,
+                horder: headers_in_order,
+                habsent: headers_absent,
+                expsw: extract_traffic_classification(server),
             }))
         }
         Ok(httparse::Status::Partial) => {
@@ -479,8 +477,114 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ObservableHttpResponse {
-    pub signature: http::Signature,
+    /// HTTP version
+    pub version: Version,
+    /// ordered list of headers that should appear in matching traffic.
+    pub horder: Vec<Header>,
+    /// list of headers that must *not* appear in matching traffic.
+    pub habsent: Vec<Header>,
+    /// expected substring in 'User-Agent' or 'Server'.
+    pub expsw: String,
+}
+
+//TODO: WIP: duplicated
+impl ObservableHttpResponse {
+    pub fn distance_ip_version(&self, other: &http::Signature) -> Option<u32> {
+        if other.version == Version::Any || self.version == other.version {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            None
+        }
+    }
+
+    // Compare two header vectors and return the number of matching headers.
+    // The quality is based on the number of matching headers.
+    fn distance_header(a: &[Header], b: &[Header]) -> Option<u32> {
+        let len_a = a.len();
+        let len_b = b.len();
+        let min_len = len_a.min(len_b);
+        let max_len = len_a.max(len_b);
+
+        let mut actual_matches = 0;
+        for i in 0..min_len {
+            //The match is based on the header name and value.
+            // If the header is optional, it is not considered a match.
+            if a[i] == b[i] {
+                actual_matches += 1;
+            }
+        }
+
+        // Calculate errors based on the difference between the length of the longer list
+        // and the number of actual matches in the common part.
+        let errors = max_len - actual_matches;
+
+        match errors {
+            0 => Some(HttpMatchQuality::High.as_score()),
+            1 => Some(HttpMatchQuality::Medium.as_score()),
+            2 => Some(HttpMatchQuality::Low.as_score()),
+            3 => Some(HttpMatchQuality::Bad.as_score()),
+            _ => None,
+        }
+    }
+
+    fn distance_horder(&self, other: &http::Signature) -> Option<u32> {
+        Self::distance_header(&self.horder, &other.horder)
+    }
+
+    fn distance_habsent(&self, other: &http::Signature) -> Option<u32> {
+        Self::distance_header(&self.habsent, &other.habsent)
+    }
+
+    fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
+        if self.expsw == other.expsw {
+            Some(HttpMatchQuality::High.as_score())
+        } else {
+            Some(HttpMatchQuality::Low.as_score())
+        }
+    }
+}
+
+impl ObservedFingerprint for ObservableHttpResponse {
+    type Key = HttpP0fIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpP0fIndexKey {
+            http_version_key: self.version,
+            expsw_key: self.expsw.clone(),
+        }
+    }
+}
+
+impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
+    fn calculate_distance(&self, observed: &ObservableHttpResponse) -> Option<u32> {
+        let distance = observed.distance_ip_version(self)?
+            + observed.distance_horder(self)?
+            + observed.distance_habsent(self)?
+            + observed.distance_expsw(self)?;
+        Some(distance)
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+        let mut keys = Vec::new();
+        if self.version == Version::Any {
+            keys.push(HttpP0fIndexKey {
+                http_version_key: Version::V10,
+                expsw_key: self.expsw.clone(),
+            });
+            keys.push(HttpP0fIndexKey {
+                http_version_key: Version::V11,
+                expsw_key: self.expsw.clone(),
+            });
+        } else {
+            keys.push(HttpP0fIndexKey {
+                http_version_key: self.version,
+                expsw_key: self.expsw.clone(),
+            });
+        }
+        keys
+    }
 }
 
 #[cfg(test)]
@@ -546,8 +650,8 @@ mod tests {
 
         match parse_http_response(valid_response) {
             Ok(Some(response)) => {
-                assert_eq!(response.signature.expsw, "Apache");
-                assert_eq!(response.signature.version, http::Version::V11);
+                assert_eq!(response.expsw, "Apache");
+                assert_eq!(response.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Server"),
@@ -555,14 +659,14 @@ mod tests {
                     http::Header::new("Content-Length").optional(),
                     http::Header::new("Connection").with_value("keep-alive"),
                 ];
-                assert_eq!(response.signature.horder, expected_horder);
+                assert_eq!(response.horder, expected_horder);
 
                 let expected_absent = vec![
                     http::Header::new("Keep-Alive"),
                     http::Header::new("Accept-Ranges"),
                     http::Header::new("Date"),
                 ];
-                assert_eq!(response.signature.habsent, expected_absent);
+                assert_eq!(response.habsent, expected_absent);
             }
             Ok(None) => panic!("Incomplete HTTP response"),
             Err(e) => panic!("Failed to parse HTTP response: {}", e),
