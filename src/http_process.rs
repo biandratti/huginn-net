@@ -381,9 +381,15 @@ pub struct ObservableHttpRequest {
     pub expsw: String,
 }
 
-impl ObservableHttpRequest {
-    pub fn distance_ip_version(&self, other: &http::Signature) -> Option<u32> {
-        if other.version == Version::Any || self.version == other.version {
+//TODO: move to another file
+trait HttpDistance {
+    fn get_version(&self) -> Version;
+    fn get_horder(&self) -> &[Header];
+    fn get_habsent(&self) -> &[Header];
+    fn get_expsw(&self) -> &str;
+
+    fn distance_ip_version(&self, other: &http::Signature) -> Option<u32> {
+        if other.version == Version::Any || self.get_version() == other.version {
             Some(HttpMatchQuality::High.as_score())
         } else {
             None
@@ -421,21 +427,40 @@ impl ObservableHttpRequest {
     }
 
     fn distance_horder(&self, other: &http::Signature) -> Option<u32> {
-        Self::distance_header(&self.horder, &other.horder)
+        Self::distance_header(self.get_horder(), &other.horder)
     }
 
     fn distance_habsent(&self, other: &http::Signature) -> Option<u32> {
-        Self::distance_header(&self.habsent, &other.habsent)
+        Self::distance_header(self.get_habsent(), &other.habsent)
     }
 
     fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
-        if self.expsw == other.expsw {
+        if self.get_expsw() == other.expsw {
             Some(HttpMatchQuality::High.as_score())
         } else {
             Some(HttpMatchQuality::Low.as_score())
         }
     }
 }
+
+impl HttpDistance for ObservableHttpRequest {
+    fn get_version(&self) -> Version {
+        self.version
+    }
+
+    fn get_horder(&self) -> &[Header] {
+        &self.horder
+    }
+
+    fn get_habsent(&self) -> &[Header] {
+        &self.habsent
+    }
+
+    fn get_expsw(&self) -> &str {
+        &self.expsw
+    }
+}
+
 impl ObservedFingerprint for ObservableHttpRequest {
     type Key = HttpP0fIndexKey;
 
@@ -447,6 +472,7 @@ impl ObservedFingerprint for ObservableHttpRequest {
     }
 }
 
+//TODO: reuse...
 impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
     fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
         let distance = observed.distance_ip_version(self)?
@@ -489,60 +515,21 @@ pub struct ObservableHttpResponse {
     pub expsw: String,
 }
 
-//TODO: WIP: duplicated
-impl ObservableHttpResponse {
-    pub fn distance_ip_version(&self, other: &http::Signature) -> Option<u32> {
-        if other.version == Version::Any || self.version == other.version {
-            Some(HttpMatchQuality::High.as_score())
-        } else {
-            None
-        }
+impl HttpDistance for ObservableHttpResponse {
+    fn get_version(&self) -> Version {
+        self.version
     }
 
-    // Compare two header vectors and return the number of matching headers.
-    // The quality is based on the number of matching headers.
-    fn distance_header(a: &[Header], b: &[Header]) -> Option<u32> {
-        let len_a = a.len();
-        let len_b = b.len();
-        let min_len = len_a.min(len_b);
-        let max_len = len_a.max(len_b);
-
-        let mut actual_matches = 0;
-        for i in 0..min_len {
-            //The match is based on the header name and value.
-            // If the header is optional, it is not considered a match.
-            if a[i] == b[i] {
-                actual_matches += 1;
-            }
-        }
-
-        // Calculate errors based on the difference between the length of the longer list
-        // and the number of actual matches in the common part.
-        let errors = max_len - actual_matches;
-
-        match errors {
-            0 => Some(HttpMatchQuality::High.as_score()),
-            1 => Some(HttpMatchQuality::Medium.as_score()),
-            2 => Some(HttpMatchQuality::Low.as_score()),
-            3 => Some(HttpMatchQuality::Bad.as_score()),
-            _ => None,
-        }
+    fn get_horder(&self) -> &[Header] {
+        &self.horder
     }
 
-    fn distance_horder(&self, other: &http::Signature) -> Option<u32> {
-        Self::distance_header(&self.horder, &other.horder)
+    fn get_habsent(&self) -> &[Header] {
+        &self.habsent
     }
 
-    fn distance_habsent(&self, other: &http::Signature) -> Option<u32> {
-        Self::distance_header(&self.habsent, &other.habsent)
-    }
-
-    fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
-        if self.expsw == other.expsw {
-            Some(HttpMatchQuality::High.as_score())
-        } else {
-            Some(HttpMatchQuality::Low.as_score())
-        }
+    fn get_expsw(&self) -> &str {
+        &self.expsw
     }
 }
 
@@ -721,5 +708,49 @@ mod tests {
 
         let diagnosis = get_diagnostic(user_agent, None, None);
         assert_eq!(diagnosis, http::HttpDiagnosis::None);
+    }
+
+    #[test]
+    fn test_distance_header_with_one_optional_header_mismatch() {
+        let a = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Content-Length").optional(),
+            Header::new("Content-Range").optional(),
+            Header::new("Keep-Alive").optional().with_value("timeout"), // optional: true
+            Header::new("Connection").with_value("Keep-Alive"),
+            Header::new("Transfer-Encoding")
+                .optional()
+                .with_value("chunked"),
+            Header::new("Content-Type"),
+        ];
+
+        let b = vec![
+            Header::new("Date"),
+            Header::new("Server"),
+            Header::new("Last-Modified").optional(),
+            Header::new("Accept-Ranges").optional().with_value("bytes"),
+            Header::new("Content-Length").optional(),
+            Header::new("Content-Range").optional(),
+            Header::new("Keep-Alive").with_value("timeout"), // optional: false
+            Header::new("Connection").with_value("Keep-Alive"),
+            Header::new("Transfer-Encoding")
+                .optional()
+                .with_value("chunked"),
+            Header::new("Content-Type"),
+        ];
+
+        assert!(a[6].optional);
+        assert!(!b[6].optional);
+        assert_ne!(a[6], b[6]);
+
+        let result = ObservableHttpRequest::distance_header(&a, &b);
+        assert_eq!(
+            result,
+            Some(HttpMatchQuality::Medium.as_score()),
+            "Expected Medium quality for 1 error in lists of 10"
+        );
     }
 }
