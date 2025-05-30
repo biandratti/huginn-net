@@ -21,20 +21,35 @@ mod tcp {
     use core::fmt;
     use std::fmt::Formatter;
 
-    //TODO: unify with Signature
-    impl fmt::Display for ObservableTcp {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:{}:{}:", self.version, self.ittl, self.olen)?;
+    trait TcpDisplayFormat {
+        fn get_version(&self) -> IpVersion;
+        fn get_ittl(&self) -> Ttl;
+        fn get_olen(&self) -> u8;
+        fn get_mss(&self) -> Option<u16>;
+        fn get_wsize(&self) -> WindowSize;
+        fn get_wscale(&self) -> Option<u8>;
+        fn get_olayout(&self) -> &[TcpOption];
+        fn get_quirks(&self) -> &[Quirk];
+        fn get_pclass(&self) -> PayloadSize;
 
-            if let Some(mss) = self.mss {
+        fn format_tcp_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "{}:{}:{}:",
+                self.get_version(),
+                self.get_ittl(),
+                self.get_olen()
+            )?;
+
+            if let Some(mss) = self.get_mss() {
                 write!(f, "{}", mss)?;
             } else {
                 f.write_str("*")?;
             }
 
-            write!(f, ":{},", self.wsize)?;
+            write!(f, ":{},", self.get_wsize())?;
 
-            if let Some(scale) = self.wscale {
+            if let Some(scale) = self.get_wscale() {
                 write!(f, "{}", scale)?;
             } else {
                 f.write_str("*")?;
@@ -42,67 +57,95 @@ mod tcp {
 
             f.write_str(":")?;
 
-            for (i, o) in self.olayout.iter().enumerate() {
+            for (i, o) in self.get_olayout().iter().enumerate() {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-
                 write!(f, "{}", o)?;
             }
 
             f.write_str(":")?;
 
-            for (i, q) in self.quirks.iter().enumerate() {
+            for (i, q) in self.get_quirks().iter().enumerate() {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-
                 write!(f, "{}", q)?;
             }
 
-            write!(f, ":{}", self.pclass)
+            write!(f, ":{}", self.get_pclass())
+        }
+    }
+
+    impl TcpDisplayFormat for ObservableTcp {
+        fn get_version(&self) -> IpVersion {
+            self.version
+        }
+        fn get_ittl(&self) -> Ttl {
+            self.ittl.clone()
+        }
+        fn get_olen(&self) -> u8 {
+            self.olen
+        }
+        fn get_mss(&self) -> Option<u16> {
+            self.mss
+        }
+        fn get_wsize(&self) -> WindowSize {
+            self.wsize.clone()
+        }
+        fn get_wscale(&self) -> Option<u8> {
+            self.wscale
+        }
+        fn get_olayout(&self) -> &[TcpOption] {
+            &self.olayout
+        }
+        fn get_quirks(&self) -> &[Quirk] {
+            &self.quirks
+        }
+        fn get_pclass(&self) -> PayloadSize {
+            self.pclass
+        }
+    }
+
+    impl TcpDisplayFormat for Signature {
+        fn get_version(&self) -> IpVersion {
+            self.version
+        }
+        fn get_ittl(&self) -> Ttl {
+            self.ittl.clone()
+        }
+        fn get_olen(&self) -> u8 {
+            self.olen
+        }
+        fn get_mss(&self) -> Option<u16> {
+            self.mss
+        }
+        fn get_wsize(&self) -> WindowSize {
+            self.wsize.clone()
+        }
+        fn get_wscale(&self) -> Option<u8> {
+            self.wscale
+        }
+        fn get_olayout(&self) -> &[TcpOption] {
+            &self.olayout
+        }
+        fn get_quirks(&self) -> &[Quirk] {
+            &self.quirks
+        }
+        fn get_pclass(&self) -> PayloadSize {
+            self.pclass
+        }
+    }
+
+    impl fmt::Display for ObservableTcp {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            self.format_tcp_display(f)
         }
     }
 
     impl fmt::Display for Signature {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:{}:{}:", self.version, self.ittl, self.olen)?;
-
-            if let Some(mss) = self.mss {
-                write!(f, "{}", mss)?;
-            } else {
-                f.write_str("*")?;
-            }
-
-            write!(f, ":{},", self.wsize)?;
-
-            if let Some(scale) = self.wscale {
-                write!(f, "{}", scale)?;
-            } else {
-                f.write_str("*")?;
-            }
-
-            f.write_str(":")?;
-
-            for (i, o) in self.olayout.iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-
-                write!(f, "{}", o)?;
-            }
-
-            f.write_str(":")?;
-
-            for (i, q) in self.quirks.iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-
-                write!(f, "{}", q)?;
-            }
-
-            write!(f, ":{}", self.pclass)
+            self.format_tcp_display(f)
         }
     }
 
@@ -205,83 +248,95 @@ mod http {
     use core::fmt;
     use std::fmt::Formatter;
 
-    //TODO: Duplicated code...
-    impl fmt::Display for ObservableHttpRequest {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:", self.version)?;
+    trait HttpDisplayFormat {
+        fn get_version(&self) -> Version;
+        fn get_horder(&self) -> &[Header];
+        fn get_habsent(&self) -> &[Header];
+        fn get_expsw(&self) -> &str;
 
-            for (i, h) in self.horder.iter().enumerate() {
+        fn format_http_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            write!(f, "{}:", self.get_version())?;
+
+            for (i, h) in self.get_horder().iter().enumerate() {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-
                 write!(f, "{}", h)?;
             }
 
             f.write_str(":")?;
 
-            for (i, h) in self.habsent.iter().enumerate() {
+            for (i, h) in self.get_habsent().iter().enumerate() {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-
                 write!(f, "{}", h)?;
             }
 
-            write!(f, ":{}", self.expsw)
+            write!(f, ":{}", self.get_expsw())
         }
     }
 
-    //TODO: Duplicated code...
+    impl HttpDisplayFormat for ObservableHttpRequest {
+        fn get_version(&self) -> Version {
+            self.version
+        }
+        fn get_horder(&self) -> &[Header] {
+            &self.horder
+        }
+        fn get_habsent(&self) -> &[Header] {
+            &self.habsent
+        }
+        fn get_expsw(&self) -> &str {
+            &self.expsw
+        }
+    }
+
+    impl HttpDisplayFormat for ObservableHttpResponse {
+        fn get_version(&self) -> Version {
+            self.version
+        }
+        fn get_horder(&self) -> &[Header] {
+            &self.horder
+        }
+        fn get_habsent(&self) -> &[Header] {
+            &self.habsent
+        }
+        fn get_expsw(&self) -> &str {
+            &self.expsw
+        }
+    }
+
+    impl HttpDisplayFormat for Signature {
+        fn get_version(&self) -> Version {
+            self.version
+        }
+        fn get_horder(&self) -> &[Header] {
+            &self.horder
+        }
+        fn get_habsent(&self) -> &[Header] {
+            &self.habsent
+        }
+        fn get_expsw(&self) -> &str {
+            &self.expsw
+        }
+    }
+
+    impl fmt::Display for ObservableHttpRequest {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            self.format_http_display(f)
+        }
+    }
+
     impl fmt::Display for ObservableHttpResponse {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:", self.version)?;
-
-            for (i, h) in self.horder.iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-
-                write!(f, "{}", h)?;
-            }
-
-            f.write_str(":")?;
-
-            for (i, h) in self.habsent.iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-
-                write!(f, "{}", h)?;
-            }
-
-            write!(f, ":{}", self.expsw)
+            self.format_http_display(f)
         }
     }
 
     impl fmt::Display for Signature {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:", self.version)?;
-
-            for (i, h) in self.horder.iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-
-                write!(f, "{}", h)?;
-            }
-
-            f.write_str(":")?;
-
-            for (i, h) in self.habsent.iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-
-                write!(f, "{}", h)?;
-            }
-
-            write!(f, ":{}", self.expsw)
+            self.format_http_display(f)
         }
     }
 
