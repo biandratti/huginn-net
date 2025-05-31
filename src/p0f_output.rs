@@ -1,8 +1,9 @@
 use crate::db::{Label, Type};
-use crate::http;
 use crate::http::HttpDiagnosis;
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::process::IpPort;
-use crate::tcp::{Signature, Ttl};
+use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -73,7 +74,7 @@ pub struct SynTCPOutput {
     /// The operative system with the highest quality that matches the SYN packet.
     pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN packet.
-    pub sig: Signature,
+    pub sig: ObservableTcp,
 }
 
 impl fmt::Display for SynTCPOutput {
@@ -126,7 +127,7 @@ pub struct SynAckTCPOutput {
     /// The operative system with the highest quality that matches the SYN+ACK packet.
     pub os_matched: Option<OSQualityMatched>,
     /// The raw TCP signature extracted from the SYN+ACK packet.
-    pub sig: Signature,
+    pub sig: ObservableTcp,
 }
 
 impl fmt::Display for SynAckTCPOutput {
@@ -300,7 +301,7 @@ pub struct HttpRequestOutput {
     /// The browser with the highest quality that matches the HTTP request.
     pub browser_matched: Option<BrowserQualityMatched>,
     /// The raw signature representing the HTTP headers and their order.
-    pub sig: http::Signature,
+    pub sig: ObservableHttpRequest,
 }
 
 impl fmt::Display for HttpRequestOutput {
@@ -381,7 +382,7 @@ pub struct HttpResponseOutput {
     /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
     pub web_server_matched: Option<WebServerQualityMatched>,
     /// The raw signature representing the HTTP headers and their order.
-    pub sig: http::Signature,
+    pub sig: ObservableHttpResponse,
 }
 
 impl fmt::Display for HttpResponseOutput {

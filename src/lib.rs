@@ -1,13 +1,16 @@
 pub mod db;
+pub mod db_matching_trait;
 mod db_parse;
 mod display;
 mod error;
-pub mod fingerprint_traits;
 mod http;
 mod http_languages;
 mod http_process;
 mod ip_options;
 mod mtu;
+mod observable_http_signals_matching;
+mod observable_signals;
+mod observable_tcp_signals_matching;
 pub mod p0f_output;
 mod process;
 mod signature_matcher;
@@ -27,6 +30,7 @@ use crate::p0f_output::{
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
+pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
 use p0f_output::BrowserQualityMatched;
 use p0f_output::OSQualityMatched;
 use p0f_output::WebServerQualityMatched;
@@ -159,12 +163,12 @@ impl<'a> P0f<'a> {
                                 destination: observable_package.destination.clone(),
                                 os_matched: self
                                     .matcher
-                                    .matching_by_tcp_request(&observable_tcp.signature)
+                                    .matching_by_tcp_request(&observable_tcp)
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: OperativeSystem::from(label),
                                         quality,
                                     }),
-                                sig: observable_tcp.signature,
+                                sig: observable_tcp,
                             });
 
                     let syn_ack: Option<SynAckTCPOutput> =
@@ -175,12 +179,12 @@ impl<'a> P0f<'a> {
                                 destination: observable_package.destination.clone(),
                                 os_matched: self
                                     .matcher
-                                    .matching_by_tcp_response(&observable_tcp.signature)
+                                    .matching_by_tcp_response(&observable_tcp)
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: OperativeSystem::from(label),
                                         quality,
                                     }),
-                                sig: observable_tcp.signature,
+                                sig: observable_tcp,
                             });
 
                     let uptime: Option<UptimeOutput> =
@@ -194,19 +198,21 @@ impl<'a> P0f<'a> {
                             freq: update.freq,
                         });
 
-                    let http_request: Option<HttpRequestOutput> =
-                        observable_package.http_request.map(|http_request| {
+                    let http_request: Option<HttpRequestOutput> = observable_package
+                        .http_request
+                        .map(|observable_http_request| {
                             let signature_matcher: Option<(&Label, &Signature, f32)> = self
                                 .matcher
-                                .matching_by_http_request(&http_request.signature);
+                                .matching_by_http_request(&observable_http_request);
 
-                            let ua_matcher: Option<(&String, &Option<String>)> = http_request
-                                .user_agent
-                                .clone()
-                                .and_then(|ua| self.matcher.matching_by_user_agent(ua));
+                            let ua_matcher: Option<(&String, &Option<String>)> =
+                                observable_http_request
+                                    .user_agent
+                                    .clone()
+                                    .and_then(|ua| self.matcher.matching_by_user_agent(ua));
 
                             let http_diagnosis = http_process::get_diagnostic(
-                                http_request.user_agent,
+                                observable_http_request.user_agent.clone(),
                                 ua_matcher,
                                 signature_matcher.map(|(label, _signature, _quality)| label),
                             );
@@ -214,7 +220,7 @@ impl<'a> P0f<'a> {
                             HttpRequestOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                lang: http_request.lang,
+                                lang: observable_http_request.lang.clone(),
                                 browser_matched: signature_matcher.map(
                                     |(label, _signature, quality)| BrowserQualityMatched {
                                         browser: Browser::from(label),
@@ -222,24 +228,24 @@ impl<'a> P0f<'a> {
                                     },
                                 ),
                                 diagnosis: http_diagnosis,
-                                sig: http_request.signature,
+                                sig: observable_http_request,
                             }
                         });
 
                     let http_response: Option<HttpResponseOutput> = observable_package
                         .http_response
-                        .map(|http_response| HttpResponseOutput {
+                        .map(|observable_http_response| HttpResponseOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
                             web_server_matched: self
                                 .matcher
-                                .matching_by_http_response(&http_response.signature)
+                                .matching_by_http_response(&observable_http_response)
                                 .map(|(label, _signature, quality)| WebServerQualityMatched {
                                     web_server: WebServer::from(label),
                                     quality,
                                 }),
                             diagnosis: HttpDiagnosis::None,
-                            sig: http_response.signature,
+                            sig: observable_http_response,
                         });
 
                     (syn, syn_ack, mtu, uptime, http_request, http_response)

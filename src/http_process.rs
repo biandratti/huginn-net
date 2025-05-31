@@ -1,5 +1,6 @@
 use crate::db::Label;
 use crate::error::PassiveTcpError;
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http_languages};
 use httparse::{Request, Response, EMPTY_HEADER};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -17,6 +18,11 @@ const HTTP_MAX_HDRS: usize = 32;
 
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
+
+pub struct ObservableHttpPackage {
+    pub http_request: Option<ObservableHttpRequest>,
+    pub http_response: Option<ObservableHttpResponse>,
+}
 
 #[derive(Clone)]
 struct TcpData {
@@ -205,12 +211,10 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Pass
             Ok(Some(ObservableHttpRequest {
                 lang,
                 user_agent: user_agent.clone(),
-                signature: http::Signature {
-                    version: http_version,
-                    horder: headers_in_order,
-                    habsent: headers_absent,
-                    expsw: extract_traffic_classification(user_agent),
-                },
+                version: http_version,
+                horder: headers_in_order,
+                habsent: headers_absent,
+                expsw: extract_traffic_classification(user_agent),
             }))
         }
         Ok(httparse::Status::Partial) => {
@@ -244,12 +248,10 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Pa
             let http_version: http::Version = extract_http_version(res.version);
 
             Ok(Some(ObservableHttpResponse {
-                signature: http::Signature {
-                    version: http_version,
-                    horder: headers_in_order,
-                    habsent: headers_absent,
-                    expsw: extract_traffic_classification(server),
-                },
+                version: http_version,
+                horder: headers_in_order,
+                habsent: headers_absent,
+                expsw: extract_traffic_classification(server),
             }))
         }
         Ok(httparse::Status::Partial) => {
@@ -364,21 +366,6 @@ pub fn get_diagnostic(
     }
 }
 
-pub struct ObservableHttpPackage {
-    pub http_request: Option<ObservableHttpRequest>,
-    pub http_response: Option<ObservableHttpResponse>,
-}
-
-#[derive(Debug)]
-pub struct ObservableHttpRequest {
-    pub lang: Option<String>,
-    pub user_agent: Option<String>,
-    pub signature: http::Signature,
-}
-pub struct ObservableHttpResponse {
-    pub signature: http::Signature,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -401,7 +388,7 @@ mod tests {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
-                assert_eq!(request.signature.version, http::Version::V11);
+                assert_eq!(request.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Host"),
@@ -414,16 +401,16 @@ mod tests {
                     http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
                     http::Header::new("User-Agent"),
                 ];
-                assert_eq!(request.signature.horder, expected_horder);
+                assert_eq!(request.horder, expected_horder);
 
                 let expected_habsent = vec![
                     http::Header::new("Accept-Encoding"),
                     http::Header::new("Accept-Charset"),
                     http::Header::new("Keep-Alive"),
                 ];
-                assert_eq!(request.signature.habsent, expected_habsent);
+                assert_eq!(request.habsent, expected_habsent);
 
-                assert_eq!(request.signature.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                assert_eq!(request.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {}", e),
@@ -442,8 +429,8 @@ mod tests {
 
         match parse_http_response(valid_response) {
             Ok(Some(response)) => {
-                assert_eq!(response.signature.expsw, "Apache");
-                assert_eq!(response.signature.version, http::Version::V11);
+                assert_eq!(response.expsw, "Apache");
+                assert_eq!(response.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Server"),
@@ -451,14 +438,14 @@ mod tests {
                     http::Header::new("Content-Length").optional(),
                     http::Header::new("Connection").with_value("keep-alive"),
                 ];
-                assert_eq!(response.signature.horder, expected_horder);
+                assert_eq!(response.horder, expected_horder);
 
                 let expected_absent = vec![
                     http::Header::new("Keep-Alive"),
                     http::Header::new("Accept-Ranges"),
                     http::Header::new("Date"),
                 ];
-                assert_eq!(response.signature.habsent, expected_absent);
+                assert_eq!(response.habsent, expected_absent);
             }
             Ok(None) => panic!("Incomplete HTTP response"),
             Err(e) => panic!("Failed to parse HTTP response: {}", e),
