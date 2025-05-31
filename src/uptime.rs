@@ -1,3 +1,4 @@
+use crate::observable_signals::ObservableUptime;
 use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::debug;
@@ -22,14 +23,6 @@ pub struct Connection {
 pub struct SynData {
     ts1: u32,
     recv_ms: u64,
-}
-
-pub struct ObservableUptime {
-    pub days: u32,
-    pub hours: u32,
-    pub min: u32,
-    pub up_mod_days: u32,
-    pub freq: f64,
 }
 
 fn get_unix_time_ms() -> u64 {

@@ -1,10 +1,7 @@
+use crate::observable_signals::ObservableMtu;
 use pnet::packet::tcp::TcpFlags::SYN;
 use pnet::packet::tcp::TcpPacket;
 use tracing::debug;
-
-pub struct ObservableMtu {
-    pub value: u16,
-}
 
 fn from_client(tcp: &TcpPacket) -> bool {
     tcp.get_flags() & SYN == SYN

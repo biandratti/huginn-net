@@ -1,5 +1,7 @@
 use crate::db::{Database, Label};
-use crate::fingerprint_traits::{FingerprintDb, MatchQuality};
+use crate::db_matching_trait::{FingerprintDb, MatchQuality};
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, tcp};
 
 pub struct SignatureMatcher<'a> {
@@ -13,14 +15,14 @@ impl<'a> SignatureMatcher<'a> {
 
     pub fn matching_by_tcp_request(
         &self,
-        signature: &tcp::Signature,
+        signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, MatchQuality)> {
         self.database.tcp_request.find_best_match(signature)
     }
 
     pub fn matching_by_tcp_response(
         &self,
-        signature: &tcp::Signature,
+        signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, MatchQuality)> {
         self.database.tcp_response.find_best_match(signature)
     }
@@ -38,14 +40,14 @@ impl<'a> SignatureMatcher<'a> {
 
     pub fn matching_by_http_request(
         &self,
-        signature: &http::Signature,
+        signature: &ObservableHttpRequest,
     ) -> Option<(&'a Label, &'a http::Signature, MatchQuality)> {
         self.database.http_request.find_best_match(signature)
     }
 
     pub fn matching_by_http_response(
         &self,
-        signature: &http::Signature,
+        signature: &ObservableHttpResponse,
     ) -> Option<(&'a Label, &'a http::Signature, MatchQuality)> {
         self.database.http_response.find_best_match(signature)
     }
@@ -67,17 +69,15 @@ impl<'a> SignatureMatcher<'a> {
 mod tests {
     use super::*;
     use crate::db::Type;
-    use crate::http::{Signature as HttpDbSignature, Version as HttpVersion};
-    use crate::tcp::{
-        IpVersion, PayloadSize, Quirk, Signature as TcpDbSignature, TcpOption, Ttl, WindowSize,
-    };
+    use crate::http::Version as HttpVersion;
+    use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
 
     #[test]
     fn matching_linux_by_tcp_request() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let linux_signature = TcpDbSignature {
+        let linux_signature = ObservableTcp {
             version: IpVersion::V4,
             ittl: Ttl::Value(64),
             olen: 0,
@@ -114,7 +114,7 @@ mod tests {
     fn matching_android_by_tcp_request() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let android_signature = TcpDbSignature {
+        let android_signature = ObservableTcp {
             version: IpVersion::V4,
             ittl: Ttl::Value(64),
             olen: 0,
@@ -151,7 +151,9 @@ mod tests {
     fn matching_firefox2_by_http_request() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let firefox_signature = HttpDbSignature {
+        let firefox_signature = ObservableHttpRequest {
+            lang: None,
+            user_agent: None,
             version: HttpVersion::V10,
             horder: vec![
                 http::Header::new("Host"),
@@ -186,7 +188,7 @@ mod tests {
     fn matching_apache_by_http_response() {
         let db = Box::leak(Box::new(Database::default()));
 
-        let apache_signature = HttpDbSignature {
+        let apache_signature = ObservableHttpResponse {
             version: HttpVersion::V11,
             horder: vec![
                 http::Header::new("Date"),

@@ -1,10 +1,11 @@
 use crate::error::PassiveTcpError;
 use crate::ip_options::IpOptions;
-use crate::mtu::ObservableMtu;
+use crate::observable_signals::ObservableMtu;
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::ObservableUptime;
 use crate::process::IpPort;
-use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
-use crate::uptime::{check_ts_tcp, ObservableUptime};
+use crate::uptime::check_ts_tcp;
 use crate::uptime::{Connection, SynData};
 use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, ttl};
@@ -19,11 +20,6 @@ use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
-#[derive(Clone)]
-pub struct ObservableTcp {
-    pub signature: tcp::Signature,
-}
-
 /// Congestion encountered
 const IP_TOS_CE: u8 = 0x01;
 /// ECN supported
@@ -31,6 +27,7 @@ const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
 
+// Internal representation of a TCP package
 pub struct ObservableTCPPackage {
     pub source: IpPort,
     pub destination: IpPort,
@@ -359,20 +356,18 @@ fn visit_tcp(
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
-        signature: tcp::Signature {
-            version,
-            ittl,
-            olen,
-            mss,
-            wsize,
-            wscale,
-            olayout,
-            quirks,
-            pclass: if tcp.payload().is_empty() {
-                PayloadSize::Zero
-            } else {
-                PayloadSize::NonZero
-            },
+        version,
+        ittl,
+        olen,
+        mss,
+        wsize,
+        wscale,
+        olayout,
+        quirks,
+        pclass: if tcp.payload().is_empty() {
+            PayloadSize::Zero
+        } else {
+            PayloadSize::NonZero
         },
     };
 
