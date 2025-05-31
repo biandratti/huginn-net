@@ -2,6 +2,7 @@ use crate::http::{Header, Version};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
 use crate::Ttl;
 
+// Observable TCP signals
 #[derive(Debug, Clone)]
 pub struct ObservableTcp {
     pub version: IpVersion,
@@ -23,6 +24,7 @@ pub struct ObservableTcp {
     pub pclass: PayloadSize,
 }
 
+// Observable HTTP signals
 #[derive(Debug, Clone)]
 pub struct ObservableHttpRequest {
     pub lang: Option<String>,
@@ -37,6 +39,7 @@ pub struct ObservableHttpRequest {
     pub expsw: String,
 }
 
+// Observable HTTP response signals
 #[derive(Debug, Clone)]
 pub struct ObservableHttpResponse {
     /// HTTP version
@@ -49,10 +52,12 @@ pub struct ObservableHttpResponse {
     pub expsw: String,
 }
 
+// Observable MTU signals
 pub struct ObservableMtu {
     pub value: u16,
 }
 
+// Observable Uptime signals
 pub struct ObservableUptime {
     pub days: u32,
     pub hours: u32,

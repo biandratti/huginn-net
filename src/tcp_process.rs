@@ -27,6 +27,7 @@ const IP_TOS_ECT: u8 = 0x02;
 /// Must be zero
 const IP4_MBZ: u8 = 0b0100;
 
+// Internal representation of a TCP package
 pub struct ObservableTCPPackage {
     pub source: IpPort,
     pub destination: IpPort,

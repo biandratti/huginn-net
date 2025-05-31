@@ -30,6 +30,7 @@ use crate::p0f_output::{
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
+pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
 use p0f_output::BrowserQualityMatched;
 use p0f_output::OSQualityMatched;
 use p0f_output::WebServerQualityMatched;
