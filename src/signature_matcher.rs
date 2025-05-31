@@ -69,7 +69,7 @@ impl<'a> SignatureMatcher<'a> {
 mod tests {
     use super::*;
     use crate::db::Type;
-    use crate::http::{Signature as HttpDbSignature, Version as HttpVersion};
+    use crate::http::Version as HttpVersion;
     use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
 
