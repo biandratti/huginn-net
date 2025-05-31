@@ -472,17 +472,30 @@ impl ObservedFingerprint for ObservableHttpRequest {
     }
 }
 
-//TODO: reuse...
-impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
-    fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
-        let distance = observed.distance_ip_version(self)?
-            + observed.distance_horder(self)?
-            + observed.distance_habsent(self)?
-            + observed.distance_expsw(self)?;
+trait HttpSignatureHelper {
+    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32>
+    where
+        Self: AsRef<http::Signature>,
+    {
+        let signature = self.as_ref();
+        let distance = observed.distance_ip_version(signature)?
+            + observed.distance_horder(signature)?
+            + observed.distance_habsent(signature)?
+            + observed.distance_expsw(signature)?;
         Some(distance)
     }
 
-    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+    fn generate_http_index_keys(&self) -> Vec<HttpP0fIndexKey>;
+}
+
+impl AsRef<http::Signature> for http::Signature {
+    fn as_ref(&self) -> &http::Signature {
+        self
+    }
+}
+
+impl HttpSignatureHelper for http::Signature {
+    fn generate_http_index_keys(&self) -> Vec<HttpP0fIndexKey> {
         let mut keys = Vec::new();
         if self.version == Version::Any {
             keys.push(HttpP0fIndexKey {
@@ -500,6 +513,16 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
             });
         }
         keys
+    }
+}
+
+impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
+    fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
+        self.calculate_http_distance(observed)
+    }
+
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+        self.generate_http_index_keys()
     }
 }
 
@@ -546,31 +569,11 @@ impl ObservedFingerprint for ObservableHttpResponse {
 
 impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
     fn calculate_distance(&self, observed: &ObservableHttpResponse) -> Option<u32> {
-        let distance = observed.distance_ip_version(self)?
-            + observed.distance_horder(self)?
-            + observed.distance_habsent(self)?
-            + observed.distance_expsw(self)?;
-        Some(distance)
+        self.calculate_http_distance(observed)
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
-        let mut keys = Vec::new();
-        if self.version == Version::Any {
-            keys.push(HttpP0fIndexKey {
-                http_version_key: Version::V10,
-                expsw_key: self.expsw.clone(),
-            });
-            keys.push(HttpP0fIndexKey {
-                http_version_key: Version::V11,
-                expsw_key: self.expsw.clone(),
-            });
-        } else {
-            keys.push(HttpP0fIndexKey {
-                http_version_key: self.version,
-                expsw_key: self.expsw.clone(),
-            });
-        }
-        keys
+        self.generate_http_index_keys()
     }
 }
 
