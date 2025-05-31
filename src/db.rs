@@ -2,9 +2,9 @@ use crate::db_matching_trait::{
     DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
 };
 use crate::http::{self, Version as HttpVersion};
-use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::tcp::{self, IpVersion, PayloadSize};
-use crate::tcp_process::ObservableTcp;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;

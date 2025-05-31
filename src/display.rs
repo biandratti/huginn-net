@@ -16,8 +16,8 @@ impl fmt::Display for Label {
 }
 
 mod tcp {
+    use crate::observable_signals::ObservableTcp;
     use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
-    use crate::tcp_process::ObservableTcp;
     use core::fmt;
     use std::fmt::Formatter;
 
@@ -244,7 +244,7 @@ mod tcp {
 
 mod http {
     use crate::http::{Header, HttpDiagnosis, Signature, Version};
-    use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
+    use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
     use core::fmt;
     use std::fmt::Formatter;
 

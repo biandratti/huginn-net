@@ -2,6 +2,7 @@ use crate::db::{HttpP0fIndexKey, Label};
 use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
 use crate::error::PassiveTcpError;
 use crate::http::{Header, HttpMatchQuality, Version};
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http_languages};
 use httparse::{Request, Response, EMPTY_HEADER};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -19,6 +20,11 @@ const HTTP_MAX_HDRS: usize = 32;
 
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
+
+pub struct ObservableHttpPackage {
+    pub http_request: Option<ObservableHttpRequest>,
+    pub http_response: Option<ObservableHttpResponse>,
+}
 
 #[derive(Clone)]
 struct TcpData {
@@ -362,25 +368,6 @@ pub fn get_diagnostic(
     }
 }
 
-pub struct ObservableHttpPackage {
-    pub http_request: Option<ObservableHttpRequest>,
-    pub http_response: Option<ObservableHttpResponse>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ObservableHttpRequest {
-    pub lang: Option<String>,
-    pub user_agent: Option<String>,
-    /// HTTP version
-    pub version: Version,
-    /// ordered list of headers that should appear in matching traffic.
-    pub horder: Vec<Header>,
-    /// list of headers that must *not* appear in matching traffic.
-    pub habsent: Vec<Header>,
-    /// expected substring in 'User-Agent' or 'Server'.
-    pub expsw: String,
-}
-
 //TODO: move to another file
 trait HttpDistance {
     fn get_version(&self) -> Version;
@@ -524,18 +511,6 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
         self.generate_http_index_keys()
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct ObservableHttpResponse {
-    /// HTTP version
-    pub version: Version,
-    /// ordered list of headers that should appear in matching traffic.
-    pub horder: Vec<Header>,
-    /// list of headers that must *not* appear in matching traffic.
-    pub habsent: Vec<Header>,
-    /// expected substring in 'User-Agent' or 'Server'.
-    pub expsw: String,
 }
 
 impl HttpDistance for ObservableHttpResponse {

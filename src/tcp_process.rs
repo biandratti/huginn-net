@@ -2,10 +2,12 @@ use crate::db::TcpP0fIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
 use crate::error::PassiveTcpError;
 use crate::ip_options::IpOptions;
-use crate::mtu::ObservableMtu;
+use crate::observable_signals::ObservableMtu;
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::ObservableUptime;
 use crate::process::IpPort;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpMatchQuality, TcpOption, Ttl, WindowSize};
-use crate::uptime::{check_ts_tcp, ObservableUptime};
+use crate::uptime::check_ts_tcp;
 use crate::uptime::{Connection, SynData};
 use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, tcp, ttl};
@@ -19,27 +21,6 @@ use pnet::packet::{
 use std::convert::TryInto;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
-
-#[derive(Debug, Clone)]
-pub struct ObservableTcp {
-    pub version: IpVersion,
-    /// initial TTL used by the OS.
-    pub ittl: Ttl,
-    /// length of IPv4 options or IPv6 extension headers.
-    pub olen: u8,
-    /// maximum segment size, if specified in TCP options.
-    pub mss: Option<u16>,
-    /// window size.
-    pub wsize: WindowSize,
-    /// window scaling factor, if specified in TCP options.
-    pub wscale: Option<u8>,
-    /// layout and ordering of TCP options, if any.
-    pub olayout: Vec<TcpOption>,
-    /// properties and quirks observed in IP or TCP headers.
-    pub quirks: Vec<Quirk>,
-    /// payload size classification
-    pub pclass: PayloadSize,
-}
 
 impl ObservableTcp {
     fn distance_olen(&self, other: &tcp::Signature) -> Option<u32> {

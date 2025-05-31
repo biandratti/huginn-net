@@ -1,10 +1,10 @@
 use crate::error::PassiveTcpError;
-use crate::http_process::{
-    FlowKey, ObservableHttpPackage, ObservableHttpRequest, ObservableHttpResponse, TcpFlow,
-};
-use crate::mtu::ObservableMtu;
-use crate::tcp_process::{ObservableTCPPackage, ObservableTcp};
-use crate::uptime::ObservableUptime;
+use crate::http_process::{FlowKey, ObservableHttpPackage, TcpFlow};
+use crate::observable_signals::ObservableMtu;
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::ObservableUptime;
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::tcp_process::ObservableTCPPackage;
 use crate::uptime::{Connection, SynData};
 use crate::{http_process, tcp_process};
 use pnet::packet::ip::IpNextHeaderProtocols;

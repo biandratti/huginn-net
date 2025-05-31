@@ -1,7 +1,7 @@
 use crate::db::{Database, Label};
 use crate::db_matching_trait::{FingerprintDb, MatchQuality};
-use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::tcp_process::ObservableTcp;
+use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, tcp};
 
 pub struct SignatureMatcher<'a> {
