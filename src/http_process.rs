@@ -1,6 +1,6 @@
 use crate::db::{HttpP0fIndexKey, Label};
+use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
 use crate::error::PassiveTcpError;
-use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use crate::http::{Header, HttpMatchQuality, Version};
 use crate::{http, http_languages};
 use httparse::{Request, Response, EMPTY_HEADER};

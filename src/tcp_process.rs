@@ -1,6 +1,6 @@
 use crate::db::TcpP0fIndexKey;
+use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
 use crate::error::PassiveTcpError;
-use crate::fingerprint_traits::{DatabaseSignature, ObservedFingerprint};
 use crate::ip_options::IpOptions;
 use crate::mtu::ObservableMtu;
 use crate::process::IpPort;

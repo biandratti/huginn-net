@@ -1,8 +1,8 @@
 pub mod db;
+pub mod db_matching_trait;
 mod db_parse;
 mod display;
 mod error;
-pub mod fingerprint_traits;
 mod http;
 mod http_languages;
 mod http_process;

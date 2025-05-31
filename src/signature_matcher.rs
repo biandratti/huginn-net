@@ -1,5 +1,5 @@
 use crate::db::{Database, Label};
-use crate::fingerprint_traits::{FingerprintDb, MatchQuality};
+use crate::db_matching_trait::{FingerprintDb, MatchQuality};
 use crate::http_process::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::tcp_process::ObservableTcp;
 use crate::{http, tcp};

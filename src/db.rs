@@ -1,4 +1,4 @@
-use crate::fingerprint_traits::{
+use crate::db_matching_trait::{
     DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
 };
 use crate::http::{self, Version as HttpVersion};
