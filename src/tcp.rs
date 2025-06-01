@@ -97,8 +97,8 @@ impl Ttl {
                     Some(TcpMatchQuality::Low.as_score())
                 }
             }
-            (Ttl::Distance(a1, _), Ttl::Value(b1)) => {
-                if a1 == b1 {
+            (Ttl::Distance(a1, a2), Ttl::Value(b1)) => {
+                if a1 + a2 == *b1 {
                     Some(TcpMatchQuality::High.as_score())
                 } else {
                     Some(TcpMatchQuality::Low.as_score())
@@ -194,7 +194,14 @@ impl WindowSize {
                     Some(TcpMatchQuality::Low.as_score())
                 }
             }
-            (_, WindowSize::Any) | (WindowSize::Any, _) => Some(TcpMatchQuality::High.as_score()),
+            (WindowSize::Value(a), WindowSize::Value(b)) => {
+                if a == b {
+                    Some(TcpMatchQuality::High.as_score())
+                } else {
+                    Some(TcpMatchQuality::Low.as_score())
+                }
+            }
+            (_, WindowSize::Any) => Some(TcpMatchQuality::High.as_score()),
             _ => None,
         }
     }

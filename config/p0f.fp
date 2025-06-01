@@ -148,9 +148,11 @@ sig   = *:64:0:3884:mss*8,0:mss,sok,ts,nop,ws:df,id+:0
 label = s:unix:Linux:2.6.x (Google crawler)
 sig   = 4:64:0:1430:mss*4,6:mss,sok,ts,nop,ws::0
 
-label = s:unix:Linux:(Android)
+label = s:unix:Linux:Android
 sig   = *:64:0:*:mss*44,1:mss,sok,ts,nop,ws:df,id+:0
 sig   = *:64:0:*:mss*44,3:mss,sok,ts,nop,ws:df,id+:0
+sig   = *:64:0:*:65535,6:mss,sok,ts,nop,ws:df,id+:0
+sig   = *:64:0:*:65535,8:mss,sok,ts,nop,ws:df,id+:0
 
 ; Catch-all rules:
 
@@ -180,11 +182,16 @@ sig   = *:128:0:*:65535,0:mss,nop,ws,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:65535,1:mss,nop,ws,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:65535,2:mss,nop,ws,nop,nop,sok:df,id+:0
 
-label = s:win:Windows:7 or 8
+label = s:win:Windows:7, 8 or 8.1
 sig   = *:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:8192,2:mss,nop,ws,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:8192,2:mss,nop,ws,sok,ts:df,id+:0
+
+label = s:win:Windows:10
+sig   = *:128:0:*:65535,3:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = *:128:0:*:65535,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = *:128:0:*:mss*44,8:mss,nop,ws,nop,nop,sok:df,id+:0
 
 ; Robots with distinctive fingerprints:
 
@@ -215,11 +222,14 @@ sig   = *:128:0:*:*,*:mss,nop,ws,nop,nop,sok:df,id+:0
 label = s:unix:Mac OS X:10.x
 sig   = *:64:0:*:65535,1:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 sig   = *:64:0:*:65535,3:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
+sig   = *:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
+sig   = *:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 
-label = s:unix:MacOS X:10.9 or newer (sometimes iPhone or iPad)
+
+label = s:unix:Mac OS X:10.9 or newer (sometimes iPhone or iPad)
 sig   = *:64:0:*:65535,4:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 
-label = s:unix:iOS:iPhone or iPad
+label = s:unix:Mac OS X:iPhone or iPad
 sig   = *:64:0:*:65535,2:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 
 ; Catch-all rules:
@@ -231,7 +241,7 @@ sig   = *:64:0:*:65535,*:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 ; FreeBSD
 ; -------
 
-label = s:unix:FreeBSD:9.x or newer
+label = s:unix:FreeBSD:9.x
 sig   = *:64:0:*:65535,6:mss,nop,ws,sok,ts:df,id+:0
 
 label = s:unix:FreeBSD:8.x
@@ -591,12 +601,9 @@ sig   = *:Host,User-Agent,Accept=[xml;q=0.9,*/*;q=0.8],Accept-Language,Accept-En
 ; MSIE
 ; ----
 
-; MSIE 11 no longer sends the 'MSIE' part in U-A, but we don't consider
-; U-A to be a robust signal for fingerprinting, so no dice.
-
 label = s:!:MSIE:8 or newer
 sys   = Windows
-sig   = 1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset,UA-CPU:Trident/
+sig   = 1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset,UA-CPU:(compatible; MSIE
 sig   = 1:Accept=[*/*],?Referer,?Accept-Language,Accept-Encoding=[gzip, deflate],User-Agent,Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset:(compatible; MSIE
 
 label = s:!:MSIE:7
@@ -614,37 +621,17 @@ sig   = 1:Accept=[*/*],Connection=[Keep-Alive],Host,?Pragma=[no-cache],?Range,?R
 ; Chrome
 ; ------
 
-label = s:!:Chrome:11.x to 26.x
+label = s:!:Chrome:11 or newer
 sys   = Windows,@unix
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3]:: Chrom
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[UTF-8,*;q=0.5]:: Chrom
 sig   = 1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3],Connection=[keep-alive]::Chrom
 
-label = s:!:Chrome:27.x to 42.x
-sys   = Windows,@unix
-sig   = 1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
-
-label = s:!:Chrome:43.x or 50.x
-sys   = Windows,@unix
-sig   = 1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip, deflate, sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
-
-label = s:!:Chrome:51.x or newer
-sys   = Windows,@unix
-sig   = 1:Host,Connection=[keep-alive],Upgrade-Insecure-Requests=[1],User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
-
 ; -----
 ; Opera
 ; -----
 
-label = s:!:Opera:19.x or newer
-sys   = Windows,@unix
-sig   = 1:Host,Connection=[keep-alive],Accept=[*/*;q=0.8],User-Agent,Accept-Encoding=[gzip,deflate,lzma,sdch],Accept-Language=[;q=0.]:Accept-Charset,Keep-Alive:OPR/
-
-label = s:!:Opera:15.x-18.x
-sys   = Windows,@unix
-sig   = 1:Host,Connection=[keep-alive],Accept=[*/*;q=0.8],User-Agent,Accept-Encoding=[gzip, deflate],Accept-Language=[;q=0.]:Accept-Charset,Keep-Alive:OPR/
-
-label = s:!:Opera:11.x-14.x
+label = s:!:Opera:11.x or newer
 sys   = Windows,@unix
 sig   = 1:User-Agent,Host,Accept=[*/*;q=0.1],?Accept-Language=[;q=0.],Accept-Encoding=[gzip, deflate],Connection=[Keep-Alive]:Accept-Charset,X-OperaMini-Phone-UA:) Presto/
 
@@ -679,11 +666,7 @@ sig   = 1:Host,Connection=[keep-alive],Accept=[,*/*;q=0.8],User-Agent,Accept-Enc
 ; Safari
 ; ------
 
-label = s:!:Safari:7 or newer
-sys   = @unix
-sig   = *:Host,Accept-Encoding=[gzip, deflate],Connection=[keep-alive],Accept=[*/*],User-Agent,Accept-Language,?Referer,?DNT:Accept-Charset,Keep-Alive:KHTML, like Gecko)
-
-label = s:!:Safari:5.1-6
+label = s:!:Safari:5.1 or newer
 sys   = Windows,@unix
 sig   = *:Host,User-Agent,Accept=[*/*],?Referer,Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
 sig   = *:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip, deflate],Accept-Language,Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)

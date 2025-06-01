@@ -77,11 +77,12 @@ mod tests {
     fn matching_linux_by_tcp_request() {
         let db = Box::leak(Box::new(Database::default()));
 
+        //sig: 4:58+6:0:1452:mss*44,7:mss,sok,ts,nop,ws:df,id+:0
         let linux_signature = ObservableTcp {
             version: IpVersion::V4,
-            ittl: Ttl::Value(64),
+            ittl: Ttl::Distance(58, 6),
             olen: 0,
-            mss: Some(1460),
+            mss: Some(1452),
             wsize: WindowSize::Mss(44),
             wscale: Some(7),
             olayout: vec![
@@ -114,13 +115,14 @@ mod tests {
     fn matching_android_by_tcp_request() {
         let db = Box::leak(Box::new(Database::default()));
 
+        //sig: "4:64+0:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature = ObservableTcp {
             version: IpVersion::V4,
             ittl: Ttl::Value(64),
             olen: 0,
             mss: Some(1460),
             wsize: WindowSize::Value(65535),
-            wscale: Some(3),
+            wscale: Some(8),
             olayout: vec![
                 TcpOption::Mss,
                 TcpOption::Sok,
@@ -139,7 +141,7 @@ mod tests {
         {
             assert_eq!(label.name, "Linux");
             assert_eq!(label.class, Some("unix".to_string()));
-            assert_eq!(label.flavor, Some("(Android)".to_string()));
+            assert_eq!(label.flavor, Some("Android".to_string()));
             assert_eq!(label.ty, Type::Specified);
             assert_eq!(quality, 1.0);
         } else {
