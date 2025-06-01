@@ -10,6 +10,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::str::FromStr;
+use tracing::debug;
 
 /// Represents the database used by `P0f` to store signatures and associated metadata.
 /// The database contains signatures for analyzing TCP and HTTP traffic, as well as
@@ -241,6 +242,10 @@ where
                     best_label_ref = Some(label);
                     best_sig_ref = Some(db_sig);
                 }
+                debug!(
+                    "distance: {}, label: {}, flavor: {:?}, sig: {}",
+                    distance, label.name, label.flavor, db_sig
+                );
             }
         }
 
