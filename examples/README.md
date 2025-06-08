@@ -5,6 +5,12 @@ ip link show
 
 ### Process packages
 ```
+# Build package
 cargo build --release --examples
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/p0f -i <INTERFACE> -l <LOG_FILE.LOG>
+
+# Live capture
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> live -i <INTERFACE>                       
+
+# PCAP analysis
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> pcap -f <TCP_TRAFFIC>.pcap
 ```

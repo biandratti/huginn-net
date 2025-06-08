@@ -34,8 +34,11 @@ pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, Obse
 use p0f_output::BrowserQualityMatched;
 use p0f_output::OSQualityMatched;
 use p0f_output::WebServerQualityMatched;
+use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;
+use std::error::Error;
+use std::fs::File;
 use std::sync::mpsc::Sender;
 pub use tcp::Ttl;
 use tracing::{debug, error};
@@ -71,6 +74,31 @@ impl<'a> P0f<'a> {
         }
     }
 
+    fn process_with<F>(
+        &mut self,
+        mut packet_fn: F,
+        sender: Sender<P0fOutput>,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, Box<dyn Error>>>,
+    {
+        while let Some(packet_result) = packet_fn() {
+            match packet_result {
+                Ok(packet) => {
+                    let output = self.analyze_tcp(&packet);
+                    if sender.send(output).is_err() {
+                        error!("Receiver dropped, stopping packet processing");
+                        break;
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to read packet: {}", e);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Captures and analyzes packets on the specified network interface.
     ///
     /// Sends `P0fOutput` through the provided channel.
@@ -81,55 +109,63 @@ impl<'a> P0f<'a> {
     ///
     /// # Panics
     /// - If the network interface cannot be found or a channel cannot be created.
-    pub fn analyze_network(&mut self, interface_name: &str, sender: Sender<P0fOutput>) {
+    pub fn analyze_network(
+        &mut self,
+        interface_name: &str,
+        sender: Sender<P0fOutput>,
+    ) -> Result<(), Box<dyn Error>> {
         let interfaces = datalink::interfaces();
         let interface = interfaces
             .into_iter()
-            .find(|iface| iface.name == interface_name);
+            .find(|iface| iface.name == interface_name)
+            .ok_or_else(|| format!("Could not find network interface: {}", interface_name))?;
 
-        match interface {
-            Some(iface) => {
-                debug!("Using network interface: {}", iface.name);
+        debug!("Using network interface: {}", interface.name);
 
-                let config = Config {
-                    promiscuous: true,
-                    ..Config::default()
-                };
+        let config = Config {
+            promiscuous: true,
+            ..Config::default()
+        };
 
-                let (_tx, mut rx) = match datalink::channel(&iface, config) {
-                    Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
-                    Ok(_) => {
-                        error!("Unhandled channel type for interface: {}", iface.name);
-                        return;
-                    }
-                    Err(e) => {
-                        error!(
-                            "Unable to create channel for interface {}: {}",
-                            iface.name, e
-                        );
-                        return;
-                    }
-                };
+        let (_tx, mut rx) = match datalink::channel(&interface, config) {
+            Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
+            Ok(_) => return Err("Unhandled channel type".into()),
+            Err(e) => return Err(format!("Unable to create channel: {}", e).into()),
+        };
 
-                loop {
-                    match rx.next() {
-                        Ok(packet) => {
-                            let output = self.analyze_tcp(packet);
-                            if sender.send(output).is_err() {
-                                error!("Receiver dropped, stopping packet capture");
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed to read packet: {}", e);
-                        }
-                    }
-                }
-            }
-            None => {
-                error!("Could not find the network interface: {}", interface_name);
-            }
-        }
+        self.process_with(
+            move || match rx.next() {
+                Ok(packet) => Some(Ok(packet.to_vec())),
+                Err(e) => Some(Err(e.into())),
+            },
+            sender,
+        )
+    }
+
+    /// Analyzes packets from a PCAP file.
+    ///
+    /// # Parameters
+    /// - `pcap_path`: The path to the PCAP file to analyze.
+    /// - `sender`: A `Sender` to send `P0fOutput` objects back to the caller.
+    ///
+    /// # Panics
+    /// - If the PCAP file cannot be opened or read.
+    pub fn analyze_pcap(
+        &mut self,
+        pcap_path: &str,
+        sender: Sender<P0fOutput>,
+    ) -> Result<(), Box<dyn Error>> {
+        let file = File::open(pcap_path)?;
+        let mut pcap_reader = PcapReader::new(file)?;
+
+        self.process_with(
+            move || match pcap_reader.next_packet() {
+                Some(Ok(packet)) => Some(Ok(packet.data.to_vec())),
+                Some(Err(e)) => Some(Err(e.into())),
+                None => None,
+            },
+            sender,
+        )
     }
 
     /// Analyzes a TCP packet and returns a `P0fOutput` object.

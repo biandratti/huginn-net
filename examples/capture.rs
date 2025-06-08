@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use passivetcp_rs::db::Database;
 use passivetcp_rs::p0f_output::P0fOutput;
 use passivetcp_rs::P0f;
@@ -14,10 +14,26 @@ use tracing_subscriber::EnvFilter;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short = 'i', long)]
-    interface: String,
+    #[command(subcommand)]
+    command: Commands,
+
+    /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Live {
+        /// Network interface name
+        #[arg(short = 'i', long)]
+        interface: String,
+    },
+    Pcap {
+        /// Path to PCAP file
+        #[arg(short = 'f', long)]
+        file: String,
+    },
 }
 
 fn initialize_logging(log_file: Option<String>) {
@@ -51,7 +67,22 @@ fn main() {
     let (sender, receiver): (Sender<P0fOutput>, Receiver<P0fOutput>) = mpsc::channel();
 
     thread::spawn(move || {
-        P0f::new(db, 100).analyze_network(&args.interface, sender);
+        let mut p0f = P0f::new(db, 100);
+
+        let result = match args.command {
+            Commands::Live { interface } => {
+                info!("Starting live capture on interface: {}", interface);
+                p0f.analyze_network(&interface, sender)
+            }
+            Commands::Pcap { file } => {
+                info!("Analyzing PCAP file: {}", file);
+                p0f.analyze_pcap(&file, sender)
+            }
+        };
+
+        if let Err(e) = result {
+            eprintln!("Analysis failed: {}", e);
+        }
     });
 
     for output in receiver {
