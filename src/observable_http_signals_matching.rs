@@ -57,7 +57,7 @@ trait HttpDistance {
     }
 
     fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
-        if other.expsw.as_str().contains(&self.get_expsw()) {
+        if other.expsw.as_str().contains(self.get_expsw()) {
             Some(HttpMatchQuality::High.as_score())
         } else {
             Some(HttpMatchQuality::Bad.as_score())
