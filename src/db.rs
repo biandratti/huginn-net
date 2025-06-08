@@ -139,7 +139,6 @@ impl IndexKey for TcpP0fIndexKey {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HttpP0fIndexKey {
     pub http_version_key: HttpVersion,
-    pub expsw_key: String,
 }
 
 impl IndexKey for HttpP0fIndexKey {}

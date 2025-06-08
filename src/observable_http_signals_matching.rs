@@ -40,10 +40,10 @@ trait HttpDistance {
         let errors = max_len - actual_matches;
 
         match errors {
-            0 => Some(HttpMatchQuality::High.as_score()),
-            1 => Some(HttpMatchQuality::Medium.as_score()),
-            2 => Some(HttpMatchQuality::Low.as_score()),
-            3 => Some(HttpMatchQuality::Bad.as_score()),
+            0..=2 => Some(HttpMatchQuality::High.as_score()),
+            3..=5 => Some(HttpMatchQuality::Medium.as_score()),
+            6..=8 => Some(HttpMatchQuality::Low.as_score()),
+            9..=11 => Some(HttpMatchQuality::Bad.as_score()),
             _ => None,
         }
     }
@@ -57,10 +57,10 @@ trait HttpDistance {
     }
 
     fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
-        if self.get_expsw() == other.expsw {
+        if other.expsw.as_str().contains(&self.get_expsw()) {
             Some(HttpMatchQuality::High.as_score())
         } else {
-            Some(HttpMatchQuality::Low.as_score())
+            Some(HttpMatchQuality::Bad.as_score())
         }
     }
 }
@@ -89,7 +89,6 @@ impl ObservedFingerprint for ObservableHttpRequest {
     fn generate_index_key(&self) -> Self::Key {
         HttpP0fIndexKey {
             http_version_key: self.version,
-            expsw_key: self.expsw.clone(),
         }
     }
 }
@@ -122,16 +121,13 @@ impl HttpSignatureHelper for http::Signature {
         if self.version == Version::Any {
             keys.push(HttpP0fIndexKey {
                 http_version_key: Version::V10,
-                expsw_key: self.expsw.clone(),
             });
             keys.push(HttpP0fIndexKey {
                 http_version_key: Version::V11,
-                expsw_key: self.expsw.clone(),
             });
         } else {
             keys.push(HttpP0fIndexKey {
                 http_version_key: self.version,
-                expsw_key: self.expsw.clone(),
             });
         }
         keys
@@ -172,7 +168,6 @@ impl ObservedFingerprint for ObservableHttpResponse {
     fn generate_index_key(&self) -> Self::Key {
         HttpP0fIndexKey {
             http_version_key: self.version,
-            expsw_key: self.expsw.clone(),
         }
     }
 }

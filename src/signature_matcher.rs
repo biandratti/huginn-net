@@ -226,4 +226,44 @@ mod tests {
             panic!("No match found for Apache 2.x HTTP response signature");
         }
     }
+
+    #[test]
+    fn matching_android_chrome_by_http_request() {
+        let db = Box::leak(Box::new(Database::default()));
+
+        let android_chrome_signature = ObservableHttpRequest {
+            lang: Some("English".to_string()),
+            user_agent: Some("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string()),
+            version: HttpVersion::V11, // HTTP/1.1
+            horder: vec![
+                http::Header::new("Host"),
+                http::Header::new("Connection").with_value("keep-alive"),
+                http::Header::new("User-Agent"),
+                http::Header::new("Accept").with_value("image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"),
+                http::Header::new("Referer").optional(), // ?Referer
+                http::Header::new("Accept-Encoding").with_value("gzip, deflate"),
+                http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
+            ],
+            habsent: vec![
+                http::Header::new("Accept-Charset"),
+                http::Header::new("Keep-Alive"),
+            ],
+            expsw: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string(),
+        };
+
+        let matcher = SignatureMatcher::new(db);
+
+        match matcher.matching_by_http_request(&android_chrome_signature) {
+            Some((label, _matched_db_sig, quality)) => {
+                assert_eq!(label.name, "Chrome");
+                assert_eq!(label.class, None);
+                assert_eq!(label.flavor, Some("11 or newer".to_string()));
+                assert_eq!(label.ty, Type::Specified);
+                assert_eq!(quality, 0.75);
+            }
+            None => {
+                panic!("No HTTP match found for Android Chrome signature");
+            }
+        }
+    }
 }
