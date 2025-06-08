@@ -29,7 +29,6 @@ enum Commands {
         #[arg(short = 'i', long)]
         interface: String,
     },
-    /// Analyze PCAP file
     Pcap {
         /// Path to PCAP file
         #[arg(short = 'f', long)]
@@ -86,7 +85,7 @@ fn main() {
         }
     });
 
-    // Process results (same for both sources)
+
     for output in receiver {
         if let Some(syn) = output.syn {
             info!("{}", syn);

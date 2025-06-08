@@ -37,7 +37,7 @@ Passive TCP Fingerprinting is a technique that allows you to infer information a
 passivetcp-rs = "1.0.2"
 ```
 
-###  Examples & Tutorials:**
+###  Examples & Tutorials:
 - **[examples/README.md](examples/README.md)** - Complete usage guide with:
   - Live network capture examples
   - PCAP file analysis workflows
