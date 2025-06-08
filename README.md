@@ -147,14 +147,25 @@ for output in receiver {
 - **Accuracy**: **Matches original p0f precision** across tested device categories
 
 ### Validated Device Categories
-✅ **Desktop Operating Systems** - Windows (7/8/10/11), Linux distributions, macOS  
-✅ **Mobile Devices** - Android, iOS devices  
-✅ **Network Infrastructure** - Routers, switches, firewalls  
-✅ **Web Browsers** - Chrome, Firefox, Safari, Edge  
-✅ **Web Servers** - Apache, nginx, IIS  
-✅ **IoT Devices** - Smart home devices, embedded systems  
+✅ **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
+✅ **Mobile Devices** - Android devices, iPhone/iPad  
+✅ **Gaming Consoles** - Nintendo 3DS, Nintendo Wii  
+✅ **Web Browsers** - Chrome, Firefox, Safari, Edge, Opera  
+✅ **Web Servers** - Apache, nginx, IIS, lighttpd  
+✅ **Network Tools** - wget, curl, various crawlers and bots  
+✅ **Legacy Systems** - Older Windows versions, Unix variants  
+
+*Based on signatures available in the p0f database. See [config/p0f.fp](config/p0f.fp) for complete signature list.*
 
 *See [benches/README.md](benches/README.md) for detailed performance analysis.*
+
+### Database Coverage
+The current signature database includes patterns for:
+- **Major Operating Systems** (Windows, Linux, macOS, BSD variants)
+- **Popular Web Browsers** (Chrome, Firefox, Safari, etc.)
+- **Common Web Servers** (Apache, nginx, IIS)
+- **Gaming Devices** (Nintendo consoles)
+- **Network Analysis Tools** (crawlers, bots, command-line tools)
 
 ## Advanced Features
 
