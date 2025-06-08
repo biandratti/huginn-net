@@ -16,7 +16,7 @@ use tracing_subscriber::EnvFilter;
 struct Args {
     #[command(subcommand)]
     command: Commands,
-    
+
     /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
@@ -69,7 +69,7 @@ fn main() {
 
     thread::spawn(move || {
         let mut p0f = P0f::new(db, 100);
-        
+
         let result = match args.command {
             Commands::Live { interface } => {
                 info!("Starting live capture on interface: {}", interface);
@@ -80,7 +80,7 @@ fn main() {
                 p0f.analyze_pcap(&file, sender)
             }
         };
-        
+
         if let Err(e) = result {
             eprintln!("Analysis failed: {}", e);
         }
