@@ -85,7 +85,6 @@ fn main() {
         }
     });
 
-
     for output in receiver {
         if let Some(syn) = output.syn {
             info!("{}", syn);
