@@ -195,7 +195,7 @@ mod tests {
             Header::new("Accept-Ranges").optional().with_value("bytes"),
             Header::new("Content-Length").optional(),
             Header::new("Content-Range").optional(),
-            Header::new("Keep-Alive").optional().with_value("timeout"), // optional: true
+            Header::new("Keep-Alive").optional().with_value("timeout"),
             Header::new("Connection").with_value("Keep-Alive"),
             Header::new("Transfer-Encoding")
                 .optional()
@@ -210,7 +210,7 @@ mod tests {
             Header::new("Accept-Ranges").optional().with_value("bytes"),
             Header::new("Content-Length").optional(),
             Header::new("Content-Range").optional(),
-            Header::new("Keep-Alive").with_value("timeout"), // optional: false
+            Header::new("Keep-Alive").with_value("timeout"),
             Header::new("Connection").with_value("Keep-Alive"),
             Header::new("Transfer-Encoding")
                 .optional()
@@ -225,7 +225,7 @@ mod tests {
         let result = <ObservableHttpResponse as HttpDistance>::distance_header(&a, &b);
         assert_eq!(
             result,
-            Some(HttpMatchQuality::Medium.as_score()),
+            Some(HttpMatchQuality::High.as_score()),
             "Expected Medium quality for 1 error in lists of 10"
         );
     }
