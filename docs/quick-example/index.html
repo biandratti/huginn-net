@@ -143,53 +143,89 @@
     <span>
         <p>Following is an example showing how to:</p>
         <ul>
-            <li>Initialize the database and P0f engine.</li>
-            <li>Analyze network traffic using a specified interface.</li>
-            <li>Process and log various TCP and HTTP characteristics detected.</li>
+            <li>Initialize the database and PassiveTCP engine.</li>
+            <li>Use subcommands to choose between live network capture or PCAP file analysis.</li>
+            <li>Process and log various TCP and HTTP characteristics detected with quality scores.</li>
         </ul>
-        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use passivetcp_rs::db::Database;</span>
-<span class="hljs-keyword">use passivetcp_rs::P0f;</span>
-<span class="hljs-keyword">use std::sync::mpsc;</span>
-<span class="hljs-keyword">use std::thread;</span>
-<span class="hljs-keyword">use clap::Parser;</span>
-<span class="hljs-keyword">use log::info;</span>
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> clap::{Parser, Subcommand};
+<span class="hljs-keyword">use</span> passivetcp_rs::db::Database;
+<span class="hljs-keyword">use</span> passivetcp_rs::fingerprint_result::FingerprintResult;
+<span class="hljs-keyword">use</span> passivetcp_rs::PassiveTcp;
+<span class="hljs-keyword">use</span> std::sync::mpsc;
+<span class="hljs-keyword">use</span> std::thread;
+<span class="hljs-keyword">use</span> tracing::info;
 
-#[derive(Parser)]
-<span class="hljs-keyword">struct Args</span> {
-    #[clap(short, long)]
-    interface: String,
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+<span class="hljs-keyword">struct</span> <span class="hljs-title">Args</span> {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-<span class="hljs-keyword">fn</span> <span class="hljs-title">main()</span> {
+#[derive(Subcommand, Debug)]
+<span class="hljs-keyword">enum</span> <span class="hljs-title">Commands</span> {
+    Live {
+        <span class="hljs-comment">/// Network interface name</span>
+        #[arg(short = 'i', long)]
+        interface: String,
+    },
+    Pcap {
+        <span class="hljs-comment">/// Path to PCAP file</span>
+        #[arg(short = 'f', long)]
+        file: String,
+    },
+}
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() {
     <span class="hljs-keyword">let</span> args = Args::parse();
     <span class="hljs-keyword">let</span> db = Box::leak(Box::new(Database::default()));
     <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
 
-    thread::spawn(move || {
-        <span class="hljs-type">P0f::new(db, 100).analyze_network(&args.interface, sender)</span>;
+    thread::spawn(<span class="hljs-keyword">move</span> || {
+        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> passive_tcp = PassiveTcp::new(db, 100);
+
+        <span class="hljs-keyword">let</span> result = <span class="hljs-keyword">match</span> args.command {
+            Commands::Live { interface } =&gt; {
+                info!(<span class="hljs-string">"Starting live capture on interface: {}"</span>, interface);
+                passive_tcp.analyze_network(&amp;interface, sender)
+            }
+            Commands::Pcap { file } =&gt; {
+                info!(<span class="hljs-string">"Analyzing PCAP file: {}"</span>, file);
+                passive_tcp.analyze_pcap(&amp;file, sender)
+            }
+        };
+
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Err(e) = result {
+            eprintln!(<span class="hljs-string">"Analysis failed: {}"</span>, e);
+        }
     });
 
+    <span class="hljs-comment">// Process results</span>
     <span class="hljs-keyword">for</span> output <span class="hljs-keyword">in</span> receiver {
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">syn</span>) = output.syn {
-            info!("{}", syn);
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(syn) = output.syn {
+            info!(<span class="hljs-string">"{}"</span>, syn);
         }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">syn_ack</span>) = output.syn_ack {
-            info!("{}", syn_ack);
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(syn_ack) = output.syn_ack {
+            info!(<span class="hljs-string">"{}"</span>, syn_ack);
         }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">mtu</span>) = output.mtu {
-            info!("{}", mtu);
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(mtu) = output.mtu {
+            info!(<span class="hljs-string">"{}"</span>, mtu);
         }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">uptime</span>) = output.uptime {
-            info!("{}", uptime);
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(uptime) = output.uptime {
+            info!(<span class="hljs-string">"{}"</span>, uptime);
         }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">http_request</span>) = output.http_request {
-            info!("{}", http_request);
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(http_request) = output.http_request {
+            info!(<span class="hljs-string">"{}"</span>, http_request);
         }
-        <span class="hljs-keyword">if let</span> Some(<span class="hljs-type">http_response</span>) = output.http_response {
-            info!("{}", http_response);
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(http_response) = output.http_response {
+            info!(<span class="hljs-string">"{}"</span>, http_response);
         }
     }
 }
+
+<span class="hljs-comment">// Usage examples:</span>
+<span class="hljs-comment">// Live capture: cargo run -- live -i eth0</span>
+<span class="hljs-comment">// PCAP analysis: cargo run -- pcap -f traffic.pcap</span>
 </code></pre>
     </span>
                         </div>

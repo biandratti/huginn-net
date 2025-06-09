@@ -150,7 +150,7 @@
                                         <p>
                                             <strong>passivetcp-rs</strong> is a modern Rust library for passive TCP/IP fingerprinting, inspired by the classic <em>p0f</em> tool. Its goal is to provide a robust, extensible, and efficient foundation for identifying operating systems and applications from network traffic.<br />
                                             Designed for easy integration and future expansion, <strong>passivetcp-rs</strong> supports new fingerprinting features, protocols, and detection standards.<br />
-                                            The library leverages <a href="https://crates.io/crates/pnet">pnet</a> for packet capture and <a href="https://crates.io/crates/httparse">httparse</a> for HTTP parsing, enabling accurate analysis of TCP and HTTP flows in both live and offline environments.
+                                            The library leverages <a href="https://crates.io/crates/pnet">pnet</a>  and <a href="https://crates.io/crates/pcap-file">pcap-file</a> for packet capture, and <a href="https://crates.io/crates/httparse">httparse</a> for HTTP parsing, enabling accurate analysis of TCP and HTTP flows in both live and offline environments.
                                         </p>
 
                                         <h2>
@@ -170,7 +170,7 @@
                                             It's possible to make educated guesses about the remote system's OS, network setup, and sometimes even its uptime.
                                         </p>
                                         <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                        <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "1.0.0"</code></pre>
+                                        <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "1.1.0"</code></pre>
 
                                         <h3>
                                             <a class="anchor" aria-hidden="true" id="features"></a>
