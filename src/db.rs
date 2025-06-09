@@ -1,6 +1,4 @@
-use crate::db_matching_trait::{
-    DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
-};
+use crate::db_matching_trait::{DatabaseSignature, FingerprintDb, IndexKey, ObservedFingerprint};
 use crate::http::{self, Version as HttpVersion};
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
@@ -209,7 +207,7 @@ where
     DS: DatabaseSignature<OF> + Display,
     K: IndexKey,
 {
-    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, MatchQuality)> {
+    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, f32)> {
         let observed_key = observed.generate_index_key();
 
         let candidate_indices = match self.index.get(&observed_key) {

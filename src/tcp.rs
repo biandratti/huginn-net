@@ -38,6 +38,26 @@ impl TcpMatchQuality {
     }
 }
 
+impl crate::db_matching_trait::MatchQuality for TcpMatchQuality {
+    // TCP has 9 components, each can contribute max 2 points (Low)
+    const MAX_DISTANCE: u32 = 18;
+
+    fn distance_to_score(distance: u32) -> f32 {
+        match distance {
+            0 => 1.0,
+            1 => 0.95,
+            2 => 0.90,
+            3..=4 => 0.80,
+            5..=6 => 0.70,
+            7..=9 => 0.60,
+            10..=12 => 0.40,
+            13..=15 => 0.20,
+            d if d <= Self::MAX_DISTANCE => 0.10,
+            _ => 0.05,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IpVersion {
     V4,

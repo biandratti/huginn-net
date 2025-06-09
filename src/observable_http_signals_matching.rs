@@ -114,23 +114,8 @@ trait HttpSignatureHelper {
     ///
     /// The score is calculated based on the distance of the observed signal to the database signature.
     /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
-    fn get_quality_score_by_distance(&self, distance: u32) -> MatchQuality {
-        // For HTTP with 4 components:
-        // - Each component: 0 (High), 1 (Medium), 2 (Low), 3 (Bad)
-        // - Maximum theoretical distance: 12 (all Bad)
-
-        match distance {
-            0 => 1.0,
-            1 => 0.95,
-            2 => 0.90,
-            3 => 0.80,
-            4..=5 => 0.70,
-            6..=7 => 0.60,
-            8..=9 => 0.40,
-            10..=11 => 0.20,
-            12 => 0.10,
-            _ => 0.05,
-        }
+    fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
+        HttpMatchQuality::distance_to_score(distance)
     }
 }
 
@@ -164,7 +149,7 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
         self.calculate_http_distance(observed)
     }
 
-    fn get_quality_score(&self, distance: u32) -> MatchQuality {
+    fn get_quality_score(&self, distance: u32) -> f32 {
         self.get_quality_score_by_distance(distance)
     }
 
@@ -206,7 +191,7 @@ impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
         self.calculate_http_distance(observed)
     }
 
-    fn get_quality_score(&self, distance: u32) -> MatchQuality {
+    fn get_quality_score(&self, distance: u32) -> f32 {
         self.get_quality_score_by_distance(distance)
     }
 
