@@ -3,6 +3,7 @@ pub mod db_matching_trait;
 mod db_parse;
 mod display;
 mod error;
+pub mod fingerprint_result;
 mod http;
 mod http_languages;
 mod http_process;
@@ -11,7 +12,6 @@ mod mtu;
 mod observable_http_signals_matching;
 mod observable_signals;
 mod observable_tcp_signals_matching;
-pub mod fingerprint_result;
 mod process;
 mod signature_matcher;
 pub mod tcp;
@@ -21,19 +21,19 @@ mod uptime;
 pub mod window_size;
 
 use crate::db::{Database, Label};
-use crate::http::{HttpDiagnosis, Signature};
-use crate::http_process::{FlowKey, TcpFlow};
 use crate::fingerprint_result::{
-    Browser, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem, FingerprintResult,
+    Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
     SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
 };
+use crate::http::{HttpDiagnosis, Signature};
+use crate::http_process::{FlowKey, TcpFlow};
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
-pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
 use fingerprint_result::BrowserQualityMatched;
 use fingerprint_result::OSQualityMatched;
 use fingerprint_result::WebServerQualityMatched;
+pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;

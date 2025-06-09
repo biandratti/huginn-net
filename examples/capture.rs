@@ -64,7 +64,8 @@ fn main() {
     let db = Box::leak(Box::new(Database::default()));
     debug!("Loaded database: {:?}", db);
 
-    let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) = mpsc::channel();
+    let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
+        mpsc::channel();
 
     thread::spawn(move || {
         let mut passive_tcp = PassiveTcp::new(db, 100);

@@ -20,10 +20,8 @@ pub struct Database {
     pub ua_os: Vec<(String, Option<String>)>,
     pub tcp_request: FingerprintCollection<ObservableTcp, tcp::Signature, TcpIndexKey>,
     pub tcp_response: FingerprintCollection<ObservableTcp, tcp::Signature, TcpIndexKey>,
-    pub http_request:
-        FingerprintCollection<ObservableHttpRequest, http::Signature, HttpIndexKey>,
-    pub http_response:
-        FingerprintCollection<ObservableHttpResponse, http::Signature, HttpIndexKey>,
+    pub http_request: FingerprintCollection<ObservableHttpRequest, http::Signature, HttpIndexKey>,
+    pub http_response: FingerprintCollection<ObservableHttpResponse, http::Signature, HttpIndexKey>,
 }
 
 /// Represents a label associated with a signature, which provides metadata about
