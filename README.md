@@ -5,8 +5,6 @@
 [![CI](https://github.com/biandratti/passivetcp-rs/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
 [![codecov](https://codecov.io/github/biandratti/passivetcp-rs/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/passivetcp-rs)
 
-## Proven Accuracy - Production Ready
-
 **passivetcp-rs achieves the same detection accuracy as the original p0f tool**, with excellent precision across all tested devices. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
 
 #### Why choose passivetcp-rs?
