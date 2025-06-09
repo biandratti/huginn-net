@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use passivetcp_rs::db::Database;
-use passivetcp_rs::P0f;
+use passivetcp_rs::PassiveTcp;
 use pcap_file::pcap::PcapReader;
 use std::fs::File;
 
@@ -25,7 +25,7 @@ fn load_packets_from_pcap(path: &str) -> Vec<Vec<u8>> {
 // Then to run the test, you need to have the dump.pca file in your home directory.
 fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     let db = Box::leak(Box::new(Database::default()));
-    let mut p0f = P0f::new(db, 100);
+    let mut p0f = PassiveTcp::new(db, 100);
 
     let packets = load_packets_from_pcap("~/dump.pca");
 
