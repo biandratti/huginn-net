@@ -1,4 +1,4 @@
-use crate::db::TcpP0fIndexKey;
+use crate::db::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::observable_signals::ObservableTcp;
 use crate::tcp;
@@ -47,12 +47,12 @@ impl ObservableTcp {
 }
 
 impl ObservedFingerprint for ObservableTcp {
-    type Key = TcpP0fIndexKey;
+    type Key = TcpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
         let olayout_parts: Vec<String> =
             self.olayout.iter().map(|opt| format!("{}", opt)).collect();
-        TcpP0fIndexKey {
+        TcpIndexKey {
             ip_version_key: self.version,
             olayout_key: olayout_parts.join(","),
             pclass_key: self.pclass,
@@ -87,7 +87,7 @@ impl DatabaseSignature<ObservableTcp> for tcp::Signature {
         TcpMatchQuality::distance_to_score(distance)
     }
 
-    fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {
+    fn generate_index_keys_for_db_entry(&self) -> Vec<TcpIndexKey> {
         let mut keys = Vec::new();
         let olayout_key_str = self
             .olayout
@@ -110,7 +110,7 @@ impl DatabaseSignature<ObservableTcp> for tcp::Signature {
 
         for v_key_part in &versions_for_keys {
             for pc_key_part in &pclasses_for_keys {
-                keys.push(TcpP0fIndexKey {
+                keys.push(TcpIndexKey {
                     ip_version_key: *v_key_part,
                     olayout_key: olayout_key_str.clone(),
                     pclass_key: *pc_key_part,

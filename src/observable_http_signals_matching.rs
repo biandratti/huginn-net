@@ -1,4 +1,4 @@
-use crate::db::HttpP0fIndexKey;
+use crate::db::HttpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::http;
 use crate::http::{Header, HttpMatchQuality, Version};
@@ -84,10 +84,10 @@ impl HttpDistance for ObservableHttpRequest {
 }
 
 impl ObservedFingerprint for ObservableHttpRequest {
-    type Key = HttpP0fIndexKey;
+    type Key = HttpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        HttpP0fIndexKey {
+        HttpIndexKey {
             http_version_key: self.version,
         }
     }
@@ -106,7 +106,7 @@ trait HttpSignatureHelper {
         Some(distance)
     }
 
-    fn generate_http_index_keys(&self) -> Vec<HttpP0fIndexKey>;
+    fn generate_http_index_keys(&self) -> Vec<HttpIndexKey>;
 
     /// Returns the quality score based on the distance.
     ///
@@ -126,17 +126,17 @@ impl AsRef<http::Signature> for http::Signature {
 }
 
 impl HttpSignatureHelper for http::Signature {
-    fn generate_http_index_keys(&self) -> Vec<HttpP0fIndexKey> {
+    fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
         let mut keys = Vec::new();
         if self.version == Version::Any {
-            keys.push(HttpP0fIndexKey {
+            keys.push(HttpIndexKey {
                 http_version_key: Version::V10,
             });
-            keys.push(HttpP0fIndexKey {
+            keys.push(HttpIndexKey {
                 http_version_key: Version::V11,
             });
         } else {
-            keys.push(HttpP0fIndexKey {
+            keys.push(HttpIndexKey {
                 http_version_key: self.version,
             });
         }
@@ -153,7 +153,7 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
         self.get_quality_score_by_distance(distance)
     }
 
-    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
         self.generate_http_index_keys()
     }
 }
@@ -177,10 +177,10 @@ impl HttpDistance for ObservableHttpResponse {
 }
 
 impl ObservedFingerprint for ObservableHttpResponse {
-    type Key = HttpP0fIndexKey;
+    type Key = HttpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        HttpP0fIndexKey {
+        HttpIndexKey {
             http_version_key: self.version,
         }
     }
@@ -195,7 +195,7 @@ impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
         self.get_quality_score_by_distance(distance)
     }
 
-    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
+    fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
         self.generate_http_index_keys()
     }
 }
