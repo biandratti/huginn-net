@@ -32,7 +32,7 @@ Passive TCP Fingerprinting is a technique that allows you to infer information a
 ### Installation
 ```toml
 [dependencies]
-passivetcp-rs = "1.0.2"
+passivetcp-rs = "1.1.0"
 ```
 
 ###  Examples & Tutorials:
