@@ -1,5 +1,5 @@
 use crate::db::HttpP0fIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
+use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::http;
 use crate::http::{Header, HttpMatchQuality, Version};
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
@@ -107,6 +107,31 @@ trait HttpSignatureHelper {
     }
 
     fn generate_http_index_keys(&self) -> Vec<HttpP0fIndexKey>;
+
+    /// Returns the quality score based on the distance.
+    ///
+    /// The score is a value between 0.0 and 1.0, where 1.0 is a perfect match.
+    ///
+    /// The score is calculated based on the distance of the observed signal to the database signature.
+    /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
+    fn get_quality_score_by_distance(&self, distance: u32) -> MatchQuality {
+        // For HTTP with 4 components:
+        // - Each component: 0 (High), 1 (Medium), 2 (Low), 3 (Bad)
+        // - Maximum theoretical distance: 12 (all Bad)
+
+        match distance {
+            0 => 1.0,
+            1 => 0.95,
+            2 => 0.90,
+            3 => 0.80,
+            4..=5 => 0.70,
+            6..=7 => 0.60,
+            8..=9 => 0.40,
+            10..=11 => 0.20,
+            12 => 0.10,
+            _ => 0.05,
+        }
+    }
 }
 
 impl AsRef<http::Signature> for http::Signature {
@@ -137,6 +162,10 @@ impl HttpSignatureHelper for http::Signature {
 impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
     fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
         self.calculate_http_distance(observed)
+    }
+
+    fn get_quality_score(&self, distance: u32) -> MatchQuality {
+        self.get_quality_score_by_distance(distance)
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
@@ -175,6 +204,10 @@ impl ObservedFingerprint for ObservableHttpResponse {
 impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
     fn calculate_distance(&self, observed: &ObservableHttpResponse) -> Option<u32> {
         self.calculate_http_distance(observed)
+    }
+
+    fn get_quality_score(&self, distance: u32) -> MatchQuality {
+        self.get_quality_score_by_distance(distance)
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {

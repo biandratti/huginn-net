@@ -201,10 +201,6 @@ where
             _key_marker: PhantomData,
         }
     }
-
-    pub(crate) fn get_quality_from_distance(distance: u32) -> MatchQuality {
-        (100_u32.saturating_sub(distance)) as f32 / 100.0
-    }
 }
 
 impl<OF, DS, K> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS, K>
@@ -249,7 +245,7 @@ where
         }
 
         if let (Some(label), Some(sig)) = (best_label_ref, best_sig_ref) {
-            Some((label, sig, Self::get_quality_from_distance(min_distance)))
+            Some((label, sig, sig.get_quality_score(min_distance)))
         } else {
             None
         }

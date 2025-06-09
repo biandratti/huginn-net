@@ -1,5 +1,5 @@
 use crate::db::TcpP0fIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
+use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::observable_signals::ObservableTcp;
 use crate::tcp;
 use crate::tcp::{IpVersion, PayloadSize, TcpMatchQuality};
@@ -74,6 +74,31 @@ impl DatabaseSignature<ObservableTcp> for tcp::Signature {
             + observed.distance_quirks(self)?
             + observed.pclass.distance_payload_size(&self.pclass)?;
         Some(distance)
+    }
+
+    /// Returns the quality score based on the distance.
+    ///
+    /// The score is a value between 0.0 and 1.0, where 1.0 is a perfect match.
+    ///
+    /// The score is calculated based on the distance of the observed signal to the database signature.
+    /// The distance is a value between 0 and 18, where 0 is a perfect match and 18 is the maximum possible distance.
+    ///
+    fn get_quality_score(&self, distance: u32) -> MatchQuality {
+        // For TCP with 9 hypothetical components:
+        // - Each component: 0 (High), 1 (Medium), 2 (Low), 3 (Bad)
+        // - Maximum theoretical distance: 18 (all Bad)
+        match distance {
+            0 => 1.0,
+            1 => 0.95,
+            2 => 0.90,
+            3..=4 => 0.80,
+            5..=6 => 0.70,
+            7..=9 => 0.60,
+            10..=12 => 0.40,
+            13..=15 => 0.20,
+            16..=18 => 0.10,
+            _ => 0.05,
+        }
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpP0fIndexKey> {

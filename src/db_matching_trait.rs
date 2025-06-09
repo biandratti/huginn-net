@@ -20,6 +20,9 @@ pub trait DatabaseSignature<OF: ObservedFingerprint>: Clone + Debug + Display {
     /// Calculates a distance or dissimilarity score. Lower is better.
     fn calculate_distance(&self, observed: &OF) -> Option<u32>;
 
+    /// Returns the quality score based on the distance.
+    fn get_quality_score(&self, distance: u32) -> MatchQuality;
+
     /// Generates index keys from this database signature.
     /// It's a Vec because some DB signatures (like IpVersion::Any) might map to multiple keys.
     /// The Option<OF::Key> in the Vec allows for cases where a specific DB sig might not produce a key

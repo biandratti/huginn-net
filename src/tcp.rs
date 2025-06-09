@@ -32,8 +32,8 @@ impl TcpMatchQuality {
     pub fn as_score(self) -> u32 {
         match self {
             TcpMatchQuality::High => 0,
-            TcpMatchQuality::Medium => 5,
-            TcpMatchQuality::Low => 10,
+            TcpMatchQuality::Medium => 1,
+            TcpMatchQuality::Low => 2,
         }
     }
 }

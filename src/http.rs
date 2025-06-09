@@ -22,9 +22,9 @@ impl HttpMatchQuality {
     pub fn as_score(self) -> u32 {
         match self {
             HttpMatchQuality::High => 0,
-            HttpMatchQuality::Medium => 5,
-            HttpMatchQuality::Low => 10,
-            HttpMatchQuality::Bad => 20,
+            HttpMatchQuality::Medium => 1,
+            HttpMatchQuality::Low => 2,
+            HttpMatchQuality::Bad => 3,
         }
     }
 }
