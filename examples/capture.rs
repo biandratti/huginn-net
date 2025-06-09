@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use passivetcp_rs::db::Database;
-use passivetcp_rs::p0f_output::P0fOutput;
-use passivetcp_rs::P0f;
+use passivetcp_rs::fingerprint_result::FingerprintResult;
+use passivetcp_rs::PassiveTcp;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -64,19 +64,20 @@ fn main() {
     let db = Box::leak(Box::new(Database::default()));
     debug!("Loaded database: {:?}", db);
 
-    let (sender, receiver): (Sender<P0fOutput>, Receiver<P0fOutput>) = mpsc::channel();
+    let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
+        mpsc::channel();
 
     thread::spawn(move || {
-        let mut p0f = P0f::new(db, 100);
+        let mut passive_tcp = PassiveTcp::new(db, 100);
 
         let result = match args.command {
             Commands::Live { interface } => {
                 info!("Starting live capture on interface: {}", interface);
-                p0f.analyze_network(&interface, sender)
+                passive_tcp.analyze_network(&interface, sender)
             }
             Commands::Pcap { file } => {
                 info!("Analyzing PCAP file: {}", file);
-                p0f.analyze_pcap(&file, sender)
+                passive_tcp.analyze_pcap(&file, sender)
             }
         };
 

@@ -3,6 +3,7 @@ pub mod db_matching_trait;
 mod db_parse;
 mod display;
 mod error;
+pub mod fingerprint_result;
 mod http;
 mod http_languages;
 mod http_process;
@@ -11,7 +12,6 @@ mod mtu;
 mod observable_http_signals_matching;
 mod observable_signals;
 mod observable_tcp_signals_matching;
-pub mod p0f_output;
 mod process;
 mod signature_matcher;
 pub mod tcp;
@@ -21,19 +21,19 @@ mod uptime;
 pub mod window_size;
 
 use crate::db::{Database, Label};
-use crate::http::{HttpDiagnosis, Signature};
-use crate::http_process::{FlowKey, TcpFlow};
-use crate::p0f_output::{
-    Browser, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem, P0fOutput,
+use crate::fingerprint_result::{
+    Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
     SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
 };
+use crate::http::{HttpDiagnosis, Signature};
+use crate::http_process::{FlowKey, TcpFlow};
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
+use fingerprint_result::BrowserQualityMatched;
+use fingerprint_result::OSQualityMatched;
+use fingerprint_result::WebServerQualityMatched;
 pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
-use p0f_output::BrowserQualityMatched;
-use p0f_output::OSQualityMatched;
-use p0f_output::WebServerQualityMatched;
 use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;
@@ -44,7 +44,7 @@ pub use tcp::Ttl;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
-pub struct P0f<'a> {
+pub struct PassiveTcp<'a> {
     pub matcher: SignatureMatcher<'a>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
@@ -52,17 +52,17 @@ pub struct P0f<'a> {
 
 /// A passive TCP fingerprinting engine inspired by `p0f`.
 ///
-/// The `P0f` struct acts as the core component of the library, handling TCP packet
+/// The `PassiveTcp` struct acts as the core component of the library, handling TCP packet
 /// analysis and matching signatures using a database of known fingerprints.
-impl<'a> P0f<'a> {
-    /// Creates a new instance of `P0f`.
+impl<'a> PassiveTcp<'a> {
+    /// Creates a new instance of `PassiveTcp`.
     ///
     /// # Parameters
     /// - `database`: A reference to the database containing known TCP/IP signatures.
     /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
     ///
     /// # Returns
-    /// A new `P0f` instance initialized with the given database and cache capacity.
+    /// A new `PassiveTcp` instance initialized with the given database and cache capacity.
     pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
         let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
@@ -77,7 +77,7 @@ impl<'a> P0f<'a> {
     fn process_with<F>(
         &mut self,
         mut packet_fn: F,
-        sender: Sender<P0fOutput>,
+        sender: Sender<FingerprintResult>,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut() -> Option<Result<Vec<u8>, Box<dyn Error>>>,
@@ -101,18 +101,18 @@ impl<'a> P0f<'a> {
 
     /// Captures and analyzes packets on the specified network interface.
     ///
-    /// Sends `P0fOutput` through the provided channel.
+    /// Sends `FingerprintResult` through the provided channel.
     ///
     /// # Parameters
     /// - `interface_name`: The name of the network interface to analyze.
-    /// - `sender`: A `Sender` to send `P0fOutput` objects back to the caller.
+    /// - `sender`: A `Sender` to send `FingerprintResult` objects back to the caller.
     ///
     /// # Panics
     /// - If the network interface cannot be found or a channel cannot be created.
     pub fn analyze_network(
         &mut self,
         interface_name: &str,
-        sender: Sender<P0fOutput>,
+        sender: Sender<FingerprintResult>,
     ) -> Result<(), Box<dyn Error>> {
         let interfaces = datalink::interfaces();
         let interface = interfaces
@@ -146,14 +146,14 @@ impl<'a> P0f<'a> {
     ///
     /// # Parameters
     /// - `pcap_path`: The path to the PCAP file to analyze.
-    /// - `sender`: A `Sender` to send `P0fOutput` objects back to the caller.
+    /// - `sender`: A `Sender` to send `FingerprintResult` objects back to the caller.
     ///
     /// # Panics
     /// - If the PCAP file cannot be opened or read.
     pub fn analyze_pcap(
         &mut self,
         pcap_path: &str,
-        sender: Sender<P0fOutput>,
+        sender: Sender<FingerprintResult>,
     ) -> Result<(), Box<dyn Error>> {
         let file = File::open(pcap_path)?;
         let mut pcap_reader = PcapReader::new(file)?;
@@ -168,14 +168,14 @@ impl<'a> P0f<'a> {
         )
     }
 
-    /// Analyzes a TCP packet and returns a `P0fOutput` object.
+    /// Analyzes a TCP packet and returns a `FingerprintResult` object.
     ///
     /// # Parameters
     /// - `packet`: A reference to the TCP packet to analyze.
     ///
     /// # Returns
-    /// A `P0fOutput` object containing the analysis results.
-    pub fn analyze_tcp(&mut self, packet: &[u8]) -> P0fOutput {
+    /// A `FingerprintResult` object containing the analysis results.
+    pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response) = {
@@ -287,7 +287,7 @@ impl<'a> P0f<'a> {
                     (syn, syn_ack, mtu, uptime, http_request, http_response)
                 };
 
-                P0fOutput {
+                FingerprintResult {
                     syn,
                     syn_ack,
                     mtu,
@@ -298,7 +298,7 @@ impl<'a> P0f<'a> {
             }
             Err(error) => {
                 debug!("Fail to process signature: {}", error);
-                P0fOutput {
+                FingerprintResult {
                     syn: None,
                     syn_ack: None,
                     mtu: None,

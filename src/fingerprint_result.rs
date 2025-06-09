@@ -11,7 +11,7 @@ use std::fmt::Formatter;
 ///
 /// This struct contains various optional outputs that can be derived
 /// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and HTTP data.
-pub struct P0fOutput {
+pub struct FingerprintResult {
     /// Information derived from SYN packets.
     pub syn: Option<SynTCPOutput>,
 

@@ -45,21 +45,21 @@ passivetcp-rs = "1.0.2"
 ### Code Integration
 
 ```rust
-use passivetcp_rs::{Database, P0f};
+use passivetcp_rs::{Database, PassiveTcp};
 use std::sync::mpsc;
 
 // Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
-let analyzer = P0f::new(db, 100);
+let passive_tcp = PassiveTcp::new(db, 100);
 
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
     // Live network capture
-    analyzer.analyze_network("eth0", sender);
+    passive_tcp.analyze_network("eth0", sender);
     
     // OR PCAP file analysis
-    // analyzer.analyze_pcap("traffic.pcap", sender);
+    // passive_tcp.analyze_pcap("traffic.pcap", sender);
 });
 
 // Process results
