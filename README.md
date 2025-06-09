@@ -11,13 +11,13 @@
 
 #### Why choose passivetcp-rs?
 
-✅ **Same accuracy as p0f** - Validated against extensive device testing  
-✅ **Modern Rust implementation** - Memory safety and zero-cost abstractions  
-✅ **Production performance** - Processes packets in ~3.1ms with comparable speed to original p0f  
-✅ **Type-safe architecture** - Prevents entire classes of bugs at compile time  
-✅ **Comprehensive testing** - Full unit and integration test coverage  
-✅ **Easy integration** - Clean APIs and modular design  
-✅ **Active development** - Continuously improved and maintained  
+- **Same accuracy as p0f** - Validated against extensive device testing  
+- **Modern Rust implementation** - Memory safety and zero-cost abstractions  
+- **Production performance** - Processes packets in ~3.1ms with comparable speed to original p0f  
+- **Type-safe architecture** - Prevents entire classes of bugs at compile time  
+- **Comprehensive testing** - Full unit and integration test coverage  
+- **Easy integration** - Clean APIs and modular design  
+- **Active development** - Continuously improved and maintained  
 
 #### What is Passive TCP Fingerprinting?
 Passive TCP Fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
@@ -38,82 +38,28 @@ passivetcp-rs = "1.0.2"
 ```
 
 ###  Examples & Tutorials:
-- **[examples/README.md](examples/README.md)** - Complete usage guide with:
-  - Live network capture examples
-  - PCAP file analysis workflows
-
-### Sample Output
-```text
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
-|
-| client   = 1.2.3.4/1524
-| os       = Windows XP
-| dist     = 8
-| params   = none
-| raw_sig  = 4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
-|
-`----
-
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]-
-|
-| server   = 4.3.2.1/80
-| os       = Linux 3.x
-| dist     = 0
-| params   = none
-| raw_sig  = 4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
-|
-`----
-
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (mtu) ]-
-|
-| client   = 1.2.3.4/1524
-| link     = DSL
-| raw_mtu  = 1492
-|
-`----
-
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (uptime) ]-
-|
-| client   = 1.2.3.4/1524
-| uptime   = 0 days 11 hrs 16 min (modulo 198 days)
-| raw_freq = 250.00 Hz
-|
-`----
-
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]-
-|
-| client   = 1.2.3.4/1524
-| app      = Firefox:10.x or newer
-| lang     = English
-| params   = none
-| raw_sig  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
-|
-`----
-
-.-[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]-
-|
-| server   = 91.189.91.21/80
-| app      = nginx/1.14.0 (Ubuntu)
-| params   = anonymous
-| raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
-|
-`----
-```
+[Complete usage guide with](examples/README.md):
+  - Live network capture
+  - PCAP file analysis
 
 ### Code Integration
-```rust
-use passivetcp_rs::db::Database;
-use passivetcp_rs::P0f;
-use std::sync::mpsc;
-use std::thread;
 
-// Load signature database
+```rust
+use passivetcp_rs::{Database, P0f};
+use std::sync::mpsc;
+
+// Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
+let analyzer = P0f::new(db, 100);
 
-// Start passive analysis
-thread::spawn(move || {
-    P0f::new(db, 100).analyze_network(&interface, sender);
+// Analyze network traffic (choose one)
+std::thread::spawn(move || {
+    // Live network capture
+    analyzer.analyze_network("eth0", sender);
+    
+    // OR PCAP file analysis
+    // analyzer.analyze_pcap("traffic.pcap", sender);
 });
 
 // Process results
@@ -138,6 +84,57 @@ for output in receiver {
     }
 }
 ```
+### Package Analysis Output
+```text
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
+|
+| client   = 1.2.3.4/1524
+| os       = Windows XP
+| dist     = 8
+| params   = none
+| raw_sig  = 4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
+`----
+
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]-
+|
+| server   = 4.3.2.1/80
+| os       = Linux 3.x
+| dist     = 0
+| params   = none
+| raw_sig  = 4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
+`----
+
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (mtu) ]-
+|
+| client   = 1.2.3.4/1524
+| link     = DSL
+| raw_mtu  = 1492
+`----
+
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (uptime) ]-
+|
+| client   = 1.2.3.4/1524
+| uptime   = 0 days 11 hrs 16 min (modulo 198 days)
+| raw_freq = 250.00 Hz
+`----
+
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]-
+|
+| client   = 1.2.3.4/1524
+| app      = Firefox:10.x or newer
+| lang     = English
+| params   = none
+| raw_sig  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
+`----
+
+.-[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]-
+|
+| server   = 91.189.91.21/80
+| app      = nginx/1.14.0 (Ubuntu)
+| params   = anonymous
+| raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
+`----
+```
 
 ## 📊 Performance & Accuracy
 
@@ -145,18 +142,18 @@ for output in receiver {
 - **Processing Speed**: ~3.1ms per packet on real-world datasets
 - **Accuracy**: **Matches original p0f precision** across tested device categories
 
+*See [benches/README.md](benches/README.md) for detailed performance analysis.*
+
 ### Validated Device Categories
-✅ **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
-✅ **Mobile Devices** - Android devices, iPhone/iPad  
-✅ **Gaming Consoles** - Nintendo 3DS, Nintendo Wii  
-✅ **Web Browsers** - Chrome, Firefox, Safari, Edge, Opera  
-✅ **Web Servers** - Apache, nginx, IIS, lighttpd  
-✅ **Network Tools** - wget, curl, various crawlers and bots  
-✅ **Legacy Systems** - Older Windows versions, Unix variants  
+- **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
+- **Mobile Devices** - Android devices, iPhone/iPad  
+- **Gaming Consoles** - Nintendo 3DS, Nintendo Wii  
+- **Web Browsers** - Chrome, Firefox, Safari, Edge, Opera  
+- **Web Servers** - Apache, nginx, IIS, lighttpd  
+- **Network Tools** - wget, curl, various crawlers and bots  
+- **Legacy Systems** - Older Windows versions, Unix variants  
 
 *Based on signatures available in the p0f database. See [config/p0f.fp](config/p0f.fp) for complete signature list.*
-
-*See [benches/README.md](benches/README.md) for detailed performance analysis.*
 
 ### Database Coverage
 The current signature database includes patterns for:
@@ -175,12 +172,18 @@ The current signature database includes patterns for:
 - **Uptime Calculation** from TCP timestamps
 - **Custom Signature Databases** with easy updates
 
-### Developer-Friendly
-- **Comprehensive Documentation** with examples
-- **Type-Safe APIs** preventing runtime errors
-- **Modular Architecture** for easy extension
-- **Rich Test Suite** ensuring reliability
-- **Dual Analysis Modes** - Live network capture and PCAP file analysis
+### Matching Quality
+
+passivetcp-rs provides intelligent quality scoring for all fingerprint matches, helping you assess the reliability of each detection.
+The quality score is calculated based on the **distance** between observed network characteristics and known signatures.
+To achieve the best quality in matching, a rich database will be needed.
+
+#### Quality Metrics
+- **Perfect Match (1.0)**: Exact signature match with zero distance
+- **High Quality (0.8-0.95)**: Very close match with minimal differences
+- **Medium Quality (0.6-0.8)**: Good match with some variations
+- **Low Quality (0.4-0.6)**: Acceptable match but with notable differences
+- **Poor Quality (<0.4)**: Weak match, use with caution
 
 ## Interactive Testing
 
@@ -205,22 +208,11 @@ We welcome contributions! Areas where help is especially valuable:
 
 **Your signature contributions directly improve detection accuracy for the entire community!**
 
-## 🗺️ Roadmap
-
-### Current Focus
-- ✅ **Accuracy Parity** - Achieved same precision as original p0f
-- ✅ **Performance Optimization** - Production-ready speed
-- ✅ **Comprehensive Testing** - Validated across device categories
-
-### Next Milestones
-- 🔄 **Extended Protocol Support** - TLS/SSL fingerprinting
-- 🔄 **Enhanced Database** - Continuous signature updates
-- 🔄 **Advanced Analytics** - Pattern analysis and reporting tools
+## Next Milestones
+-  **Extended Protocol Support** - TLS/SSL fingerprinting
+-  **Enhanced Database** - Continuous signature updates
+-  **Advanced Analytics** - Pattern analysis and reporting tools
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Ready to start fingerprinting?** Check out our [examples](examples/) and [documentation](https://docs.rs/passivetcp-rs) to get started!

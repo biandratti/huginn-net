@@ -1,5 +1,5 @@
 use crate::db::{Database, Label};
-use crate::db_matching_trait::{FingerprintDb, MatchQuality};
+use crate::db_matching_trait::FingerprintDb;
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, tcp};
@@ -16,14 +16,14 @@ impl<'a> SignatureMatcher<'a> {
     pub fn matching_by_tcp_request(
         &self,
         signature: &ObservableTcp,
-    ) -> Option<(&'a Label, &'a tcp::Signature, MatchQuality)> {
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         self.database.tcp_request.find_best_match(signature)
     }
 
     pub fn matching_by_tcp_response(
         &self,
         signature: &ObservableTcp,
-    ) -> Option<(&'a Label, &'a tcp::Signature, MatchQuality)> {
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         self.database.tcp_response.find_best_match(signature)
     }
 
@@ -41,14 +41,14 @@ impl<'a> SignatureMatcher<'a> {
     pub fn matching_by_http_request(
         &self,
         signature: &ObservableHttpRequest,
-    ) -> Option<(&'a Label, &'a http::Signature, MatchQuality)> {
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> {
         self.database.http_request.find_best_match(signature)
     }
 
     pub fn matching_by_http_response(
         &self,
         signature: &ObservableHttpResponse,
-    ) -> Option<(&'a Label, &'a http::Signature, MatchQuality)> {
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> {
         self.database.http_response.find_best_match(signature)
     }
 
@@ -259,7 +259,7 @@ mod tests {
                 assert_eq!(label.class, None);
                 assert_eq!(label.flavor, Some("11 or newer".to_string()));
                 assert_eq!(label.ty, Type::Specified);
-                assert_eq!(quality, 0.75);
+                assert_eq!(quality, 0.7);
             }
             None => {
                 panic!("No HTTP match found for Android Chrome signature");

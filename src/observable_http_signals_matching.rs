@@ -1,5 +1,5 @@
 use crate::db::HttpP0fIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint};
+use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::http;
 use crate::http::{Header, HttpMatchQuality, Version};
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
@@ -107,6 +107,16 @@ trait HttpSignatureHelper {
     }
 
     fn generate_http_index_keys(&self) -> Vec<HttpP0fIndexKey>;
+
+    /// Returns the quality score based on the distance.
+    ///
+    /// The score is a value between 0.0 and 1.0, where 1.0 is a perfect match.
+    ///
+    /// The score is calculated based on the distance of the observed signal to the database signature.
+    /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
+    fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
+        HttpMatchQuality::distance_to_score(distance)
+    }
 }
 
 impl AsRef<http::Signature> for http::Signature {
@@ -137,6 +147,10 @@ impl HttpSignatureHelper for http::Signature {
 impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
     fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
         self.calculate_http_distance(observed)
+    }
+
+    fn get_quality_score(&self, distance: u32) -> f32 {
+        self.get_quality_score_by_distance(distance)
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {
@@ -175,6 +189,10 @@ impl ObservedFingerprint for ObservableHttpResponse {
 impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
     fn calculate_distance(&self, observed: &ObservableHttpResponse) -> Option<u32> {
         self.calculate_http_distance(observed)
+    }
+
+    fn get_quality_score(&self, distance: u32) -> f32 {
+        self.get_quality_score_by_distance(distance)
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpP0fIndexKey> {

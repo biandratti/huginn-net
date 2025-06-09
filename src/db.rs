@@ -1,6 +1,4 @@
-use crate::db_matching_trait::{
-    DatabaseSignature, FingerprintDb, IndexKey, MatchQuality, ObservedFingerprint,
-};
+use crate::db_matching_trait::{DatabaseSignature, FingerprintDb, IndexKey, ObservedFingerprint};
 use crate::http::{self, Version as HttpVersion};
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
@@ -201,10 +199,6 @@ where
             _key_marker: PhantomData,
         }
     }
-
-    pub(crate) fn get_quality_from_distance(distance: u32) -> MatchQuality {
-        (100_u32.saturating_sub(distance)) as f32 / 100.0
-    }
 }
 
 impl<OF, DS, K> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS, K>
@@ -213,7 +207,7 @@ where
     DS: DatabaseSignature<OF> + Display,
     K: IndexKey,
 {
-    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, MatchQuality)> {
+    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, f32)> {
         let observed_key = observed.generate_index_key();
 
         let candidate_indices = match self.index.get(&observed_key) {
@@ -249,7 +243,7 @@ where
         }
 
         if let (Some(label), Some(sig)) = (best_label_ref, best_sig_ref) {
-            Some((label, sig, Self::get_quality_from_distance(min_distance)))
+            Some((label, sig, sig.get_quality_score(min_distance)))
         } else {
             None
         }
