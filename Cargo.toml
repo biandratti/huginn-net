@@ -22,7 +22,7 @@ crossbeam = "0.8.4"
 pcap-file = "3.0.0-rc1"
 
 [dev-dependencies]
-clap = { version = "4.5.39", features = ["derive"] }
+clap = { version = "4.5.40", features = ["derive"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 criterion = { version = "0.6.0", features = ["html_reports"] }
