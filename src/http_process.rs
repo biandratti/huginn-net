@@ -259,10 +259,10 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Pa
             Ok(None)
         }
         Err(e) => {
-            debug!(
-                "Failed to parse HTTP response with Data: {:?}. Error: {}",
-                data, e
-            );
+            // debug!(
+            //     "Failed to parse HTTP response with Data: {:?}. Error: {}",
+            //     data, e
+            // );
             Err(PassiveTcpError::Parse(format!(
                 "Failed to parse HTTP response: {}",
                 e

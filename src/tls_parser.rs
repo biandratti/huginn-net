@@ -1,5 +1,6 @@
 use crate::tls::{TlsSignature, TlsVersion};
 use crate::error::PassiveTcpError;
+use tracing::debug;
 
 /// TLS Content Types
 const TLS_HANDSHAKE: u8 = 0x16;
@@ -30,6 +31,7 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<TlsSignature, PassiveTcpErr
 
     // Extract TLS version from record header
     let record_version = u16::from_be_bytes([data[1], data[2]]);
+    debug!("TLS record version: 0x{:04x}", record_version);
     
     // Extract record length
     let record_length = u16::from_be_bytes([data[3], data[4]]) as usize;
@@ -60,9 +62,10 @@ fn parse_client_hello(data: &[u8], _record_version: u16) -> Result<TlsSignature,
     // Skip handshake length (3 bytes)
     offset += 3;
     
-    // Extract ClientHello version
+    // Extract ClientHello version (legacy version for TLS 1.3 compatibility)
     let client_version = u16::from_be_bytes([data[offset], data[offset + 1]]);
-    let version = TlsVersion::from(client_version);
+    let mut version = TlsVersion::from(client_version);
+    debug!("ClientHello legacy version: 0x{:04x} -> {:?}", client_version, version);
     offset += 2;
     
     // Skip random (32 bytes)
@@ -141,12 +144,22 @@ fn parse_client_hello(data: &[u8], _record_version: u16) -> Result<TlsSignature,
                 extensions::SIGNATURE_ALGORITHMS => {
                     signature_algorithms = parse_signature_algorithms(extension_data);
                 }
+                extensions::SUPPORTED_VERSIONS => {
+                    debug!("Found supported_versions extension");
+                    // Parse supported_versions extension to get real TLS version
+                    if let Some(real_version) = parse_supported_versions(extension_data) {
+                        debug!("Updated version from {:?} to {:?}", version, real_version);
+                        version = real_version;
+                    }
+                }
                 _ => {} // Ignore other extensions for now
             }
             
             offset += extension_length;
         }
     }
+    
+    debug!("Final TLS version: {:?}", version);
     
     Ok(TlsSignature {
         version,
@@ -237,6 +250,50 @@ fn parse_signature_algorithms(data: &[u8]) -> Vec<u16> {
     }
     
     algorithms
+}
+
+fn parse_supported_versions(data: &[u8]) -> Option<TlsVersion> {
+    if data.len() < 2 {
+        debug!("supported_versions too short: {} bytes", data.len());
+        return None;
+    }
+    
+    let list_length = data[0] as usize;
+    if data.len() < 1 + list_length {
+        debug!("supported_versions incomplete: need {} bytes, have {}", 1 + list_length, data.len());
+        return None;
+    }
+    
+    debug!("Parsing supported_versions: {} bytes of versions", list_length);
+    
+    // Parse supported versions list (each version is 2 bytes)
+    for i in (1..1 + list_length).step_by(2) {
+        if i + 1 < data.len() {
+            let version_bytes = u16::from_be_bytes([data[i], data[i + 1]]);
+            let version = TlsVersion::from(version_bytes);
+            debug!("Found supported version: 0x{:04x} -> {:?}", version_bytes, version);
+            
+            // Return the highest supported version (TLS 1.3 takes precedence)
+            match version {
+                TlsVersion::V1_3 => {
+                    debug!("Selecting TLS 1.3");
+                    return Some(version);
+                }
+                _ => continue,
+            }
+        }
+    }
+    
+    // If no TLS 1.3 found, return the first supported version
+    if list_length >= 2 {
+        let version_bytes = u16::from_be_bytes([data[1], data[2]]);
+        let version = TlsVersion::from(version_bytes);
+        debug!("No TLS 1.3 found, using first version: 0x{:04x} -> {:?}", version_bytes, version);
+        Some(version)
+    } else {
+        debug!("No valid versions found in supported_versions");
+        None
+    }
 }
 
 #[cfg(test)]

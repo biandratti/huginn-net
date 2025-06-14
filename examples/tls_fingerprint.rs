@@ -6,7 +6,7 @@ use tracing::{info, Level};
 use tracing_subscriber;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
+    // Initialize tracing with DEBUG level to see TLS parsing details
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .init();
