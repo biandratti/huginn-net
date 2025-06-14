@@ -1,7 +1,7 @@
 use crate::db::{Label, Type};
 use crate::http::HttpDiagnosis;
 use crate::observable_signals::ObservableTcp;
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTls};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use std::fmt;
@@ -10,7 +10,7 @@ use std::fmt::Formatter;
 /// Represents the output from the passive TCP fingerprinting tool.
 ///
 /// This struct contains various optional outputs that can be derived
-/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and HTTP data.
+/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, HTTP, and TLS data.
 pub struct FingerprintResult {
     /// Information derived from SYN packets.
     pub syn: Option<SynTCPOutput>,
@@ -29,6 +29,9 @@ pub struct FingerprintResult {
 
     /// Information derived from HTTP response headers.
     pub http_response: Option<HttpResponseOutput>,
+
+    /// Information derived from TLS ClientHello analysis.
+    pub tls: Option<TlsOutput>,
 }
 
 /// Represents an operative system.
@@ -415,5 +418,79 @@ impl fmt::Display for HttpResponseOutput {
             self.diagnosis,
             self.sig,
         )
+    }
+}
+
+/// Holds information derived from analyzing TLS ClientHello packets.
+///
+/// This structure contains details about the TLS client based on its ClientHello packet,
+/// including the JA4 fingerprint and extracted TLS parameters.
+pub struct TlsOutput {
+    /// The source IP address and port of the client sending the ClientHello.
+    pub source: IpPort,
+    /// The destination IP address and port of the server receiving the ClientHello.
+    pub destination: IpPort,
+    /// The application with the highest quality that matches the TLS signature.
+    pub app_matched: Option<ApplicationQualityMatched>,
+    /// The raw TLS signature extracted from the ClientHello packet.
+    pub sig: ObservableTls,
+}
+
+impl fmt::Display for TlsOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (tls) ]-\n\
+            |\n\
+            | client   = {}/{}\n\
+            | app      = {}\n\
+            | ja4      = {}\n\
+            | ja4_hash = {}\n\
+            | sni      = {}\n\
+            | version  = {}\n\
+            `----\n",
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
+            self.source.port,
+            self.app_matched.as_ref().map_or("???".to_string(), |a| {
+                format!(
+                    "{}/{}",
+                    a.application.name,
+                    a.application.variant.as_deref().unwrap_or("??")
+                )
+            }),
+            self.sig.ja4.ja4_full,
+            self.sig.ja4.ja4_hash,
+            self.sig.sni.as_deref().unwrap_or("none"),
+            self.sig.version,
+        )
+    }
+}
+
+/// The application with the highest quality that matches the TLS packet.
+pub struct ApplicationQualityMatched {
+    pub application: Application,
+    pub quality: f32,
+}
+
+/// Represents a TLS application/client.
+pub struct Application {
+    pub name: String,
+    pub family: Option<String>,
+    pub variant: Option<String>,
+    pub kind: Type,
+}
+
+impl From<&Label> for Application {
+    fn from(label: &Label) -> Self {
+        Application {
+            name: label.name.clone(),
+            family: label.class.clone(),
+            variant: label.flavor.clone(),
+            kind: label.ty.clone(),
+        }
     }
 }

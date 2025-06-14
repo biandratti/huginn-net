@@ -47,7 +47,7 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<TlsSignature, PassiveTcpErr
     parse_client_hello(handshake_data, record_version)
 }
 
-fn parse_client_hello(data: &[u8], record_version: u16) -> Result<TlsSignature, PassiveTcpError> {
+fn parse_client_hello(data: &[u8], _record_version: u16) -> Result<TlsSignature, PassiveTcpError> {
     if data.len() < 38 {
         return Err(PassiveTcpError::Parse("ClientHello too short".to_string()));
     }

@@ -18,6 +18,7 @@ pub mod tcp;
 mod tcp_process;
 pub mod tls;
 pub mod tls_parser;
+mod tls_process;
 pub mod ttl;
 mod uptime;
 pub mod window_size;
@@ -84,10 +85,24 @@ impl<'a> PassiveTcp<'a> {
     where
         F: FnMut() -> Option<Result<Vec<u8>, Box<dyn Error>>>,
     {
+        let mut packet_count = 0;
         while let Some(packet_result) = packet_fn() {
             match packet_result {
                 Ok(packet) => {
+                    packet_count += 1;
+                    if packet_count % 100 == 0 {
+                        debug!("Processed {} packets", packet_count);
+                    }
                     let output = self.analyze_tcp(&packet);
+                    
+                    // Log when we find interesting traffic
+                    if output.syn.is_some() || output.syn_ack.is_some() || output.http_request.is_some() || output.tls.is_some() {
+                        debug!("Found interesting traffic: TCP={}, HTTP={}, TLS={}", 
+                               output.syn.is_some() || output.syn_ack.is_some(),
+                               output.http_request.is_some() || output.http_response.is_some(),
+                               output.tls.is_some());
+                    }
+                    
                     if sender.send(output).is_err() {
                         error!("Receiver dropped, stopping packet processing");
                         break;
@@ -98,6 +113,7 @@ impl<'a> PassiveTcp<'a> {
                 }
             }
         }
+        debug!("Finished processing {} packets total", packet_count);
         Ok(())
     }
 
@@ -180,7 +196,7 @@ impl<'a> PassiveTcp<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
-                let (syn, syn_ack, mtu, uptime, http_request, http_response) = {
+                let (syn, syn_ack, mtu, uptime, http_request, http_response, tls) = {
                     let mtu: Option<MTUOutput> =
                         observable_package.mtu.and_then(|observable_mtu| {
                             self.matcher.matching_by_mtu(&observable_mtu.value).map(
@@ -286,7 +302,20 @@ impl<'a> PassiveTcp<'a> {
                             sig: observable_http_response,
                         });
 
-                    (syn, syn_ack, mtu, uptime, http_request, http_response)
+                    // Process TLS
+                    let tls: Option<crate::fingerprint_result::TlsOutput> = observable_package
+                        .tls_client
+                        .map(|observable_tls| {
+                            debug!("TLS ClientHello detected: JA4={}", observable_tls.ja4.ja4_hash);
+                            crate::fingerprint_result::TlsOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                app_matched: None, // TODO: Implement TLS application matching
+                                sig: observable_tls,
+                            }
+                        });
+
+                    (syn, syn_ack, mtu, uptime, http_request, http_response, tls)
                 };
 
                 FingerprintResult {
@@ -296,6 +325,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime,
                     http_request,
                     http_response,
+                    tls,
                 }
             }
             Err(error) => {
@@ -307,6 +337,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime: None,
                     http_request: None,
                     http_response: None,
+                    tls: None,
                 }
             }
         }
