@@ -1,14 +1,14 @@
-use passivetcp_rs::{db::Database, PassiveTcp, fingerprint_result::FingerprintResult};
+use passivetcp_rs::{db::Database, PassiveTcp, fingerprint_result::FingerprintResult, ja4_db::Ja4Database};
 use std::sync::mpsc;
 use std::thread;
 use std::str::FromStr;
-use tracing::{info, Level};
+use tracing::{info, warn, Level};
 use tracing_subscriber;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing with DEBUG level to see TLS parsing details
     tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
+        .with_max_level(Level::DEBUG)
         .init();
 
     info!("Starting TLS JA4 fingerprinting example");
@@ -20,8 +20,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Database loaded with {} TCP request signatures", 
           database.tcp_request.entries.len());
 
-    // Create analyzer
-    let mut analyzer = PassiveTcp::new(&database, 1000);
+    // Load JA4 database
+    let ja4_db = match Ja4Database::load_from_csv("ja4_signatures.csv") {
+        Ok(db) => {
+            info!("JA4 database loaded with {} signatures", db.len());
+            Some(db)
+        }
+        Err(e) => {
+            warn!("Failed to load JA4 database: {}. TLS fingerprints will not be matched to applications.", e);
+            None
+        }
+    };
+
+    // Create analyzer with or without JA4 database
+    let mut analyzer = if let Some(ja4_db) = ja4_db {
+        PassiveTcp::new_with_ja4(&database, 1000, ja4_db)
+    } else {
+        PassiveTcp::new(&database, 1000)
+    };
 
     // Create channel for results with explicit type annotation
     let (sender, receiver) = mpsc::channel::<FingerprintResult>();

@@ -1,11 +1,12 @@
 use crate::error::PassiveTcpError;
 use crate::observable_signals::ObservableTls;
-use crate::tls_parser::parse_tls_client_hello;
+use crate::tls_parser_rusticata::parse_tls_client_hello_rusticata;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
+use tracing::{debug, info};
 
 /// Result of TLS packet processing
 #[derive(Debug)]
@@ -54,13 +55,20 @@ fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpEr
         });
     }
     
-    // Try to parse as TLS ClientHello
-    match parse_tls_client_hello(payload) {
+    // Try to parse as TLS ClientHello with rusticata parser
+    match parse_tls_client_hello_rusticata(payload) {
         Ok(tls_signature) => {
             let ja4 = tls_signature.generate_ja4();
+            info!("RUSTICATA PARSER - JA4: {}", ja4.ja4_hash);
+            debug!("RUSTICATA - Cipher suites: {}, Extensions: {}, Sig algs: {}", 
+                   tls_signature.cipher_suites.len(), 
+                   tls_signature.extensions.len(),
+                   tls_signature.signature_algorithms.len());
+            
             let observable_tls = ObservableTls {
                 version: tls_signature.version,
                 sni: tls_signature.sni.clone(),
+                alpn: tls_signature.alpn.clone(),
                 cipher_suites: tls_signature.cipher_suites.clone(),
                 extensions: tls_signature.extensions.clone(),
                 signature_algorithms: tls_signature.signature_algorithms.clone(),
@@ -73,7 +81,7 @@ fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpEr
             })
         }
         Err(_) => {
-            // Not a valid TLS ClientHello, return empty result
+            // Rusticata parser failed
             Ok(ObservableTlsPackage {
                 tls_client: None,
             })

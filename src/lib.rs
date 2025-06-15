@@ -8,6 +8,7 @@ mod http;
 mod http_languages;
 mod http_process;
 mod ip_options;
+pub mod ja4_db;
 mod mtu;
 mod observable_http_signals_matching;
 mod observable_signals;
@@ -17,7 +18,7 @@ mod signature_matcher;
 pub mod tcp;
 mod tcp_process;
 pub mod tls;
-pub mod tls_parser;
+pub mod tls_parser_rusticata;
 mod tls_process;
 pub mod ttl;
 mod uptime;
@@ -25,11 +26,12 @@ pub mod window_size;
 
 use crate::db::{Database, Label};
 use crate::fingerprint_result::{
-    Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
+    Application, ApplicationQualityMatched, Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
     SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
 };
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
+use crate::ja4_db::Ja4Database;
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
 use crate::uptime::{Connection, SynData};
@@ -51,6 +53,7 @@ pub struct PassiveTcp<'a> {
     pub matcher: SignatureMatcher<'a>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
+    ja4_db: Option<Ja4Database>,
 }
 
 /// A passive TCP fingerprinting engine inspired by `p0f`.
@@ -74,6 +77,28 @@ impl<'a> PassiveTcp<'a> {
             matcher,
             tcp_cache,
             http_cache,
+            ja4_db: None,
+        }
+    }
+
+    /// Creates a new instance of `PassiveTcp` with JA4 database support.
+    ///
+    /// # Parameters
+    /// - `database`: A reference to the database containing known TCP/IP signatures.
+    /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
+    /// - `ja4_db`: JA4 signature database for TLS fingerprint matching.
+    ///
+    /// # Returns
+    /// A new `PassiveTcp` instance initialized with the given databases and cache capacity.
+    pub fn new_with_ja4(database: &'a Database, cache_capacity: usize, ja4_db: Ja4Database) -> Self {
+        let matcher: SignatureMatcher = SignatureMatcher::new(database);
+        let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
+        let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
+        Self {
+            matcher,
+            tcp_cache,
+            http_cache,
+            ja4_db: Some(ja4_db),
         }
     }
 
@@ -307,10 +332,32 @@ impl<'a> PassiveTcp<'a> {
                         .tls_client
                         .map(|observable_tls| {
                             debug!("TLS ClientHello detected: JA4={}", observable_tls.ja4.ja4_hash);
+                            
+                            // Look up JA4 hash in database
+                            let app_matched = self.ja4_db.as_ref()
+                                .and_then(|db| db.lookup(&observable_tls.ja4.ja4_hash))
+                                .map(|entry| {
+                                    debug!("JA4 match found: {} -> {}/{}/{}", 
+                                           entry.ja4_hash, entry.application, entry.os, entry.device);
+                                    ApplicationQualityMatched {
+                                        application: Application {
+                                            name: entry.application.clone(),
+                                            family: Some(entry.os.clone()),
+                                            variant: Some(entry.device.clone()),
+                                            kind: crate::db::Type::Specified,
+                                        },
+                                        quality: 1.0, // Perfect match for exact JA4 hash
+                                    }
+                                });
+                            
+                            if app_matched.is_none() {
+                                debug!("No JA4 match found for hash: {}", observable_tls.ja4.ja4_hash);
+                            }
+                            
                             crate::fingerprint_result::TlsOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                app_matched: None, // TODO: Implement TLS application matching
+                                app_matched,
                                 sig: observable_tls,
                             }
                         });

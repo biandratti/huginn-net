@@ -32,6 +32,8 @@ pub struct ObservableTls {
     pub version: TlsVersion,
     /// Server Name Indication (SNI) if present
     pub sni: Option<String>,
+    /// Application-Layer Protocol Negotiation (ALPN) if present
+    pub alpn: Option<String>,
     /// Cipher suites from ClientHello
     pub cipher_suites: Vec<u16>,
     /// Extensions from ClientHello
