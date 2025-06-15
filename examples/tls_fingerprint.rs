@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Load JA4 database
-    let ja4_db = match Ja4Database::load_from_csv("ja4_signatures.csv") {
+    let ja4_db = match Ja4Database::load_from_csv("../config/ja4_signatures.csv") {
         Ok(db) => {
             info!("JA4 database loaded with {} signatures", db.len());
             Some(db)
