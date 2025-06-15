@@ -105,5 +105,8 @@ fn main() {
         if let Some(http_response) = output.http_response {
             info!("{}", http_response);
         }
+        if let Some(tls) = output.tls {
+            info!("{}", tls);
+        }
     }
 }

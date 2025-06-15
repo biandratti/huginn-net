@@ -29,13 +29,13 @@ impl Ja4Database {
     pub fn load_from_csv<P: AsRef<Path>>(csv_path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(csv_path)?;
         let mut db = Self::new();
-        
+
         // Skip header line
         for (line_num, line) in content.lines().enumerate().skip(1) {
             if line.trim().is_empty() {
                 continue;
             }
-            
+
             let parts: Vec<&str> = line.split(',').collect();
             if parts.len() >= 4 {
                 let entry = Ja4Entry {
@@ -44,13 +44,17 @@ impl Ja4Database {
                     os: parts[2].trim().to_string(),
                     device: parts[3].trim().to_string(),
                 };
-                
+
                 db.entries.insert(entry.ja4_hash.clone(), entry);
             } else {
-                eprintln!("Warning: Invalid CSV line {} (expected 4 columns): {}", line_num + 1, line);
+                eprintln!(
+                    "Warning: Invalid CSV line {} (expected 4 columns): {}",
+                    line_num + 1,
+                    line
+                );
             }
         }
-        
+
         println!("Loaded {} JA4 signatures from database", db.entries.len());
         Ok(db)
     }
@@ -91,13 +95,13 @@ mod tests {
     #[test]
     fn test_load_csv() {
         let csv_content = "ja4,application,os,device\n25b178d9318e,Chrome,Windows,Desktop\na82c4b5e7f12,Firefox,Linux,Desktop\n";
-        
+
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(csv_content.as_bytes()).unwrap();
-        
+
         let db = Ja4Database::load_from_csv(temp_file.path()).unwrap();
         assert_eq!(db.len(), 2);
-        
+
         let entry = db.lookup("25b178d9318e").unwrap();
         assert_eq!(entry.application, "Chrome");
         assert_eq!(entry.os, "Windows");
@@ -109,4 +113,4 @@ mod tests {
         let db = Ja4Database::new();
         assert!(db.lookup("nonexistent").is_none());
     }
-} 
+}

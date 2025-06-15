@@ -18,7 +18,7 @@ mod signature_matcher;
 pub mod tcp;
 mod tcp_process;
 pub mod tls;
-pub mod tls_parser_rusticata;
+pub mod tls_packet_parser;
 mod tls_process;
 pub mod ttl;
 mod uptime;
@@ -26,8 +26,9 @@ pub mod window_size;
 
 use crate::db::{Database, Label};
 use crate::fingerprint_result::{
-    Application, ApplicationQualityMatched, Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
-    SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
+    Application, ApplicationQualityMatched, Browser, FingerprintResult, HttpRequestOutput,
+    HttpResponseOutput, MTUOutput, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+    WebServer,
 };
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
@@ -90,7 +91,11 @@ impl<'a> PassiveTcp<'a> {
     ///
     /// # Returns
     /// A new `PassiveTcp` instance initialized with the given databases and cache capacity.
-    pub fn new_with_ja4(database: &'a Database, cache_capacity: usize, ja4_db: Ja4Database) -> Self {
+    pub fn new_with_ja4(
+        database: &'a Database,
+        cache_capacity: usize,
+        ja4_db: Ja4Database,
+    ) -> Self {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
         let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
         let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
@@ -119,15 +124,21 @@ impl<'a> PassiveTcp<'a> {
                         debug!("Processed {} packets", packet_count);
                     }
                     let output = self.analyze_tcp(&packet);
-                    
+
                     // Log when we find interesting traffic
-                    if output.syn.is_some() || output.syn_ack.is_some() || output.http_request.is_some() || output.tls.is_some() {
-                        debug!("Found interesting traffic: TCP={}, HTTP={}, TLS={}", 
-                               output.syn.is_some() || output.syn_ack.is_some(),
-                               output.http_request.is_some() || output.http_response.is_some(),
-                               output.tls.is_some());
+                    if output.syn.is_some()
+                        || output.syn_ack.is_some()
+                        || output.http_request.is_some()
+                        || output.tls.is_some()
+                    {
+                        debug!(
+                            "Found interesting traffic: TCP={}, HTTP={}, TLS={}",
+                            output.syn.is_some() || output.syn_ack.is_some(),
+                            output.http_request.is_some() || output.http_response.is_some(),
+                            output.tls.is_some()
+                        );
                     }
-                    
+
                     if sender.send(output).is_err() {
                         error!("Receiver dropped, stopping packet processing");
                         break;
@@ -328,17 +339,23 @@ impl<'a> PassiveTcp<'a> {
                         });
 
                     // Process TLS
-                    let tls: Option<crate::fingerprint_result::TlsOutput> = observable_package
-                        .tls_client
-                        .map(|observable_tls| {
-                            debug!("TLS ClientHello detected: JA4={}", observable_tls.ja4.ja4_hash);
-                            
+                    let tls: Option<crate::fingerprint_result::TlsOutput> =
+                        observable_package.tls_client.map(|observable_tls| {
+                            debug!(
+                                "TLS ClientHello detected: JA4={}",
+                                observable_tls.ja4.ja4_hash
+                            );
+
                             // Look up JA4 hash in database
-                            let app_matched = self.ja4_db.as_ref()
+                            let app_matched = self
+                                .ja4_db
+                                .as_ref()
                                 .and_then(|db| db.lookup(&observable_tls.ja4.ja4_hash))
                                 .map(|entry| {
-                                    debug!("JA4 match found: {} -> {}/{}/{}", 
-                                           entry.ja4_hash, entry.application, entry.os, entry.device);
+                                    debug!(
+                                        "JA4 match found: {} -> {}/{}/{}",
+                                        entry.ja4_hash, entry.application, entry.os, entry.device
+                                    );
                                     ApplicationQualityMatched {
                                         application: Application {
                                             name: entry.application.clone(),
@@ -349,11 +366,14 @@ impl<'a> PassiveTcp<'a> {
                                         quality: 1.0, // Perfect match for exact JA4 hash
                                     }
                                 });
-                            
+
                             if app_matched.is_none() {
-                                debug!("No JA4 match found for hash: {}", observable_tls.ja4.ja4_hash);
+                                debug!(
+                                    "No JA4 match found for hash: {}",
+                                    observable_tls.ja4.ja4_hash
+                                );
                             }
-                            
+
                             crate::fingerprint_result::TlsOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),

@@ -1,7 +1,9 @@
-use passivetcp_rs::{db::Database, PassiveTcp, fingerprint_result::FingerprintResult, ja4_db::Ja4Database};
+use passivetcp_rs::{
+    db::Database, fingerprint_result::FingerprintResult, ja4_db::Ja4Database, PassiveTcp,
+};
+use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
-use std::str::FromStr;
 use tracing::{info, warn, Level};
 use tracing_subscriber;
 
@@ -16,9 +18,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load database
     let database_content = include_str!("../../../p0f.fp");
     let database = Database::from_str(database_content)?;
-    
-    info!("Database loaded with {} TCP request signatures", 
-          database.tcp_request.entries.len());
+
+    info!(
+        "Database loaded with {} TCP request signatures",
+        database.tcp_request.entries.len()
+    );
 
     // Load JA4 database
     let ja4_db = match Ja4Database::load_from_csv("ja4_signatures.csv") {
@@ -47,18 +51,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for result in receiver {
             // Print TCP analysis
             if let Some(syn) = &result.syn {
-                //println!("{}", syn);
+                println!("{}", syn);
             }
             if let Some(syn_ack) = &result.syn_ack {
-                //println!("{}", syn_ack);
+                println!("{}", syn_ack);
             }
 
             // Print HTTP analysis
             if let Some(http_req) = &result.http_request {
-                //println!("{}", http_req);
+                println!("{}", http_req);
             }
             if let Some(http_resp) = &result.http_response {
-                //println!("{}", http_resp);
+                println!("{}", http_resp);
             }
 
             // Print TLS analysis (JA4 fingerprinting)
@@ -74,17 +78,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Print other analysis
             if let Some(mtu) = &result.mtu {
-                //println!("{}", mtu);
+                println!("{}", mtu);
             }
             if let Some(uptime) = &result.uptime {
-                //println!("{}", uptime);
+                println!("{}", uptime);
             }
         }
     });
 
     // Analyze network interface or PCAP file
     let args: Vec<String> = std::env::args().collect();
-    
+
     if args.len() < 2 {
         eprintln!("Usage: {} <interface_name_or_pcap_file>", args[0]);
         eprintln!("Examples:");
@@ -94,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let target = &args[1];
-    
+
     if target.ends_with(".pcap") || target.ends_with(".pcapng") {
         info!("Analyzing PCAP file: {}", target);
         analyzer.analyze_pcap(target, sender)?;
@@ -108,4 +112,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     handle.join().unwrap();
 
     Ok(())
-} 
+}
