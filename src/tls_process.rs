@@ -7,6 +7,7 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use tls_parser::TlsClientHelloContents;
+use tracing::debug;
 
 /// Result of TLS packet processing
 #[derive(Debug)]
@@ -72,11 +73,9 @@ fn is_likely_tls_traffic(tcp: &TcpPacket, payload: &[u8]) -> bool {
 fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, PassiveTcpError> {
-    // Parse extensions first to get the real TLS version
     let (extensions, sni, alpn, signature_algorithms, elliptic_curves) =
         parse_extensions_from_client_hello(client_hello);
 
-    // Convert TLS version - check supported_versions extension first
     let version = determine_tls_version(&client_hello.version, &extensions);
 
     // Extract cipher suites (filter GREASE)
@@ -105,6 +104,114 @@ fn extract_tls_signature_from_client_hello(
 fn parse_extensions_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> (Vec<u16>, Option<String>, Option<String>, Vec<u16>, Vec<u16>) {
+    let mut extensions = Vec::new();
+    let mut sni = None;
+    let mut alpn = None;
+    let mut signature_algorithms = Vec::new();
+    let mut elliptic_curves = Vec::new();
+
+    if let Some(ext_data) = &client_hello.ext {
+        let (parsed_extensions, parsed_sni, parsed_alpn, parsed_sig_algs, parsed_curves) =
+            parse_extensions_from_raw_detailed(ext_data);
+
+        extensions = parsed_extensions;
+        sni = parsed_sni;
+        alpn = parsed_alpn;
+        signature_algorithms = parsed_sig_algs;
+        elliptic_curves = parsed_curves;
+    } else {
+        debug!("No extension data found in ClientHello.ext field");
+    }
+
+    (extensions, sni, alpn, signature_algorithms, elliptic_curves)
+}
+
+fn parse_extensions_from_raw_detailed(
+    ext_data: &[u8],
+) -> (Vec<u16>, Option<String>, Option<String>, Vec<u16>, Vec<u16>) {
+    let mut extensions = Vec::new();
+    let mut sni = None;
+    let mut alpn = None;
+    let mut signature_algorithms = Vec::new();
+    let mut elliptic_curves = Vec::new();
+    let mut offset = 0;
+
+    // rusticata lib already parsed and removed the extensions length field. The ext_data starts directly with the first extension type
+    let extensions_end = ext_data.len();
+
+    // Parse individual extensions
+    while offset + 4 <= extensions_end {
+        let extension_type = u16::from_be_bytes([ext_data[offset], ext_data[offset + 1]]);
+        let extension_length =
+            u16::from_be_bytes([ext_data[offset + 2], ext_data[offset + 3]]) as usize;
+        offset += 4;
+
+        // Validate extension length
+        if offset + extension_length > extensions_end {
+            debug!(
+                "Extension 0x{:04x} length ({}) extends beyond data boundary (offset={}, end={})",
+                extension_type, extension_length, offset, extensions_end
+            );
+            break;
+        }
+
+        let extension_data = &ext_data[offset..offset + extension_length];
+
+        // Filter GREASE extensions
+        if !TLS_GREASE_VALUES.contains(&extension_type) {
+            extensions.push(extension_type);
+            debug!("Added extension 0x{:04x} to list", extension_type);
+        }
+
+        match extension_type {
+            0x0000 => {
+                // Server Name Indication (SNI)
+                if let Some(parsed_sni) = parse_sni_extension(extension_data) {
+                    sni = Some(parsed_sni);
+                }
+            }
+            0x0010 => {
+                // Application-Layer Protocol Negotiation (ALPN)
+                if let Some(parsed_alpn) = parse_alpn_extension(extension_data) {
+                    alpn = Some(parsed_alpn);
+                }
+            }
+            0x000d => {
+                // Signature Algorithms
+                let parsed_sig_algs = parse_signature_algorithms_extension(extension_data);
+                if !parsed_sig_algs.is_empty() {
+                    signature_algorithms = parsed_sig_algs;
+                }
+            }
+            0x000a => {
+                // Supported Groups (Elliptic Curves)
+                let parsed_curves = parse_supported_groups_extension(extension_data);
+                if !parsed_curves.is_empty() {
+                    elliptic_curves = parsed_curves;
+                }
+            }
+            _ => {}
+        }
+
+        offset += extension_length;
+    }
+
+    (extensions, sni, alpn, signature_algorithms, elliptic_curves)
+}
+
+fn parse_sni_extension(data: &[u8]) -> Option<String> {
+    todo!()
+}
+
+fn parse_alpn_extension(data: &[u8]) -> Option<String> {
+    todo!()
+}
+
+fn parse_signature_algorithms_extension(data: &[u8]) -> Vec<u16> {
+    todo!()
+}
+
+fn parse_supported_groups_extension(data: &[u8]) -> Vec<u16> {
     todo!()
 }
 
