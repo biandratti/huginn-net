@@ -59,3 +59,12 @@ pub struct Signature {
     pub sni: Option<String>,
     pub alpn: Option<String>,
 }
+
+impl Signature {
+    /// Generate JA4 fingerprint according to official FoxIO specification
+    /// Format: JA4 = JA4_a + "_" + JA4_b_hash + "_" + JA4_c_hash
+    /// Example: t13d1717h2_5b57614c22b0_3cbfd9057e0d
+    pub fn generate_ja4(&self) -> Ja4Payload {
+        todo!()
+    }
+}
