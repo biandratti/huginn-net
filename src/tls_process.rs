@@ -422,3 +422,181 @@ fn determine_tls_version(
         }
     }
 }
+
+//TODO: Build more quality
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tls::TlsVersion;
+    use pnet::packet::tcp::MutableTcpPacket;
+
+    fn dummy_tcp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+        let mut tcp_buffer = vec![0u8; 20 + payload.len()];
+        let mut tcp_packet = MutableTcpPacket::new(&mut tcp_buffer).unwrap();
+
+        tcp_packet.set_source(src_port);
+        tcp_packet.set_destination(dst_port);
+        tcp_packet.set_sequence(0);
+        tcp_packet.set_acknowledgement(0);
+        tcp_packet.set_data_offset(5);
+        tcp_packet.set_flags(0);
+        tcp_packet.set_window(8192);
+        tcp_packet.set_checksum(0);
+        tcp_packet.set_urgent_ptr(0);
+        tcp_packet.set_payload(payload);
+
+        tcp_buffer
+    }
+
+    #[test]
+    fn test_is_likely_tls_traffic_by_port() {
+        let payload = vec![0u8; 10];
+        let tcp_buffer = dummy_tcp_packet(12345, 443, &payload);
+        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
+
+        assert!(is_likely_tls_traffic(&tcp_packet, &payload));
+    }
+
+    #[test]
+    fn test_is_likely_tls_traffic_by_content_type() {
+        // TLS ClientHello packet structure
+        // 0x16 = Handshake, 0x0303 = TLS 1.2
+        let payload = vec![0x16, 0x03, 0x03, 0x00, 0x05];
+        let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
+        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
+
+        assert!(is_likely_tls_traffic(&tcp_packet, &payload));
+    }
+
+    #[test]
+    fn test_is_not_likely_tls_traffic() {
+        // HTTP-like payload
+        let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let tcp_buffer = dummy_tcp_packet(12345, 9090, payload); // Non-TLS port
+        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
+
+        assert!(!is_likely_tls_traffic(&tcp_packet, payload));
+    }
+
+    #[test]
+    fn test_is_likely_tls_traffic_invalid_version() {
+        // Invalid TLS version (0x0200)
+        let payload = vec![0x16, 0x02, 0x00, 0x00, 0x05];
+        let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
+        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
+
+        assert!(!is_likely_tls_traffic(&tcp_packet, &payload));
+    }
+
+    #[test]
+    fn test_is_likely_tls_traffic_short_payload() {
+        let payload = vec![0x16, 0x03]; // Too short
+        let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
+        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
+
+        assert!(!is_likely_tls_traffic(&tcp_packet, &payload));
+    }
+
+    #[test]
+    fn test_parse_sni_extension_valid() {
+        // SNI extension data for "example.com"
+        // Format: [list_length(2)] [name_type(1)] [name_length(2)] [name_data...]
+        let sni_data = vec![
+            0x00, 0x0e, // Server name list length (14 = 1 + 2 + 11)
+            0x00, // Name type (hostname = 0)
+            0x00, 0x0b, // Name length (11)
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'c', b'o', b'm', // "example.com"
+        ];
+
+        let result = parse_sni_extension(&sni_data);
+        assert_eq!(result, Some("example.com".to_string()));
+    }
+
+    #[test]
+    fn test_parse_sni_extension_too_short() {
+        let sni_data = vec![0x00, 0x01]; // Too short
+        let result = parse_sni_extension(&sni_data);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_alpn_extension_valid() {
+        // ALPN extension data for "h2"
+        let alpn_data = vec![
+            0x00, 0x03, // Protocol name list length (3)
+            0x02, // Protocol name length (2)
+            b'h', b'2', // Protocol name "h2"
+        ];
+
+        let result = parse_alpn_extension(&alpn_data);
+        assert_eq!(result, Some("h2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_alpn_extension_too_short() {
+        let alpn_data = vec![0x00]; // Too short
+        let result = parse_alpn_extension(&alpn_data);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_signature_algorithms_extension() {
+        // Signature algorithms extension with RSA-PSS-SHA256 (0x0804) and ECDSA-SHA256 (0x0403)
+        let sig_alg_data = vec![
+            0x00, 0x04, // List length (4 bytes)
+            0x08, 0x04, // RSA-PSS-SHA256
+            0x04, 0x03, // ECDSA-SHA256
+        ];
+
+        let result = parse_signature_algorithms_extension(&sig_alg_data);
+        assert_eq!(result, vec![0x0804, 0x0403]);
+    }
+
+    #[test]
+    fn test_parse_supported_groups_extension() {
+        // Supported groups extension with secp256r1 (0x0017) and x25519 (0x001d)
+        let groups_data = vec![
+            0x00, 0x04, // List length (4 bytes)
+            0x00, 0x17, // secp256r1
+            0x00, 0x1d, // x25519
+        ];
+
+        let result = parse_supported_groups_extension(&groups_data);
+        assert_eq!(result, vec![0x0017, 0x001d]);
+    }
+
+    #[test]
+    fn test_determine_tls_version_1_2() {
+        let legacy_version = tls_parser::TlsVersion::Tls12;
+        let extensions = vec![]; // No supported_versions extension
+
+        let result = determine_tls_version(&legacy_version, &extensions);
+        assert_eq!(result, TlsVersion::V1_2);
+    }
+
+    #[test]
+    fn test_determine_tls_version_1_3_with_extension() {
+        let legacy_version = tls_parser::TlsVersion::Tls12; // Often shows as 1.2 in legacy field
+        let extensions = vec![0x002b]; // supported_versions extension
+
+        let result = determine_tls_version(&legacy_version, &extensions);
+        assert_eq!(result, TlsVersion::V1_3);
+    }
+
+    #[test]
+    fn test_parse_tls_client_hello_invalid_data() {
+        let invalid_data = b"Not a TLS packet";
+        let result = parse_tls_client_hello(invalid_data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tls_grease_filtering() {
+        // Test that GREASE values are properly filtered
+        let grease_cipher = 0x0a0a; // GREASE value
+        let normal_cipher = 0x1301; // TLS_AES_128_GCM_SHA256
+
+        assert!(TLS_GREASE_VALUES.contains(&grease_cipher));
+        assert!(!TLS_GREASE_VALUES.contains(&normal_cipher));
+    }
+}

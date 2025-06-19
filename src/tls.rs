@@ -11,19 +11,6 @@ pub enum TlsVersion {
     Unknown(u16),
 }
 
-//TODO: Analyze this impl
-// impl From<u16> for TlsVersion {
-//     fn from(version: u16) -> Self {
-//         match version {
-//             0x0301 => TlsVersion::V1_0,
-//             0x0302 => TlsVersion::V1_1,
-//             0x0303 => TlsVersion::V1_2,
-//             0x0304 => TlsVersion::V1_3,
-//             v => TlsVersion::Unknown(v),
-//         }
-//     }
-// }
-
 impl fmt::Display for TlsVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
