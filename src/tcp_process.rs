@@ -56,8 +56,8 @@ fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 }
 
 pub fn process_tcp_ipv4(
-    cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv4Packet,
+    cache: &mut TtlCache<Connection, SynData>,
 ) -> Result<ObservableTCPPackage, PassiveTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(PassiveTcpError::UnsupportedProtocol("IPv4".to_string()));
@@ -118,8 +118,8 @@ pub fn process_tcp_ipv4(
 }
 
 pub fn process_tcp_ipv6(
-    cache: &mut TtlCache<Connection, SynData>,
     packet: &Ipv6Packet,
+    cache: &mut TtlCache<Connection, SynData>,
 ) -> Result<ObservableTCPPackage, PassiveTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(PassiveTcpError::UnsupportedProtocol("IPv6".to_string()));

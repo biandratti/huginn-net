@@ -16,6 +16,8 @@ mod process;
 mod signature_matcher;
 pub mod tcp;
 mod tcp_process;
+mod tls;
+mod tls_process;
 pub mod ttl;
 mod uptime;
 pub mod window_size;

@@ -114,7 +114,7 @@ pub fn process_ipv4(
 
         let tcp_handle = s.spawn(|_| {
             let packet = Ipv4Packet::new(&packet_data).unwrap();
-            tcp_process::process_tcp_ipv4(tcp_cache, &packet)
+            tcp_process::process_tcp_ipv4(&packet, tcp_cache)
         });
 
         let http_response = http_handle.join().unwrap();
@@ -147,7 +147,7 @@ pub fn process_ipv6(
 
         let tcp_handle = s.spawn(|_| {
             let packet = Ipv6Packet::new(&packet_data).unwrap();
-            tcp_process::process_tcp_ipv6(tcp_cache, &packet)
+            tcp_process::process_tcp_ipv6(&packet, tcp_cache)
         });
 
         let http_response = http_handle.join().unwrap();
