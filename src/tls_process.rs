@@ -82,7 +82,7 @@ fn is_likely_tls_traffic(tcp: &TcpPacket, payload: &[u8]) -> bool {
         let version = u16::from_be_bytes([payload[1], payload[2]]);
 
         // TLS handshake (0x16) with valid TLS version
-        if content_type == 0x16 && (version >= 0x0301 && version <= 0x0304) {
+        if content_type == 0x16 && (0x0301..=0x0304).contains(&version) {
             return true;
         }
     }
@@ -92,11 +92,11 @@ fn is_likely_tls_traffic(tcp: &TcpPacket, payload: &[u8]) -> bool {
 pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, PassiveTcpError> {
     match parse_tls_plaintext(data) {
         Ok((_remaining, tls_record)) => {
-            for (_i, message) in tls_record.msg.iter().enumerate() {
-                if let TlsMessage::Handshake(handshake) = message {
-                    if let TlsMessageHandshake::ClientHello(client_hello) = handshake {
-                        return extract_tls_signature_from_client_hello(client_hello);
-                    }
+            for message in tls_record.msg.iter() {
+                if let TlsMessage::Handshake(TlsMessageHandshake::ClientHello(client_hello)) =
+                    message
+                {
+                    return extract_tls_signature_from_client_hello(client_hello);
                 }
             }
             Err(PassiveTcpError::Parse(
@@ -141,6 +141,7 @@ fn extract_tls_signature_from_client_hello(
     })
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_extensions_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> (Vec<u16>, Option<String>, Option<String>, Vec<u16>, Vec<u16>) {
@@ -166,6 +167,7 @@ fn parse_extensions_from_client_hello(
     (extensions, sni, alpn, signature_algorithms, elliptic_curves)
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_extensions_from_raw_detailed(
     ext_data: &[u8],
 ) -> (Vec<u16>, Option<String>, Option<String>, Vec<u16>, Vec<u16>) {
