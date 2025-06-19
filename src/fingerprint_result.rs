@@ -1,7 +1,7 @@
 use crate::db::{Label, Type};
 use crate::http::HttpDiagnosis;
-use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable_signals::{ObservableTcp, ObservableTls};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use std::fmt;
@@ -29,6 +29,9 @@ pub struct FingerprintResult {
 
     /// Information derived from HTTP response headers.
     pub http_response: Option<HttpResponseOutput>,
+
+    /// Information derived from TLS ClientHello analysis.
+    pub tls: Option<TlsOutput>,
 }
 
 /// Represents an operative system.
@@ -414,6 +417,45 @@ impl fmt::Display for HttpResponseOutput {
                 }),
             self.diagnosis,
             self.sig,
+        )
+    }
+}
+
+/// Holds information derived from analyzing TLS ClientHello packets.
+///
+/// This structure contains details about the TLS client based on its ClientHello packet,
+/// including the JA4 Payload and extracted TLS parameters.
+pub struct TlsOutput {
+    /// The source IP address and port of the client sending the ClientHello.
+    pub source: IpPort,
+    /// The destination IP address and port of the server receiving the ClientHello.
+    pub destination: IpPort,
+    /// The raw TLS signature extracted from the ClientHello packet.
+    pub sig: ObservableTls,
+}
+
+impl fmt::Display for TlsOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            ".-[ {}/{} -> {}/{} (tls) ]-\n\
+            |\n\
+            | client   = {}/{}\n\
+            | ja4      = {}\n\
+            | ja4_hash = {}\n\
+            | sni      = {}\n\
+            | version  = {}\n\
+            `----\n",
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.source.ip,
+            self.source.port,
+            self.sig.ja4.ja4_full,
+            self.sig.ja4.ja4_hash,
+            self.sig.sni.as_deref().unwrap_or("none"),
+            self.sig.version,
         )
     }
 }
