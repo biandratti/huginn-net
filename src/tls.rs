@@ -1,6 +1,5 @@
 use sha2::{Digest, Sha256};
 use std::fmt::{self};
-use tracing::debug;
 
 /// TLS version enumeration for fingerprinting
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -10,6 +9,31 @@ pub enum TlsVersion {
     V1_2,
     V1_3,
     Unknown(u16),
+}
+
+//TODO: Analyze this impl
+// impl From<u16> for TlsVersion {
+//     fn from(version: u16) -> Self {
+//         match version {
+//             0x0301 => TlsVersion::V1_0,
+//             0x0302 => TlsVersion::V1_1,
+//             0x0303 => TlsVersion::V1_2,
+//             0x0304 => TlsVersion::V1_3,
+//             v => TlsVersion::Unknown(v),
+//         }
+//     }
+// }
+
+impl fmt::Display for TlsVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TlsVersion::V1_0 => write!(f, "10"),
+            TlsVersion::V1_1 => write!(f, "11"),
+            TlsVersion::V1_2 => write!(f, "12"),
+            TlsVersion::V1_3 => write!(f, "13"),
+            TlsVersion::Unknown(_) => write!(f, "00"),
+        }
+    }
 }
 
 /// JA4 Ja4Payload structure following official FoxIO specification
@@ -60,11 +84,129 @@ pub struct Signature {
     pub alpn: Option<String>,
 }
 
+/// Extract first and last characters from ALPN string, replacing non-ASCII with '9'
+fn first_last_alpn(s: &str) -> (char, char) {
+    let replace_nonascii_with_9 = |c: char| {
+        if c.is_ascii() {
+            c
+        } else {
+            '9'
+        }
+    };
+    let mut chars = s.chars();
+    let first = chars.next().map(replace_nonascii_with_9).unwrap_or('0');
+    let last = chars
+        .next_back()
+        .map(replace_nonascii_with_9)
+        .unwrap_or('0');
+    (first, if s.len() == 1 { '0' } else { last })
+}
+
+/// Generate 12-character hash (first 12 chars of SHA256)
+fn hash12(input: &str) -> String {
+    format!("{:x}", Sha256::digest(input.as_bytes()))[..12].to_string()
+}
+
 impl Signature {
     /// Generate JA4 fingerprint according to official FoxIO specification
     /// Format: JA4 = JA4_a + "_" + JA4_b_hash + "_" + JA4_c_hash
     /// Example: t13d1717h2_5b57614c22b0_3cbfd9057e0d
     pub fn generate_ja4(&self) -> Ja4Payload {
-        todo!()
+        // Filter out GREASE values from cipher suites for JA4_b and JA4_c processing
+        let filtered_ciphers = filter_grease_values(&self.cipher_suites);
+        let filtered_extensions = filter_grease_values(&self.extensions);
+        let filtered_sig_algs = filter_grease_values(&self.signature_algorithms);
+
+        // Protocol marker (always 't' for TLS, 'q' for QUIC)
+        let protocol = "t";
+
+        // TLS version
+        let tls_version_str = format!("{}", self.version);
+
+        // SNI indicator: 'd' if SNI present, 'i' if not
+        let sni_indicator = if self.sni.is_some() { "d" } else { "i" };
+
+        // Cipher count in 2-digit decimal (max 99) - use ORIGINAL count before filtering
+        // According to official spec, count includes GREASE values
+        let cipher_count = format!("{:02}", self.cipher_suites.len().min(99));
+
+        // Extension count in 2-digit decimal (max 99) - use ORIGINAL count before filtering
+        // According to official spec, count includes GREASE values
+        let extension_count = format!("{:02}", self.extensions.len().min(99));
+
+        // ALPN first and last characters
+        let (alpn_first, alpn_last) = match &self.alpn {
+            Some(alpn) => first_last_alpn(alpn),
+            None => ('0', '0'),
+        };
+
+        // JA4_a format: protocol + version + sni + cipher_count + extension_count + alpn_first + alpn_last
+        let ja4_a = format!(
+            "{}{}{}{}{}{}{}",
+            protocol,
+            tls_version_str,
+            sni_indicator,
+            cipher_count,
+            extension_count,
+            alpn_first,
+            alpn_last
+        );
+
+        // JA4_b: Cipher suites (sorted, comma-separated, 4-digit hex) - GREASE filtered
+        let mut sorted_ciphers = filtered_ciphers;
+        sorted_ciphers.sort_unstable();
+        let ja4_b_raw = sorted_ciphers
+            .iter()
+            .map(|c| format!("{:04x}", c))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        // JA4_c: Extensions (sorted, comma-separated, 4-digit hex) + "_" + signature algorithms
+        // According to official spec: Remove SNI (0x0000) and ALPN (0x0010) from extensions for JA4_c
+        // AND filter GREASE values
+        let mut extensions_for_c = filtered_extensions.clone();
+        extensions_for_c.retain(|&ext| ext != 0x0000 && ext != 0x0010);
+        extensions_for_c.sort_unstable();
+
+        let extensions_str = extensions_for_c
+            .iter()
+            .map(|e| format!("{:04x}", e))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        // Signature algorithms are NOT sorted according to the official spec
+        // But GREASE values are filtered
+        let sig_algs_str = filtered_sig_algs
+            .clone()
+            .iter()
+            .map(|s| format!("{:04x}", s))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        // According to the specification, "if there are no signature algorithms in the
+        // Hello packet, then the string ends without an underscore".
+        let ja4_c_raw = if sig_algs_str.is_empty() {
+            extensions_str.clone()
+        } else if extensions_str.is_empty() {
+            sig_algs_str.clone()
+        } else {
+            format!("{}_{}", extensions_str, sig_algs_str)
+        };
+
+        // Generate hashes for JA4_b and JA4_c (first 12 characters of SHA256)
+        let ja4_b_hash = hash12(&ja4_b_raw);
+        let ja4_c_hash = hash12(&ja4_c_raw);
+
+        // Final JA4 fingerprint in official format
+        let ja4_full = format!("{}_{}_{}_{}", ja4_a, ja4_b_raw, ja4_c_raw, "");
+        let ja4_hash = format!("{}_{}_{}", ja4_a, ja4_b_hash, ja4_c_hash);
+
+        Ja4Payload {
+            ja4_a,
+            ja4_b: ja4_b_raw,
+            ja4_c: ja4_c_raw,
+            ja4_full,
+            ja4_hash,
+        }
     }
 }

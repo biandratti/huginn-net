@@ -92,7 +92,7 @@ fn is_likely_tls_traffic(tcp: &TcpPacket, payload: &[u8]) -> bool {
 pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, PassiveTcpError> {
     match parse_tls_plaintext(data) {
         Ok((_remaining, tls_record)) => {
-            for (i, message) in tls_record.msg.iter().enumerate() {
+            for (_i, message) in tls_record.msg.iter().enumerate() {
                 if let TlsMessage::Handshake(handshake) = message {
                     if let TlsMessageHandshake::ClientHello(client_hello) = handshake {
                         return extract_tls_signature_from_client_hello(client_hello);
