@@ -423,12 +423,68 @@ fn determine_tls_version(
     }
 }
 
-//TODO: Build more quality
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tls::TlsVersion;
     use pnet::packet::tcp::MutableTcpPacket;
+
+    const TLS_HANDSHAKE_TYPE: u8 = 0x16;
+    const TLS_1_2_VERSION: [u8; 2] = [0x03, 0x03];
+    const TLS_1_3_VERSION: [u8; 2] = [0x03, 0x04];
+
+    /// Helper function to create a TLS handshake packet with version
+    fn create_tls_handshake_payload(version: [u8; 2], length: u16) -> Vec<u8> {
+        let mut payload = Vec::new();
+        payload.push(TLS_HANDSHAKE_TYPE);
+        payload.extend_from_slice(&version);
+        payload.extend_from_slice(&length.to_be_bytes());
+        payload
+    }
+
+    /// Helper function to create a readable TLS ClientHello payload
+    fn create_tls_client_hello_payload(version: [u8; 2]) -> Vec<u8> {
+        create_tls_handshake_payload(version, 5)
+    }
+
+    /// Helper function to create HTTP-like payload for non-TLS tests
+    fn create_http_payload() -> &'static [u8] {
+        b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+    }
+
+    /// Helper function to create SNI extension data
+    fn create_sni_extension_data(hostname: &str) -> Vec<u8> {
+        let mut data = Vec::new();
+        let hostname_bytes = hostname.as_bytes();
+        let total_length = 1 + 2 + hostname_bytes.len(); // name_type + name_length + hostname
+
+        // Server name list length
+        data.extend_from_slice(&(total_length as u16).to_be_bytes());
+        // Name type (0 = hostname)
+        data.push(0x00);
+        // Name length
+        data.extend_from_slice(&(hostname_bytes.len() as u16).to_be_bytes());
+        // Hostname
+        data.extend_from_slice(hostname_bytes);
+
+        data
+    }
+
+    /// Helper function to create ALPN extension data
+    fn create_alpn_extension_data(protocol: &str) -> Vec<u8> {
+        let mut data = Vec::new();
+        let protocol_bytes = protocol.as_bytes();
+        let total_length = 1 + protocol_bytes.len(); // protocol_length + protocol
+
+        // Protocol name list length
+        data.extend_from_slice(&(total_length as u16).to_be_bytes());
+        // Protocol name length
+        data.push(protocol_bytes.len() as u8);
+        // Protocol name
+        data.extend_from_slice(protocol_bytes);
+
+        data
+    }
 
     fn dummy_tcp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
         let mut tcp_buffer = vec![0u8; 20 + payload.len()];
@@ -458,10 +514,16 @@ mod tests {
     }
 
     #[test]
-    fn test_is_likely_tls_traffic_by_content_type() {
-        // TLS ClientHello packet structure
-        // 0x16 = Handshake, 0x0303 = TLS 1.2
-        let payload = vec![0x16, 0x03, 0x03, 0x00, 0x05];
+    fn test_is_likely_tls_traffic_tls_1_2_by_content_type() {
+        let payload = create_tls_client_hello_payload(TLS_1_2_VERSION);
+        let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
+        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
+        assert!(is_likely_tls_traffic(&tcp_packet, &payload));
+    }
+
+    #[test]
+    fn test_is_likely_tls_traffic_tls_1_3_by_content_type() {
+        let payload = create_tls_client_hello_payload(TLS_1_3_VERSION);
         let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
         let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
@@ -470,8 +532,7 @@ mod tests {
 
     #[test]
     fn test_is_not_likely_tls_traffic() {
-        // HTTP-like payload
-        let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let payload = create_http_payload();
         let tcp_buffer = dummy_tcp_packet(12345, 9090, payload); // Non-TLS port
         let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
@@ -480,8 +541,8 @@ mod tests {
 
     #[test]
     fn test_is_likely_tls_traffic_invalid_version() {
-        // Invalid TLS version (0x0200)
-        let payload = vec![0x16, 0x02, 0x00, 0x00, 0x05];
+        // Invalid TLS version (0x0200 - too old)
+        let payload = create_tls_handshake_payload([0x02, 0x00], 5);
         let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
         let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
@@ -490,7 +551,8 @@ mod tests {
 
     #[test]
     fn test_is_likely_tls_traffic_short_payload() {
-        let payload = vec![0x16, 0x03]; // Too short
+        // Too short payload (only 2 bytes)
+        let payload = vec![TLS_HANDSHAKE_TYPE, 0x03];
         let tcp_buffer = dummy_tcp_packet(12345, 9090, &payload); // Non-TLS port
         let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
@@ -500,21 +562,30 @@ mod tests {
     #[test]
     fn test_parse_sni_extension_valid() {
         // SNI extension data for "example.com"
-        // Format: [list_length(2)] [name_type(1)] [name_length(2)] [name_data...]
-        let sni_data = vec![
-            0x00, 0x0e, // Server name list length (14 = 1 + 2 + 11)
-            0x00, // Name type (hostname = 0)
-            0x00, 0x0b, // Name length (11)
-            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'c', b'o', b'm', // "example.com"
-        ];
-
+        let sni_data = create_sni_extension_data("example.com");
         let result = parse_sni_extension(&sni_data);
         assert_eq!(result, Some("example.com".to_string()));
     }
 
     #[test]
+    fn test_parse_sni_extension_different_hostnames() {
+        let test_cases = vec![
+            "google.com",
+            "github.com",
+            "stackoverflow.com",
+            "rust-lang.org",
+        ];
+
+        for hostname in test_cases {
+            let sni_data = create_sni_extension_data(hostname);
+            let result = parse_sni_extension(&sni_data);
+            assert_eq!(result, Some(hostname.to_string()));
+        }
+    }
+
+    #[test]
     fn test_parse_sni_extension_too_short() {
-        let sni_data = vec![0x00, 0x01]; // Too short
+        let sni_data = vec![0x00, 0x01];
         let result = parse_sni_extension(&sni_data);
         assert_eq!(result, None);
     }
@@ -522,19 +593,26 @@ mod tests {
     #[test]
     fn test_parse_alpn_extension_valid() {
         // ALPN extension data for "h2"
-        let alpn_data = vec![
-            0x00, 0x03, // Protocol name list length (3)
-            0x02, // Protocol name length (2)
-            b'h', b'2', // Protocol name "h2"
-        ];
-
+        let alpn_data = create_alpn_extension_data("h2");
         let result = parse_alpn_extension(&alpn_data);
         assert_eq!(result, Some("h2".to_string()));
     }
 
     #[test]
+    fn test_parse_alpn_extension_different_protocols() {
+        // Test with different protocols
+        let test_cases = vec!["h2", "http/1.1", "spdy/3.1", "h2c"];
+
+        for protocol in test_cases {
+            let alpn_data = create_alpn_extension_data(protocol);
+            let result = parse_alpn_extension(&alpn_data);
+            assert_eq!(result, Some(protocol.to_string()));
+        }
+    }
+
+    #[test]
     fn test_parse_alpn_extension_too_short() {
-        let alpn_data = vec![0x00]; // Too short
+        let alpn_data = vec![0x00];
         let result = parse_alpn_extension(&alpn_data);
         assert_eq!(result, None);
     }
@@ -585,7 +663,7 @@ mod tests {
 
     #[test]
     fn test_parse_tls_client_hello_invalid_data() {
-        let invalid_data = b"Not a TLS packet";
+        let invalid_data = create_http_payload();
         let result = parse_tls_client_hello(invalid_data);
         assert!(result.is_err());
     }
