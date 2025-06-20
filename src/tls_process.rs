@@ -275,7 +275,6 @@ fn parse_sni_extension(data: &[u8]) -> Option<String> {
     None
 }
 
-//TODO: unify with parse_sni_extension
 fn parse_alpn_extension(data: &[u8]) -> Option<String> {
     if data.len() < 3 {
         return None;
@@ -305,67 +304,45 @@ fn parse_alpn_extension(data: &[u8]) -> Option<String> {
     None
 }
 
-fn parse_signature_algorithms_extension(data: &[u8]) -> Vec<u16> {
-    let mut algorithms = Vec::new();
+/// Generic function to parse TLS extensions that contain a list of u16 values
+/// Used for signature algorithms, supported groups, etc.
+fn parse_u16_list_extension(data: &[u8], extension_name: &str) -> Vec<u16> {
+    let mut items = Vec::new();
 
     if data.len() < 2 {
-        debug!("Signature algorithms extension too short");
-        return algorithms;
+        debug!("{} extension too short", extension_name);
+        return items;
     }
 
     let mut offset = 0;
 
-    // Signature algorithms length (2 bytes)
+    // List length (2 bytes)
     let list_length = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
     offset += 2;
 
     if offset + list_length > data.len() {
-        debug!("Signature algorithms list extends beyond data boundary");
-        return algorithms;
+        debug!("{} list extends beyond data boundary", extension_name);
+        return items;
     }
 
     let list_end = offset + list_length;
 
-    // Parse signature algorithms (2 bytes each)
+    // Parse items (2 bytes each)
     while offset + 2 <= list_end {
-        let algorithm = u16::from_be_bytes([data[offset], data[offset + 1]]);
-        algorithms.push(algorithm);
+        let item = u16::from_be_bytes([data[offset], data[offset + 1]]);
+        items.push(item);
         offset += 2;
     }
 
-    algorithms
+    items
 }
 
-//TODO: unify with parse_signature_algorithms_extension
+fn parse_signature_algorithms_extension(data: &[u8]) -> Vec<u16> {
+    parse_u16_list_extension(data, "Signature algorithms")
+}
+
 fn parse_supported_groups_extension(data: &[u8]) -> Vec<u16> {
-    let mut groups = Vec::new();
-
-    if data.len() < 2 {
-        debug!("Supported groups extension too short");
-        return groups;
-    }
-
-    let mut offset = 0;
-
-    // Supported groups length (2 bytes)
-    let list_length = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
-    offset += 2;
-
-    if offset + list_length > data.len() {
-        debug!("Supported groups list extends beyond data boundary");
-        return groups;
-    }
-
-    let list_end = offset + list_length;
-
-    // Parse supported groups (2 bytes each)
-    while offset + 2 <= list_end {
-        let group = u16::from_be_bytes([data[offset], data[offset + 1]]);
-        groups.push(group);
-        offset += 2;
-    }
-
-    groups
+    parse_u16_list_extension(data, "Supported groups")
 }
 
 //TODO: Compare with TLS types from library
