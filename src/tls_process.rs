@@ -6,7 +6,9 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
-use tls_parser::{parse_tls_plaintext, TlsClientHelloContents, TlsMessage, TlsMessageHandshake};
+use tls_parser::{
+    parse_tls_plaintext, TlsClientHelloContents, TlsExtensionType, TlsMessage, TlsMessageHandshake,
+};
 use tracing::debug;
 
 /// Result of TLS packet processing
@@ -200,30 +202,29 @@ fn parse_extensions_from_raw_detailed(
         // Filter GREASE extensions
         if !TLS_GREASE_VALUES.contains(&extension_type) {
             extensions.push(extension_type);
-            debug!("Added extension 0x{:04x} to list", extension_type);
         }
 
         match extension_type {
-            0x0000 => {
+            ext if ext == TlsExtensionType::ServerName.into() => {
                 // Server Name Indication (SNI)
                 if let Some(parsed_sni) = parse_sni_extension(extension_data) {
                     sni = Some(parsed_sni);
                 }
             }
-            0x0010 => {
+            ext if ext == TlsExtensionType::ApplicationLayerProtocolNegotiation.into() => {
                 // Application-Layer Protocol Negotiation (ALPN)
                 if let Some(parsed_alpn) = parse_alpn_extension(extension_data) {
                     alpn = Some(parsed_alpn);
                 }
             }
-            0x000d => {
+            ext if ext == TlsExtensionType::SignatureAlgorithms.into() => {
                 // Signature Algorithms
                 let parsed_sig_algs = parse_signature_algorithms_extension(extension_data);
                 if !parsed_sig_algs.is_empty() {
                     signature_algorithms = parsed_sig_algs;
                 }
             }
-            0x000a => {
+            ext if ext == TlsExtensionType::SupportedGroups.into() => {
                 // Supported Groups (Elliptic Curves)
                 let parsed_curves = parse_supported_groups_extension(extension_data);
                 if !parsed_curves.is_empty() {
@@ -347,24 +348,21 @@ fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
     extensions: &[u16],
 ) -> TlsVersion {
-    if extensions.contains(&0x002b) {
-        debug!("Found supported_versions extension (0x002b), this is TLS 1.3");
+    // Check for supported_versions extension which indicates TLS 1.3
+    if extensions.contains(&TlsExtensionType::SupportedVersions.into()) {
+        debug!("Found supported_versions extension, this is TLS 1.3");
         return TlsVersion::V1_3;
     }
 
-    // Fall back to legacy version
-    let version_u16 = legacy_version.0;
-    debug!("Using legacy TLS version: 0x{:04x}", version_u16);
-
-    match version_u16 {
-        0x0304 => TlsVersion::V1_3,
-        0x0303 => TlsVersion::V1_2,
-        0x0302 => TlsVersion::V1_1,
-        0x0301 => TlsVersion::V1_0,
+    match *legacy_version {
+        tls_parser::TlsVersion::Tls13 => TlsVersion::V1_3,
+        tls_parser::TlsVersion::Tls12 => TlsVersion::V1_2,
+        tls_parser::TlsVersion::Tls11 => TlsVersion::V1_1,
+        tls_parser::TlsVersion::Tls10 => TlsVersion::V1_0,
         _ => {
             debug!(
-                "Unknown TLS version 0x{:04x}, defaulting to TLS 1.2",
-                version_u16
+                "Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2",
+                legacy_version
             );
             TlsVersion::V1_2
         }
@@ -378,12 +376,17 @@ mod tests {
     use pnet::packet::tcp::MutableTcpPacket;
 
     const TLS_HANDSHAKE_TYPE: u8 = 0x16;
-    const TLS_1_2_VERSION: [u8; 2] = [0x03, 0x03];
-    const TLS_1_3_VERSION: [u8; 2] = [0x03, 0x04];
 
-    /// Helper to create minimal TLS handshake payload
-    fn create_tls_payload(version: [u8; 2]) -> Vec<u8> {
-        vec![TLS_HANDSHAKE_TYPE, version[0], version[1], 0x00, 0x05]
+    /// Helper to create minimal TLS handshake payload  
+    fn create_tls_payload(version: tls_parser::TlsVersion) -> Vec<u8> {
+        let version_bytes = version.0.to_be_bytes();
+        vec![
+            TLS_HANDSHAKE_TYPE,
+            version_bytes[0],
+            version_bytes[1],
+            0x00,
+            0x05,
+        ]
     }
 
     /// Helper to create TCP packet for testing
@@ -410,14 +413,14 @@ mod tests {
     #[test]
     fn test_tls_detection_by_content() {
         // Test TLS detection by content type and version
-        let tls_payload = create_tls_payload(TLS_1_2_VERSION);
+        let tls_payload = create_tls_payload(tls_parser::TlsVersion::Tls12);
         let tcp_buffer = create_tcp_packet(9090, &tls_payload); // Non-standard port
         let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
         assert!(is_likely_tls_traffic(&tcp_packet, &tls_payload));
 
         // Test TLS 1.3
-        let tls13_payload = create_tls_payload(TLS_1_3_VERSION);
+        let tls13_payload = create_tls_payload(tls_parser::TlsVersion::Tls13);
         let tcp_buffer = create_tcp_packet(9090, &tls13_payload);
         let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
@@ -481,7 +484,10 @@ mod tests {
         // Test TLS 1.3 detection via supported_versions extension
         let legacy_v12_but_13 = tls_parser::TlsVersion::Tls12;
         assert_eq!(
-            determine_tls_version(&legacy_v12_but_13, &[0x002b]),
+            determine_tls_version(
+                &legacy_v12_but_13,
+                &[TlsExtensionType::SupportedVersions.into()]
+            ),
             TlsVersion::V1_3
         );
     }
