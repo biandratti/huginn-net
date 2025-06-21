@@ -145,7 +145,7 @@ impl Signature {
         let ja4_b_raw = sorted_ciphers
             .iter()
             .map(|c| format!("{:04x}", c))
-            .collect::<Vec<_>>()
+            .collect::<Vec<String>>()
             .join(",");
 
         // JA4_c: Extensions (sorted, comma-separated, 4-digit hex) + "_" + signature algorithms
@@ -158,16 +158,15 @@ impl Signature {
         let extensions_str = extensions_for_c
             .iter()
             .map(|e| format!("{:04x}", e))
-            .collect::<Vec<_>>()
+            .collect::<Vec<String>>()
             .join(",");
 
         // Signature algorithms are NOT sorted according to the official spec
         // But GREASE values are filtered
         let sig_algs_str = filtered_sig_algs
-            .clone()
             .iter()
             .map(|s| format!("{:04x}", s))
-            .collect::<Vec<_>>()
+            .collect::<Vec<String>>()
             .join(",");
 
         // According to the specification, "if there are no signature algorithms in the
@@ -184,9 +183,12 @@ impl Signature {
         let ja4_b_hash = hash12(&ja4_b_raw);
         let ja4_c_hash = hash12(&ja4_c_raw);
 
-        // Final JA4 fingerprint in official format
-        let ja4_full = format!("{}_{}_{}_{}", ja4_a, ja4_b_raw, ja4_c_raw, "");
-        let ja4_hash = format!("{}_{}_{}", ja4_a, ja4_b_hash, ja4_c_hash);
+        let ja4_full = format!("{}_{}_{}", ja4_a, ja4_b_raw, ja4_c_raw);
+        let mut ja4_hash = ja4_a.clone();
+        ja4_hash.push('_');
+        ja4_hash.push_str(&ja4_b_hash);
+        ja4_hash.push('_');
+        ja4_hash.push_str(&ja4_c_hash);
 
         Ja4Payload {
             ja4_a,
