@@ -7,7 +7,8 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use tls_parser::{
-    parse_tls_extensions, parse_tls_plaintext, TlsClientHelloContents, TlsExtension, TlsExtensionType, TlsMessage, TlsMessageHandshake,
+    parse_tls_extensions, parse_tls_plaintext, TlsClientHelloContents, TlsExtension,
+    TlsExtensionType, TlsMessage, TlsMessageHandshake,
 };
 use tracing::debug;
 
@@ -156,7 +157,7 @@ fn parse_extensions_from_client_hello(
             Ok((_remaining, parsed_extensions)) => {
                 for extension in &parsed_extensions {
                     let ext_type: u16 = TlsExtensionType::from(extension).into();
-                    
+
                     // Filter GREASE extensions
                     if !TLS_GREASE_VALUES.contains(&ext_type) {
                         extensions.push(ext_type);
@@ -292,7 +293,6 @@ mod tests {
 
         assert!(!is_likely_tls_traffic(&tcp_packet, &invalid_payload));
     }
-
 
     #[test]
     fn test_version_detection() {
