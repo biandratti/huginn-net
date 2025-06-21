@@ -97,7 +97,6 @@ fn hash12(input: &str) -> String {
 impl Signature {
     /// Generate JA4 fingerprint according to official FoxIO specification
     /// Format: JA4 = JA4_a + "_" + JA4_b_hash + "_" + JA4_c_hash
-    /// Example: t13d1717h2_5b57614c22b0_3cbfd9057e0d
     pub fn generate_ja4(&self) -> Ja4Payload {
         // Filter out GREASE values from cipher suites for JA4_b and JA4_c processing
         let filtered_ciphers = filter_grease_values(&self.cipher_suites);
@@ -114,11 +113,9 @@ impl Signature {
         let sni_indicator = if self.sni.is_some() { "d" } else { "i" };
 
         // Cipher count in 2-digit decimal (max 99) - use ORIGINAL count before filtering
-        // According to official spec, count includes GREASE values
         let cipher_count = format!("{:02}", self.cipher_suites.len().min(99));
 
         // Extension count in 2-digit decimal (max 99) - use ORIGINAL count before filtering
-        // According to official spec, count includes GREASE values
         let extension_count = format!("{:02}", self.extensions.len().min(99));
 
         // ALPN first and last characters

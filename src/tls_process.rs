@@ -7,7 +7,7 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use tls_parser::{
-    parse_tls_plaintext, TlsClientHelloContents, TlsExtensionType, TlsMessage, TlsMessageHandshake,
+    parse_tls_extensions, parse_tls_plaintext, TlsClientHelloContents, TlsExtension, TlsExtensionType, TlsMessage, TlsMessageHandshake,
 };
 use tracing::debug;
 
@@ -152,14 +152,41 @@ fn parse_extensions_from_client_hello(
     let mut elliptic_curves = Vec::new();
 
     if let Some(ext_data) = &client_hello.ext {
-        let (parsed_extensions, parsed_sni, parsed_alpn, parsed_sig_algs, parsed_curves) =
-            parse_extensions_from_raw_detailed(ext_data);
+        match parse_tls_extensions(ext_data) {
+            Ok((_remaining, parsed_extensions)) => {
+                for extension in &parsed_extensions {
+                    let ext_type: u16 = TlsExtensionType::from(extension).into();
+                    
+                    // Filter GREASE extensions
+                    if !TLS_GREASE_VALUES.contains(&ext_type) {
+                        extensions.push(ext_type);
+                    }
 
-        extensions = parsed_extensions;
-        sni = parsed_sni;
-        alpn = parsed_alpn;
-        signature_algorithms = parsed_sig_algs;
-        elliptic_curves = parsed_curves;
+                    match extension {
+                        TlsExtension::SNI(sni_list) => {
+                            if let Some((_, hostname)) = sni_list.first() {
+                                sni = String::from_utf8(hostname.to_vec()).ok();
+                            }
+                        }
+                        TlsExtension::ALPN(alpn_list) => {
+                            if let Some(protocol) = alpn_list.first() {
+                                alpn = String::from_utf8(protocol.to_vec()).ok();
+                            }
+                        }
+                        TlsExtension::SignatureAlgorithms(sig_algs) => {
+                            signature_algorithms = sig_algs.clone();
+                        }
+                        TlsExtension::EllipticCurves(curves) => {
+                            elliptic_curves = curves.iter().map(|c| c.0).collect();
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to parse TLS extensions: {:?}", e);
+            }
+        }
     } else {
         debug!("No extension data found in ClientHello.ext field");
     }
@@ -167,188 +194,10 @@ fn parse_extensions_from_client_hello(
     (extensions, sni, alpn, signature_algorithms, elliptic_curves)
 }
 
-#[allow(clippy::type_complexity)]
-fn parse_extensions_from_raw_detailed(
-    ext_data: &[u8],
-) -> (Vec<u16>, Option<String>, Option<String>, Vec<u16>, Vec<u16>) {
-    let mut extensions = Vec::new();
-    let mut sni = None;
-    let mut alpn = None;
-    let mut signature_algorithms = Vec::new();
-    let mut elliptic_curves = Vec::new();
-    let mut offset = 0;
-
-    // rusticata lib already parsed and removed the extensions length field. The ext_data starts directly with the first extension type
-    let extensions_end = ext_data.len();
-
-    // Parse individual extensions
-    while offset + 4 <= extensions_end {
-        let extension_type = u16::from_be_bytes([ext_data[offset], ext_data[offset + 1]]);
-        let extension_length =
-            u16::from_be_bytes([ext_data[offset + 2], ext_data[offset + 3]]) as usize;
-        offset += 4;
-
-        // Validate extension length
-        if offset + extension_length > extensions_end {
-            debug!(
-                "Extension 0x{:04x} length ({}) extends beyond data boundary (offset={}, end={})",
-                extension_type, extension_length, offset, extensions_end
-            );
-            break;
-        }
-
-        let extension_data = &ext_data[offset..offset + extension_length];
-
-        // Filter GREASE extensions
-        if !TLS_GREASE_VALUES.contains(&extension_type) {
-            extensions.push(extension_type);
-        }
-
-        match extension_type {
-            ext if ext == TlsExtensionType::ServerName.into() => {
-                // Server Name Indication (SNI)
-                if let Some(parsed_sni) = parse_sni_extension(extension_data) {
-                    sni = Some(parsed_sni);
-                }
-            }
-            ext if ext == TlsExtensionType::ApplicationLayerProtocolNegotiation.into() => {
-                // Application-Layer Protocol Negotiation (ALPN)
-                if let Some(parsed_alpn) = parse_alpn_extension(extension_data) {
-                    alpn = Some(parsed_alpn);
-                }
-            }
-            ext if ext == TlsExtensionType::SignatureAlgorithms.into() => {
-                // Signature Algorithms
-                let parsed_sig_algs = parse_signature_algorithms_extension(extension_data);
-                if !parsed_sig_algs.is_empty() {
-                    signature_algorithms = parsed_sig_algs;
-                }
-            }
-            ext if ext == TlsExtensionType::SupportedGroups.into() => {
-                // Supported Groups (Elliptic Curves)
-                let parsed_curves = parse_supported_groups_extension(extension_data);
-                if !parsed_curves.is_empty() {
-                    elliptic_curves = parsed_curves;
-                }
-            }
-            _ => {}
-        }
-
-        offset += extension_length;
-    }
-
-    (extensions, sni, alpn, signature_algorithms, elliptic_curves)
-}
-
-fn parse_sni_extension(data: &[u8]) -> Option<String> {
-    if data.len() < 5 {
-        return None;
-    }
-
-    let mut offset = 0;
-
-    // Server name list length (2 bytes)
-    let list_length = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
-    offset += 2;
-
-    if offset + list_length > data.len() {
-        return None;
-    }
-
-    // Parse first server name entry
-    if offset + 3 <= data.len() {
-        let name_type = data[offset]; // Should be 0 for hostname
-        offset += 1;
-
-        if name_type == 0 {
-            let name_length = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
-            offset += 2;
-
-            if offset + name_length <= data.len() {
-                let hostname = String::from_utf8_lossy(&data[offset..offset + name_length]);
-                return Some(hostname.to_string());
-            }
-        }
-    }
-
-    None
-}
-
-fn parse_alpn_extension(data: &[u8]) -> Option<String> {
-    if data.len() < 3 {
-        return None;
-    }
-
-    let mut offset = 0;
-
-    // Protocol name list length (2 bytes)
-    let list_length = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
-    offset += 2;
-
-    if offset + list_length > data.len() {
-        return None;
-    }
-
-    // Parse first protocol name
-    if offset < data.len() {
-        let protocol_length = data[offset] as usize;
-        offset += 1;
-
-        if offset + protocol_length <= data.len() {
-            let protocol = String::from_utf8_lossy(&data[offset..offset + protocol_length]);
-            return Some(protocol.to_string());
-        }
-    }
-
-    None
-}
-
-/// Generic function to parse TLS extensions that contain a list of u16 values
-/// Used for signature algorithms, supported groups, etc.
-fn parse_u16_list_extension(data: &[u8], extension_name: &str) -> Vec<u16> {
-    let mut items = Vec::new();
-
-    if data.len() < 2 {
-        debug!("{} extension too short", extension_name);
-        return items;
-    }
-
-    let mut offset = 0;
-
-    // List length (2 bytes)
-    let list_length = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
-    offset += 2;
-
-    if offset + list_length > data.len() {
-        debug!("{} list extends beyond data boundary", extension_name);
-        return items;
-    }
-
-    let list_end = offset + list_length;
-
-    // Parse items (2 bytes each)
-    while offset + 2 <= list_end {
-        let item = u16::from_be_bytes([data[offset], data[offset + 1]]);
-        items.push(item);
-        offset += 2;
-    }
-
-    items
-}
-
-fn parse_signature_algorithms_extension(data: &[u8]) -> Vec<u16> {
-    parse_u16_list_extension(data, "Signature algorithms")
-}
-
-fn parse_supported_groups_extension(data: &[u8]) -> Vec<u16> {
-    parse_u16_list_extension(data, "Supported groups")
-}
-
 fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
     extensions: &[u16],
 ) -> TlsVersion {
-    // Check for supported_versions extension which indicates TLS 1.3
     if extensions.contains(&TlsExtensionType::SupportedVersions.into()) {
         debug!("Found supported_versions extension, this is TLS 1.3");
         return TlsVersion::V1_3;
@@ -444,36 +293,6 @@ mod tests {
         assert!(!is_likely_tls_traffic(&tcp_packet, &invalid_payload));
     }
 
-    #[test]
-    fn test_extension_parsing() {
-        // Test SNI extension parsing
-        let sni_data = {
-            let hostname = b"example.com";
-            let mut data = Vec::new();
-            data.extend_from_slice(&(hostname.len() as u16 + 3).to_be_bytes()); // list length
-            data.push(0x00); // name type
-            data.extend_from_slice(&(hostname.len() as u16).to_be_bytes()); // name length
-            data.extend_from_slice(hostname);
-            data
-        };
-        assert_eq!(
-            parse_sni_extension(&sni_data),
-            Some("example.com".to_string())
-        );
-        assert_eq!(parse_sni_extension(&[0x00]), None); // Too short
-
-        // Test ALPN extension parsing
-        let alpn_data = {
-            let protocol = b"h2";
-            let mut data = Vec::new();
-            data.extend_from_slice(&(protocol.len() as u16 + 1).to_be_bytes()); // list length
-            data.push(protocol.len() as u8); // protocol length
-            data.extend_from_slice(protocol);
-            data
-        };
-        assert_eq!(parse_alpn_extension(&alpn_data), Some("h2".to_string()));
-        assert_eq!(parse_alpn_extension(&[0x00]), None); // Too short
-    }
 
     #[test]
     fn test_version_detection() {
