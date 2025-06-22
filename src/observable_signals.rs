@@ -44,6 +44,7 @@ pub struct ObservableTls {
     pub elliptic_curves: Vec<u16>,
     /// Generated JA4 fingerprint
     pub ja4: Ja4Payload,
+    pub ja4_original: Ja4Payload,
 }
 
 // Observable HTTP signals

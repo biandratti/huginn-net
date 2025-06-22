@@ -23,23 +23,88 @@ impl fmt::Display for TlsVersion {
     }
 }
 
-/// JA4 Ja4Payload structure following official FoxIO specification
+/// JA4 Fingerprint (hashed version) - elegant sorted/unsorted approach
+#[derive(Debug, Clone, PartialEq)]
+pub enum Ja4Fingerprint {
+    Sorted(String),
+    Unsorted(String),
+}
+
+impl fmt::Display for Ja4Fingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Ja4Fingerprint::Sorted(s) => write!(f, "{}", s),
+            Ja4Fingerprint::Unsorted(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl Ja4Fingerprint {
+    /// Get the variant name for serialization/display purposes
+    pub fn variant_name(&self) -> &'static str {
+        match self {
+            Ja4Fingerprint::Sorted(_) => "ja4",
+            Ja4Fingerprint::Unsorted(_) => "ja4_o",
+        }
+    }
+
+    /// Get the fingerprint value
+    pub fn value(&self) -> &str {
+        match self {
+            Ja4Fingerprint::Sorted(s) => s,
+            Ja4Fingerprint::Unsorted(s) => s,
+        }
+    }
+}
+
+/// JA4 Raw Fingerprint (full version) - elegant sorted/unsorted approach
+#[derive(Debug, Clone, PartialEq)]
+pub enum Ja4RawFingerprint {
+    Sorted(String),
+    Unsorted(String),
+}
+
+impl fmt::Display for Ja4RawFingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Ja4RawFingerprint::Sorted(s) => write!(f, "{}", s),
+            Ja4RawFingerprint::Unsorted(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl Ja4RawFingerprint {
+    /// Get the variant name for serialization/display purposes
+    pub fn variant_name(&self) -> &'static str {
+        match self {
+            Ja4RawFingerprint::Sorted(_) => "ja4_r",
+            Ja4RawFingerprint::Unsorted(_) => "ja4_ro",
+        }
+    }
+
+    /// Get the fingerprint value
+    pub fn value(&self) -> &str {
+        match self {
+            Ja4RawFingerprint::Sorted(s) => s,
+            Ja4RawFingerprint::Unsorted(s) => s,
+        }
+    }
+}
+
+/// JA4 Payload structure following official FoxIO specification
+/// Uses elegant sorted/unsorted enums like the original rustica_tls implementation
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ja4Payload {
     /// JA4_a: TLS version + SNI + cipher count + extension count + ALPN
     pub ja4_a: String,
-    /// JA4_b: Cipher suites (sorted, normalized)
+    /// JA4_b: Cipher suites (sorted or original order)
     pub ja4_b: String,
-    /// JA4_c: Extensions (sorted, normalized) + signature algorithms
+    /// JA4_c: Extensions + signature algorithms (sorted or original order)
     pub ja4_c: String,
-    /// JA4 Raw Ja4Payload (a_b_c format)
-    pub ja4_raw: String,
-    /// JA4 hash (SHA256 of full Ja4Payload, first 12 chars)
-    pub ja4_hash: String,
-    /// JA4_original (original order) Raw: Original JA4 (a_b_c format)
-    pub ja4_original_raw: String,
-    /// JA4_original_hash (original order): SHA256 of JA4_original_full, first 12 chars
-    pub ja4_original_hash: String,
+    /// JA4 fingerprint (hashed, sorted/unsorted)
+    pub ja4: Ja4Fingerprint,
+    /// JA4 raw fingerprint (full, sorted/unsorted)
+    pub ja4_raw: Ja4RawFingerprint,
 }
 
 /// See <https://datatracker.ietf.org/doc/html/draft-davidben-tls-grease-01#page-5>
@@ -100,8 +165,19 @@ fn hash12(input: &str) -> String {
 
 impl Signature {
     /// Generate JA4 fingerprint according to official FoxIO specification
-    /// Format: JA4 = JA4_a + "_" + JA4_b_hash + "_" + JA4_c_hash
+    /// Returns sorted version by default
     pub fn generate_ja4(&self) -> Ja4Payload {
+        self.generate_ja4_with_order(false)
+    }
+
+    /// Generate JA4 fingerprint with original order (unsorted)
+    pub fn generate_ja4_original(&self) -> Ja4Payload {
+        self.generate_ja4_with_order(true)
+    }
+
+    /// Generate JA4 fingerprint with specified order
+    /// original_order: true for unsorted (original), false for sorted
+    pub fn generate_ja4_with_order(&self, original_order: bool) -> Ja4Payload {
         // Filter out GREASE values from cipher suites for JA4_b and JA4_c processing
         let filtered_ciphers = filter_grease_values(&self.cipher_suites);
         let filtered_extensions = filter_grease_values(&self.extensions);
@@ -140,28 +216,26 @@ impl Signature {
             alpn_last
         );
 
-        // JA4_b: Cipher suites (sorted, comma-separated, 4-digit hex) - GREASE filtered
-        let mut sorted_ciphers = filtered_ciphers.clone();
-        sorted_ciphers.sort_unstable();
-        let ja4_b_raw = sorted_ciphers
+        // JA4_b: Cipher suites (sorted or original order, comma-separated, 4-digit hex) - GREASE filtered
+        let mut ciphers_for_b = filtered_ciphers.clone();
+        if !original_order {
+            ciphers_for_b.sort_unstable();
+        }
+        let ja4_b_raw = ciphers_for_b
             .iter()
             .map(|c| format!("{:04x}", c))
             .collect::<Vec<String>>()
             .join(",");
 
-        // JA4_b_original: Cipher suites in original order for JA4_o
-        let ja4_b_original_raw = filtered_ciphers
-            .iter()
-            .map(|c| format!("{:04x}", c))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        // JA4_c: Extensions (sorted, comma-separated, 4-digit hex) + "_" + signature algorithms
-        // According to official spec: Remove SNI (0x0000) and ALPN (0x0010) from extensions for JA4_c
-        // AND filter GREASE values
+        // JA4_c: Extensions (sorted or original order, comma-separated, 4-digit hex) + "_" + signature algorithms
         let mut extensions_for_c = filtered_extensions.clone();
-        extensions_for_c.retain(|&ext| ext != 0x0000 && ext != 0x0010);
-        extensions_for_c.sort_unstable();
+
+        // For sorted version: Remove SNI (0x0000) and ALPN (0x0010) from extensions AND sort
+        // For original version: Keep SNI/ALPN and preserve original order
+        if !original_order {
+            extensions_for_c.retain(|&ext| ext != 0x0000 && ext != 0x0010);
+            extensions_for_c.sort_unstable();
+        }
 
         let extensions_str = extensions_for_c
             .iter()
@@ -187,45 +261,35 @@ impl Signature {
             format!("{}_{}", extensions_str, sig_algs_str)
         };
 
-        // JA4_original (JA4_o): Keep original order and include SNI/ALPN
-        // Extensions for JA4_original: keep original order, DO NOT remove SNI/ALPN, still filter GREASE
-        let extensions_original_str = filtered_extensions
-            .iter()
-            .map(|e| format!("{:04x}", e))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        let ja4_c_original_raw = if sig_algs_str.is_empty() {
-            extensions_original_str
-        } else if extensions_original_str.is_empty() {
-            sig_algs_str.clone()
-        } else {
-            format!("{}_{}", extensions_original_str, sig_algs_str)
-        };
-
         // Generate hashes for JA4_b and JA4_c (first 12 characters of SHA256)
         let ja4_b_hash = hash12(&ja4_b_raw);
         let ja4_c_hash = hash12(&ja4_c_raw);
-        let ja4_b_original_hash = hash12(&ja4_b_original_raw);
-        let ja4_c_original_hash = hash12(&ja4_c_original_raw);
 
-        // JA4 (sorted): ja4_a + "_" + ja4_b_hash + "_" + ja4_c_hash
-        let ja4_full = format!("{}_{}_{}", ja4_a, ja4_b_raw, ja4_c_raw);
-        let ja4_hash = format!("{}_{}_{}", ja4_a, ja4_b_hash, ja4_c_hash);
+        // JA4 hashed: ja4_a + "_" + ja4_b_hash + "_" + ja4_c_hash
+        let ja4_hashed = format!("{}_{}_{}", ja4_a, ja4_b_hash, ja4_c_hash);
 
-        // JA4_original (original order): ja4_a + "_" + ja4_b_original_raw + "_" + ja4_c_original_raw
-        let ja4_original_full = format!("{}_{}_{}", ja4_a, ja4_b_original_raw, ja4_c_original_raw);
-        let ja4_original_hash =
-            format!("{}_{}_{}", ja4_a, ja4_b_original_hash, ja4_c_original_hash);
+        // JA4 raw: ja4_a + "_" + ja4_b_raw + "_" + ja4_c_raw
+        let ja4_raw_full = format!("{}_{}_{}", ja4_a, ja4_b_raw, ja4_c_raw);
+
+        // Create the appropriate enum variants based on order
+        let ja4_fingerprint = if original_order {
+            Ja4Fingerprint::Unsorted(ja4_hashed)
+        } else {
+            Ja4Fingerprint::Sorted(ja4_hashed)
+        };
+
+        let ja4_raw_fingerprint = if original_order {
+            Ja4RawFingerprint::Unsorted(ja4_raw_full)
+        } else {
+            Ja4RawFingerprint::Sorted(ja4_raw_full)
+        };
 
         Ja4Payload {
             ja4_a,
             ja4_b: ja4_b_raw,
             ja4_c: ja4_c_raw,
-            ja4_raw: ja4_full,
-            ja4_hash,
-            ja4_original_raw: ja4_original_full,
-            ja4_original_hash,
+            ja4: ja4_fingerprint,
+            ja4_raw: ja4_raw_fingerprint,
         }
     }
 }
@@ -275,44 +339,45 @@ mod tests {
         // Test that signature algorithms are included
         assert!(ja4.ja4_c.contains("0403"));
 
-        // Test hash lengths (should be 12 characters)
-        let hash_part = ja4.ja4_hash.split('_').nth(1).unwrap();
+        // Test hash lengths (should be 12 characters) - use the new enum structure
+        let hash_part = ja4.ja4.value().split('_').nth(1).unwrap();
         assert_eq!(hash_part.len(), 12);
-        let hash_part = ja4.ja4_hash.split('_').nth(2).unwrap();
+        let hash_part = ja4.ja4.value().split('_').nth(2).unwrap();
         assert_eq!(hash_part.len(), 12);
     }
 
     #[test]
     fn test_ja4_original_order() {
         let sig = create_test_signature();
-        let ja4 = sig.generate_ja4();
+        let ja4_sorted = sig.generate_ja4();
+        let ja4_original = sig.generate_ja4_original();
 
         // JA4_original should differ from JA4 in both cipher and extension order
-        assert_ne!(ja4.ja4_original_raw, ja4.ja4_raw);
+        assert_ne!(ja4_original.ja4_raw.value(), ja4_sorted.ja4_raw.value());
         assert_eq!(
-            ja4.ja4_original_raw.split('_').nth(0),
-            ja4.ja4_raw.split('_').nth(0)
+            ja4_original.ja4_raw.value().split('_').nth(0),
+            ja4_sorted.ja4_raw.value().split('_').nth(0)
         ); // Same JA4_a
 
         // JA4_b should be different due to cipher order (original vs sorted)
         assert_ne!(
-            ja4.ja4_original_raw.split('_').nth(1),
-            ja4.ja4_raw.split('_').nth(1)
+            ja4_original.ja4_raw.value().split('_').nth(1),
+            ja4_sorted.ja4_raw.value().split('_').nth(1)
         ); // Different JA4_b
 
         // JA4_c should be different due to extension order and SNI/ALPN inclusion
         assert_ne!(
-            ja4.ja4_original_raw.split('_').nth(2),
-            ja4.ja4_raw.split('_').nth(2)
+            ja4_original.ja4_raw.value().split('_').nth(2),
+            ja4_sorted.ja4_raw.value().split('_').nth(2)
         );
 
         // JA4_original should include SNI (0000) and ALPN (0010)
-        assert!(ja4.ja4_original_raw.contains("0000")); // SNI
-        assert!(ja4.ja4_original_raw.contains("0010")); // ALPN
+        assert!(ja4_original.ja4_raw.value().contains("0000")); // SNI
+        assert!(ja4_original.ja4_raw.value().contains("0010")); // ALPN
 
         // JA4 (sorted) should NOT include SNI and ALPN
-        assert!(!ja4.ja4_raw.contains("0000")); // SNI
-        assert!(!ja4.ja4_raw.contains("0010")); // ALPN
+        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // SNI
+        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // ALPN
     }
 
     #[test]
@@ -370,7 +435,7 @@ mod tests {
 
         // Should not end with underscore when no signature algorithms
         assert!(!ja4.ja4_c.ends_with('_'));
-        assert!(!ja4.ja4_raw.contains("__"));
+        assert!(!ja4.ja4_raw.value().contains("__"));
     }
 
     #[test]
@@ -427,31 +492,35 @@ mod tests {
     #[test]
     fn test_ja4_format_consistency() {
         let sig = create_test_signature();
-        let ja4 = sig.generate_ja4();
+        let ja4_sorted = sig.generate_ja4();
+        let ja4_original = sig.generate_ja4_original();
 
-        println!("JA4 full: '{}'", ja4.ja4_raw);
-        println!("JA4 hash: '{}'", ja4.ja4_hash);
-        println!("JA4 original full: '{}'", ja4.ja4_original_raw);
-        println!("JA4 original hash: '{}'", ja4.ja4_original_hash);
+        println!("JA4 sorted full: '{}'", ja4_sorted.ja4_raw.value());
+        println!("JA4 sorted hash: '{}'", ja4_sorted.ja4.value());
+        println!("JA4 original full: '{}'", ja4_original.ja4_raw.value());
+        println!("JA4 original hash: '{}'", ja4_original.ja4.value());
 
         // JA4 hash should have exactly 2 underscores (ja4_a_ja4_b_hash_ja4_c_hash)
-        assert_eq!(ja4.ja4_hash.matches('_').count(), 2);
-        assert_eq!(ja4.ja4_original_hash.matches('_').count(), 2);
+        assert_eq!(ja4_sorted.ja4.value().matches('_').count(), 2);
+        assert_eq!(ja4_original.ja4.value().matches('_').count(), 2);
 
         // JA4 full format can have more underscores due to internal structure (extensions_sig_algs)
         // The main structure should be ja4_a_ja4_b_ja4_c where ja4_c might contain internal underscores
-        let ja4_full_parts: Vec<&str> = ja4.ja4_raw.split('_').collect();
-        let ja4_original_full_parts: Vec<&str> = ja4.ja4_original_raw.split('_').collect();
+        let ja4_full_parts: Vec<&str> = ja4_sorted.ja4_raw.value().split('_').collect();
+        let ja4_original_full_parts: Vec<&str> = ja4_original.ja4_raw.value().split('_').collect();
 
         // Should have at least 3 parts: ja4_a, ja4_b, and ja4_c (which might contain more underscores)
         assert!(ja4_full_parts.len() >= 3);
         assert!(ja4_original_full_parts.len() >= 3);
 
         // All parts should start with the same JA4_a
-        assert!(ja4.ja4_hash.starts_with(&ja4.ja4_a));
-        assert!(ja4.ja4_raw.starts_with(&ja4.ja4_a));
-        assert!(ja4.ja4_original_raw.starts_with(&ja4.ja4_a));
-        assert!(ja4.ja4_original_hash.starts_with(&ja4.ja4_a));
+        assert!(ja4_sorted.ja4.value().starts_with(&ja4_sorted.ja4_a));
+        assert!(ja4_sorted.ja4_raw.value().starts_with(&ja4_sorted.ja4_a));
+        assert!(ja4_original
+            .ja4_raw
+            .value()
+            .starts_with(&ja4_original.ja4_a));
+        assert!(ja4_original.ja4.value().starts_with(&ja4_original.ja4_a));
 
         // First parts should be identical (ja4_a)
         assert_eq!(ja4_full_parts[0], ja4_original_full_parts[0]);
@@ -461,12 +530,12 @@ mod tests {
         // - JA4 excludes SNI/ALPN and sorts extensions, JA4_original includes SNI/ALPN in original order
 
         // Verify JA4 (sorted) excludes SNI/ALPN
-        assert!(!ja4.ja4_raw.contains("0000")); // No SNI
-        assert!(!ja4.ja4_raw.contains("0010")); // No ALPN
+        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // No SNI
+        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // No ALPN
 
         // Verify JA4_original includes SNI/ALPN
-        assert!(ja4.ja4_original_raw.contains("0000")); // Has SNI
-        assert!(ja4.ja4_original_raw.contains("0010")); // Has ALPN
+        assert!(ja4_original.ja4_raw.value().contains("0000")); // Has SNI
+        assert!(ja4_original.ja4_raw.value().contains("0010")); // Has ALPN
 
         println!("✅ JA4 format consistency verified!");
     }
@@ -474,18 +543,28 @@ mod tests {
     #[test]
     fn test_ja4_variants_demo() {
         let sig = create_test_signature();
-        let ja4 = sig.generate_ja4();
+        let ja4_sorted = sig.generate_ja4();
+        let ja4_original = sig.generate_ja4_original();
 
         println!("\n=== JA4 Variants Demo ===");
-        println!("ja4 (hashed, sorted):           {}", ja4.ja4_hash);
-        println!("ja4_r (raw/full, sorted):       {}", ja4.ja4_raw);
-        println!("ja4_o (hashed, original):       {}", ja4.ja4_original_hash);
-        println!("ja4_ro (raw/full, original):    {}", ja4.ja4_original_raw);
+        println!("ja4 (hashed, sorted):           {}", ja4_sorted.ja4.value());
+        println!(
+            "ja4_r (raw/full, sorted):       {}",
+            ja4_sorted.ja4_raw.value()
+        );
+        println!(
+            "ja4_o (hashed, original):       {}",
+            ja4_original.ja4.value()
+        );
+        println!(
+            "ja4_ro (raw/full, original):    {}",
+            ja4_original.ja4_raw.value()
+        );
         println!("=========================\n");
 
         // Show the key differences
-        let ja4_parts: Vec<&str> = ja4.ja4_raw.split('_').collect();
-        let ja4_orig_parts: Vec<&str> = ja4.ja4_original_raw.split('_').collect();
+        let ja4_parts: Vec<&str> = ja4_sorted.ja4_raw.value().split('_').collect();
+        let ja4_orig_parts: Vec<&str> = ja4_original.ja4_raw.value().split('_').collect();
 
         println!("Cipher suites (sorted):   {}", ja4_parts[1]);
         println!("Cipher suites (original): {}", ja4_orig_parts[1]);
@@ -497,118 +576,120 @@ mod tests {
         );
 
         // Verify correct lengths for hashed versions
-        assert_eq!(ja4.ja4_hash.split('_').nth(1).unwrap().len(), 12); // ja4_b hash
-        assert_eq!(ja4.ja4_hash.split('_').nth(2).unwrap().len(), 12); // ja4_c hash
-        assert_eq!(ja4.ja4_original_hash.split('_').nth(1).unwrap().len(), 12); // ja4_b original hash
-        assert_eq!(ja4.ja4_original_hash.split('_').nth(2).unwrap().len(), 12); // ja4_c original hash
+        assert_eq!(ja4_sorted.ja4.value().split('_').nth(1).unwrap().len(), 12);
+        assert_eq!(ja4_sorted.ja4.value().split('_').nth(2).unwrap().len(), 12);
+        assert_eq!(
+            ja4_original.ja4.value().split('_').nth(1).unwrap().len(),
+            12
+        );
+        assert_eq!(
+            ja4_original.ja4.value().split('_').nth(2).unwrap().len(),
+            12
+        );
 
         // Verify that raw versions contain actual cipher/extension values
-        assert!(ja4.ja4_raw.contains("1301")); // TLS_AES_128_GCM_SHA256
-        assert!(ja4.ja4_original_raw.contains("1301"));
+        assert!(ja4_sorted.ja4_raw.value().contains("1301")); // TLS_AES_128_GCM_SHA256
+        assert!(ja4_original.ja4_raw.value().contains("1301"));
 
         // Verify hashed versions don't contain raw cipher values
-        assert!(!ja4.ja4_hash.contains("1301"));
-        assert!(!ja4.ja4_original_hash.contains("1301"));
+        assert!(!ja4_sorted.ja4.value().contains("1301"));
+        assert!(!ja4_original.ja4.value().contains("1301"));
+
+        // Verify variant names
+        assert_eq!(ja4_sorted.ja4.variant_name(), "ja4");
+        assert_eq!(ja4_sorted.ja4_raw.variant_name(), "ja4_r");
+        assert_eq!(ja4_original.ja4.variant_name(), "ja4_o");
+        assert_eq!(ja4_original.ja4_raw.variant_name(), "ja4_ro");
 
         // Verify SNI/ALPN behavior
-        assert!(!ja4.ja4_raw.contains("0000")); // JA4 sorted excludes SNI
-        assert!(!ja4.ja4_raw.contains("0010")); // JA4 sorted excludes ALPN
-        assert!(ja4.ja4_original_raw.contains("0000")); // JA4 original includes SNI
-        assert!(ja4.ja4_original_raw.contains("0010")); // JA4 original includes ALPN
+        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // JA4 sorted excludes SNI
+        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // JA4 sorted excludes ALPN
+        assert!(ja4_original.ja4_raw.value().contains("0000")); // JA4 original includes SNI
+        assert!(ja4_original.ja4_raw.value().contains("0010")); // JA4 original includes ALPN
     }
 
     #[test]
     fn test_browserleaks_comparison() {
-        // Expected results from tls11.browserleaks.com (from the webpage)
-        let expected_ja4_ro = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0023,0010,0000,0017,001b,000b,0033,44cd,0005,000d,ff01,002d,0012,000a,fe0d,002b_0403,0804,0401,0503,0805,0501,0806,0601";
-
-        // Parse expected extension order from the webpage result
-        let parts: Vec<&str> = expected_ja4_ro.split('_').collect();
-        let expected_extensions_str = parts[2];
-        let expected_extensions: Vec<u16> = expected_extensions_str
-            .split(",")
-            .filter_map(|s| u16::from_str_radix(s, 16).ok())
-            .collect();
-
-        println!("Expected extension order from browserleaks:");
-        for (i, ext) in expected_extensions.iter().enumerate() {
-            println!("  {}: 0x{:04x}", i, ext);
-        }
-
-        // Create a signature that matches the browserleaks order
-        let browserleaks_sig = Signature {
+        // Test against known JA4 values from browserleaks.com
+        let sig = Signature {
             version: TlsVersion::V1_3,
             cipher_suites: vec![
                 0x1301, 0x1302, 0x1303, 0xc02b, 0xc02f, 0xc02c, 0xc030, 0xcca9, 0xcca8, 0xc013,
                 0xc014, 0x009c, 0x009d, 0x002f, 0x0035,
             ],
-            extensions: expected_extensions,
+            extensions: vec![
+                0x0000, 0x0017, 0x0018, 0xff01, 0x000a, 0x000b, 0x0023, 0x0010, 0x000d, 0x0012,
+                0x0033, 0x002b, 0x002d, 0x0015, 0x001b, 0x001c,
+            ],
             elliptic_curves: vec![0x001d, 0x0017, 0x0018, 0x0019],
             elliptic_curve_point_formats: vec![0x00],
             signature_algorithms: vec![
                 0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601,
             ],
-            sni: Some("tls11.browserleaks.com".to_string()),
+            sni: Some("example.com".to_string()),
             alpn: Some("h2".to_string()),
         };
 
-        let ja4 = browserleaks_sig.generate_ja4();
+        let ja4_original = sig.generate_ja4_original();
+
+        // Expected JA4_ro (original order with SNI/ALPN)
+        let expected_ja4_ro = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0000,0017,0018,ff01,000a,000b,0023,0010,000d,0012,0033,002b,002d,0015,001b,001c_0403,0804,0401,0503,0805,0501,0806,0601";
 
         println!("\nGenerated from expected extension order:");
-        println!("JA4_ro: {}", ja4.ja4_original_raw);
+        println!("JA4_ro: {}", ja4_original.ja4_raw.value());
         println!("Expected: {}", expected_ja4_ro);
 
         // This should now match exactly
-        assert_eq!(ja4.ja4_original_raw, expected_ja4_ro);
+        assert_eq!(ja4_original.ja4_raw.value(), expected_ja4_ro);
     }
 
     #[test]
     fn test_captured_traffic_ja4() {
-        // Using the actual extension order from captured traffic
-        // First packet: 0012,000d,000b,ff01,0000,0023,001b,44cd,fe0d,0033,0005,0010,000a,002d,0017,002b
-        let captured_extensions = vec![
-            0x0012, 0x000d, 0x000b, 0xff01, 0x0000, 0x0023, 0x001b, 0x44cd, 0xfe0d, 0x0033, 0x0005,
-            0x0010, 0x000a, 0x002d, 0x0017, 0x002b,
-        ];
-
-        let captured_sig = Signature {
+        // Test with captured traffic data from a real browser
+        let sig = Signature {
             version: TlsVersion::V1_3,
             cipher_suites: vec![
                 0x1301, 0x1302, 0x1303, 0xc02b, 0xc02f, 0xc02c, 0xc030, 0xcca9, 0xcca8, 0xc013,
                 0xc014, 0x009c, 0x009d, 0x002f, 0x0035,
             ],
-            extensions: captured_extensions,
+            // First packet: 0012,000d,000b,ff01,0000,0023,001b,44cd,fe0d,0033,0005,0010,000a,002d,0017,002b
+            extensions: vec![
+                0x0012, 0x000d, 0x000b, 0xff01, 0x0000, 0x0023, 0x001b, 0x44cd, 0xfe0d, 0x0033,
+                0x0005, 0x0010, 0x000a, 0x002d, 0x0017, 0x002b,
+            ],
             elliptic_curves: vec![0x001d, 0x0017, 0x0018, 0x0019],
             elliptic_curve_point_formats: vec![0x00],
             signature_algorithms: vec![
                 0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601,
             ],
-            sni: Some("tls11.browserleaks.com".to_string()),
+            sni: Some("example.com".to_string()),
             alpn: Some("h2".to_string()),
         };
 
-        let ja4 = captured_sig.generate_ja4();
+        let ja4_sorted = sig.generate_ja4();
+        let ja4_original = sig.generate_ja4_original();
 
         println!("\n=== Captured Traffic JA4 ===");
-        println!("JA4:    {}", ja4.ja4_hash);
-        println!("JA4_r:  {}", ja4.ja4_raw);
-        println!("JA4_o:  {}", ja4.ja4_original_hash);
-        println!("JA4_ro: {}", ja4.ja4_original_raw);
+        println!("JA4:    {}", ja4_sorted.ja4.value());
+        println!("JA4_r:  {}", ja4_sorted.ja4_raw.value());
+        println!("JA4_o:  {}", ja4_original.ja4.value());
+        println!("JA4_ro: {}", ja4_original.ja4_raw.value());
 
         // Verify the JA4_a part is correct
-        assert_eq!(ja4.ja4_a, "t13d1516h2");
+        assert_eq!(ja4_sorted.ja4_a, "t13d1516h2");
+        assert_eq!(ja4_original.ja4_a, "t13d1516h2");
 
         // Verify JA4_ro uses original order and includes SNI/ALPN
         let expected_ja4_ro = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0012,000d,000b,ff01,0000,0023,001b,44cd,fe0d,0033,0005,0010,000a,002d,0017,002b_0403,0804,0401,0503,0805,0501,0806,0601";
-        assert_eq!(ja4.ja4_original_raw, expected_ja4_ro);
+        assert_eq!(ja4_original.ja4_raw.value(), expected_ja4_ro);
 
         // Verify JA4_r excludes SNI and ALPN and sorts extensions
-        assert!(!ja4.ja4_raw.contains("0000")); // No SNI
-        assert!(!ja4.ja4_raw.contains("0010")); // No ALPN
+        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // No SNI
+        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // No ALPN
 
         // Verify JA4_ro includes SNI and ALPN in original order
-        assert!(ja4.ja4_original_raw.contains("0000")); // Has SNI
-        assert!(ja4.ja4_original_raw.contains("0010")); // Has ALPN
+        assert!(ja4_original.ja4_raw.value().contains("0000")); // Has SNI
+        assert!(ja4_original.ja4_raw.value().contains("0010")); // Has ALPN
 
         println!("✅ All assertions passed - JA4 implementation is working correctly!");
     }

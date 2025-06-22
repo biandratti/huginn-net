@@ -52,6 +52,7 @@ fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpEr
     parse_tls_client_hello(payload)
         .map(|signature| {
             let ja4 = signature.generate_ja4();
+            let ja4_original = signature.generate_ja4_original();
             ObservableTlsPackage {
                 tls_client: Some(ObservableTls {
                     version: signature.version,
@@ -62,6 +63,7 @@ fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpEr
                     signature_algorithms: signature.signature_algorithms,
                     elliptic_curves: signature.elliptic_curves,
                     ja4,
+                    ja4_original,
                 }),
             }
         })
