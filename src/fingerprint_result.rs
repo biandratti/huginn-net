@@ -442,7 +442,9 @@ impl fmt::Display for TlsOutput {
             |\n\
             | client   = {}/{}\n\
             | ja4      = {}\n\
-            | ja4_hash = {}\n\
+            | ja4_r    = {}\n\
+            | ja4_o    = {}\n\
+            | ja4_ro   = {}\n\
             | sni      = {}\n\
             | version  = {}\n\
             `----\n",
@@ -452,8 +454,10 @@ impl fmt::Display for TlsOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.sig.ja4.ja4_full,
             self.sig.ja4.ja4_hash,
+            self.sig.ja4.ja4_raw,
+            self.sig.ja4.ja4_original_hash,
+            self.sig.ja4.ja4_original_raw,
             self.sig.sni.as_deref().unwrap_or("none"),
             self.sig.version,
         )
