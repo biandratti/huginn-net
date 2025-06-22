@@ -45,7 +45,7 @@ pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, Pas
 fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpError> {
     let payload = tcp.payload();
 
-    if !is_likely_tls_traffic(tcp, payload) {
+    if !is_tls_traffic(payload) {
         return Ok(ObservableTlsPackage { tls_client: None });
     }
 
@@ -70,26 +70,19 @@ fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpEr
         .or(Ok(ObservableTlsPackage { tls_client: None }))
 }
 
-//TODO: Check valid TLS ports
-const TLS_PORTS: [u16; 4] = [443, 8443, 8080, 8443];
-
-/// Heuristic to determine if this might be TLS traffic
-fn is_likely_tls_traffic(tcp: &TcpPacket, payload: &[u8]) -> bool {
-    if TLS_PORTS.contains(&tcp.get_destination()) || TLS_PORTS.contains(&tcp.get_source()) {
-        return true;
-    }
-
+/// Detect TLS traffic based on packet content only
+/// This is more reliable than port-based detection since TLS can run on any port
+fn is_tls_traffic(payload: &[u8]) -> bool {
     // Check for TLS record header (0x16 = Handshake, followed by version)
     if payload.len() >= 5 {
         let content_type = payload[0];
         let version = u16::from_be_bytes([payload[1], payload[2]]);
 
-        // TLS handshake (0x16) with valid TLS version
-        if content_type == 0x16 && (0x0301..=0x0304).contains(&version) {
-            return true;
-        }
+        // TLS handshake (0x16) with valid TLS version (including SSL 3.0)
+        content_type == 0x16 && (0x0300..=0x0304).contains(&version)
+    } else {
+        false
     }
-    false
 }
 
 pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, PassiveTcpError> {
@@ -222,7 +215,6 @@ fn determine_tls_version(
 mod tests {
     use super::*;
     use crate::tls::TlsVersion;
-    use pnet::packet::tcp::MutableTcpPacket;
 
     const TLS_HANDSHAKE_TYPE: u8 = 0x16;
 
@@ -238,59 +230,34 @@ mod tests {
         ]
     }
 
-    /// Helper to create TCP packet for testing
-    fn create_tcp_packet(dst_port: u16, payload: &[u8]) -> Vec<u8> {
-        let mut buffer = vec![0u8; 20 + payload.len()];
-        let mut packet = MutableTcpPacket::new(&mut buffer).unwrap();
-        packet.set_source(12345);
-        packet.set_destination(dst_port);
-        packet.set_data_offset(5);
-        packet.set_payload(payload);
-        buffer
-    }
-
     #[test]
     fn test_tls_detection_by_port() {
         // Test TLS detection by standard port (443)
         let payload = vec![0u8; 10];
-        let tcp_buffer = create_tcp_packet(443, &payload);
-        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
-        assert!(is_likely_tls_traffic(&tcp_packet, &payload));
+        assert!(!is_tls_traffic(&payload)); // Non-TLS payload should be false
     }
 
     #[test]
-    fn test_tls_detection_by_content() {
-        // Test TLS detection by content type and version
+    fn test_tls_detection_by_content_only() {
+        let payload = vec![0u8; 10]; // Non-TLS payload
+        assert!(!is_tls_traffic(&payload));
+
         let tls_payload = create_tls_payload(tls_parser::TlsVersion::Tls12);
-        let tcp_buffer = create_tcp_packet(9090, &tls_payload); // Non-standard port
-        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
-
-        assert!(is_likely_tls_traffic(&tcp_packet, &tls_payload));
-
-        // Test TLS 1.3
-        let tls13_payload = create_tls_payload(tls_parser::TlsVersion::Tls13);
-        let tcp_buffer = create_tcp_packet(9090, &tls13_payload);
-        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
-
-        assert!(is_likely_tls_traffic(&tcp_packet, &tls13_payload));
+        assert!(is_tls_traffic(&tls_payload));
     }
 
     #[test]
     fn test_non_tls_traffic() {
         // Test HTTP traffic is not detected as TLS
         let http_payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
-        let tcp_buffer = create_tcp_packet(80, http_payload);
-        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
-        assert!(!is_likely_tls_traffic(&tcp_packet, http_payload));
+        assert!(!is_tls_traffic(http_payload));
 
         // Test invalid TLS version
         let invalid_payload = vec![TLS_HANDSHAKE_TYPE, 0x02, 0x00, 0x00, 0x05];
-        let tcp_buffer = create_tcp_packet(9090, &invalid_payload);
-        let tcp_packet = TcpPacket::new(&tcp_buffer).unwrap();
 
-        assert!(!is_likely_tls_traffic(&tcp_packet, &invalid_payload));
+        assert!(!is_tls_traffic(&invalid_payload));
     }
 
     #[test]
