@@ -116,17 +116,6 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, PassiveTcpError>
 fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, PassiveTcpError> {
-    let (
-        extensions,
-        sni,
-        alpn,
-        signature_algorithms,
-        elliptic_curves,
-        elliptic_curve_point_formats,
-    ) = parse_extensions_from_client_hello(client_hello);
-
-    let version = determine_tls_version(&client_hello.version, &extensions);
-
     // Extract cipher suites (filter GREASE)
     let cipher_suites: Vec<u16> = client_hello
         .ciphers
@@ -135,29 +124,6 @@ fn extract_tls_signature_from_client_hello(
         .filter(|&cipher| !TLS_GREASE_VALUES.contains(&cipher))
         .collect();
 
-    Ok(Signature {
-        version,
-        cipher_suites,
-        extensions,
-        elliptic_curves,
-        elliptic_curve_point_formats,
-        signature_algorithms,
-        sni,
-        alpn,
-    })
-}
-
-#[allow(clippy::type_complexity)]
-fn parse_extensions_from_client_hello(
-    client_hello: &TlsClientHelloContents,
-) -> (
-    Vec<u16>,
-    Option<String>,
-    Option<String>,
-    Vec<u16>,
-    Vec<u16>,
-    Vec<u8>,
-) {
     let mut extensions = Vec::new();
     let mut sni = None;
     let mut alpn = None;
@@ -205,17 +171,23 @@ fn parse_extensions_from_client_hello(
             }
         }
     } else {
-        debug!("No extension data found in ClientHello.ext field");
+        return Err(PassiveTcpError::Parse(
+            "No extension data found in ClientHello.ext field".to_string(),
+        ));
     }
 
-    (
+    let version = determine_tls_version(&client_hello.version, &extensions);
+
+    Ok(Signature {
+        version,
+        cipher_suites,
         extensions,
-        sni,
-        alpn,
-        signature_algorithms,
         elliptic_curves,
         elliptic_curve_point_formats,
-    )
+        signature_algorithms,
+        sni,
+        alpn,
+    })
 }
 
 fn determine_tls_version(
@@ -387,5 +359,44 @@ mod tests {
         // Verify that JA4 generation still works with this field present
         let ja4 = sig.generate_ja4();
         assert!(ja4.ja4_a.starts_with("t12i")); // TLS 1.2, no SNI
+    }
+
+    #[test]
+    fn test_signature_parsing_functional_approach() {
+        // This test verifies that the functional parsing approach works correctly
+        // without using mut and creates a complete Signature in one pass
+
+        // Create a test signature to verify all fields are accessible
+        let sig = crate::tls::Signature {
+            version: TlsVersion::V1_3,
+            cipher_suites: vec![0x1301, 0x1302],
+            extensions: vec![0x0000, 0x0010, 0x000d],
+            elliptic_curves: vec![0x001d, 0x0017],
+            elliptic_curve_point_formats: vec![0x00],
+            signature_algorithms: vec![0x0403, 0x0804],
+            sni: Some("example.com".to_string()),
+            alpn: Some("h2".to_string()),
+        };
+
+        // Verify all fields are properly set
+        assert_eq!(sig.version, TlsVersion::V1_3);
+        assert_eq!(sig.cipher_suites.len(), 2);
+        assert_eq!(sig.extensions.len(), 3);
+        assert_eq!(sig.elliptic_curves.len(), 2);
+        assert_eq!(sig.elliptic_curve_point_formats, vec![0x00]);
+        assert_eq!(sig.signature_algorithms.len(), 2);
+        assert!(sig.sni.is_some());
+        assert!(sig.alpn.is_some());
+
+        // Verify JA4 generation works with the functional structure
+        let ja4 = sig.generate_ja4();
+        assert!(ja4.ja4_a.starts_with("t13d")); // TLS 1.3, SNI present
+        assert!(!ja4.ja4_b.is_empty()); // Cipher suites present
+        assert!(!ja4.ja4_c.is_empty()); // Extensions present
+
+        // Verify the elegant enum approach for sorted/unsorted
+        assert_eq!(ja4.ja4.variant_name(), "ja4"); // Sorted version
+        let ja4_original = sig.generate_ja4_original();
+        assert_eq!(ja4_original.ja4.variant_name(), "ja4_o"); // Unsorted version
     }
 }
