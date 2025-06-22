@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 use std::fmt::{self};
 
-/// TLS version enumeration for fingerprinting
+/// TLS version for fingerprinting
 /// Includes legacy SSL versions for complete JA4 specification compatibility.
 /// Note: SSL 2.0 is not supported by tls-parser (too legacy/vulnerable)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

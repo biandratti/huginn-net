@@ -180,7 +180,7 @@ impl<'a> PassiveTcp<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
-                let (syn, syn_ack, mtu, uptime, http_request, http_response, tls) = {
+                let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
                     let mtu: Option<MTUOutput> =
                         observable_package.mtu.and_then(|observable_mtu| {
                             self.matcher.matching_by_mtu(&observable_mtu.value).map(
@@ -313,7 +313,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime,
                     http_request,
                     http_response,
-                    tls_client: tls,
+                    tls_client,
                 }
             }
             Err(error) => {

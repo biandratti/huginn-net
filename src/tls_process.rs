@@ -190,14 +190,13 @@ fn determine_tls_version(
     }
 
     // Parse legacy version from ClientHello
+    // Note: SSL 2.0 is not supported by tls-parser (too legacy/vulnerable)
     match *legacy_version {
         tls_parser::TlsVersion::Tls13 => TlsVersion::V1_3,
         tls_parser::TlsVersion::Tls12 => TlsVersion::V1_2,
         tls_parser::TlsVersion::Tls11 => TlsVersion::V1_1,
         tls_parser::TlsVersion::Tls10 => TlsVersion::V1_0,
-        // Legacy SSL 3.0 (rarely seen in modern traffic)
         tls_parser::TlsVersion::Ssl30 => TlsVersion::Ssl3_0,
-        // Note: SSL 2.0 is not supported by tls-parser (too legacy/vulnerable)
         _ => {
             debug!(
                 "Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2",

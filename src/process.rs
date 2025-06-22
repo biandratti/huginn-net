@@ -128,7 +128,7 @@ pub fn process_ipv4(
         let tcp_response = tcp_handle.join().unwrap();
         let tls_response = tls_handle.join().unwrap();
 
-        handle_http_tcp_responses(http_response, tcp_response, tls_response)
+        handle_http_tcp_tlc(http_response, tcp_response, tls_response)
     })
     .unwrap()
 }
@@ -167,12 +167,12 @@ pub fn process_ipv6(
         let tcp_response = tcp_handle.join().unwrap();
         let tls_response = tls_handle.join().unwrap();
 
-        handle_http_tcp_responses(http_response, tcp_response, tls_response)
+        handle_http_tcp_tlc(http_response, tcp_response, tls_response)
     })
     .unwrap()
 }
 
-fn handle_http_tcp_responses(
+fn handle_http_tcp_tlc(
     http_response: Result<ObservableHttpPackage, PassiveTcpError>,
     tcp_response: Result<ObservableTCPPackage, PassiveTcpError>,
     tls_response: Result<ObservableTlsPackage, PassiveTcpError>,

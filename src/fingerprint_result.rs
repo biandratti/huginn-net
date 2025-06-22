@@ -30,7 +30,7 @@ pub struct FingerprintResult {
     /// Information derived from HTTP response headers.
     pub http_response: Option<HttpResponseOutput>,
 
-    /// Information derived from TLS ClientHello analysis. Based on FoxIO-LLC
+    /// Information derived from TLS ClientHello analysis. Based on FoxIO
     pub tls_client: Option<TlsClientOutput>,
 }
 
