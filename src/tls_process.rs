@@ -358,9 +358,9 @@ mod tests {
         assert!(!ja4.ja4_c.is_empty()); // Extensions present
 
         // Verify the elegant enum approach for sorted/unsorted
-        assert_eq!(ja4.ja4.variant_name(), "ja4"); // Sorted version
+        assert_eq!(ja4.full.variant_name(), "ja4"); // Sorted version
         let ja4_original = sig.generate_ja4_original();
-        assert_eq!(ja4_original.ja4.variant_name(), "ja4_o"); // Unsorted version
+        assert_eq!(ja4_original.full.variant_name(), "ja4_o"); // Unsorted version
     }
 
     #[test]
