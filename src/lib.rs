@@ -35,7 +35,9 @@ use crate::uptime::{Connection, SynData};
 use fingerprint_result::BrowserQualityMatched;
 use fingerprint_result::OSQualityMatched;
 use fingerprint_result::WebServerQualityMatched;
-pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
+pub use observable_signals::{
+    ObservableHttpRequest, ObservableHttpResponse, ObservableTcp, ObservableTlsClient,
+};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;

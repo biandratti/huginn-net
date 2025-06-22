@@ -104,9 +104,9 @@ pub struct Ja4Payload {
     /// JA4_c: Extensions + signature algorithms (sorted or original order)
     pub ja4_c: String,
     /// JA4 fingerprint (hashed, sorted/unsorted)
-    pub ja4: Ja4Fingerprint,
+    pub full: Ja4Fingerprint,
     /// JA4 raw fingerprint (full, sorted/unsorted)
-    pub ja4_raw: Ja4RawFingerprint,
+    pub raw: Ja4RawFingerprint,
 }
 
 /// See <https://datatracker.ietf.org/doc/html/draft-davidben-tls-grease-01#page-5>
@@ -298,8 +298,8 @@ impl Signature {
             ja4_a,
             ja4_b: ja4_b_raw,
             ja4_c: ja4_c_raw,
-            ja4: ja4_fingerprint,
-            ja4_raw: ja4_raw_fingerprint,
+            full: ja4_fingerprint,
+            raw: ja4_raw_fingerprint,
         }
     }
 }
@@ -350,9 +350,9 @@ mod tests {
         assert!(ja4.ja4_c.contains("0403"));
 
         // Test hash lengths (should be 12 characters) - use the new enum structure
-        let hash_part = ja4.ja4.value().split('_').nth(1).unwrap();
+        let hash_part = ja4.full.value().split('_').nth(1).unwrap();
         assert_eq!(hash_part.len(), 12);
-        let hash_part = ja4.ja4.value().split('_').nth(2).unwrap();
+        let hash_part = ja4.full.value().split('_').nth(2).unwrap();
         assert_eq!(hash_part.len(), 12);
     }
 
@@ -363,31 +363,31 @@ mod tests {
         let ja4_original = sig.generate_ja4_original();
 
         // JA4_original should differ from JA4 in both cipher and extension order
-        assert_ne!(ja4_original.ja4_raw.value(), ja4_sorted.ja4_raw.value());
+        assert_ne!(ja4_original.raw.value(), ja4_sorted.raw.value());
         assert_eq!(
-            ja4_original.ja4_raw.value().split('_').nth(0),
-            ja4_sorted.ja4_raw.value().split('_').nth(0)
+            ja4_original.raw.value().split('_').nth(0),
+            ja4_sorted.raw.value().split('_').nth(0)
         ); // Same JA4_a
 
         // JA4_b should be different due to cipher order (original vs sorted)
         assert_ne!(
-            ja4_original.ja4_raw.value().split('_').nth(1),
-            ja4_sorted.ja4_raw.value().split('_').nth(1)
+            ja4_original.raw.value().split('_').nth(1),
+            ja4_sorted.raw.value().split('_').nth(1)
         ); // Different JA4_b
 
         // JA4_c should be different due to extension order and SNI/ALPN inclusion
         assert_ne!(
-            ja4_original.ja4_raw.value().split('_').nth(2),
-            ja4_sorted.ja4_raw.value().split('_').nth(2)
+            ja4_original.raw.value().split('_').nth(2),
+            ja4_sorted.raw.value().split('_').nth(2)
         );
 
         // JA4_original should include SNI (0000) and ALPN (0010)
-        assert!(ja4_original.ja4_raw.value().contains("0000")); // SNI
-        assert!(ja4_original.ja4_raw.value().contains("0010")); // ALPN
+        assert!(ja4_original.raw.value().contains("0000")); // SNI
+        assert!(ja4_original.raw.value().contains("0010")); // ALPN
 
         // JA4 (sorted) should NOT include SNI and ALPN
-        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // SNI
-        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // ALPN
+        assert!(!ja4_sorted.raw.value().contains("0000")); // SNI
+        assert!(!ja4_sorted.raw.value().contains("0010")); // ALPN
     }
 
     #[test]
@@ -445,7 +445,7 @@ mod tests {
 
         // Should not end with underscore when no signature algorithms
         assert!(!ja4.ja4_c.ends_with('_'));
-        assert!(!ja4.ja4_raw.value().contains("__"));
+        assert!(!ja4.raw.value().contains("__"));
     }
 
     #[test]
@@ -466,7 +466,7 @@ mod tests {
         signature.version = TlsVersion::Ssl3_0;
 
         let ja4 = signature.generate_ja4();
-        let ja4_string = ja4.ja4.value();
+        let ja4_string = ja4.full.value();
 
         // Should start with "ts3d" (t=TLS, s3=SSL3.0, d=SNI present)
         assert!(
@@ -518,26 +518,23 @@ mod tests {
         let ja4_original = sig.generate_ja4_original();
 
         // JA4 hash should have exactly 2 underscores (ja4_a_ja4_b_hash_ja4_c_hash)
-        assert_eq!(ja4_sorted.ja4.value().matches('_').count(), 2);
-        assert_eq!(ja4_original.ja4.value().matches('_').count(), 2);
+        assert_eq!(ja4_sorted.full.value().matches('_').count(), 2);
+        assert_eq!(ja4_original.full.value().matches('_').count(), 2);
 
         // JA4 full format can have more underscores due to internal structure (extensions_sig_algs)
         // The main structure should be ja4_a_ja4_b_ja4_c where ja4_c might contain internal underscores
-        let ja4_full_parts: Vec<&str> = ja4_sorted.ja4_raw.value().split('_').collect();
-        let ja4_original_full_parts: Vec<&str> = ja4_original.ja4_raw.value().split('_').collect();
+        let ja4_full_parts: Vec<&str> = ja4_sorted.raw.value().split('_').collect();
+        let ja4_original_full_parts: Vec<&str> = ja4_original.raw.value().split('_').collect();
 
         // Should have at least 3 parts: ja4_a, ja4_b, and ja4_c (which might contain more underscores)
         assert!(ja4_full_parts.len() >= 3);
         assert!(ja4_original_full_parts.len() >= 3);
 
         // All parts should start with the same JA4_a
-        assert!(ja4_sorted.ja4.value().starts_with(&ja4_sorted.ja4_a));
-        assert!(ja4_sorted.ja4_raw.value().starts_with(&ja4_sorted.ja4_a));
-        assert!(ja4_original
-            .ja4_raw
-            .value()
-            .starts_with(&ja4_original.ja4_a));
-        assert!(ja4_original.ja4.value().starts_with(&ja4_original.ja4_a));
+        assert!(ja4_sorted.full.value().starts_with(&ja4_sorted.ja4_a));
+        assert!(ja4_sorted.raw.value().starts_with(&ja4_sorted.ja4_a));
+        assert!(ja4_original.raw.value().starts_with(&ja4_original.ja4_a));
+        assert!(ja4_original.full.value().starts_with(&ja4_original.ja4_a));
 
         // First parts should be identical (ja4_a)
         assert_eq!(ja4_full_parts[0], ja4_original_full_parts[0]);
@@ -547,12 +544,12 @@ mod tests {
         // - JA4 excludes SNI/ALPN and sorts extensions, JA4_original includes SNI/ALPN in original order
 
         // Verify JA4 (sorted) excludes SNI/ALPN
-        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // No SNI
-        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // No ALPN
+        assert!(!ja4_sorted.raw.value().contains("0000")); // No SNI
+        assert!(!ja4_sorted.raw.value().contains("0010")); // No ALPN
 
         // Verify JA4_original includes SNI/ALPN
-        assert!(ja4_original.ja4_raw.value().contains("0000")); // Has SNI
-        assert!(ja4_original.ja4_raw.value().contains("0010")); // Has ALPN
+        assert!(ja4_original.raw.value().contains("0000")); // Has SNI
+        assert!(ja4_original.raw.value().contains("0010")); // Has ALPN
     }
 
     #[test]
@@ -582,7 +579,7 @@ mod tests {
         let expected_ja4_ro = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0000,0017,0018,ff01,000a,000b,0023,0010,000d,0012,0033,002b,002d,0015,001b,001c_0403,0804,0401,0503,0805,0501,0806,0601";
 
         // This should now match exactly
-        assert_eq!(ja4_original.ja4_raw.value(), expected_ja4_ro);
+        assert_eq!(ja4_original.raw.value(), expected_ja4_ro);
     }
 
     #[test]
@@ -617,14 +614,14 @@ mod tests {
 
         // Verify JA4_ro uses original order and includes SNI/ALPN
         let expected_ja4_ro = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0012,000d,000b,ff01,0000,0023,001b,44cd,fe0d,0033,0005,0010,000a,002d,0017,002b_0403,0804,0401,0503,0805,0501,0806,0601";
-        assert_eq!(ja4_original.ja4_raw.value(), expected_ja4_ro);
+        assert_eq!(ja4_original.raw.value(), expected_ja4_ro);
 
         // Verify JA4_r excludes SNI and ALPN and sorts extensions
-        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // No SNI
-        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // No ALPN
+        assert!(!ja4_sorted.raw.value().contains("0000")); // No SNI
+        assert!(!ja4_sorted.raw.value().contains("0010")); // No ALPN
 
         // Verify JA4_ro includes SNI and ALPN in original order
-        assert!(ja4_original.ja4_raw.value().contains("0000")); // Has SNI
-        assert!(ja4_original.ja4_raw.value().contains("0010")); // Has ALPN
+        assert!(ja4_original.raw.value().contains("0000")); // Has SNI
+        assert!(ja4_original.raw.value().contains("0010")); // Has ALPN
     }
 }
