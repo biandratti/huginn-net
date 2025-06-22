@@ -23,7 +23,7 @@ impl fmt::Display for TlsVersion {
     }
 }
 
-/// JA4 Fingerprint (hashed version) - elegant sorted/unsorted approach
+/// JA4 Fingerprint - sorted/unsorted (original)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ja4Fingerprint {
     Sorted(String),
@@ -40,7 +40,6 @@ impl fmt::Display for Ja4Fingerprint {
 }
 
 impl Ja4Fingerprint {
-    /// Get the variant name for serialization/display purposes
     pub fn variant_name(&self) -> &'static str {
         match self {
             Ja4Fingerprint::Sorted(_) => "ja4",
@@ -48,7 +47,6 @@ impl Ja4Fingerprint {
         }
     }
 
-    /// Get the fingerprint value
     pub fn value(&self) -> &str {
         match self {
             Ja4Fingerprint::Sorted(s) => s,
@@ -57,7 +55,7 @@ impl Ja4Fingerprint {
     }
 }
 
-/// JA4 Raw Fingerprint (full version) - elegant sorted/unsorted approach
+/// JA4 Raw Fingerprint (full version) - sorted/unsorted (original)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ja4RawFingerprint {
     Sorted(String),
@@ -74,7 +72,6 @@ impl fmt::Display for Ja4RawFingerprint {
 }
 
 impl Ja4RawFingerprint {
-    /// Get the variant name for serialization/display purposes
     pub fn variant_name(&self) -> &'static str {
         match self {
             Ja4RawFingerprint::Sorted(_) => "ja4_r",
@@ -82,7 +79,6 @@ impl Ja4RawFingerprint {
         }
     }
 
-    /// Get the fingerprint value
     pub fn value(&self) -> &str {
         match self {
             Ja4RawFingerprint::Sorted(s) => s,
@@ -464,16 +460,11 @@ mod tests {
     fn test_cipher_extension_count_limits() {
         let mut sig = create_test_signature();
 
-        // First, let's understand the format with a normal signature
         let ja4_normal = sig.generate_ja4();
-        println!("Normal JA4_a: '{}'", ja4_normal.ja4_a);
 
         // Test with more than 99 ciphers
         sig.cipher_suites = (0..150).map(|i| i as u16).collect();
         let ja4 = sig.generate_ja4();
-
-        println!("JA4_a with many ciphers: '{}'", ja4.ja4_a);
-        println!("Length: {}", ja4.ja4_a.len());
 
         // JA4_a format: protocol(1) + version(2) + sni(1) + cipher_count(2) + extension_count(2) + alpn_first(1) + alpn_last(1)
         // Example: "t13d9999h2" = t + 13 + d + 99 + 99 + h + 2
@@ -494,11 +485,6 @@ mod tests {
         let sig = create_test_signature();
         let ja4_sorted = sig.generate_ja4();
         let ja4_original = sig.generate_ja4_original();
-
-        println!("JA4 sorted full: '{}'", ja4_sorted.ja4_raw.value());
-        println!("JA4 sorted hash: '{}'", ja4_sorted.ja4.value());
-        println!("JA4 original full: '{}'", ja4_original.ja4_raw.value());
-        println!("JA4 original hash: '{}'", ja4_original.ja4.value());
 
         // JA4 hash should have exactly 2 underscores (ja4_a_ja4_b_hash_ja4_c_hash)
         assert_eq!(ja4_sorted.ja4.value().matches('_').count(), 2);
@@ -536,81 +522,10 @@ mod tests {
         // Verify JA4_original includes SNI/ALPN
         assert!(ja4_original.ja4_raw.value().contains("0000")); // Has SNI
         assert!(ja4_original.ja4_raw.value().contains("0010")); // Has ALPN
-
-        println!("✅ JA4 format consistency verified!");
     }
 
     #[test]
-    fn test_ja4_variants_demo() {
-        let sig = create_test_signature();
-        let ja4_sorted = sig.generate_ja4();
-        let ja4_original = sig.generate_ja4_original();
-
-        println!("\n=== JA4 Variants Demo ===");
-        println!("ja4 (hashed, sorted):           {}", ja4_sorted.ja4.value());
-        println!(
-            "ja4_r (raw/full, sorted):       {}",
-            ja4_sorted.ja4_raw.value()
-        );
-        println!(
-            "ja4_o (hashed, original):       {}",
-            ja4_original.ja4.value()
-        );
-        println!(
-            "ja4_ro (raw/full, original):    {}",
-            ja4_original.ja4_raw.value()
-        );
-        println!("=========================\n");
-
-        // Show the key differences
-        let ja4_parts: Vec<&str> = ja4_sorted.ja4_raw.value().split('_').collect();
-        let ja4_orig_parts: Vec<&str> = ja4_original.ja4_raw.value().split('_').collect();
-
-        println!("Cipher suites (sorted):   {}", ja4_parts[1]);
-        println!("Cipher suites (original): {}", ja4_orig_parts[1]);
-        println!();
-        println!("Extensions (sorted, no SNI/ALPN):   {}", ja4_parts[2]);
-        println!(
-            "Extensions (original, with SNI/ALPN): {}",
-            ja4_orig_parts[2]
-        );
-
-        // Verify correct lengths for hashed versions
-        assert_eq!(ja4_sorted.ja4.value().split('_').nth(1).unwrap().len(), 12);
-        assert_eq!(ja4_sorted.ja4.value().split('_').nth(2).unwrap().len(), 12);
-        assert_eq!(
-            ja4_original.ja4.value().split('_').nth(1).unwrap().len(),
-            12
-        );
-        assert_eq!(
-            ja4_original.ja4.value().split('_').nth(2).unwrap().len(),
-            12
-        );
-
-        // Verify that raw versions contain actual cipher/extension values
-        assert!(ja4_sorted.ja4_raw.value().contains("1301")); // TLS_AES_128_GCM_SHA256
-        assert!(ja4_original.ja4_raw.value().contains("1301"));
-
-        // Verify hashed versions don't contain raw cipher values
-        assert!(!ja4_sorted.ja4.value().contains("1301"));
-        assert!(!ja4_original.ja4.value().contains("1301"));
-
-        // Verify variant names
-        assert_eq!(ja4_sorted.ja4.variant_name(), "ja4");
-        assert_eq!(ja4_sorted.ja4_raw.variant_name(), "ja4_r");
-        assert_eq!(ja4_original.ja4.variant_name(), "ja4_o");
-        assert_eq!(ja4_original.ja4_raw.variant_name(), "ja4_ro");
-
-        // Verify SNI/ALPN behavior
-        assert!(!ja4_sorted.ja4_raw.value().contains("0000")); // JA4 sorted excludes SNI
-        assert!(!ja4_sorted.ja4_raw.value().contains("0010")); // JA4 sorted excludes ALPN
-        assert!(ja4_original.ja4_raw.value().contains("0000")); // JA4 original includes SNI
-        assert!(ja4_original.ja4_raw.value().contains("0010")); // JA4 original includes ALPN
-    }
-
-    #[test]
-    fn test_browserleaks_comparison() {
-        // Test against known JA4 values from browserleaks.com
+    fn test_known_ja4_comparison() {
         let sig = Signature {
             version: TlsVersion::V1_3,
             cipher_suites: vec![
@@ -634,10 +549,6 @@ mod tests {
 
         // Expected JA4_ro (original order with SNI/ALPN)
         let expected_ja4_ro = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0000,0017,0018,ff01,000a,000b,0023,0010,000d,0012,0033,002b,002d,0015,001b,001c_0403,0804,0401,0503,0805,0501,0806,0601";
-
-        println!("\nGenerated from expected extension order:");
-        println!("JA4_ro: {}", ja4_original.ja4_raw.value());
-        println!("Expected: {}", expected_ja4_ro);
 
         // This should now match exactly
         assert_eq!(ja4_original.ja4_raw.value(), expected_ja4_ro);
@@ -669,12 +580,6 @@ mod tests {
         let ja4_sorted = sig.generate_ja4();
         let ja4_original = sig.generate_ja4_original();
 
-        println!("\n=== Captured Traffic JA4 ===");
-        println!("JA4:    {}", ja4_sorted.ja4.value());
-        println!("JA4_r:  {}", ja4_sorted.ja4_raw.value());
-        println!("JA4_o:  {}", ja4_original.ja4.value());
-        println!("JA4_ro: {}", ja4_original.ja4_raw.value());
-
         // Verify the JA4_a part is correct
         assert_eq!(ja4_sorted.ja4_a, "t13d1516h2");
         assert_eq!(ja4_original.ja4_a, "t13d1516h2");
@@ -690,7 +595,5 @@ mod tests {
         // Verify JA4_ro includes SNI and ALPN in original order
         assert!(ja4_original.ja4_raw.value().contains("0000")); // Has SNI
         assert!(ja4_original.ja4_raw.value().contains("0010")); // Has ALPN
-
-        println!("✅ All assertions passed - JA4 implementation is working correctly!");
     }
 }

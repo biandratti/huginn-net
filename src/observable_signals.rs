@@ -42,8 +42,9 @@ pub struct ObservableTls {
     pub signature_algorithms: Vec<u16>,
     /// Elliptic curves from extensions
     pub elliptic_curves: Vec<u16>,
-    /// Generated JA4 fingerprint
+    /// Generated JA4 fingerprint from ClientHello
     pub ja4: Ja4Payload,
+    /// Generated JA4 fingerprint from original ClientHello
     pub ja4_original: Ja4Payload,
 }
 
