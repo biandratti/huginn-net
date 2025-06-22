@@ -132,13 +132,21 @@ fn filter_grease_values(values: &[u16]) -> Vec<u16> {
 /// TLS ClientHello Signature
 #[derive(Debug, Clone, PartialEq)]
 pub struct Signature {
+    /// TLS version (used in JA4_a)
     pub version: TlsVersion,
+    /// Cipher suites (used in JA4_b)
     pub cipher_suites: Vec<u16>,
+    /// Extensions (used in JA4_c)
     pub extensions: Vec<u16>,
+    /// Elliptic curves (parsed for completeness, not used in JA4)
     pub elliptic_curves: Vec<u16>,
+    /// Elliptic curve point formats (parsed for completeness, not used in JA4)
     pub elliptic_curve_point_formats: Vec<u8>,
+    /// Signature algorithms (used in JA4_c)
     pub signature_algorithms: Vec<u16>,
+    /// Server Name Indication (used in JA4_a)
     pub sni: Option<String>,
+    /// Application-Layer Protocol Negotiation (used in JA4_a)
     pub alpn: Option<String>,
 }
 
