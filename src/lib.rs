@@ -16,6 +16,8 @@ mod process;
 mod signature_matcher;
 pub mod tcp;
 mod tcp_process;
+mod tls;
+mod tls_process;
 pub mod ttl;
 mod uptime;
 pub mod window_size;
@@ -23,7 +25,7 @@ pub mod window_size;
 use crate::db::{Database, Label};
 use crate::fingerprint_result::{
     Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
-    SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
+    SynAckTCPOutput, SynTCPOutput, TlsClientOutput, UptimeOutput, WebServer,
 };
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
@@ -178,7 +180,7 @@ impl<'a> PassiveTcp<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
-                let (syn, syn_ack, mtu, uptime, http_request, http_response) = {
+                let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
                     let mtu: Option<MTUOutput> =
                         observable_package.mtu.and_then(|observable_mtu| {
                             self.matcher.matching_by_mtu(&observable_mtu.value).map(
@@ -284,7 +286,24 @@ impl<'a> PassiveTcp<'a> {
                             sig: observable_http_response,
                         });
 
-                    (syn, syn_ack, mtu, uptime, http_request, http_response)
+                    let tls_client: Option<TlsClientOutput> =
+                        observable_package
+                            .tls_client
+                            .map(|observable_tls| TlsClientOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                sig: observable_tls,
+                            });
+
+                    (
+                        syn,
+                        syn_ack,
+                        mtu,
+                        uptime,
+                        http_request,
+                        http_response,
+                        tls_client,
+                    )
                 };
 
                 FingerprintResult {
@@ -294,6 +313,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime,
                     http_request,
                     http_response,
+                    tls_client,
                 }
             }
             Err(error) => {
@@ -305,6 +325,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime: None,
                     http_request: None,
                     http_response: None,
+                    tls_client: None,
                 }
             }
         }

@@ -1,12 +1,13 @@
 use crate::error::PassiveTcpError;
 use crate::http_process::{FlowKey, ObservableHttpPackage, TcpFlow};
-use crate::observable_signals::ObservableMtu;
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::ObservableUptime;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable_signals::{ObservableMtu, ObservableTlsClient};
 use crate::tcp_process::ObservableTCPPackage;
+use crate::tls_process::ObservableTlsPackage;
 use crate::uptime::{Connection, SynData};
-use crate::{http_process, tcp_process};
+use crate::{http_process, tcp_process, tls_process};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -33,6 +34,7 @@ pub struct ObservablePackage {
     pub uptime: Option<ObservableUptime>,
     pub http_request: Option<ObservableHttpRequest>,
     pub http_response: Option<ObservableHttpResponse>,
+    pub tls_client: Option<ObservableTlsClient>,
 }
 
 impl ObservablePackage {
@@ -114,13 +116,19 @@ pub fn process_ipv4(
 
         let tcp_handle = s.spawn(|_| {
             let packet = Ipv4Packet::new(&packet_data).unwrap();
-            tcp_process::process_tcp_ipv4(tcp_cache, &packet)
+            tcp_process::process_tcp_ipv4(&packet, tcp_cache)
+        });
+
+        let tls_handle = s.spawn(|_| {
+            let packet = Ipv4Packet::new(&packet_data).unwrap();
+            tls_process::process_tls_ipv4(&packet)
         });
 
         let http_response = http_handle.join().unwrap();
         let tcp_response = tcp_handle.join().unwrap();
+        let tls_response = tls_handle.join().unwrap();
 
-        handle_http_tcp_responses(http_response, tcp_response)
+        handle_http_tcp_tlc(http_response, tcp_response, tls_response)
     })
     .unwrap()
 }
@@ -147,23 +155,30 @@ pub fn process_ipv6(
 
         let tcp_handle = s.spawn(|_| {
             let packet = Ipv6Packet::new(&packet_data).unwrap();
-            tcp_process::process_tcp_ipv6(tcp_cache, &packet)
+            tcp_process::process_tcp_ipv6(&packet, tcp_cache)
+        });
+
+        let tls_handle = s.spawn(|_| {
+            let packet = Ipv6Packet::new(&packet_data).unwrap();
+            tls_process::process_tls_ipv6(&packet)
         });
 
         let http_response = http_handle.join().unwrap();
         let tcp_response = tcp_handle.join().unwrap();
+        let tls_response = tls_handle.join().unwrap();
 
-        handle_http_tcp_responses(http_response, tcp_response)
+        handle_http_tcp_tlc(http_response, tcp_response, tls_response)
     })
     .unwrap()
 }
 
-fn handle_http_tcp_responses(
+fn handle_http_tcp_tlc(
     http_response: Result<ObservableHttpPackage, PassiveTcpError>,
     tcp_response: Result<ObservableTCPPackage, PassiveTcpError>,
+    tls_response: Result<ObservableTlsPackage, PassiveTcpError>,
 ) -> Result<ObservablePackage, PassiveTcpError> {
-    match (http_response, tcp_response) {
-        (Ok(http_package), Ok(tcp_package)) => Ok(ObservablePackage {
+    match (http_response, tcp_response, tls_response) {
+        (Ok(http_package), Ok(tcp_package), Ok(tls_package)) => Ok(ObservablePackage {
             source: tcp_package.source,
             destination: tcp_package.destination,
             tcp_request: tcp_package.tcp_request,
@@ -172,8 +187,10 @@ fn handle_http_tcp_responses(
             uptime: tcp_package.uptime,
             http_request: http_package.http_request,
             http_response: http_package.http_response,
+            tls_client: tls_package.tls_client,
         }),
-        (Err(http_err), _) => Err(http_err),
-        (_, Err(tcp_err)) => Err(tcp_err),
+        (Err(http_err), _, _) => Err(http_err),
+        (_, Err(tcp_err), _) => Err(tcp_err),
+        (_, _, Err(tls_err)) => Err(tls_err),
     }
 }
