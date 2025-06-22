@@ -124,6 +124,7 @@ fn extract_tls_signature_from_client_hello(
     let mut elliptic_curves = Vec::new();
     let mut elliptic_curve_point_formats = Vec::new();
 
+    // Parse extensions if present - if not present, we still generate JA4 with empty extension fields
     if let Some(ext_data) = &client_hello.ext {
         match parse_tls_extensions(ext_data) {
             Ok((_remaining, parsed_extensions)) => {
@@ -163,10 +164,6 @@ fn extract_tls_signature_from_client_hello(
                 debug!("Failed to parse TLS extensions: {:?}", e);
             }
         }
-    } else {
-        return Err(PassiveTcpError::Parse(
-            "No extension data found in ClientHello.ext field".to_string(),
-        ));
     }
 
     let version = determine_tls_version(&client_hello.version, &extensions);
@@ -365,5 +362,181 @@ mod tests {
         assert_eq!(ja4.ja4.variant_name(), "ja4"); // Sorted version
         let ja4_original = sig.generate_ja4_original();
         assert_eq!(ja4_original.ja4.variant_name(), "ja4_o"); // Unsorted version
+    }
+
+    #[test]
+    fn test_extract_signature_with_mock_client_hello() {
+        use tls_parser::{TlsCipherSuiteID, TlsClientHelloContents, TlsCompressionID, TlsVersion};
+
+        // Create a mock ClientHello with basic fields but no extensions
+        let client_hello = TlsClientHelloContents {
+            version: TlsVersion::Tls12,
+            random: &[0u8; 32], // 32 bytes for TLS random
+            session_id: None,
+            ciphers: vec![
+                TlsCipherSuiteID(0x1301), // TLS_AES_128_GCM_SHA256
+                TlsCipherSuiteID(0x0a0a), // GREASE value - should be filtered
+                TlsCipherSuiteID(0x1302), // TLS_AES_256_GCM_SHA384
+            ],
+            comp: vec![TlsCompressionID(0)], // NULL compression
+            ext: None, // No extensions - should still generate JA4 with empty extension fields
+        };
+
+        // Should succeed and generate JA4 with empty extension fields (matching JA4 spec)
+        let result = extract_tls_signature_from_client_hello(&client_hello);
+        assert!(result.is_ok());
+
+        let signature = result.unwrap();
+        assert_eq!(signature.version, crate::tls::TlsVersion::V1_2);
+        assert_eq!(signature.cipher_suites.len(), 2); // GREASE filtered out
+        assert!(signature.cipher_suites.contains(&0x1301));
+        assert!(signature.cipher_suites.contains(&0x1302));
+        assert!(!signature.cipher_suites.contains(&0x0a0a)); // GREASE filtered
+        assert!(signature.extensions.is_empty()); // No extensions
+        assert!(signature.signature_algorithms.is_empty()); // No signature algorithms
+        assert!(signature.sni.is_none()); // No SNI
+        assert!(signature.alpn.is_none()); // No ALPN
+
+        // Should be able to generate JA4 fingerprint
+        let ja4 = signature.generate_ja4();
+        assert!(ja4.ja4_a.starts_with("t12i")); // TLS 1.2, no SNI (i = no SNI)
+        assert!(!ja4.ja4_b.is_empty()); // Cipher suites present
+                                        // ja4_c might be empty or just a hash of empty extensions
+    }
+
+    #[test]
+    fn test_extract_signature_grease_filtering() {
+        use tls_parser::{TlsCipherSuiteID, TlsClientHelloContents, TlsCompressionID, TlsVersion};
+
+        // Test that GREASE values are properly filtered from cipher suites
+        let client_hello = TlsClientHelloContents {
+            version: TlsVersion::Tls12,
+            random: &[0u8; 32],
+            session_id: None,
+            ciphers: vec![
+                TlsCipherSuiteID(0x1301), // Valid cipher
+                TlsCipherSuiteID(0x0a0a), // GREASE - should be filtered
+                TlsCipherSuiteID(0x1a1a), // GREASE - should be filtered
+                TlsCipherSuiteID(0x1302), // Valid cipher
+                TlsCipherSuiteID(0x2a2a), // GREASE - should be filtered
+            ],
+            comp: vec![TlsCompressionID(0)],
+            ext: Some(&[0x00, 0x00, 0x00, 0x00]), // Minimal extension data
+        };
+
+        // Mock the extension parsing by providing minimal valid extension data
+        if let Ok(signature) = extract_tls_signature_from_client_hello(&client_hello) {
+            // Should only contain non-GREASE cipher suites
+            assert_eq!(signature.cipher_suites.len(), 2);
+            assert!(signature.cipher_suites.contains(&0x1301));
+            assert!(signature.cipher_suites.contains(&0x1302));
+            assert!(!signature.cipher_suites.contains(&0x0a0a));
+            assert!(!signature.cipher_suites.contains(&0x1a1a));
+            assert!(!signature.cipher_suites.contains(&0x2a2a));
+        }
+    }
+
+    #[test]
+    fn test_signature_struct_completeness() {
+        let signature = crate::tls::Signature {
+            version: TlsVersion::V1_2,
+            cipher_suites: vec![0x1301, 0x1302],
+            extensions: vec![0x0000, 0x0010, 0x000d],
+            elliptic_curves: vec![0x001d, 0x0017],
+            elliptic_curve_point_formats: vec![0x00], // uncompressed
+            signature_algorithms: vec![0x0403, 0x0804],
+            sni: Some("example.com".to_string()),
+            alpn: Some("h2".to_string()),
+        };
+
+        // Verify all fields are accessible and have correct types
+        assert_eq!(signature.version, TlsVersion::V1_2);
+        assert_eq!(signature.cipher_suites, vec![0x1301, 0x1302]);
+        assert_eq!(signature.extensions, vec![0x0000, 0x0010, 0x000d]);
+        assert_eq!(signature.elliptic_curves, vec![0x001d, 0x0017]);
+        assert_eq!(signature.elliptic_curve_point_formats, vec![0x00]);
+        assert_eq!(signature.signature_algorithms, vec![0x0403, 0x0804]);
+        assert_eq!(signature.sni, Some("example.com".to_string()));
+        assert_eq!(signature.alpn, Some("h2".to_string()));
+
+        // Verify JA4 generation works with complete signature
+        let ja4 = signature.generate_ja4();
+        assert!(ja4.ja4_a.starts_with("t12d")); // TLS 1.2, SNI present
+        assert!(!ja4.ja4_b.is_empty());
+        assert!(!ja4.ja4_c.is_empty());
+    }
+
+    #[test]
+    fn test_extension_parsing_edge_cases() {
+        // Test empty extension list
+        let empty_extensions: Vec<u16> = vec![];
+        assert_eq!(
+            determine_tls_version(&tls_parser::TlsVersion::Tls12, &empty_extensions),
+            TlsVersion::V1_2
+        );
+
+        // Test with supported_versions extension (should detect TLS 1.3)
+        let tls13_extensions = vec![TlsExtensionType::SupportedVersions.into()];
+        assert_eq!(
+            determine_tls_version(&tls_parser::TlsVersion::Tls12, &tls13_extensions),
+            TlsVersion::V1_3
+        );
+
+        // Test with mixed extensions
+        let mixed_extensions = vec![
+            TlsExtensionType::ServerName.into(),
+            TlsExtensionType::ApplicationLayerProtocolNegotiation.into(),
+            TlsExtensionType::SupportedVersions.into(),
+        ];
+        assert_eq!(
+            determine_tls_version(&tls_parser::TlsVersion::Tls12, &mixed_extensions),
+            TlsVersion::V1_3
+        );
+    }
+
+    #[test]
+    fn test_ssl_version_support() {
+        // Test that SSL 3.0 is properly supported (even though rare)
+        let ssl30 = tls_parser::TlsVersion::Ssl30;
+        assert_eq!(determine_tls_version(&ssl30, &[]), TlsVersion::Ssl3_0);
+
+        // Test SSL 3.0 display formatting
+        assert_eq!(TlsVersion::Ssl3_0.to_string(), "s3");
+
+        // Test that SSL 3.0 is included in TLS traffic detection range
+        let ssl30_payload = vec![0x16, 0x03, 0x00, 0x00, 0x05]; // SSL 3.0 handshake
+        assert!(is_tls_traffic(&ssl30_payload));
+    }
+
+    #[test]
+    fn test_extract_signature_minimal_extensions() {
+        use tls_parser::{TlsCipherSuiteID, TlsClientHelloContents, TlsCompressionID, TlsVersion};
+
+        // Test with minimal extension data that might not parse correctly
+        let client_hello = TlsClientHelloContents {
+            version: TlsVersion::Tls12,
+            random: &[0u8; 32],
+            session_id: None,
+            ciphers: vec![
+                TlsCipherSuiteID(0x1301), // Valid cipher
+                TlsCipherSuiteID(0x1302), // Valid cipher
+            ],
+            comp: vec![TlsCompressionID(0)],
+            ext: Some(&[0x00, 0x00]), // Minimal extension data that might fail to parse
+        };
+
+        // Should succeed even if extension parsing fails - falls back to empty extensions
+        let result = extract_tls_signature_from_client_hello(&client_hello);
+        assert!(result.is_ok());
+
+        let signature = result.unwrap();
+        assert_eq!(signature.version, crate::tls::TlsVersion::V1_2);
+        assert_eq!(signature.cipher_suites.len(), 2);
+        // Extensions might be empty if parsing failed, but that's OK for JA4
+
+        // Should be able to generate JA4 fingerprint regardless
+        let ja4 = signature.generate_ja4();
+        assert!(ja4.ja4_a.starts_with("t12i")); // TLS 1.2, no SNI
+        assert!(!ja4.ja4_b.is_empty()); // Cipher suites present
     }
 }
