@@ -201,16 +201,20 @@ fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
     extensions: &[u16],
 ) -> TlsVersion {
+    // TLS 1.3 uses supported_versions extension
     if extensions.contains(&TlsExtensionType::SupportedVersions.into()) {
-        debug!("Found supported_versions extension, this is TLS 1.3");
         return TlsVersion::V1_3;
     }
 
+    // Parse legacy version from ClientHello
     match *legacy_version {
         tls_parser::TlsVersion::Tls13 => TlsVersion::V1_3,
         tls_parser::TlsVersion::Tls12 => TlsVersion::V1_2,
         tls_parser::TlsVersion::Tls11 => TlsVersion::V1_1,
         tls_parser::TlsVersion::Tls10 => TlsVersion::V1_0,
+        // Legacy SSL 3.0 (rarely seen in modern traffic)
+        tls_parser::TlsVersion::Ssl30 => TlsVersion::Ssl3_0,
+        // Note: SSL 2.0 is not supported by tls-parser (too legacy/vulnerable)
         _ => {
             debug!(
                 "Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2",
@@ -311,6 +315,18 @@ mod tests {
             ),
             TlsVersion::V1_3
         );
+
+        // Test TLS 1.1 detection
+        let legacy_v11 = tls_parser::TlsVersion::Tls11;
+        assert_eq!(determine_tls_version(&legacy_v11, &[]), TlsVersion::V1_1);
+
+        // Test TLS 1.0 detection
+        let legacy_v10 = tls_parser::TlsVersion::Tls10;
+        assert_eq!(determine_tls_version(&legacy_v10, &[]), TlsVersion::V1_0);
+
+        // Test SSL 3.0 detection (legacy)
+        let ssl30 = tls_parser::TlsVersion::Ssl30;
+        assert_eq!(determine_tls_version(&ssl30, &[]), TlsVersion::Ssl3_0);
     }
 
     #[test]

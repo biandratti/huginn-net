@@ -2,22 +2,28 @@ use sha2::{Digest, Sha256};
 use std::fmt::{self};
 
 /// TLS version enumeration for fingerprinting
+/// Includes legacy SSL versions for complete JA4 specification compatibility.
+/// Note: SSL 2.0 is not supported by tls-parser (too legacy/vulnerable)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TlsVersion {
-    V1_0,
-    V1_1,
-    V1_2,
     V1_3,
+    V1_2,
+    V1_1,
+    V1_0,
+    Ssl3_0,
+    Ssl2_0,
     Unknown(u16),
 }
 
 impl fmt::Display for TlsVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TlsVersion::V1_0 => write!(f, "10"),
-            TlsVersion::V1_1 => write!(f, "11"),
-            TlsVersion::V1_2 => write!(f, "12"),
             TlsVersion::V1_3 => write!(f, "13"),
+            TlsVersion::V1_2 => write!(f, "12"),
+            TlsVersion::V1_1 => write!(f, "11"),
+            TlsVersion::V1_0 => write!(f, "10"),
+            TlsVersion::Ssl3_0 => write!(f, "s3"),
+            TlsVersion::Ssl2_0 => write!(f, "s2"),
             TlsVersion::Unknown(_) => write!(f, "00"),
         }
     }
@@ -440,7 +446,26 @@ mod tests {
         assert_eq!(format!("{}", TlsVersion::V1_1), "11");
         assert_eq!(format!("{}", TlsVersion::V1_2), "12");
         assert_eq!(format!("{}", TlsVersion::V1_3), "13");
+        assert_eq!(format!("{}", TlsVersion::Ssl3_0), "s3");
+        assert_eq!(format!("{}", TlsVersion::Ssl2_0), "s2");
         assert_eq!(format!("{}", TlsVersion::Unknown(0x0305)), "00");
+    }
+
+    #[test]
+    fn test_ssl_version_in_ja4() {
+        // Test that SSL 3.0 appears correctly in JA4 fingerprint
+        let mut signature = create_test_signature();
+        signature.version = TlsVersion::Ssl3_0;
+
+        let ja4 = signature.generate_ja4();
+        let ja4_string = ja4.ja4.value();
+
+        // Should start with "ts3d" (t=TLS, s3=SSL3.0, d=SNI present)
+        assert!(
+            ja4_string.starts_with("ts3d"),
+            "JA4 should start with 'ts3d' for SSL 3.0, got: {}",
+            ja4_string
+        );
     }
 
     #[test]
@@ -459,8 +484,6 @@ mod tests {
     #[test]
     fn test_cipher_extension_count_limits() {
         let mut sig = create_test_signature();
-
-        let ja4_normal = sig.generate_ja4();
 
         // Test with more than 99 ciphers
         sig.cipher_suites = (0..150).map(|i| i as u16).collect();
