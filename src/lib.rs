@@ -25,7 +25,7 @@ pub mod window_size;
 use crate::db::{Database, Label};
 use crate::fingerprint_result::{
     Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
-    SynAckTCPOutput, SynTCPOutput, TlsOutput, UptimeOutput, WebServer,
+    SynAckTCPOutput, SynTCPOutput, TlsClientOutput, UptimeOutput, WebServer,
 };
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
@@ -286,16 +286,24 @@ impl<'a> PassiveTcp<'a> {
                             sig: observable_http_response,
                         });
 
-                    let tls: Option<TlsOutput> =
+                    let tls_client: Option<TlsClientOutput> =
                         observable_package
                             .tls_client
-                            .map(|observable_tls| TlsOutput {
+                            .map(|observable_tls| TlsClientOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 sig: observable_tls,
                             });
 
-                    (syn, syn_ack, mtu, uptime, http_request, http_response, tls)
+                    (
+                        syn,
+                        syn_ack,
+                        mtu,
+                        uptime,
+                        http_request,
+                        http_response,
+                        tls_client,
+                    )
                 };
 
                 FingerprintResult {
@@ -305,7 +313,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime,
                     http_request,
                     http_response,
-                    tls,
+                    tls_client: tls,
                 }
             }
             Err(error) => {
@@ -317,7 +325,7 @@ impl<'a> PassiveTcp<'a> {
                     uptime: None,
                     http_request: None,
                     http_response: None,
-                    tls: None,
+                    tls_client: None,
                 }
             }
         }

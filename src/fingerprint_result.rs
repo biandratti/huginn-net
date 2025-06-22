@@ -1,7 +1,7 @@
 use crate::db::{Label, Type};
 use crate::http::HttpDiagnosis;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::observable_signals::{ObservableTcp, ObservableTls};
+use crate::observable_signals::{ObservableTcp, ObservableTlsClient};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use std::fmt;
@@ -30,8 +30,8 @@ pub struct FingerprintResult {
     /// Information derived from HTTP response headers.
     pub http_response: Option<HttpResponseOutput>,
 
-    /// Information derived from TLS ClientHello analysis.
-    pub tls: Option<TlsOutput>,
+    /// Information derived from TLS ClientHello analysis. Based on FoxIO-LLC
+    pub tls_client: Option<TlsClientOutput>,
 }
 
 /// Represents an operative system.
@@ -425,16 +425,16 @@ impl fmt::Display for HttpResponseOutput {
 ///
 /// This structure contains details about the TLS client based on its ClientHello packet,
 /// including the JA4 Payload and extracted TLS parameters.
-pub struct TlsOutput {
+pub struct TlsClientOutput {
     /// The source IP address and port of the client sending the ClientHello.
     pub source: IpPort,
     /// The destination IP address and port of the server receiving the ClientHello.
     pub destination: IpPort,
     /// The raw TLS signature extracted from the ClientHello packet.
-    pub sig: ObservableTls,
+    pub sig: ObservableTlsClient,
 }
 
-impl fmt::Display for TlsOutput {
+impl fmt::Display for TlsClientOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,

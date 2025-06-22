@@ -3,7 +3,7 @@ use crate::http_process::{FlowKey, ObservableHttpPackage, TcpFlow};
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::ObservableUptime;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::observable_signals::{ObservableMtu, ObservableTls};
+use crate::observable_signals::{ObservableMtu, ObservableTlsClient};
 use crate::tcp_process::ObservableTCPPackage;
 use crate::tls_process::ObservableTlsPackage;
 use crate::uptime::{Connection, SynData};
@@ -34,7 +34,7 @@ pub struct ObservablePackage {
     pub uptime: Option<ObservableUptime>,
     pub http_request: Option<ObservableHttpRequest>,
     pub http_response: Option<ObservableHttpResponse>,
-    pub tls_client: Option<ObservableTls>,
+    pub tls_client: Option<ObservableTlsClient>,
 }
 
 impl ObservablePackage {

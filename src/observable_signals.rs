@@ -25,9 +25,9 @@ pub struct ObservableTcp {
     pub pclass: PayloadSize,
 }
 
-// Observable TLS signals
+// Observable TLS Client signals
 #[derive(Debug, Clone)]
-pub struct ObservableTls {
+pub struct ObservableTlsClient {
     /// TLS version from ClientHello
     pub version: TlsVersion,
     /// Server Name Indication (SNI) if present

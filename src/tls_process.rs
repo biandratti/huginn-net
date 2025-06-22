@@ -1,5 +1,5 @@
 use crate::error::PassiveTcpError;
-use crate::observable_signals::ObservableTls;
+use crate::observable_signals::ObservableTlsClient;
 use crate::tls::{Signature, TlsVersion, TLS_GREASE_VALUES};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
@@ -15,7 +15,7 @@ use tracing::debug;
 /// Result of TLS packet processing
 #[derive(Debug)]
 pub struct ObservableTlsPackage {
-    pub tls_client: Option<ObservableTls>,
+    pub tls_client: Option<ObservableTlsClient>,
 }
 
 pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, PassiveTcpError> {
@@ -54,7 +54,7 @@ fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, PassiveTcpEr
             let ja4 = signature.generate_ja4();
             let ja4_original = signature.generate_ja4_original();
             ObservableTlsPackage {
-                tls_client: Some(ObservableTls {
+                tls_client: Some(ObservableTlsClient {
                     version: signature.version,
                     sni: signature.sni,
                     alpn: signature.alpn,
