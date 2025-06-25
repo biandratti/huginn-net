@@ -108,7 +108,9 @@ impl fmt::Display for SynTCPOutput {
             }),
             match self.sig.ittl {
                 Ttl::Distance(_, distance) => distance,
-                _ => "Unknown".parse().unwrap(),
+                Ttl::Bad(value) => value,
+                Ttl::Value(value) => value,
+                Ttl::Guess(value) => value,
             },
             self.os_matched
                 .as_ref()
