@@ -16,16 +16,22 @@ mod process;
 mod signature_matcher;
 pub mod tcp;
 mod tcp_process;
+#[cfg(feature = "tls")]
 mod tls;
+#[cfg(feature = "tls")]
 mod tls_process;
 pub mod ttl;
 mod uptime;
 pub mod window_size;
 
 use crate::db::{Database, Label};
+#[cfg(feature = "tls")]
+use crate::fingerprint_result::TlsClientOutput;
+#[cfg(feature = "tls")]
+use crate::fingerprint_result::TlsProtocol;
 use crate::fingerprint_result::{
     Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
-    SynAckTCPOutput, SynTCPOutput, TlsClientOutput, UptimeOutput, WebServer,
+    SynAckTCPOutput, SynTCPOutput, UptimeOutput, WebServer,
 };
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
@@ -35,9 +41,9 @@ use crate::uptime::{Connection, SynData};
 use fingerprint_result::BrowserQualityMatched;
 use fingerprint_result::OSQualityMatched;
 use fingerprint_result::WebServerQualityMatched;
-pub use observable_signals::{
-    ObservableHttpRequest, ObservableHttpResponse, ObservableTcp, ObservableTlsClient,
-};
+#[cfg(feature = "tls")]
+pub use observable_signals::ObservableTlsClient;
+pub use observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;
@@ -182,63 +188,60 @@ impl<'a> PassiveTcp<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
             Ok(observable_package) => {
-                let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
-                    let mtu: Option<MTUOutput> =
-                        observable_package.mtu.and_then(|observable_mtu| {
-                            self.matcher.matching_by_mtu(&observable_mtu.value).map(
-                                |(link, _mtu_result)| MTUOutput {
-                                    source: observable_package.source.clone(),
-                                    destination: observable_package.destination.clone(),
-                                    link: link.clone(),
-                                    mtu: observable_mtu.value,
-                                },
-                            )
-                        });
-
-                    let syn: Option<SynTCPOutput> =
-                        observable_package
-                            .tcp_request
-                            .map(|observable_tcp| SynTCPOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
-                                os_matched: self
-                                    .matcher
-                                    .matching_by_tcp_request(&observable_tcp)
-                                    .map(|(label, _signature, quality)| OSQualityMatched {
-                                        os: OperativeSystem::from(label),
-                                        quality,
-                                    }),
-                                sig: observable_tcp,
-                            });
-
-                    let syn_ack: Option<SynAckTCPOutput> =
-                        observable_package
-                            .tcp_response
-                            .map(|observable_tcp| SynAckTCPOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
-                                os_matched: self
-                                    .matcher
-                                    .matching_by_tcp_response(&observable_tcp)
-                                    .map(|(label, _signature, quality)| OSQualityMatched {
-                                        os: OperativeSystem::from(label),
-                                        quality,
-                                    }),
-                                sig: observable_tcp,
-                            });
-
-                    let uptime: Option<UptimeOutput> =
-                        observable_package.uptime.map(|update| UptimeOutput {
+                let mtu: Option<MTUOutput> = observable_package.mtu.and_then(|observable_mtu| {
+                    self.matcher.matching_by_mtu(&observable_mtu.value).map(
+                        |(link, _mtu_result)| MTUOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
-                            days: update.days,
-                            hours: update.hours,
-                            min: update.min,
-                            up_mod_days: update.up_mod_days,
-                            freq: update.freq,
+                            link: link.clone(),
+                            mtu: observable_mtu.value,
+                        },
+                    )
+                });
+
+                let syn: Option<SynTCPOutput> =
+                    observable_package
+                        .tcp_request
+                        .map(|observable_tcp| SynTCPOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            os_matched: self.matcher.matching_by_tcp_request(&observable_tcp).map(
+                                |(label, _signature, quality)| OSQualityMatched {
+                                    os: OperativeSystem::from(label),
+                                    quality,
+                                },
+                            ),
+                            sig: observable_tcp,
                         });
 
-                    let http_request: Option<HttpRequestOutput> = observable_package
+                let syn_ack: Option<SynAckTCPOutput> =
+                    observable_package
+                        .tcp_response
+                        .map(|observable_tcp| SynAckTCPOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            os_matched: self.matcher.matching_by_tcp_response(&observable_tcp).map(
+                                |(label, _signature, quality)| OSQualityMatched {
+                                    os: OperativeSystem::from(label),
+                                    quality,
+                                },
+                            ),
+                            sig: observable_tcp,
+                        });
+
+                let uptime: Option<UptimeOutput> =
+                    observable_package.uptime.map(|update| UptimeOutput {
+                        source: observable_package.source.clone(),
+                        destination: observable_package.destination.clone(),
+                        days: update.days,
+                        hours: update.hours,
+                        min: update.min,
+                        up_mod_days: update.up_mod_days,
+                        freq: update.freq,
+                    });
+
+                let http_request: Option<HttpRequestOutput> =
+                    observable_package
                         .http_request
                         .map(|observable_http_request| {
                             let signature_matcher: Option<(&Label, &Signature, f32)> = self
@@ -272,40 +275,31 @@ impl<'a> PassiveTcp<'a> {
                             }
                         });
 
-                    let http_response: Option<HttpResponseOutput> = observable_package
-                        .http_response
-                        .map(|observable_http_response| HttpResponseOutput {
+                let http_response: Option<HttpResponseOutput> = observable_package
+                    .http_response
+                    .map(|observable_http_response| HttpResponseOutput {
+                        source: observable_package.source.clone(),
+                        destination: observable_package.destination.clone(),
+                        web_server_matched: self
+                            .matcher
+                            .matching_by_http_response(&observable_http_response)
+                            .map(|(label, _signature, quality)| WebServerQualityMatched {
+                                web_server: WebServer::from(label),
+                                quality,
+                            }),
+                        diagnosis: HttpDiagnosis::None,
+                        sig: observable_http_response,
+                    });
+
+                #[cfg(feature = "tls")]
+                let tls = TlsProtocol {
+                    client: observable_package
+                        .tls_client
+                        .map(|observable_tls| TlsClientOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
-                            web_server_matched: self
-                                .matcher
-                                .matching_by_http_response(&observable_http_response)
-                                .map(|(label, _signature, quality)| WebServerQualityMatched {
-                                    web_server: WebServer::from(label),
-                                    quality,
-                                }),
-                            diagnosis: HttpDiagnosis::None,
-                            sig: observable_http_response,
-                        });
-
-                    let tls_client: Option<TlsClientOutput> =
-                        observable_package
-                            .tls_client
-                            .map(|observable_tls| TlsClientOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
-                                sig: observable_tls,
-                            });
-
-                    (
-                        syn,
-                        syn_ack,
-                        mtu,
-                        uptime,
-                        http_request,
-                        http_response,
-                        tls_client,
-                    )
+                            sig: observable_tls,
+                        }),
                 };
 
                 FingerprintResult {
@@ -315,7 +309,8 @@ impl<'a> PassiveTcp<'a> {
                     uptime,
                     http_request,
                     http_response,
-                    tls_client,
+                    #[cfg(feature = "tls")]
+                    tls,
                 }
             }
             Err(error) => {
@@ -327,7 +322,8 @@ impl<'a> PassiveTcp<'a> {
                     uptime: None,
                     http_request: None,
                     http_response: None,
-                    tls_client: None,
+                    #[cfg(feature = "tls")]
+                    tls: TlsProtocol::default(),
                 }
             }
         }

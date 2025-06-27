@@ -1,5 +1,6 @@
 use crate::http::{Header, Version};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
+#[cfg(feature = "tls")]
 use crate::tls::{Ja4Payload, TlsVersion};
 use crate::Ttl;
 
@@ -25,6 +26,7 @@ pub struct ObservableTcp {
     pub pclass: PayloadSize,
 }
 
+#[cfg(feature = "tls")]
 // Observable TLS Client signals
 #[derive(Debug, Clone)]
 pub struct ObservableTlsClient {

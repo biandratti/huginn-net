@@ -1,7 +1,9 @@
 use crate::db::{Label, Type};
 use crate::http::HttpDiagnosis;
+use crate::observable_signals::ObservableTcp;
+#[cfg(feature = "tls")]
+use crate::observable_signals::ObservableTlsClient;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::observable_signals::{ObservableTcp, ObservableTlsClient};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use std::fmt;
@@ -10,7 +12,7 @@ use std::fmt::Formatter;
 /// Represents the output from the passive TCP fingerprinting tool.
 ///
 /// This struct contains various optional outputs that can be derived
-/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and HTTP data.
+/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and protocol-specific data.
 pub struct FingerprintResult {
     /// Information derived from SYN packets.
     pub syn: Option<SynTCPOutput>,
@@ -30,8 +32,17 @@ pub struct FingerprintResult {
     /// Information derived from HTTP response headers.
     pub http_response: Option<HttpResponseOutput>,
 
+    /// TLS protocol analysis results
+    #[cfg(feature = "tls")]
+    pub tls: TlsProtocol,
+}
+
+/// Container for TLS protocol analysis results
+#[cfg(feature = "tls")]
+#[derive(Debug, Default)]
+pub struct TlsProtocol {
     /// Information derived from TLS ClientHello analysis. Based on FoxIO
-    pub tls_client: Option<TlsClientOutput>,
+    pub client: Option<TlsClientOutput>,
 }
 
 /// Represents an operative system.
@@ -427,6 +438,8 @@ impl fmt::Display for HttpResponseOutput {
 ///
 /// This structure contains details about the TLS client based on its ClientHello packet,
 /// including the JA4 Payload and extracted TLS parameters.
+#[cfg(feature = "tls")]
+#[derive(Debug)]
 pub struct TlsClientOutput {
     /// The source IP address and port of the client sending the ClientHello.
     pub source: IpPort,
@@ -436,6 +449,7 @@ pub struct TlsClientOutput {
     pub sig: ObservableTlsClient,
 }
 
+#[cfg(feature = "tls")]
 impl fmt::Display for TlsClientOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

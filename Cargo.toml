@@ -10,6 +10,10 @@ readme = "README.md"
 keywords = ["p0f", "fingerprinting", "network", "security", "TCP"]
 categories = ["network-programming"]
 
+[features]
+default = []
+tls = ["tls-parser"]
+
 [dependencies]
 nom = "8.0.0"
 pnet = "0.35.0"
@@ -21,7 +25,7 @@ httparse = "1.10.1"
 crossbeam = "0.8.4"
 pcap-file = "3.0.0-rc1"
 sha2 = "0.10.9"
-tls-parser = "0.12.2"
+tls-parser = { version = "0.12.2", optional = true }
 
 [dev-dependencies]
 clap = { version = "4.5.40", features = ["derive"] }

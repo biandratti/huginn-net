@@ -3,14 +3,22 @@
 ip link show
 ```
 
-### Process packages
+### Enable TLS packages 
 ```
-# Build package
+cargo build --release --examples --features tls
+```
+
+### Enable other features
+```
 cargo build --release --examples
+```
 
-# Live capture
+### Live capture
+```
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> live -i <INTERFACE>                       
+```
 
-# PCAP analysis
+### PCAP analysis
+```
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> pcap -f <TCP_TRAFFIC>.pcap
 ```

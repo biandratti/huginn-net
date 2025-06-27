@@ -105,7 +105,8 @@ fn main() {
         if let Some(http_response) = output.http_response {
             info!("{}", http_response);
         }
-        if let Some(tls_client) = output.tls_client {
+        #[cfg(feature = "tls")]
+        if let Some(tls_client) = output.tls.client {
             info!("{}", tls_client);
         }
     }
