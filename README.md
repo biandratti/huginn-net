@@ -81,7 +81,7 @@ use std::sync::mpsc;
 // Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
-let passive_tcp = PassiveTcp::new(db, 100);
+let passive_tcp = PassiveTcp::new(Some(db), 100, None);
 
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
