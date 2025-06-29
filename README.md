@@ -168,7 +168,7 @@ for output in receiver {
 | raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
 `----
 
-.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls) ]-
+.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls client) ]-
 |
 | client   = 192.168.1.10/45234
 | ja4      = t13d1516h2_8daaf6152771_b0da82dd1658

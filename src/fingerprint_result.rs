@@ -441,7 +441,7 @@ impl fmt::Display for TlsClientOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (tls) ]-\n\
+            ".-[ {}/{} -> {}/{} (tls client) ]-\n\
             |\n\
             | client   = {}/{}\n\
             | ja4      = {}\n\
