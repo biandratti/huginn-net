@@ -103,7 +103,7 @@ pub fn process_ipv4(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     packet: Ipv4Packet,
-    _config: &AnalysisConfig,
+    config: &AnalysisConfig,
 ) -> Result<ObservablePackage, PassiveTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(PassiveTcpError::UnsupportedProtocol(format!(
@@ -115,24 +115,49 @@ pub fn process_ipv4(
     let packet_data = packet.packet().to_vec();
 
     crossbeam::scope(|s| {
-        let http_handle = s.spawn(|_| {
-            let packet = Ipv4Packet::new(&packet_data).unwrap();
-            http_process::process_http_ipv4(&packet, http_cache)
+        let http_handle = if config.http_enabled {
+            Some(s.spawn(|_| {
+                let packet = Ipv4Packet::new(&packet_data).unwrap();
+                http_process::process_http_ipv4(&packet, http_cache)
+            }))
+        } else {
+            None
+        };
+
+        let tcp_handle = if config.tcp_enabled {
+            Some(s.spawn(|_| {
+                let packet = Ipv4Packet::new(&packet_data).unwrap();
+                tcp_process::process_tcp_ipv4(&packet, tcp_cache)
+            }))
+        } else {
+            None
+        };
+
+        let tls_handle = if config.tls_enabled {
+            Some(s.spawn(|_| {
+                let packet = Ipv4Packet::new(&packet_data).unwrap();
+                tls_process::process_tls_ipv4(&packet)
+            }))
+        } else {
+            None
+        };
+
+        let http_response = http_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
+            Ok(ObservableHttpPackage {
+                http_request: None,
+                http_response: None,
+            })
         });
 
-        let tcp_handle = s.spawn(|_| {
-            let packet = Ipv4Packet::new(&packet_data).unwrap();
-            tcp_process::process_tcp_ipv4(&packet, tcp_cache)
+        let tcp_response = tcp_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
+            Err(PassiveTcpError::UnsupportedProtocol(
+                "TCP analysis disabled".to_string(),
+            ))
         });
 
-        let tls_handle = s.spawn(|_| {
-            let packet = Ipv4Packet::new(&packet_data).unwrap();
-            tls_process::process_tls_ipv4(&packet)
-        });
-
-        let http_response = http_handle.join().unwrap();
-        let tcp_response = tcp_handle.join().unwrap();
-        let tls_response = tls_handle.join().unwrap();
+        let tls_response = tls_handle
+            .map(|h| h.join().unwrap())
+            .unwrap_or_else(|| Ok(ObservableTlsPackage { tls_client: None }));
 
         handle_http_tcp_tlc(http_response, tcp_response, tls_response)
     })
@@ -143,7 +168,7 @@ pub fn process_ipv6(
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     packet: Ipv6Packet,
-    _config: &AnalysisConfig,
+    config: &AnalysisConfig,
 ) -> Result<ObservablePackage, PassiveTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(PassiveTcpError::UnsupportedProtocol(format!(
@@ -155,24 +180,49 @@ pub fn process_ipv6(
     let packet_data = packet.packet().to_vec();
 
     crossbeam::scope(|s| {
-        let http_handle = s.spawn(|_| {
-            let packet = Ipv6Packet::new(&packet_data).unwrap();
-            http_process::process_http_ipv6(&packet, http_cache)
+        let http_handle = if config.http_enabled {
+            Some(s.spawn(|_| {
+                let packet = Ipv6Packet::new(&packet_data).unwrap();
+                http_process::process_http_ipv6(&packet, http_cache)
+            }))
+        } else {
+            None
+        };
+
+        let tcp_handle = if config.tcp_enabled {
+            Some(s.spawn(|_| {
+                let packet = Ipv6Packet::new(&packet_data).unwrap();
+                tcp_process::process_tcp_ipv6(&packet, tcp_cache)
+            }))
+        } else {
+            None
+        };
+
+        let tls_handle = if config.tls_enabled {
+            Some(s.spawn(|_| {
+                let packet = Ipv6Packet::new(&packet_data).unwrap();
+                tls_process::process_tls_ipv6(&packet)
+            }))
+        } else {
+            None
+        };
+
+        let http_response = http_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
+            Ok(ObservableHttpPackage {
+                http_request: None,
+                http_response: None,
+            })
         });
 
-        let tcp_handle = s.spawn(|_| {
-            let packet = Ipv6Packet::new(&packet_data).unwrap();
-            tcp_process::process_tcp_ipv6(&packet, tcp_cache)
+        let tcp_response = tcp_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
+            Err(PassiveTcpError::UnsupportedProtocol(
+                "TCP analysis disabled".to_string(),
+            ))
         });
 
-        let tls_handle = s.spawn(|_| {
-            let packet = Ipv6Packet::new(&packet_data).unwrap();
-            tls_process::process_tls_ipv6(&packet)
-        });
-
-        let http_response = http_handle.join().unwrap();
-        let tcp_response = tcp_handle.join().unwrap();
-        let tls_response = tls_handle.join().unwrap();
+        let tls_response = tls_handle
+            .map(|h| h.join().unwrap())
+            .unwrap_or_else(|| Ok(ObservableTlsPackage { tls_client: None }));
 
         handle_http_tcp_tlc(http_response, tcp_response, tls_response)
     })
