@@ -70,7 +70,7 @@ impl Default for AnalysisConfig {
 ///
 /// The `PassiveTcp` struct acts as the core component of the library, handling TCP packet
 /// analysis and matching signatures using a database of known fingerprints, plus JA4 TLS
-/// client analysis following the official FoxIO specification.
+/// TLS client analysis following the official FoxIO specification.
 pub struct PassiveTcp<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     tcp_cache: TtlCache<Connection, SynData>,
