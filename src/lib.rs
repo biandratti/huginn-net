@@ -92,14 +92,24 @@ impl<'a> PassiveTcp<'a> {
         cache_capacity: usize,
         config: Option<AnalysisConfig>,
     ) -> Self {
-        let matcher: SignatureMatcher = SignatureMatcher::new(database);
-        let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
-        let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
+        let config = config.unwrap_or_default();
+
+        let tcp_cache_size = if config.tcp_enabled {
+            cache_capacity
+        } else {
+            0
+        };
+        let http_cache_size = if config.http_enabled {
+            cache_capacity
+        } else {
+            0
+        };
+
         Self {
-            matcher,
-            tcp_cache,
-            http_cache,
-            config: config.unwrap_or_default(),
+            matcher: SignatureMatcher::new(database),
+            tcp_cache: TtlCache::new(tcp_cache_size),
+            http_cache: TtlCache::new(http_cache_size),
+            config,
         }
     }
 
