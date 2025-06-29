@@ -4,6 +4,20 @@ use crate::http;
 use crate::http::{Header, HttpMatchQuality, Version};
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 
+// Helper function to compare observed headers with signature headers
+// 1. If the header name is different, return false
+// 2. If the header is optional, return true
+// 3. If the header is not optional, return true if the value is the same
+fn headers_match(observed: &Header, signature: &Header) -> bool {
+    if observed.name != signature.name {
+        return false;
+    }
+    if signature.optional {
+        return true;
+    }
+    observed.value == signature.value
+}
+
 trait HttpDistance {
     fn get_version(&self) -> Version;
     fn get_horder(&self) -> &[Header];
@@ -20,17 +34,15 @@ trait HttpDistance {
 
     // Compare two header vectors and return the number of matching headers.
     // The quality is based on the number of matching headers.
-    fn distance_header(a: &[Header], b: &[Header]) -> Option<u32> {
-        let len_a = a.len();
-        let len_b = b.len();
+    fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
+        let len_a = observed.len();
+        let len_b = signature.len();
         let min_len = len_a.min(len_b);
         let max_len = len_a.max(len_b);
 
         let mut actual_matches = 0;
         for i in 0..min_len {
-            //The match is based on the header name and value.
-            // If the header is optional, it is not considered a match.
-            if a[i] == b[i] {
+            if headers_match(&observed[i], &signature[i]) {
                 actual_matches += 1;
             }
         }
