@@ -25,6 +25,33 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 - **Network Infrastructure** - Detecting intermediary devices, proxies, and load balancers
 - **Client Capabilities** - TLS versions, cipher suites, and supported extensions
 
+### Network Stack Analysis
+
+```mermaid
+graph TB
+    subgraph "Network Layers"
+        TLS["🔐 TLS Layer<br/>JA4 Fingerprinting"]
+        HTTP["📋 HTTP Layer<br/>Headers & User-Agent"]
+        TCP["⚡ TCP Layer<br/>OS Detection (p0f-style)"]
+    end
+    
+    subgraph "passivetcp-rs"
+        ENGINE["🚀 Analysis Engine"]
+    end
+    
+    TCP --> HTTP
+    HTTP --> TLS
+    ENGINE --> TCP
+    ENGINE --> HTTP
+    ENGINE --> TLS
+    
+    classDef layer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef engine fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class TLS,HTTP,TCP layer
+    class ENGINE engine
+```
+
 #### Real-world applications:
 - **Network Security Analysis** - Identify devices, applications, and TLS clients without active scanning
 - **Asset Discovery** - Map network infrastructure and application stack passively and safely  
