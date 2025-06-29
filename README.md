@@ -64,7 +64,7 @@ flowchart LR
 ### Installation
 ```toml
 [dependencies]
-passivetcp-rs = "1.1.0"
+passivetcp-rs = "1.2.0"
 ```
 
 ###  Examples & Tutorials:

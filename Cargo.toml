@@ -1,6 +1,6 @@
 [package]
 name = "passivetcp-rs"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"
 license = "MIT"
