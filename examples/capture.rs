@@ -68,7 +68,7 @@ fn main() {
         mpsc::channel();
 
     thread::spawn(move || {
-        let mut passive_tcp = PassiveTcp::new(db, 100);
+        let mut passive_tcp = PassiveTcp::new(Some(db), 100, None);
 
         let result = match args.command {
             Commands::Live { interface } => {

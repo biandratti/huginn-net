@@ -48,10 +48,29 @@ pub use tcp::Ttl;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
+/// Configuration for protocol analysis
+#[derive(Debug, Clone)]
+pub struct AnalysisConfig {
+    pub http_enabled: bool,
+    pub tcp_enabled: bool,
+    pub tls_enabled: bool,
+}
+
+impl Default for AnalysisConfig {
+    fn default() -> Self {
+        Self {
+            http_enabled: true,
+            tcp_enabled: true,
+            tls_enabled: true,
+        }
+    }
+}
+
 pub struct PassiveTcp<'a> {
-    pub matcher: SignatureMatcher<'a>,
+    pub matcher: Option<SignatureMatcher<'a>>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
+    config: AnalysisConfig,
 }
 
 /// A passive TCP fingerprinting engine inspired by `p0f`.
@@ -62,19 +81,42 @@ impl<'a> PassiveTcp<'a> {
     /// Creates a new instance of `PassiveTcp`.
     ///
     /// # Parameters
-    /// - `database`: A reference to the database containing known TCP/IP signatures.
+    /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
+    ///   Required if HTTP or TCP analysis is enabled. Not needed for TLS-only analysis.
     /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
+    /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
     ///
     /// # Returns
-    /// A new `PassiveTcp` instance initialized with the given database and cache capacity.
-    pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
-        let matcher: SignatureMatcher = SignatureMatcher::new(database);
-        let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
-        let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
+    /// A new `PassiveTcp` instance initialized with the given database, cache capacity, and configuration.
+    pub fn new(
+        database: Option<&'a Database>,
+        cache_capacity: usize,
+        config: Option<AnalysisConfig>,
+    ) -> Self {
+        let config = config.unwrap_or_default();
+
+        let matcher = if config.tcp_enabled || config.http_enabled {
+            database.map(SignatureMatcher::new)
+        } else {
+            None
+        };
+
+        let tcp_cache_size = if config.tcp_enabled {
+            cache_capacity
+        } else {
+            0
+        };
+        let http_cache_size = if config.http_enabled {
+            cache_capacity
+        } else {
+            0
+        };
+
         Self {
             matcher,
-            tcp_cache,
-            http_cache,
+            tcp_cache: TtlCache::new(tcp_cache_size),
+            http_cache: TtlCache::new(http_cache_size),
+            config,
         }
     }
 
@@ -180,19 +222,26 @@ impl<'a> PassiveTcp<'a> {
     /// # Returns
     /// A `FingerprintResult` object containing the analysis results.
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
-        match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
+        match ObservablePackage::extract(
+            packet,
+            &mut self.tcp_cache,
+            &mut self.http_cache,
+            &self.config,
+        ) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
                     let mtu: Option<MTUOutput> =
                         observable_package.mtu.and_then(|observable_mtu| {
-                            self.matcher.matching_by_mtu(&observable_mtu.value).map(
-                                |(link, _mtu_result)| MTUOutput {
-                                    source: observable_package.source.clone(),
-                                    destination: observable_package.destination.clone(),
-                                    link: link.clone(),
-                                    mtu: observable_mtu.value,
-                                },
-                            )
+                            self.matcher.as_ref().and_then(|matcher| {
+                                matcher.matching_by_mtu(&observable_mtu.value).map(
+                                    |(link, _mtu_result)| MTUOutput {
+                                        source: observable_package.source.clone(),
+                                        destination: observable_package.destination.clone(),
+                                        link: link.clone(),
+                                        mtu: observable_mtu.value,
+                                    },
+                                )
+                            })
                         });
 
                     let syn: Option<SynTCPOutput> =
@@ -203,7 +252,10 @@ impl<'a> PassiveTcp<'a> {
                                 destination: observable_package.destination.clone(),
                                 os_matched: self
                                     .matcher
-                                    .matching_by_tcp_request(&observable_tcp)
+                                    .as_ref()
+                                    .and_then(|matcher| {
+                                        matcher.matching_by_tcp_request(&observable_tcp)
+                                    })
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: OperativeSystem::from(label),
                                         quality,
@@ -219,7 +271,10 @@ impl<'a> PassiveTcp<'a> {
                                 destination: observable_package.destination.clone(),
                                 os_matched: self
                                     .matcher
-                                    .matching_by_tcp_response(&observable_tcp)
+                                    .as_ref()
+                                    .and_then(|matcher| {
+                                        matcher.matching_by_tcp_response(&observable_tcp)
+                                    })
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: OperativeSystem::from(label),
                                         quality,
@@ -241,15 +296,17 @@ impl<'a> PassiveTcp<'a> {
                     let http_request: Option<HttpRequestOutput> = observable_package
                         .http_request
                         .map(|observable_http_request| {
-                            let signature_matcher: Option<(&Label, &Signature, f32)> = self
-                                .matcher
-                                .matching_by_http_request(&observable_http_request);
+                            let signature_matcher: Option<(&Label, &Signature, f32)> =
+                                self.matcher.as_ref().and_then(|matcher| {
+                                    matcher.matching_by_http_request(&observable_http_request)
+                                });
 
                             let ua_matcher: Option<(&String, &Option<String>)> =
-                                observable_http_request
-                                    .user_agent
-                                    .clone()
-                                    .and_then(|ua| self.matcher.matching_by_user_agent(ua));
+                                observable_http_request.user_agent.clone().and_then(|ua| {
+                                    self.matcher
+                                        .as_ref()
+                                        .and_then(|matcher| matcher.matching_by_user_agent(ua))
+                                });
 
                             let http_diagnosis = http_process::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
@@ -277,13 +334,14 @@ impl<'a> PassiveTcp<'a> {
                         .map(|observable_http_response| HttpResponseOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
-                            web_server_matched: self
-                                .matcher
-                                .matching_by_http_response(&observable_http_response)
-                                .map(|(label, _signature, quality)| WebServerQualityMatched {
-                                    web_server: WebServer::from(label),
-                                    quality,
-                                }),
+                            web_server_matched: self.matcher.as_ref().and_then(|matcher| {
+                                matcher
+                                    .matching_by_http_response(&observable_http_response)
+                                    .map(|(label, _signature, quality)| WebServerQualityMatched {
+                                        web_server: WebServer::from(label),
+                                        quality,
+                                    })
+                            }),
                             diagnosis: HttpDiagnosis::None,
                             sig: observable_http_response,
                         });
