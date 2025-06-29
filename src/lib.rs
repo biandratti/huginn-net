@@ -1,52 +1,103 @@
-pub mod db;
-pub mod db_matching_trait;
-mod db_parse;
-mod display;
-mod error;
-pub mod fingerprint_result;
-mod http;
-mod http_languages;
-mod http_process;
-mod ip_options;
-mod mtu;
-mod observable_http_signals_matching;
-mod observable_signals;
-mod observable_tcp_signals_matching;
-mod process;
-mod signature_matcher;
-pub mod tcp;
-mod tcp_process;
-mod tls;
-mod tls_process;
-pub mod ttl;
-mod uptime;
-pub mod window_size;
-
+// ============================================================================
+// CORE IMPORTS (database, errors, results - always required)
+// ============================================================================
 use crate::db::{Database, Label};
+use crate::fingerprint_result::{FingerprintResult, OSQualityMatched};
+
+// ============================================================================
+// TCP PROTOCOL IMPORTS (base protocol)
+// ============================================================================
 use crate::fingerprint_result::{
-    Browser, FingerprintResult, HttpRequestOutput, HttpResponseOutput, MTUOutput, OperativeSystem,
-    SynAckTCPOutput, SynTCPOutput, TlsClientOutput, UptimeOutput, WebServer,
+    MTUOutput, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+};
+use crate::uptime::{Connection, SynData};
+pub use tcp::Ttl;
+
+// ============================================================================
+// HTTP PROTOCOL IMPORTS (depends on TCP)
+// ============================================================================
+use crate::fingerprint_result::{
+    Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, WebServer,
+    WebServerQualityMatched,
 };
 use crate::http::{HttpDiagnosis, Signature};
 use crate::http_process::{FlowKey, TcpFlow};
+
+// ============================================================================
+// TLS PROTOCOL IMPORTS (depends on TCP)
+// ============================================================================
+use crate::fingerprint_result::TlsClientOutput;
+
+// ============================================================================
+// SHARED PROCESSING IMPORTS (used across protocols)
+// ============================================================================
 use crate::process::ObservablePackage;
 use crate::signature_matcher::SignatureMatcher;
-use crate::uptime::{Connection, SynData};
-use fingerprint_result::BrowserQualityMatched;
-use fingerprint_result::OSQualityMatched;
-use fingerprint_result::WebServerQualityMatched;
+
+// ============================================================================
+// OBSERVABLE SIGNALS EXPORTS (conditional in future)
+// ============================================================================
 pub use observable_signals::{
-    ObservableHttpRequest, ObservableHttpResponse, ObservableTcp, ObservableTlsClient,
+    ObservableHttpRequest,  // HTTP signals
+    ObservableHttpResponse, // HTTP signals
+    ObservableTcp,          // TCP signals
+    ObservableTlsClient,    // TLS signals
 };
+
+// ============================================================================
+// EXTERNAL CRATE IMPORTS
+// ============================================================================
 use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;
 use std::error::Error;
 use std::fs::File;
 use std::sync::mpsc::Sender;
-pub use tcp::Ttl;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
+
+// ============================================================================
+// CORE MODULES (always required - database, matching, errors, results)
+// ============================================================================
+pub mod db;
+pub mod db_matching_trait;
+pub mod db_parse;
+mod display;
+pub mod error;
+pub mod fingerprint_result;
+
+// ============================================================================
+// TCP PROTOCOL MODULES (base protocol - required by HTTP and TLS)
+// ============================================================================
+pub mod mtu;
+mod observable_tcp_signals_matching;
+pub mod tcp;
+pub mod tcp_process;
+pub mod ttl;
+pub mod uptime;
+pub mod window_size;
+
+// ============================================================================
+// HTTP PROTOCOL MODULES (depends on TCP)
+// ============================================================================
+pub mod http;
+pub mod http_languages;
+pub mod http_process;
+mod observable_http_signals_matching;
+
+// ============================================================================
+// TLS PROTOCOL MODULES (depends on TCP)
+// ============================================================================
+pub mod tls;
+pub mod tls_process;
+
+// ============================================================================
+// SHARED PROCESSING MODULES (used by multiple protocols)
+// ============================================================================
+pub mod ip_options;
+pub mod observable_signals;
+pub mod process;
+pub mod signature_matcher;
 
 /// Configuration for protocol analysis
 #[derive(Debug, Clone)]
