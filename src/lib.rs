@@ -48,10 +48,29 @@ pub use tcp::Ttl;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
+/// Configuration for protocol analysis
+#[derive(Debug, Clone)]
+pub struct AnalysisConfig {
+    pub http_enabled: bool,
+    pub tcp_enabled: bool,
+    pub tls_enabled: bool,
+}
+
+impl Default for AnalysisConfig {
+    fn default() -> Self {
+        Self {
+            http_enabled: true,
+            tcp_enabled: true,
+            tls_enabled: true,
+        }
+    }
+}
+
 pub struct PassiveTcp<'a> {
     pub matcher: SignatureMatcher<'a>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
+    config: AnalysisConfig,
 }
 
 /// A passive TCP fingerprinting engine inspired by `p0f`.
@@ -75,6 +94,32 @@ impl<'a> PassiveTcp<'a> {
             matcher,
             tcp_cache,
             http_cache,
+            config: AnalysisConfig::default(),
+        }
+    }
+
+    /// Creates a new instance of `PassiveTcp` with custom analysis configuration.
+    ///
+    /// # Parameters
+    /// - `database`: A reference to the database containing known TCP/IP signatures.
+    /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
+    /// - `config`: Configuration specifying which protocols to analyze.
+    ///
+    /// # Returns
+    /// A new `PassiveTcp` instance initialized with the given database, cache capacity, and configuration.
+    pub fn new_with_config(
+        database: &'a Database,
+        cache_capacity: usize,
+        config: AnalysisConfig,
+    ) -> Self {
+        let matcher: SignatureMatcher = SignatureMatcher::new(database);
+        let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
+        let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
+        Self {
+            matcher,
+            tcp_cache,
+            http_cache,
+            config,
         }
     }
 
@@ -180,7 +225,12 @@ impl<'a> PassiveTcp<'a> {
     /// # Returns
     /// A `FingerprintResult` object containing the analysis results.
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
-        match ObservablePackage::extract(packet, &mut self.tcp_cache, &mut self.http_cache) {
+        match ObservablePackage::extract(
+            packet,
+            &mut self.tcp_cache,
+            &mut self.http_cache,
+            &self.config,
+        ) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
                     let mtu: Option<MTUOutput> =
