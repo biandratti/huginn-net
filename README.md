@@ -5,7 +5,7 @@
 [![CI](https://github.com/biandratti/passivetcp-rs/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
 [![codecov](https://codecov.io/github/biandratti/passivetcp-rs/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/passivetcp-rs)
 
-**passivetcp-rs achieves the same detection accuracy as the original p0f tool**, with excellent precision across all tested devices. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
+**passivetcp-rs combines p0f-inspired TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
 
 #### Why choose passivetcp-rs?
 
@@ -17,15 +17,47 @@
 - **Easy integration** - Clean APIs and modular design  
 - **Active development** - Continuously improved and maintained  
 
-#### What is Passive TCP Fingerprinting?
-Passive TCP Fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of the TCP/IP packets that are exchanged during a normal network conversation, passivetcp-rs provides insights into the remote system's OS type, version, and network stack implementation.
+#### What is Passive Traffic Fingerprinting?
+Passive Traffic Fingerprinting is a technique that allows you to infer information about remote hosts and applications without sending any probes. By analyzing characteristics of the TCP/IP packets and TLS handshakes that are exchanged during normal network conversations, passivetcp-rs provides insights into:
+
+- **Operating Systems** - Using p0f-inspired TCP fingerprinting to identify OS type, version, and network stack
+- **Applications & Browsers** - Using HTTP headers and JA4 TLS client fingerprinting for precise application identification
+- **Network Infrastructure** - Detecting intermediary devices, proxies, and load balancers
+- **Client Capabilities** - TLS versions, cipher suites, and supported extensions
+
+### Network Stack Analysis
+
+```mermaid
+flowchart LR
+    subgraph layers ["🌐 Network Analysis Layers"]
+        direction TB
+        TLS["TLS Layer<br/>JA4 (FoxIO-style)"]
+        HTTP["HTTP Layer<br/>Headers & User-Agent"]  
+        TCP["TCP Layer<br/>OS Detection (p0f-style)"]
+    end
+    
+    subgraph engine ["passivetcp-rs"]
+        direction TB
+        ANALYZER["Packet Analysis<br/>& Fingerprinting"]
+    end
+    
+    %% Clean horizontal connections
+    layers --> engine
+    
+    classDef layerStyle fill:#e8f4fd,stroke:#1565c0,stroke-width:3px,color:#000,font-weight:bold
+    classDef engineStyle fill:#fff8e1,stroke:#ef6c00,stroke-width:3px,color:#000,font-weight:bold
+    
+    class TLS,HTTP,TCP layerStyle
+    class ANALYZER engineStyle
+```
 
 #### Real-world applications:
-- **Network Security Analysis** - Identify devices and systems without active scanning
-- **Asset Discovery** - Map network infrastructure passively and safely  
-- **Threat Detection** - Discover hidden or suspicious systems by their network behavior
-- **Research & Forensics** - Analyze traffic patterns and improve security posture
-- **Compliance Monitoring** - Track device types and OS versions across networks
+- **Network Security Analysis** - Identify devices, applications, and TLS clients without active scanning
+- **Asset Discovery** - Map network infrastructure and application stack passively and safely  
+- **Threat Detection** - Detect hidden systems, suspicious TLS clients, and malicious applications
+- **Application Monitoring** - Track browser types, versions, and TLS capabilities across networks
+- **Research & Forensics** - Analyze traffic patterns, TLS usage, and improve security posture
+- **Compliance Monitoring** - Track device types, OS versions, and TLS configurations
 
 ## 🚀 Quick Start
 
@@ -49,7 +81,7 @@ use std::sync::mpsc;
 // Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
-let passive_tcp = PassiveTcp::new(db, 100);
+let passive_tcp = PassiveTcp::new(Some(db), 100, None);
 
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
@@ -79,6 +111,9 @@ for output in receiver {
     }
     if let Some(http_response) = output.http_response {
         info!("{}", http_response);
+    }
+    if let Some(tls_client) = output.tls_client {
+        info!("{}", tls_client);
     }
 }
 ```
@@ -132,6 +167,17 @@ for output in receiver {
 | params   = anonymous
 | raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
 `----
+
+.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls) ]-
+|
+| client   = 192.168.1.10/45234
+| ja4      = t13d1516h2_8daaf6152771_b0da82dd1658
+| ja4_r    = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
+| ja4_o    = t13d1516h2_8daaf6152771_b0da82dd1658
+| ja4_or   = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
+| sni      = www.google.com
+| version  = 1.3
+`----
 ```
 
 ## 📊 Performance & Accuracy
@@ -166,6 +212,7 @@ The current signature database includes patterns for:
 ### Multi-Protocol Support
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
 - **HTTP Request/Response** analysis for application identification  
+- **TLS ClientHello** analysis with JA4 fingerprinting for client identification
 - **MTU Discovery** for link type detection
 - **Uptime Calculation** from TCP timestamps
 - **Custom Signature Databases** with easy updates
@@ -182,6 +229,10 @@ To achieve the best quality in matching, a rich database will be needed.
 - **Medium Quality (0.6-0.8)**: Good match with some variations
 - **Low Quality (0.4-0.6)**: Acceptable match but with notable differences
 - **Poor Quality (<0.4)**: Weak match, use with caution
+
+### TLS JA4 Fingerprinting
+
+**JA4 Attribution:** This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 (TLS client) methodology and specification are Copyright (c) 2023, FoxIO, LLC. Our implementation covers only JA4 (TLS client fingerprinting) under BSD 3-Clause license and is written from scratch for passivetcp-rs while adhering to the published JA4 standard. We do not implement JA4+ components which are under FoxIO License 1.1.
 
 ## Interactive Testing
 
@@ -207,9 +258,9 @@ We welcome contributions! Areas where help is especially valuable:
 **Your signature contributions directly improve detection accuracy for the entire community!**
 
 ## Next Milestones
--  **Extended Protocol Support** - TLS/SSL fingerprinting
--  **Enhanced Database** - Continuous signature updates
+-  **Enhanced Database** - Continuous signature updates and community contributions
 -  **Advanced Analytics** - Pattern analysis and reporting tools
+-  **Real-time Streaming** - High-performance packet processing pipelines
 
 ## 📄 License
 

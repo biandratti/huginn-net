@@ -66,6 +66,11 @@ impl Default for AnalysisConfig {
     }
 }
 
+/// A passive TCP fingerprinting engine inspired by `p0f` with JA4 TLS client fingerprinting.
+///
+/// The `PassiveTcp` struct acts as the core component of the library, handling TCP packet
+/// analysis and matching signatures using a database of known fingerprints, plus JA4 TLS
+/// TLS client analysis following the official FoxIO specification.
 pub struct PassiveTcp<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     tcp_cache: TtlCache<Connection, SynData>,
@@ -73,10 +78,6 @@ pub struct PassiveTcp<'a> {
     config: AnalysisConfig,
 }
 
-/// A passive TCP fingerprinting engine inspired by `p0f`.
-///
-/// The `PassiveTcp` struct acts as the core component of the library, handling TCP packet
-/// analysis and matching signatures using a database of known fingerprints.
 impl<'a> PassiveTcp<'a> {
     /// Creates a new instance of `PassiveTcp`.
     ///
