@@ -83,34 +83,14 @@ impl<'a> PassiveTcp<'a> {
     /// # Parameters
     /// - `database`: A reference to the database containing known TCP/IP signatures.
     /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
-    ///
-    /// # Returns
-    /// A new `PassiveTcp` instance initialized with the given database and cache capacity.
-    pub fn new(database: &'a Database, cache_capacity: usize) -> Self {
-        let matcher: SignatureMatcher = SignatureMatcher::new(database);
-        let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
-        let http_cache: TtlCache<FlowKey, TcpFlow> = TtlCache::new(cache_capacity);
-        Self {
-            matcher,
-            tcp_cache,
-            http_cache,
-            config: AnalysisConfig::default(),
-        }
-    }
-
-    /// Creates a new instance of `PassiveTcp` with custom analysis configuration.
-    ///
-    /// # Parameters
-    /// - `database`: A reference to the database containing known TCP/IP signatures.
-    /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
-    /// - `config`: Configuration specifying which protocols to analyze.
+    /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
     ///
     /// # Returns
     /// A new `PassiveTcp` instance initialized with the given database, cache capacity, and configuration.
-    pub fn new_with_config(
+    pub fn new(
         database: &'a Database,
         cache_capacity: usize,
-        config: AnalysisConfig,
+        config: Option<AnalysisConfig>,
     ) -> Self {
         let matcher: SignatureMatcher = SignatureMatcher::new(database);
         let tcp_cache: TtlCache<Connection, SynData> = TtlCache::new(cache_capacity);
@@ -119,7 +99,7 @@ impl<'a> PassiveTcp<'a> {
             matcher,
             tcp_cache,
             http_cache,
-            config,
+            config: config.unwrap_or_default(),
         }
     }
 
