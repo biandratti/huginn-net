@@ -13,6 +13,7 @@ use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
     ipv4::Ipv4Packet,
     ipv6::Ipv6Packet,
+    tcp::TcpPacket,
     vlan::VlanPacket,
     Packet,
 };
@@ -102,6 +103,7 @@ fn visit_vlan(
 trait IpPacketProcessor: Packet {
     fn is_tcp(&self) -> bool;
     fn get_protocol_error(&self) -> String;
+    fn get_addresses(&self) -> (IpAddr, IpAddr);
     fn process_http_with_data(
         data: &[u8],
         http_cache: &mut TtlCache<FlowKey, TcpFlow>,
@@ -122,6 +124,13 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         format!(
             "unsupported IPv4 packet with non-TCP payload: {}",
             self.get_next_level_protocol()
+        )
+    }
+
+    fn get_addresses(&self) -> (IpAddr, IpAddr) {
+        (
+            IpAddr::V4(self.get_source()),
+            IpAddr::V4(self.get_destination()),
         )
     }
 
@@ -174,6 +183,13 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         )
     }
 
+    fn get_addresses(&self) -> (IpAddr, IpAddr) {
+        (
+            IpAddr::V6(self.get_source()),
+            IpAddr::V6(self.get_destination()),
+        )
+    }
+
     fn process_http_with_data(
         data: &[u8],
         http_cache: &mut TtlCache<FlowKey, TcpFlow>,
@@ -211,20 +227,14 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
     }
 }
 
-fn process_ip<P: IpPacketProcessor>(
+fn execute_parallel_analysis<P: IpPacketProcessor>(
+    packet_data: Vec<u8>,
     tcp_cache: &mut TtlCache<Connection, SynData>,
     http_cache: &mut TtlCache<FlowKey, TcpFlow>,
-    packet: P,
     config: &AnalysisConfig,
+    source: IpPort,
+    destination: IpPort,
 ) -> Result<ObservablePackage, PassiveTcpError> {
-    if !packet.is_tcp() {
-        return Err(PassiveTcpError::UnsupportedProtocol(
-            packet.get_protocol_error(),
-        ));
-    }
-
-    let packet_data = packet.packet().to_vec();
-
     crossbeam::scope(|s| {
         let http_handle = if config.http_enabled {
             Some(s.spawn(|_| P::process_http_with_data(&packet_data, http_cache)))
@@ -252,18 +262,64 @@ fn process_ip<P: IpPacketProcessor>(
         });
 
         let tcp_response = tcp_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
-            Err(PassiveTcpError::UnsupportedProtocol(
-                "TCP analysis disabled".to_string(),
-            ))
+            Ok(ObservableTCPPackage {
+                tcp_request: None,
+                tcp_response: None,
+                mtu: None,
+                uptime: None,
+            })
         });
 
         let tls_response = tls_handle
             .map(|h| h.join().unwrap())
             .unwrap_or_else(|| Ok(ObservableTlsPackage { tls_client: None }));
 
-        handle_http_tcp_tlc(http_response, tcp_response, tls_response)
+        handle_http_tcp_tlc(
+            http_response,
+            tcp_response,
+            tls_response,
+            source,
+            destination,
+        )
     })
     .unwrap()
+}
+
+fn process_ip<P: IpPacketProcessor>(
+    tcp_cache: &mut TtlCache<Connection, SynData>,
+    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    packet: P,
+    config: &AnalysisConfig,
+) -> Result<ObservablePackage, PassiveTcpError> {
+    if !packet.is_tcp() {
+        return Err(PassiveTcpError::UnsupportedProtocol(
+            packet.get_protocol_error(),
+        ));
+    }
+
+    let (source_ip, destination_ip) = packet.get_addresses();
+    let tcp_ports = TcpPacket::new(packet.payload())
+        .ok_or_else(|| PassiveTcpError::UnexpectedPackage("Invalid TCP packet".to_string()))?;
+
+    let source = IpPort {
+        ip: source_ip,
+        port: tcp_ports.get_source(),
+    };
+    let destination = IpPort {
+        ip: destination_ip,
+        port: tcp_ports.get_destination(),
+    };
+
+    let packet_data = packet.packet().to_vec();
+
+    execute_parallel_analysis::<P>(
+        packet_data,
+        tcp_cache,
+        http_cache,
+        config,
+        source,
+        destination,
+    )
 }
 
 pub fn process_ipv4(
@@ -288,11 +344,13 @@ fn handle_http_tcp_tlc(
     http_response: Result<ObservableHttpPackage, PassiveTcpError>,
     tcp_response: Result<ObservableTCPPackage, PassiveTcpError>,
     tls_response: Result<ObservableTlsPackage, PassiveTcpError>,
+    source: IpPort,
+    destination: IpPort,
 ) -> Result<ObservablePackage, PassiveTcpError> {
     match (http_response, tcp_response, tls_response) {
         (Ok(http_package), Ok(tcp_package), Ok(tls_package)) => Ok(ObservablePackage {
-            source: tcp_package.source,
-            destination: tcp_package.destination,
+            source,
+            destination,
             tcp_request: tcp_package.tcp_request,
             tcp_response: tcp_package.tcp_response,
             mtu: tcp_package.mtu,

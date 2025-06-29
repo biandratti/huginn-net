@@ -81,7 +81,7 @@ impl<'a> PassiveTcp<'a> {
     /// Creates a new instance of `PassiveTcp`.
     ///
     /// # Parameters
-    /// - `database`: Optional reference to the database containing known TCP/IP signatures.
+    /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
     ///   Required if HTTP or TCP analysis is enabled. Not needed for TLS-only analysis.
     /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).

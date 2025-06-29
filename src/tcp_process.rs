@@ -3,7 +3,6 @@ use crate::ip_options::IpOptions;
 use crate::observable_signals::ObservableMtu;
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::ObservableUptime;
-use crate::process::IpPort;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::check_ts_tcp;
 use crate::uptime::{Connection, SynData};
@@ -29,8 +28,6 @@ const IP4_MBZ: u8 = 0b0100;
 
 // Internal representation of a TCP package
 pub struct ObservableTCPPackage {
-    pub source: IpPort,
-    pub destination: IpPort,
     pub tcp_request: Option<ObservableTcp>,
     pub tcp_response: Option<ObservableTcp>,
     pub mtu: Option<ObservableMtu>,
@@ -173,9 +170,6 @@ fn visit_tcp(
 ) -> Result<ObservableTCPPackage, PassiveTcpError> {
     use TcpFlags::*;
 
-    let source_port = tcp.get_source();
-    let destination_port = tcp.get_destination();
-
     let flags: u8 = tcp.get_flags();
     let from_client: bool = from_client(flags);
     let from_server: bool = from_server(flags);
@@ -186,14 +180,6 @@ fn visit_tcp(
             tcp_response: None,
             mtu: None,
             uptime: None,
-            source: IpPort {
-                ip: source_ip,
-                port: source_port,
-            },
-            destination: IpPort {
-                ip: destination_ip,
-                port: destination_port,
-            },
         });
     }
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
@@ -384,14 +370,6 @@ fn visit_tcp(
         },
         mtu: if from_client { mtu } else { None },
         uptime: if !from_client { uptime } else { None },
-        source: IpPort {
-            ip: source_ip,
-            port: source_port,
-        },
-        destination: IpPort {
-            ip: destination_ip,
-            port: destination_port,
-        },
     })
 }
 
