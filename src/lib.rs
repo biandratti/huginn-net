@@ -69,7 +69,7 @@ pub mod fingerprint_result;
 // ============================================================================
 // TCP PROTOCOL MODULES (base protocol - required by HTTP and TLS)
 // ============================================================================
-mod mtu;
+pub mod mtu;
 mod observable_tcp_signals_matching;
 pub mod tcp;
 pub mod tcp_process;
@@ -81,15 +81,15 @@ pub mod window_size;
 // HTTP PROTOCOL MODULES (depends on TCP)
 // ============================================================================
 pub mod http;
-mod http_languages;
-mod http_process;
+pub mod http_languages;
+pub mod http_process;
 mod observable_http_signals_matching;
 
 // ============================================================================
 // TLS PROTOCOL MODULES (depends on TCP)
 // ============================================================================
 pub mod tls;
-mod tls_process;
+pub mod tls_process;
 
 // ============================================================================
 // SHARED PROCESSING MODULES (used by multiple protocols)
