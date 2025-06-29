@@ -28,28 +28,27 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 ### Network Stack Analysis
 
 ```mermaid
-graph TB
-    subgraph "Network Layers"
-        TLS["🔐 TLS Layer<br/>JA4 Fingerprinting"]
-        HTTP["📋 HTTP Layer<br/>Headers & User-Agent"]
-        TCP["⚡ TCP Layer<br/>OS Detection (p0f-style)"]
+flowchart LR
+    subgraph layers ["🌐 Network Analysis Layers"]
+        direction TB
+        TLS["TLS Layer<br/>JA4 (FoxIO-style)"]
+        HTTP["HTTP Layer<br/>Headers & User-Agent"]  
+        TCP["TCP Layer<br/>OS Detection (p0f-style)"]
     end
     
-    subgraph "passivetcp-rs"
-        ENGINE["🚀 Analysis Engine"]
+    subgraph engine ["passivetcp-rs"]
+        direction TB
+        ANALYZER["Packet Analysis<br/>& Fingerprinting"]
     end
     
-    TCP --> HTTP
-    HTTP --> TLS
-    ENGINE --> TCP
-    ENGINE --> HTTP
-    ENGINE --> TLS
+    %% Clean horizontal connections
+    layers --> engine
     
-    classDef layer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef engine fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef layerStyle fill:#e8f4fd,stroke:#1565c0,stroke-width:3px,color:#000,font-weight:bold
+    classDef engineStyle fill:#fff8e1,stroke:#ef6c00,stroke-width:3px,color:#000,font-weight:bold
     
-    class TLS,HTTP,TCP layer
-    class ENGINE engine
+    class TLS,HTTP,TCP layerStyle
+    class ANALYZER engineStyle
 ```
 
 #### Real-world applications:
