@@ -58,13 +58,11 @@ trait HttpDistance {
                 }
                 obs_idx += 1;
                 sig_idx += 1;
+            } else if sig_header.optional {
+                sig_idx += 1;
             } else {
-                if sig_header.optional {
-                    sig_idx += 1;
-                } else {
-                    errors += 1;
-                    sig_idx += 1;
-                }
+                errors += 1;
+                sig_idx += 1;
             }
         }
 
