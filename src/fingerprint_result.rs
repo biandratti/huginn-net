@@ -31,7 +31,7 @@ pub struct FingerprintResult {
     pub http_response: Option<HttpResponseOutput>,
 
     /// Information derived from TLS ClientHello analysis using JA4 fingerprinting.
-    /// JA4 methodology by FoxIO, LLC - implementation from scratch for passivetcp-rs.
+    /// JA4 methodology by FoxIO, LLC - implementation from scratch for Huginn Net.
     pub tls_client: Option<TlsClientOutput>,
 }
 

@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use passivetcp_rs::db::Database;
-use passivetcp_rs::PassiveTcp;
+use huginn_net::db::Database;
+use huginn_net::PassiveTcp;
 use pcap_file::pcap::PcapReader;
 use std::fs::File;
 
