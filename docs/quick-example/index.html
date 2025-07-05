@@ -144,9 +144,11 @@
     <span>
         <p>This is a quick example showing how to use <b>Huginn Net</b> for passive fingerprinting and analysis of TCP, HTTP, and TLS traffic.</p>
         <ul>
-            <li>Initialize the database and Huginn Net engine.</li>
+            <li>Initialize the database and Huginn Net engine required for TCP and HTTP analysis (Original p0f database).</li>
             <li>Use subcommands to choose between live network capture or PCAP file analysis.</li>
             <li>Process and log various TCP, HTTP, and TLS characteristics detected with quality scores.</li>
+            <li>TLS analysis requires a database with JA4 client signatures (JA4 database is not included in this repository).</li>
+            <li>To disable any analysis you don't need, pass false to the corresponding field in the <code>AnalysisConfig</code> struct.</li>
         </ul>
         <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> clap::{Parser, Subcommand};
 <span class="hljs-keyword">use</span> huginn_net::db::Database;
@@ -183,7 +185,12 @@
     <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
 
     thread::spawn(<span class="hljs-keyword">move</span> || {
-        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNet::new(db, 100);
+        <span class="hljs-keyword">let</span> config = AnalysisConfig {
+            tcp_analysis: <span class="hljs-literal">true</span>,
+            http_analysis: <span class="hljs-literal">true</span>,
+            tls_analysis: <span class="hljs-literal">true</span>,
+        };
+        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNet::new(db, 100, Some(config));
 
         <span class="hljs-keyword">let</span> result = <span class="hljs-keyword">match</span> args.command {
             Commands::Live { interface } =&gt; {

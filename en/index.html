@@ -18,13 +18,27 @@
     <script src="/huginn-net/js/scrollSpy.js"></script>
     <link rel="stylesheet" href="/huginn-net/css/main.css" />
     <script src="/huginn-net/js/codetabs.js"></script>
+    <script>
+        // Fetch latest version from crates.io API
+        fetch('https://crates.io/api/v1/crates/huginn-net')
+            .then(response => response.json())
+            .then(data => {
+                const versionElement = document.getElementById('version');
+                if (versionElement && data.crate && data.crate.max_version) {
+                    versionElement.textContent = data.crate.max_version;
+                }
+            })
+            .catch(error => {
+                console.log('Could not fetch version from crates.io:', error);
+            });
+    </script>
 </head>
 <body>
 <div class="fixedHeaderContainer">
     <div class="headerWrapper wrapper">
         <header>
             <a href="/huginn-net/">
-                <img class="logo" src="/huginn-net/img/huginn-white.svg" alt="Huginn Net" />
+                <img class="logo" src="/huginn-net/img/huginn-white.svg" alt="Huginn Net" style="margin-right:18px;" />
                 <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
@@ -68,9 +82,10 @@
                                 </p>
                                 <p>
                                     <b>Huginn Net</b> is a Rust library for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
-                                    Inspired by p0f, Huginn Net extends passive OS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
-                                    It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/httparse">httparse</a>, and <a href="https://crates.io/crates/pcap-file">pcap-file</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
-                                    Project is under active development. Feedback and contributions welcome.
+                                    Inspired by p0f and JA4, Huginn Net extends passive OS fingerprinting and TLS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
+                                    It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/httparse">httparse</a>, <a href="https://crates.io/crates/pcap-file">pcap-file</a>, and <a href="https://crates.io/crates/tls-parser">tls-parser</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
+                                    Specifically, Huginn Net does not require any client-side software installation and can be used to analyze traffic on any network interface or via pcap files.<br />
+                                    This library is under active development. Feedback and contributions welcome.
                                 </p>
                                 <h3>Network Stack (OSI Model)</h3>
                                 <table style="min-width:350px;max-width:600px;text-align:center;margin:1em auto;border-collapse:collapse;">
@@ -116,7 +131,7 @@
                                     Getting Started
                                 </h3>
                                 <p>To get started with Cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "1.4.0"
+                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "<span id="version"></span>"
                                 </code></pre>
                                 <p>For changes, refer to the <a href="https://github.com/biandratti/huginn-net/releases">release notes</a>.</p>
                             </span>

@@ -142,7 +142,7 @@
                     <article>
                         <div>
                             <span>
-                                <p><b>Huginn Net</b> supports passive fingerprinting and analysis of <b>TLS</b> traffic, in addition to <b>TCP</b> and <b>HTTP</b>. TLS (Transport Layer Security) is a cryptographic protocol used to secure communications over a network. By analyzing the characteristics of TLS handshakes, Huginn Net can identify client software, libraries, and sometimes even specific configurations.</p>
+                                <p><b>Huginn Net</b> supports TLS analysis. TLS is a cryptographic protocol used to secure communications over a network. By analyzing the characteristics of TLS handshakes, Huginn Net can identify the client based on the JA4 signature.</p>
 
                                 <h2>
                                     <a class="anchor" aria-hidden="true" id="tls-signature"></a>
@@ -156,7 +156,7 @@
                                     </a>
                                     TLS Signature (JA4)
                                 </h2>
-                                <p>Huginn Net implements <b>JA4</b> (FoxIO-style) TLS fingerprinting, which encodes the structure of the ClientHello message into a compact signature. This allows for identification of client software and detection of anomalies or evasion techniques.</p>
+                                <p>Huginn Net based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the structure of the ClientHello message into a compact signature. This allows for identification of client software and detection of anomalies or evasion techniques.</p>
                                 <p><span class="hljs-title">ja4 = version:ciphers:extensions:groups:point_formats</span></p>
                                 <ul>
                                     <li><p><span class="hljs-title">version</span>: TLS version used in the handshake (e.g., 771 for TLS 1.2).</p></li>
