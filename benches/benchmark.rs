@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use passivetcp_rs::db::Database;
-use passivetcp_rs::PassiveTcp;
+use huginn_net::db::Database;
+use huginn_net::HuginnNet;
 use pcap_file::pcap::PcapReader;
 use std::fs::File;
 
@@ -25,7 +25,7 @@ fn load_packets_from_pcap(path: &str) -> Vec<Vec<u8>> {
 // Then to run the test, you need to have the dump.pca file in your home directory.
 fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     let db = Box::leak(Box::new(Database::default()));
-    let mut passive_tcp = PassiveTcp::new(Some(db), 100, None);
+    let mut analyzer = HuginnNet::new(Some(db), 100, None);
 
     let packets = load_packets_from_pcap("~/dump.pca");
 
@@ -37,7 +37,7 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     let mut http_response_count = 0;
 
     for pkt in &packets {
-        let output = passive_tcp.analyze_tcp(pkt);
+        let output = analyzer.analyze_tcp(pkt);
         if output.syn.is_some() {
             syn_count += 1;
         }
@@ -72,7 +72,7 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     group.bench_function("analyze_tcp_on_pcap", |b| {
         b.iter(|| {
             for (_i, pkt) in packets.iter().enumerate() {
-                let _ = passive_tcp.analyze_tcp(pkt);
+                let _ = analyzer.analyze_tcp(pkt);
             }
         })
     });

@@ -7,10 +7,10 @@ use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Represents the output from the passive TCP fingerprinting tool.
+/// Represents the output from the Huginn Net analyzer.
 ///
 /// This struct contains various optional outputs that can be derived
-/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and HTTP data.
+/// from analyzing TCP, HTTP, and TLS packets.
 pub struct FingerprintResult {
     /// Information derived from SYN packets.
     pub syn: Option<SynTCPOutput>,
@@ -31,7 +31,7 @@ pub struct FingerprintResult {
     pub http_response: Option<HttpResponseOutput>,
 
     /// Information derived from TLS ClientHello analysis using JA4 fingerprinting.
-    /// JA4 methodology by FoxIO, LLC - implementation from scratch for passivetcp-rs.
+    /// JA4 methodology by FoxIO, LLC - implementation from scratch for Huginn Net.
     pub tls_client: Option<TlsClientOutput>,
 }
 

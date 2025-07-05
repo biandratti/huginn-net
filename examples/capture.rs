@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
-use passivetcp_rs::db::Database;
-use passivetcp_rs::fingerprint_result::FingerprintResult;
-use passivetcp_rs::PassiveTcp;
+use huginn_net::db::Database;
+use huginn_net::fingerprint_result::FingerprintResult;
+use huginn_net::HuginnNet;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -68,16 +68,16 @@ fn main() {
         mpsc::channel();
 
     thread::spawn(move || {
-        let mut passive_tcp = PassiveTcp::new(Some(db), 100, None);
+        let mut analyzer = HuginnNet::new(Some(db), 100, None);
 
         let result = match args.command {
             Commands::Live { interface } => {
                 info!("Starting live capture on interface: {}", interface);
-                passive_tcp.analyze_network(&interface, sender)
+                analyzer.analyze_network(&interface, sender)
             }
             Commands::Pcap { file } => {
                 info!("Analyzing PCAP file: {}", file);
-                passive_tcp.analyze_pcap(&file, sender)
+                analyzer.analyze_pcap(&file, sender)
             }
         };
 

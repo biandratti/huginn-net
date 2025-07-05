@@ -1,32 +1,13 @@
-# ⚠️ DEPRECATED: This crate has been renamed to `huginn-net`
-
-> **Important Notice:** This crate (`passivetcp-rs`) has been renamed to [`huginn-net`](https://crates.io/crates/huginn-net). 
-> 
-> **Please migrate to `huginn-net` for:**
-> - Latest features and improvements
-> - Ongoing maintenance and security updates
-> - Better naming that reflects the library's evolution
->
-> **Migration is simple:** Just update your `Cargo.toml`:
-> ```toml
-> # Old (deprecated)
-> passivetcp-rs = "1.3.1"
-> 
-> # New (recommended)
-> huginn-net = "1.4.0"
-> ```
----
-
-# Passive TCP Fingerprint<img align="right" src="huginn-net.svg" height="150px" style="padding-left: 20px"/>
-[![docs](https://docs.rs/passivetcp-rs/badge.svg)](https://docs.rs/passivetcp-rs)
-[![crates.io](https://img.shields.io/crates/v/passivetcp-rs.svg)](https://crates.io/crates/passivetcp-rs)
+# Huginn Net - Multi-Protocol Passive Fingerprinting<img align="right" src="huginn-net.svg" height="180px" style="padding-left: 20px"/>
+[![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
+[![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/clippy.svg)](#license)
 [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
-[![codecov](https://codecov.io/github/biandratti/passivetcp-rs/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/passivetcp-rs)
+[![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
 
-**passivetcp-rs combines p0f-inspired TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
+**Huginn Net combines p0f-inspired TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
 
-#### Why choose passivetcp-rs?
+#### Why choose Huginn Net?
 
 - **Same accuracy as p0f** - Validated against extensive device testing  
 - **Modern Rust implementation** - Memory safety and zero-cost abstractions  
@@ -37,7 +18,7 @@
 - **Active development** - Continuously improved and maintained  
 
 #### What is Passive Traffic Fingerprinting?
-Passive Traffic Fingerprinting is a technique that allows you to infer information about remote hosts and applications without sending any probes. By analyzing characteristics of the TCP/IP packets and TLS handshakes that are exchanged during normal network conversations, passivetcp-rs provides insights into:
+Passive Traffic Fingerprinting is a technique that allows you to infer information about remote hosts and applications without sending any probes. By analyzing characteristics of the TCP/IP packets and TLS handshakes that are exchanged during normal network conversations, Huginn Net provides insights into:
 
 - **Operating Systems** - Using p0f-inspired TCP fingerprinting to identify OS type, version, and network stack
 - **Applications & Browsers** - Using HTTP headers and JA4 TLS client fingerprinting for precise application identification
@@ -55,7 +36,7 @@ flowchart LR
         TCP["TCP Layer<br/>OS Detection (p0f-style)"]
     end
     
-    subgraph engine ["passivetcp-rs"]
+    subgraph engine ["Huginn Net"]
         direction TB
         ANALYZER["Packet Analysis<br/>& Fingerprinting"]
     end
@@ -81,15 +62,8 @@ flowchart LR
 ## 🚀 Quick Start
 
 ### Installation
-
-⚠️ **This crate is deprecated. Please use `huginn-net` instead:**
-
 ```toml
 [dependencies]
-# Deprecated (use for legacy compatibility only)
-passivetcp-rs = "1.3.1"
-
-# Recommended (new name)
 huginn-net = "1.4.0"
 ```
 
@@ -101,21 +75,21 @@ huginn-net = "1.4.0"
 ### Code Integration
 
 ```rust
-use passivetcp_rs::{Database, PassiveTcp};
+use huginn_net::{Database, HuginnNet};
 use std::sync::mpsc;
 
 // Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
-let passive_tcp = PassiveTcp::new(Some(db), 100, None);
+let analyzer = HuginnNet::new(Some(db), 100, None);
 
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
     // Live network capture
-    passive_tcp.analyze_network("eth0", sender);
+    analyzer.analyze_network("eth0", sender);
     
     // OR PCAP file analysis
-    // passive_tcp.analyze_pcap("traffic.pcap", sender);
+    // analyzer.analyze_pcap("traffic.pcap", sender);
 });
 
 // Process results
@@ -245,7 +219,7 @@ The current signature database includes patterns for:
 
 ### Matching Quality
 
-passivetcp-rs provides intelligent quality scoring for all fingerprint matches, helping you assess the reliability of each detection.
+Huginn Net provides intelligent quality scoring for all fingerprint matches, helping you assess the reliability of each detection.
 The quality score is calculated based on the **distance** between observed network characteristics and known signatures.
 To achieve the best quality in matching, a rich database will be needed.
 
@@ -258,13 +232,13 @@ To achieve the best quality in matching, a rich database will be needed.
 
 ### TLS JA4 Fingerprinting
 
-**JA4 Attribution:** This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 (TLS client) methodology and specification are Copyright (c) 2023, FoxIO, LLC. Our implementation covers only JA4 (TLS client fingerprinting) under BSD 3-Clause license and is written from scratch for passivetcp-rs while adhering to the published JA4 standard. We do not implement JA4+ components which are under FoxIO License 1.1.
+**JA4 Attribution:** This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 (TLS client) methodology and specification are Copyright (c) 2023, FoxIO, LLC. Our implementation covers only JA4 (TLS client fingerprinting) under BSD 3-Clause license and is written from scratch for Huginn Net while adhering to the published JA4 standard. We do not implement JA4+ components which are under FoxIO License 1.1.
 
 ## Interactive Testing
 
 For visual analysis and experimentation, use our companion web application:
 
-**[🔗 huginn-net-profiler: Passive TCP Fingerprint Analyzer](https://github.com/biandratti/huginn-net-profiler)**
+**[🔗 huginn-net-profiler: Passive Network Profile Analyzer](https://github.com/biandratti/huginn-net-profiler)**
 
 Features:
 - Real-time fingerprint visualization

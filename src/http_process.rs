@@ -1,5 +1,5 @@
 use crate::db::Label;
-use crate::error::PassiveTcpError;
+use crate::error::HuginnNetError;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http_languages};
 use httparse::{Request, Response, EMPTY_HEADER};
@@ -81,9 +81,9 @@ impl TcpFlow {
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-) -> Result<ObservableHttpPackage, PassiveTcpError> {
+) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        return Err(PassiveTcpError::UnsupportedProtocol("IPv4".to_string()));
+        return Err(HuginnNetError::UnsupportedProtocol("IPv4".to_string()));
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
@@ -103,9 +103,9 @@ pub fn process_http_ipv4(
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
-) -> Result<ObservableHttpPackage, PassiveTcpError> {
+) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        return Err(PassiveTcpError::UnsupportedProtocol("IPv6".to_string()));
+        return Err(HuginnNetError::UnsupportedProtocol("IPv6".to_string()));
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
@@ -127,7 +127,7 @@ fn process_tcp_packet(
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
-) -> Result<ObservableHttpPackage, PassiveTcpError> {
+) -> Result<ObservableHttpPackage, HuginnNetError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
     let mut observable_http_package = ObservableHttpPackage {
@@ -191,7 +191,7 @@ fn process_tcp_packet(
     Ok(observable_http_package)
 }
 
-fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, PassiveTcpError> {
+fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
     let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut req = Request::new(&mut headers);
 
@@ -226,7 +226,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Pass
                 "Failed to parse HTTP request with Data: {:?}. Error: {}",
                 data, e
             );
-            Err(PassiveTcpError::Parse(format!(
+            Err(HuginnNetError::Parse(format!(
                 "Failed to parse HTTP request: {}",
                 e
             )))
@@ -234,7 +234,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Pass
     }
 }
 
-fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, PassiveTcpError> {
+fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
     let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
     let mut res = Response::new(&mut headers);
 
@@ -263,7 +263,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Pa
                 "Failed to parse HTTP response with Data: {:?}. Error: {}",
                 data, e
             );
-            Err(PassiveTcpError::Parse(format!(
+            Err(HuginnNetError::Parse(format!(
                 "Failed to parse HTTP response: {}",
                 e
             )))
