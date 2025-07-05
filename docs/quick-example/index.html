@@ -3,35 +3,35 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Quick Example · Passive TCP fingerprint</title>
+    <title>Quick Example · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta name="description" content="Following is an example showing how to:" />
+    <meta name="description" content="Quick example for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="Quick Example · Passive TCP fingerprint" />
+    <meta property="og:title" content="Quick Example · Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
-    <meta property="og:description" content="Following is an example showing how to:" />
+    <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
+    <meta property="og:description" content="Quick example for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="twitter:card" content="summary" />
-    <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
+    <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
-    <script src="/passivetcp-rs/js/scrollSpy.js"></script>
-    <link rel="stylesheet" href="/passivetcp-rs/css/main.css" />
-    <script src="/passivetcp-rs/js/codetabs.js"></script>
+    <script src="/huginn-net/js/scrollSpy.js"></script>
+    <link rel="stylesheet" href="/huginn-net/css/main.css" />
+    <script src="/huginn-net/js/codetabs.js"></script>
 </head>
 <body class="sideNavVisible separateOnPageNav">
 <div class="fixedHeaderContainer">
     <div class="headerWrapper wrapper">
         <header>
-            <a href="/passivetcp-rs/">
-                <img class="logo" src="/passivetcp-rs/img/passivetcp-rs-white.svg" alt="Passive TCP fingerprint" />
-                <h2 class="headerTitleWithLogo">Passive TCP fingerprint</h2>
+            <a href="/huginn-net/">
+                <img class="logo" src="/huginn-net/img/huginn-net-white.svg" alt="Huginn Net" />
+                <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
                 <nav class="slidingNav">
                     <ul class="nav-site nav-site-internal">
-                        <li class="siteNavGroupActive"><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
-                        <li class=""><a href="https://github.com/biandratti/passivetcp-rs" target="_self">GitHub</a></li>
+                        <li class="siteNavGroupActive"><a href="/huginn-net/docs/overview" target="_self">Documentation</a></li>
+                        <li class=""><a href="https://github.com/biandratti/huginn-net" target="_self">GitHub</a></li>
                     </ul>
                 </nav>
             </div>
@@ -59,12 +59,12 @@
                             <div class="navGroup">
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs//mtu">MTU</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/uptime">Uptime</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/http">Http request and response</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/overview">Overview</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/quick-example">Quick Example</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -141,16 +141,16 @@
                     <article>
                         <div>
     <span>
-        <p>Following is an example showing how to:</p>
+        <p>This is a quick example showing how to use <b>Huginn Net</b> for passive fingerprinting and analysis of TCP, HTTP, and TLS traffic.</p>
         <ul>
-            <li>Initialize the database and PassiveTCP engine.</li>
+            <li>Initialize the database and Huginn Net engine.</li>
             <li>Use subcommands to choose between live network capture or PCAP file analysis.</li>
-            <li>Process and log various TCP and HTTP characteristics detected with quality scores.</li>
+            <li>Process and log various TCP, HTTP, and TLS characteristics detected with quality scores.</li>
         </ul>
         <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> clap::{Parser, Subcommand};
-<span class="hljs-keyword">use</span> passivetcp_rs::db::Database;
-<span class="hljs-keyword">use</span> passivetcp_rs::fingerprint_result::FingerprintResult;
-<span class="hljs-keyword">use</span> passivetcp_rs::PassiveTcp;
+<span class="hljs-keyword">use</span> huginn_net::db::Database;
+<span class="hljs-keyword">use</span> huginn_net::fingerprint_result::FingerprintResult;
+<span class="hljs-keyword">use</span> huginn_net::HuginnNet;
 <span class="hljs-keyword">use</span> std::sync::mpsc;
 <span class="hljs-keyword">use</span> std::thread;
 <span class="hljs-keyword">use</span> tracing::info;
@@ -182,16 +182,16 @@
     <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
 
     thread::spawn(<span class="hljs-keyword">move</span> || {
-        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> passive_tcp = PassiveTcp::new(db, 100);
+        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNet::new(db, 100);
 
         <span class="hljs-keyword">let</span> result = <span class="hljs-keyword">match</span> args.command {
             Commands::Live { interface } =&gt; {
                 info!(<span class="hljs-string">"Starting live capture on interface: {}"</span>, interface);
-                passive_tcp.analyze_network(&amp;interface, sender)
+                analyzer.analyze_network(&amp;interface, sender)
             }
             Commands::Pcap { file } =&gt; {
                 info!(<span class="hljs-string">"Analyzing PCAP file: {}"</span>, file);
-                passive_tcp.analyze_pcap(&amp;file, sender)
+                analyzer.analyze_pcap(&amp;file, sender)
             }
         };
 
@@ -220,6 +220,9 @@
         <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(http_response) = output.http_response {
             info!(<span class="hljs-string">"{}"</span>, http_response);
         }
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(ja4) = output.ja4 {
+            info!(<span class="hljs-string">"{}"</span>, ja4);
+        }
     }
 }
 
@@ -233,8 +236,8 @@
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-prev button" href="/passivetcp-rs/docs/overview"><span class="arrow-prev">← </span><span>Overview</span></a>
-                    <a class="docs-next button" href="/passivetcp-rs/docs/syn-ack-packet"><span>SYN and SYN+ACK Packets</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-prev button" href="/huginn-net/docs/overview"><span class="arrow-prev">← </span><span>Overview</span></a>
+                    <a class="docs-next button" href="/huginn-net/docs/syn-ack-packet"><span>SYN and SYN+ACK Packets</span><span class="arrow-next"> →</span></a>
                 </div>
             </div>
         </div>
@@ -243,7 +246,7 @@
     <footer class="nav-footer" id="footer">
         <hr class="separator" />
         <section class="copyright">
-            Passive TCP Fingerprinting Based on p0f
+            Huginn Net: Multi-Protocol Passive Fingerprinting
         </section>
     </footer>
 </div>

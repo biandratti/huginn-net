@@ -3,41 +3,35 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>MTU · Passive TCP fingerprint</title>
+    <title>MTU · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta
-            name="description"
-            content="A modern Rust library inspired by p0f, the renowned passive OS fingerprinting tool. Designed for extensibility, this project aims to advance the state of passive TCP fingerprinting by supporting new features, protocols, and detection standards."
-    />
+    <meta name="description" content="MTU for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="MTU · Passive TCP fingerprint" />
+    <meta property="og:title" content="MTU · Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
-    <meta
-            property="og:description"
-            content="A modern Rust library inspired by p0f, the renowned passive OS fingerprinting tool. Designed for extensibility, this project aims to advance the state of passive TCP fingerprinting by supporting new features, protocols, and detection standards."
-    />
+    <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
+    <meta property="og:description" content="MTU for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="twitter:card" content="summary" />
-    <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
+    <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
-    <script src="/passivetcp-rs/js/scrollSpy.js"></script>
-    <link rel="stylesheet" href="/passivetcp-rs/css/main.css" />
-    <script src="/passivetcp-rs/js/codetabs.js"></script>
+    <script src="/huginn-net/js/scrollSpy.js"></script>
+    <link rel="stylesheet" href="/huginn-net/css/main.css" />
+    <script src="/huginn-net/js/codetabs.js"></script>
 </head>
 <body class="sideNavVisible separateOnPageNav">
 <div class="fixedHeaderContainer">
     <div class="headerWrapper wrapper">
         <header>
-            <a href="/passivetcp-rs/">
-                <img class="logo" src="/passivetcp-rs/img/passivetcp-rs-white.svg" alt="Passive TCP fingerprint" />
-                <h2 class="headerTitleWithLogo">Passive TCP fingerprint</h2>
+            <a href="/huginn-net/">
+                <img class="logo" src="/huginn-net/img/huginn-net-white.svg" alt="Huginn Net" />
+                <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
                 <nav class="slidingNav">
                     <ul class="nav-site nav-site-internal">
-                        <li class="siteNavGroupActive siteNavItemActive"><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
-                        <li class=""><a href="https://github.com/biandratti/passivetcp-rs" target="_self">GitHub</a></li>
+                        <li class="siteNavGroupActive siteNavItemActive"><a href="/huginn-net/docs/overview" target="_self">Documentation</a></li>
+                        <li class=""><a href="https://github.com/biandratti/huginn-net" target="_self">GitHub</a></li>
                     </ul>
                 </nav>
             </div>
@@ -65,12 +59,12 @@
                             <div class="navGroup">
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/passivetcp-rs/docs/mtu">MTU</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/uptime">Uptime</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/http">Http request and response</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/overview">Overview</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/quick-example">Quick Example</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -148,6 +142,7 @@
                         <div>
                                     <span>
                                         <p>
+                                            <b>Huginn Net</b> supports passive fingerprinting and analysis of <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b> traffic.<br />
                                             The Maximum Transmission Unit is the largest size of a packet (including headers) that can be sent over a network interface without requiring fragmentation.<br />
                                             Understanding the MTU can provide insights into the type of network link being used and its configuration.
                                         </p>
@@ -214,8 +209,8 @@
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-prev button" href="/passivetcp-rs/docs/syn-ack-packet"><span class="arrow-prev">← </span><span>SYN and SYN+ACK Packets</span></a>
-                    <a class="docs-next button" href="/passivetcp-rs/docs/uptime"><span>Uptime</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-prev button" href="/huginn-net/docs/syn-ack-packet"><span class="arrow-prev">← </span><span>SYN and SYN+ACK Packets</span></a>
+                    <a class="docs-next button" href="/huginn-net/docs/uptime"><span>Uptime</span><span class="arrow-next"> →</span></a>
                 </div>
             </div>
         </div>
@@ -230,7 +225,7 @@
     <footer class="nav-footer" id="footer">
         <hr class="separator" />
         <section class="copyright">
-            Passive TCP Fingerprinting Based on p0f
+            Huginn Net: Multi-Protocol Passive Fingerprinting
         </section>
     </footer>
 </div>

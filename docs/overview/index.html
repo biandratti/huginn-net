@@ -3,41 +3,35 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Overview · Passive TCP fingerprint</title>
+    <title>Overview · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta
-            name="description"
-            content="A modern Rust library inspired by p0f, the renowned passive OS fingerprinting tool. Designed for extensibility, this project aims to advance the state of passive TCP fingerprinting by supporting new features, protocols, and detection standards."
-    />
+    <meta name="description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="Overview · Passive TCP fingerprint" />
+    <meta property="og:title" content="Overview · Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://fd4s.github.io/passivetcp-rs/passivetcp-rs/" />
-    <meta
-            property="og:description"
-            content="A modern Rust library inspired by p0f, the renowned passive OS fingerprinting tool. Designed for extensibility, this project aims to advance the state of passive TCP fingerprinting by supporting new features, protocols, and detection standards."
-    />
+    <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
+    <meta property="og:description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
     <meta name="twitter:card" content="summary" />
-    <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
+    <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
-    <script src="/passivetcp-rs/js/scrollSpy.js"></script>
-    <link rel="stylesheet" href="/passivetcp-rs/css/main.css" />
-    <script src="/passivetcp-rs/js/codetabs.js"></script>
+    <script src="/huginn-net/js/scrollSpy.js"></script>
+    <link rel="stylesheet" href="/huginn-net/css/main.css" />
+    <script src="/huginn-net/js/codetabs.js"></script>
 </head>
 <body class="sideNavVisible separateOnPageNav">
 <div class="fixedHeaderContainer">
     <div class="headerWrapper wrapper">
         <header>
-            <a href="/passivetcp-rs/">
-                <img class="logo" src="/passivetcp-rs/img/passivetcp-rs-white.svg" alt="Passive TCP fingerprint" />
-                <h2 class="headerTitleWithLogo">Passive TCP fingerprint</h2>
+            <a href="/huginn-net/">
+                <img class="logo" src="/huginn-net/img/huginn-net-white.svg" alt="Huginn Net" />
+                <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
                 <nav class="slidingNav">
                     <ul class="nav-site nav-site-internal">
-                        <li class="siteNavGroupActive siteNavItemActive"><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
-                        <li class=""><a href="https://github.com/biandratti/passivetcp-rs" target="_self">GitHub</a></li>
+                        <li class="siteNavGroupActive siteNavItemActive"><a href="/huginn-net/docs/overview" target="_self">Documentation</a></li>
+                        <li class=""><a href="https://github.com/biandratti/huginn-net" target="_self">GitHub</a></li>
                     </ul>
                 </nav>
             </div>
@@ -65,12 +59,12 @@
                             <div class="navGroup">
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/passivetcp-rs/docs/overview">Overview</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/quick-example">Quick Example</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/mtu">MTU</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/uptime">Uptime</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/passivetcp-rs/docs/http">Http request and response</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/overview">Overview</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/quick-example">Quick Example</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -146,104 +140,135 @@
                     <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Overview</h1></header>
                     <article>
                         <div>
-                                    <span>
-                                        <p>
-                                            <strong>passivetcp-rs</strong> is a modern Rust library for passive TCP/IP fingerprinting, inspired by the classic <em>p0f</em> tool. Its goal is to provide a robust, extensible, and efficient foundation for identifying operating systems and applications from network traffic.<br />
-                                            Designed for easy integration and future expansion, <strong>passivetcp-rs</strong> supports new fingerprinting features, protocols, and detection standards.<br />
-                                            The library leverages <a href="https://crates.io/crates/pnet">pnet</a>  and <a href="https://crates.io/crates/pcap-file">pcap-file</a> for packet capture, and <a href="https://crates.io/crates/httparse">httparse</a> for HTTP parsing, enabling accurate analysis of TCP and HTTP flows in both live and offline environments.
-                                        </p>
+                            <span>
+                                <p>
+                                    <b>Huginn Net</b> is a modern Rust library for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
+                                    Inspired by p0f, Huginn Net extends passive OS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
+                                    It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/httparse">httparse</a>, and <a href="https://crates.io/crates/pcap-file">pcap-file</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
+                                    Project is under active development. Feedback and contributions welcome.
+                                </p>
+                                <h3>Network Stack (OSI Model)</h3>
+                                <table style="min-width:350px;max-width:600px;text-align:center;margin:1em auto;border-collapse:collapse;">
+                                  <thead>
+                                    <tr>
+                                      <th style="border-bottom:1px solid #ccc;">Layer</th>
+                                      <th style="border-bottom:1px solid #ccc;">Name</th>
+                                      <th style="border-bottom:1px solid #ccc;">Protocol / Feature</th>
+                                      <th style="border-bottom:1px solid #ccc;">Example in Huginn Net</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      <td>7</td>
+                                      <td>Application Layer</td>
+                                      <td>TLS</td>
+                                      <td>JA4 (FoxIO-style)</td>
+                                    </tr>
+                                    <tr>
+                                      <td>7</td>
+                                      <td>Application Layer</td>
+                                      <td>HTTP</td>
+                                      <td>Headers, User-Agent, Lang</td>
+                                    </tr>
+                                    <tr>
+                                      <td>4</td>
+                                      <td>Transport Layer</td>
+                                      <td>TCP</td>
+                                      <td>OS Fingerprinting (p0f)</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                                <h2>
+                                    <a class="anchor" aria-hidden="true" id="getting-started"></a>
+                                    <a href="#getting-started" aria-hidden="true" class="hash-link">
+                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                            <path
+                                                    fill-rule="evenodd"
+                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                            ></path>
+                                        </svg>
+                                    </a>
+                                    Passive TCP Fingerprinting introduction
+                                </h2>
+                                <p>
+                                    Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of incoming TCP packets (such as window size, TTL, and TCP options).
+                                    It's possible to make educated guesses about the remote system's OS, network setup, and sometimes even its uptime.
+                                </p>
+                                <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
+                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "1.4.0"</code></pre>
 
-                                        <h2>
-                                            <a class="anchor" aria-hidden="true" id="getting-started"></a>
-                                            <a href="#getting-started" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            Passive TCP Fingerprinting introduction
-                                        </h2>
-                                        <p>
-                                            Passive TCP fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of incoming TCP packets (such as window size, TTL, and TCP options).
-                                            It's possible to make educated guesses about the remote system's OS, network setup, and sometimes even its uptime.
-                                        </p>
-                                        <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                        <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "1.1.0"</code></pre>
+                                <h3>
+                                    <a class="anchor" aria-hidden="true" id="features"></a>
+                                    <a href="#features" aria-hidden="true" class="hash-link">
+                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                            <path
+                                                    fill-rule="evenodd"
+                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                            ></path>
+                                        </svg>
+                                    </a>
+                                    Features
+                                </h3>
+                                <ul>
+                                    <li><p>Passive Analysis: Unlike active fingerprinting tools, huginn-net does not send any packets to the target host, making it less intrusive and more stealthy.</p></li>
+                                    <li><p>Modern Rust Implementation: Leveraging Rust's safety and concurrency features, huginn-net provides a reliable and efficient library for passive fingerprinting.</p></li>
+                                    <li><p>Extensibility: Designed with modularity in mind, allowing for easy addition of new fingerprinting signatures and heuristics.</p></li>
+                                    <li><p>Integration-Friendly: Can be integrated into various Rust-based network analysis tools and applications.</p></li>
+                                </ul>
 
-                                        <h3>
-                                            <a class="anchor" aria-hidden="true" id="features"></a>
-                                            <a href="#features" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            Features
-                                        </h3>
-                                        <ul>
-                                            <li><p>Passive Analysis: Unlike active fingerprinting tools, passivetcp-rs does not send any packets to the target host, making it less intrusive and more stealthy.</p></li>
-                                            <li><p>Modern Rust Implementation: Leveraging Rust's safety and concurrency features, passivetcp-rs provides a reliable and efficient library for passive fingerprinting.</p></li>
-                                            <li><p>Extensibility: Designed with modularity in mind, allowing for easy addition of new fingerprinting signatures and heuristics.</p></li>
-                                            <li><p>Integration-Friendly: Can be integrated into various Rust-based network analysis tools and applications.</p></li>
-                                        </ul>
+                                <h3>
+                                    <a class="anchor" aria-hidden="true" id="use_cases"></a>
+                                    <a href="#use_cases" aria-hidden="true" class="hash-link">
+                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                            <path
+                                                    fill-rule="evenodd"
+                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                            ></path>
+                                        </svg>
+                                    </a>
+                                    Use Cases
+                                </h3>
+                                <ul>
+                                    <li><p>Network Monitoring: Identify operating systems and network devices on your network without active scanning.</p></li>
+                                    <li><p>Security Analysis: Detect potentially unauthorized devices or unexpected changes in your network's landscape.</p></li>
+                                    <li><p>Research: Study the distribution of operating systems and network stacks in different environments.</p></li>
+                                </ul>
 
-                                        <h3>
-                                            <a class="anchor" aria-hidden="true" id="use_cases"></a>
-                                            <a href="#use_cases" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            Use Cases
-                                        </h3>
-                                        <ul>
-                                            <li><p>Network Monitoring: Identify operating systems and network devices on your network without active scanning.</p></li>
-                                            <li><p>Security Analysis: Detect potentially unauthorized devices or unexpected changes in your network's landscape.</p></li>
-                                            <li><p>Research: Study the distribution of operating systems and network stacks in different environments.</p></li>
-                                        </ul>
-
-                                        <h2>
-                                            <a class="anchor" aria-hidden="true" id="inspiration"></a>
-                                            <a href="#inspiration" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            Inspiration
-                                        </h2>
-                                        <p>Library is heavily inspired by ideas from <a href="https://github.com/p0f/p0f">p0f</a>.</p>
-                                        <h2>
-                                            <a class="anchor" aria-hidden="true" id="license"></a>
-                                            <a href="#license" aria-hidden="true" class="hash-link">
-                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                                    <path
-                                                            fill-rule="evenodd"
-                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                                    ></path>
-                                                </svg>
-                                            </a>
-                                            License
-                                        </h2>
-                                        <p>
-                                            Licensed under the <a href="https://opensource.org/license/mit">MIT License </a>. Refer to the
-                                            <a href="https://github.com/biandratti/passivetcp-rs/blob/master/LICENSE">license file</a>.
-                                        </p>
-                                    </span>
+                                <h2>
+                                    <a class="anchor" aria-hidden="true" id="inspiration"></a>
+                                    <a href="#inspiration" aria-hidden="true" class="hash-link">
+                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                            <path
+                                                    fill-rule="evenodd"
+                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                            ></path>
+                                        </svg>
+                                    </a>
+                                    Inspiration
+                                </h2>
+                                <p>Library is heavily inspired by ideas from <a href="https://github.com/p0f/p0f">p0f</a>.</p>
+                                <h2>
+                                    <a class="anchor" aria-hidden="true" id="license"></a>
+                                    <a href="#license" aria-hidden="true" class="hash-link">
+                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                            <path
+                                                    fill-rule="evenodd"
+                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                            ></path>
+                                        </svg>
+                                    </a>
+                                    License
+                                </h2>
+                                <p>
+                                    Licensed under the <a href="https://opensource.org/license/mit">MIT License </a>. Refer to the
+                                    <a href="https://github.com/biandratti/huginn-net/blob/master/LICENSE">license file</a>.
+                                </p>
+                            </span>
                         </div>
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-next button" href="/passivetcp-rs/docs/quick-example"><span>Quick Example</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-next button" href="/huginn-net/docs/quick-example"><span>Quick Example</span><span class="arrow-next"> →</span></a>
                 </div>
             </div>
         </div>
@@ -264,7 +289,7 @@
     <footer class="nav-footer" id="footer">
         <hr class="separator" />
         <section class="copyright">
-            Passive TCP Fingerprinting Based on p0f
+            Huginn Net: Multi-Protocol Passive Fingerprinting
         </section>
     </footer>
 </div>
