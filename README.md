@@ -25,31 +25,15 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 - **Network Infrastructure** - Detecting intermediary devices, proxies, and load balancers
 - **Client Capabilities** - TLS versions, cipher suites, and supported extensions
 
-### Network Stack Analysis
+### Network Stack analysis supported by Huginn Net (OSI Model)
 
-```mermaid
-flowchart LR
-    subgraph layers ["🌐 Network Analysis Layers"]
-        direction TB
-        TLS["TLS Layer<br/>JA4 (FoxIO-style)"]
-        HTTP["HTTP Layer<br/>Headers & User-Agent"]  
-        TCP["TCP Layer<br/>OS Detection (p0f-style)"]
-    end
-    
-    subgraph engine ["Huginn Net"]
-        direction TB
-        ANALYZER["Packet Analysis<br/>& Fingerprinting"]
-    end
-    
-    %% Clean horizontal connections
-    layers --> engine
-    
-    classDef layerStyle fill:#e8f4fd,stroke:#1565c0,stroke-width:3px,color:#000,font-weight:bold
-    classDef engineStyle fill:#fff8e1,stroke:#ef6c00,stroke-width:3px,color:#000,font-weight:bold
-    
-    class TLS,HTTP,TCP layerStyle
-    class ANALYZER engineStyle
-```
+| Layer | Protocol / Feature        | Huginn Net Analysis          |
+|-------|---------------------------|------------------------------|
+| 7     | TLS                       | JA4 (FoxIO-style)            |
+| 7     | HTTP                      | Headers, User-Agent, Lang    |
+| 4     | TCP                       | OS Fingerprinting (p0f-style)|
+
+
 
 #### Real-world applications:
 - **Network Security Analysis** - Identify devices, applications, and TLS clients without active scanning
