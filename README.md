@@ -75,21 +75,21 @@ huginn-net = "1.4.0"
 ### Code Integration
 
 ```rust
-use huginn_net::{Database, PassiveTcp};
+use huginn_net::{Database, HuginnNet};
 use std::sync::mpsc;
 
 // Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
-let passive_tcp = PassiveTcp::new(Some(db), 100, None);
+let analyzer = HuginnNet::new(Some(db), 100, None);
 
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
     // Live network capture
-    passive_tcp.analyze_network("eth0", sender);
+    analyzer.analyze_network("eth0", sender);
     
     // OR PCAP file analysis
-    // passive_tcp.analyze_pcap("traffic.pcap", sender);
+    // analyzer.analyze_pcap("traffic.pcap", sender);
 });
 
 // Process results

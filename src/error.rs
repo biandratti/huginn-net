@@ -1,9 +1,9 @@
 use pnet::packet::ethernet::EtherType;
 use thiserror::Error;
 
-/// Error handling during TCP processing and Database parsing.
+/// Error handling during network analysis and Database parsing.
 #[derive(Error, Debug)]
-pub enum PassiveTcpError {
+pub enum HuginnNetError {
     /// An error occurred while parsing data.
     ///
     /// This variant is used when a parsing operation fails.

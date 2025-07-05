@@ -7,10 +7,10 @@ use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Represents the output from the passive TCP fingerprinting tool.
+/// Represents the output from the Huginn Net analyzer.
 ///
 /// This struct contains various optional outputs that can be derived
-/// from analyzing TCP packets, such as SYN, SYN-ACK, MTU, uptime, and HTTP data.
+/// from analyzing TCP, HTTP, and TLS packets.
 pub struct FingerprintResult {
     /// Information derived from SYN packets.
     pub syn: Option<SynTCPOutput>,

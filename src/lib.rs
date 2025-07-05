@@ -117,20 +117,20 @@ impl Default for AnalysisConfig {
     }
 }
 
-/// A passive TCP fingerprinting engine inspired by `p0f` with JA4 TLS client fingerprinting.
+/// A multi-protocol passive fingerprinting library inspired by `p0f` with JA4 TLS client fingerprinting.
 ///
-/// The `PassiveTcp` struct acts as the core component of the library, handling TCP packet
+/// The `HuginnNet` struct acts as the core component of the library, handling TCP, HTTP, and TLS packet
 /// analysis and matching signatures using a database of known fingerprints, plus JA4 TLS
-/// TLS client analysis following the official FoxIO specification.
-pub struct PassiveTcp<'a> {
+/// client analysis following the official FoxIO specification.
+pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
     config: AnalysisConfig,
 }
 
-impl<'a> PassiveTcp<'a> {
-    /// Creates a new instance of `PassiveTcp`.
+impl<'a> HuginnNet<'a> {
+    /// Creates a new instance of `HuginnNet`.
     ///
     /// # Parameters
     /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
@@ -139,7 +139,7 @@ impl<'a> PassiveTcp<'a> {
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
     ///
     /// # Returns
-    /// A new `PassiveTcp` instance initialized with the given database, cache capacity, and configuration.
+    /// A new `HuginnNet` instance initialized with the given database, cache capacity, and configuration.
     pub fn new(
         database: Option<&'a Database>,
         cache_capacity: usize,
