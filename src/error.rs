@@ -1,7 +1,7 @@
 use pnet::packet::ethernet::EtherType;
 use thiserror::Error;
 
-/// Error handling during network analysis and Database parsing.
+/// Error handling during network packet analysis and Database parsing.
 #[derive(Error, Debug)]
 pub enum HuginnNetError {
     /// An error occurred while parsing data.

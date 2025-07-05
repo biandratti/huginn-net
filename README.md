@@ -1,4 +1,4 @@
-# Huginn Net - Multi-Protocol Passive Fingerprinting<img align="right" src="huginn-net.svg" height="150px" style="padding-left: 20px"/>
+# Huginn Net - Multi-Protocol Passive Fingerprinting<img align="right" src="huginn-net.svg" height="180px" style="padding-left: 20px"/>
 [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
 [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/clippy.svg)](#license)
@@ -238,7 +238,7 @@ To achieve the best quality in matching, a rich database will be needed.
 
 For visual analysis and experimentation, use our companion web application:
 
-**[🔗 huginn-net-profiler: Passive TCP Fingerprint Analyzer](https://github.com/biandratti/huginn-net-profiler)**
+**[🔗 huginn-net-profiler: Passive Network Profile Analyzer](https://github.com/biandratti/huginn-net-profiler)**
 
 Features:
 - Real-time fingerprint visualization
