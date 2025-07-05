@@ -13,7 +13,7 @@
 > passivetcp-rs = "1.3.0"
 > 
 > # New (recommended)
-> huginn-net = "2.0.0"
+> huginn-net = "1.4.0"
 > ```
 ---
 
@@ -90,7 +90,7 @@ flowchart LR
 passivetcp-rs = "1.3.0"
 
 # Recommended (new name)
-huginn-net = "2.0.0"
+huginn-net = "1.4.0"
 ```
 
 ###  Examples & Tutorials:
