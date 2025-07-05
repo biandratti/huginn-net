@@ -1,4 +1,12 @@
 // ============================================================================
+// DEPRECATION WARNING
+// ============================================================================
+#![deprecated(
+    since = "1.3.0",
+    note = "This crate has been renamed to 'huginn-net'. Please use 'huginn-net' instead. See https://crates.io/crates/huginn-net for migration details."
+)]
+
+// ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
 use crate::db::{Database, Label};
