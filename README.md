@@ -1,3 +1,22 @@
+# ⚠️ DEPRECATED: This crate has been renamed to `huginn-net`
+
+> **Important Notice:** This crate (`passivetcp-rs`) has been renamed to [`huginn-net`](https://crates.io/crates/huginn-net). 
+> 
+> **Please migrate to `huginn-net` for:**
+> - Latest features and improvements
+> - Ongoing maintenance and security updates
+> - Better naming that reflects the library's evolution
+>
+> **Migration is simple:** Just update your `Cargo.toml`:
+> ```toml
+> # Old (deprecated)
+> passivetcp-rs = "1.3.0"
+> 
+> # New (recommended)
+> huginn-net = "2.0.0"
+> ```
+---
+
 # Passive TCP Fingerprint<img align="right" src="passivetcp-rs.svg" height="150px" style="padding-left: 20px"/>
 [![docs](https://docs.rs/passivetcp-rs/badge.svg)](https://docs.rs/passivetcp-rs)
 [![crates.io](https://img.shields.io/crates/v/passivetcp-rs.svg)](https://crates.io/crates/passivetcp-rs)
@@ -62,9 +81,16 @@ flowchart LR
 ## 🚀 Quick Start
 
 ### Installation
+
+⚠️ **This crate is deprecated. Please use `huginn-net` instead:**
+
 ```toml
 [dependencies]
-passivetcp-rs = "1.2.0"
+# Deprecated (use for legacy compatibility only)
+passivetcp-rs = "1.3.0"
+
+# Recommended (new name)
+huginn-net = "2.0.0"
 ```
 
 ###  Examples & Tutorials:
@@ -238,7 +264,7 @@ To achieve the best quality in matching, a rich database will be needed.
 
 For visual analysis and experimentation, use our companion web application:
 
-**[🔗 tcp-profiler: Passive TCP Fingerprint Analyzer](https://github.com/biandratti/tcp-profiler)**
+**[🔗 huginn-net-profiler: Passive TCP Fingerprint Analyzer](https://github.com/biandratti/huginn-net-profiler)**
 
 Features:
 - Real-time fingerprint visualization
