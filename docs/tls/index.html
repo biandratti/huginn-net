@@ -3,15 +3,15 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Overview · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
+    <title>TLS Analysis · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta name="description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
+    <meta name="description" content="TLS analysis for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="Overview · Huginn Net: Multi-Protocol Passive Fingerprinting" />
+    <meta property="og:title" content="TLS Analysis · Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
-    <meta property="og:description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
+    <meta property="og:description" content="TLS analysis for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="twitter:card" content="summary" />
     <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
@@ -59,13 +59,13 @@
                             <div class="navGroup">
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/overview">Overview</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/overview">Overview</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/quick-example">Quick Example</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -138,50 +138,15 @@
         <div class="container mainContainer docsContainer">
             <div class="wrapper">
                 <div class="post">
-                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Overview</h1></header>
+                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">TLS Analysis</h1></header>
                     <article>
                         <div>
                             <span>
-                                <p>
-                                    <b>Huginn Net</b> is a modern Rust library for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
-                                    Inspired by p0f, Huginn Net extends passive OS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
-                                    It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/httparse">httparse</a>, and <a href="https://crates.io/crates/pcap-file">pcap-file</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
-                                    Project is under active development. Feedback and contributions welcome.
-                                </p>
-                                <h3>Network Stack (OSI Model)</h3>
-                                <table style="min-width:350px;max-width:600px;text-align:center;margin:1em auto;border-collapse:collapse;">
-                                  <thead>
-                                    <tr>
-                                      <th style="border-bottom:1px solid #ccc;">Layer</th>
-                                      <th style="border-bottom:1px solid #ccc;">Name</th>
-                                      <th style="border-bottom:1px solid #ccc;">Protocol / Feature</th>
-                                      <th style="border-bottom:1px solid #ccc;">Example in Huginn Net</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr>
-                                      <td>7</td>
-                                      <td>Application Layer</td>
-                                      <td>TLS</td>
-                                      <td>JA4 (FoxIO-style)</td>
-                                    </tr>
-                                    <tr>
-                                      <td>7</td>
-                                      <td>Application Layer</td>
-                                      <td>HTTP</td>
-                                      <td>Headers, User-Agent, Lang</td>
-                                    </tr>
-                                    <tr>
-                                      <td>4</td>
-                                      <td>Transport Layer</td>
-                                      <td>TCP</td>
-                                      <td>OS Fingerprinting (p0f-style)</td>
-                                    </tr>
-                                  </tbody>
-                                </table>
+                                <p><b>Huginn Net</b> supports passive fingerprinting and analysis of <b>TLS</b> traffic, in addition to <b>TCP</b> and <b>HTTP</b>. TLS (Transport Layer Security) is a cryptographic protocol used to secure communications over a network. By analyzing the characteristics of TLS handshakes, Huginn Net can identify client software, libraries, and sometimes even specific configurations.</p>
+
                                 <h2>
-                                    <a class="anchor" aria-hidden="true" id="getting-started"></a>
-                                    <a href="#getting-started" aria-hidden="true" class="hash-link">
+                                    <a class="anchor" aria-hidden="true" id="tls-signature"></a>
+                                    <a href="#tls-signature" aria-hidden="true" class="hash-link">
                                         <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                             <path
                                                     fill-rule="evenodd"
@@ -189,55 +154,21 @@
                                             ></path>
                                         </svg>
                                     </a>
-                                    Passive Fingerprinting Introduction
+                                    TLS Signature (JA4)
                                 </h2>
-                                <p>
-                                    Passive fingerprinting is a technique that allows you to infer information about a remote host's operating system and network stack without sending any probes. By analyzing characteristics of incoming TCP packets (such as window size, TTL, and TCP options).
-                                    It's possible to make educated guesses about the remote system's OS, network setup, and sometimes even its uptime.
-                                </p>
-                                <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "1.4.0"</code></pre>
-
-                                <h3>
-                                    <a class="anchor" aria-hidden="true" id="features"></a>
-                                    <a href="#features" aria-hidden="true" class="hash-link">
-                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                            <path
-                                                    fill-rule="evenodd"
-                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                            ></path>
-                                        </svg>
-                                    </a>
-                                    Features
-                                </h3>
+                                <p>Huginn Net implements <b>JA4</b> (FoxIO-style) TLS fingerprinting, which encodes the structure of the ClientHello message into a compact signature. This allows for identification of client software and detection of anomalies or evasion techniques.</p>
+                                <p><span class="hljs-title">ja4 = version:ciphers:extensions:groups:point_formats</span></p>
                                 <ul>
-                                    <li><p>Passive Analysis: Unlike active fingerprinting tools, huginn-net does not send any packets to the target host, making it less intrusive and more stealthy.</p></li>
-                                    <li><p>Modern Rust Implementation: Leveraging Rust's safety and concurrency features, huginn-net provides a reliable and efficient library for passive fingerprinting.</p></li>
-                                    <li><p>Extensibility: Designed with modularity in mind, allowing for easy addition of new fingerprinting signatures and heuristics.</p></li>
-                                    <li><p>Integration-Friendly: Can be integrated into various Rust-based network analysis tools and applications.</p></li>
-                                </ul>
-
-                                <h3>
-                                    <a class="anchor" aria-hidden="true" id="use_cases"></a>
-                                    <a href="#use_cases" aria-hidden="true" class="hash-link">
-                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
-                                            <path
-                                                    fill-rule="evenodd"
-                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
-                                            ></path>
-                                        </svg>
-                                    </a>
-                                    Use Cases
-                                </h3>
-                                <ul>
-                                    <li><p>Network Monitoring: Identify operating systems and network devices on your network without active scanning.</p></li>
-                                    <li><p>Security Analysis: Detect potentially unauthorized devices or unexpected changes in your network's landscape.</p></li>
-                                    <li><p>Research: Study the distribution of operating systems and network stacks in different environments.</p></li>
+                                    <li><p><span class="hljs-title">version</span>: TLS version used in the handshake (e.g., 771 for TLS 1.2).</p></li>
+                                    <li><p><span class="hljs-title">ciphers</span>: Ordered list of cipher suites offered by the client.</p></li>
+                                    <li><p><span class="hljs-title">extensions</span>: Ordered list of TLS extensions present in the ClientHello.</p></li>
+                                    <li><p><span class="hljs-title">groups</span>: Supported groups (elliptic curves, etc.).</p></li>
+                                    <li><p><span class="hljs-title">point_formats</span>: Supported EC point formats.</p></li>
                                 </ul>
 
                                 <h2>
-                                    <a class="anchor" aria-hidden="true" id="inspiration"></a>
-                                    <a href="#inspiration" aria-hidden="true" class="hash-link">
+                                    <a class="anchor" aria-hidden="true" id="tls-analyzed"></a>
+                                    <a href="#tls-analyzed" aria-hidden="true" class="hash-link">
                                         <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                             <path
                                                     fill-rule="evenodd"
@@ -245,12 +176,13 @@
                                             ></path>
                                         </svg>
                                     </a>
-                                    Inspiration
+                                    TLS Client
                                 </h2>
-                                <p>Library is heavily inspired by ideas from <a href="https://github.com/p0f/p0f">p0f</a>.</p>
+                                <pre><code class="hljs css language-bash">.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls client) ]-<br />|<br />| <span class="hljs-type">client</span>   = 192.168.1.10/45234<br />| <span class="hljs-type">ja4</span>      = t13d1516h2_8daaf6152771_b0da82dd1658<br />| <span class="hljs-type">ja4_r</span>    = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d<br />| <span class="hljs-type">ja4_o</span>    = t13d1516h2_8daaf6152771_b0da82dd1658<br />| <span class="hljs-type">ja4_or</span>   = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d<br />| <span class="hljs-type">sni</span>      = www.google.com<br />| <span class="hljs-type">version</span>  = 1.3<br />`----</code></pre>
+
                                 <h2>
-                                    <a class="anchor" aria-hidden="true" id="license"></a>
-                                    <a href="#license" aria-hidden="true" class="hash-link">
+                                    <a class="anchor" aria-hidden="true" id="tls-fields"></a>
+                                    <a href="#tls-fields" aria-hidden="true" class="hash-link">
                                         <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                             <path
                                                     fill-rule="evenodd"
@@ -258,32 +190,31 @@
                                             ></path>
                                         </svg>
                                     </a>
-                                    License
+                                    TLS Key Fields
                                 </h2>
-                                <p>
-                                    Licensed under the <a href="https://opensource.org/license/mit">MIT License </a>. Refer to the
-                                    <a href="https://github.com/biandratti/huginn-net/blob/master/LICENSE">license file</a>.
-                                </p>
+                                <ul>
+                                    <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
+                                    <li><p><span class="hljs-type">ja4</span>: The computed JA4 TLS fingerprint for the ClientHello.</p></li>
+                                    <li><p><span class="hljs-type">ja4_r</span>: The raw JA4 string, showing the ordered list of ciphers and extensions.</p></li>
+                                    <li><p><span class="hljs-type">ja4_o</span>: The observed JA4 fingerprint (may be identical to ja4, but can differ if options are reordered or normalized).</p></li>
+                                    <li><p><span class="hljs-type">ja4_or</span>: The raw observed JA4 string, showing the actual order of ciphers and extensions as seen on the wire.</p></li>
+                                    <li><p><span class="hljs-type">sni</span>: The Server Name Indication (SNI) value, indicating the hostname the client is connecting to.</p></li>
+                                    <li><p><span class="hljs-type">version</span>: The TLS protocol version used (e.g., 1.3).</p></li>
+                                </ul>
                             </span>
                         </div>
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-next button" href="/huginn-net/docs/quick-example"><span>Quick Example</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-prev button" href="/huginn-net/docs/http"><span class="arrow-prev">← </span><span>Http request and response</span></a>
                 </div>
             </div>
         </div>
         <nav class="onPageNav">
             <ul class="toc-headings">
-                <li>
-                    <a href="#getting-started">Passive Fingerprinting introduction</a>
-                    <ul class="toc-headings">
-                        <li><a href="#features">Features</a></li>
-                        <li><a href="#use_cases">Use cases</a></li>
-                    </ul>
-                </li>
-                <li><a href="#inspiration">Inspiration</a></li>
-                <li><a href="#license">License</a></li>
+                <li><a href="#tls-signature">TLS Signature (JA4)</a></li>
+                <li><a href="#tls-analyzed">TLS Analyzed Example</a></li>
+                <li><a href="#tls-fields">TLS Key Fields</a></li>
             </ul>
         </nav>
     </div>

@@ -3,35 +3,35 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Passive TCP fingerprint · A Rust library for passive traffic fingerprinting</title>
+    <title>Huginn Net: Multi-Protocol Passive Fingerprinting · A Rust library for passive network analysis</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta name="description" content="A Rust library for passive traffic fingerprinting" />
+    <meta name="description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="Passive TCP fingerprint · A Rust library for passive traffic fingerprinting" />
+    <meta property="og:title" content="Huginn Net: Multi-Protocol Passive Fingerprinting · A Rust library for passive network analysis" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://biandratti.github.io/passivetcp-rs/" />
-    <meta property="og:description" content="A Rust library for passive traffic fingerprinting" />
+    <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
+    <meta property="og:description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
     <meta name="twitter:card" content="summary" />
-    <link rel="shortcut icon" href="/passivetcp-rs/img/favicon.png" />
+    <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
-    <script src="/passivetcp-rs/js/scrollSpy.js"></script>
-    <link rel="stylesheet" href="/passivetcp-rs/css/main.css" />
-    <script src="/passivetcp-rs/js/codetabs.js"></script>
+    <script src="/huginn-net/js/scrollSpy.js"></script>
+    <link rel="stylesheet" href="/huginn-net/css/main.css" />
+    <script src="/huginn-net/js/codetabs.js"></script>
 </head>
 <body>
 <div class="fixedHeaderContainer">
     <div class="headerWrapper wrapper">
         <header>
-            <a href="/passivetcp-rs/">
-                <img class="logo" src="/passivetcp-rs/img/passivetcp-rs-white.svg" alt="Passive TCP fingerprint" />
-                <h2 class="headerTitleWithLogo">Passive TCP fingerprint</h2>
+            <a href="/huginn-net/">
+                <img class="logo" src="/huginn-net/img/huginn-net-white.svg" alt="Huginn Net" />
+                <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
                 <nav class="slidingNav">
                     <ul class="nav-site nav-site-internal">
-                        <li class=""><a href="/passivetcp-rs/docs/overview" target="_self">Documentation</a></li>
-                        <li class=""><a href="https://github.com/biandratti/passivetcp-rs" target="_self">GitHub</a></li>
+                        <li class=""><a href="/huginn-net/docs/overview" target="_self">Documentation</a></li>
+                        <li class=""><a href="https://github.com/biandratti/huginn-net" target="_self">GitHub</a></li>
                     </ul>
                 </nav>
             </div>
@@ -45,13 +45,13 @@
                 <div class="wrapper homeWrapper">
                     <div class="inner">
                         <h2 class="projectTitle">
-                            <span><img class="projectTitleLogo" src="../img/passivetcp-rs.svg" />Passive TCP fingerprint</span><small>A Rust library for passive traffic fingerprinting</small>
+                            <span><img class="projectTitleLogo" src="../img/huginn-net.svg" />Huginn Net: Multi-Protocol Passive Fingerprinting</span><small>A Rust library for passive analysis of TCP, HTTP, and TLS traffic</small>
                         </h2>
                         <div class="section promoSection">
                             <div class="promoRow">
                                 <div class="pluginRowBlock">
-                                    <div class="pluginWrapper buttonWrapper"><a class="button" href="/passivetcp-rs/docs/overview">Documentation</a></div>
-                                    <div class="pluginWrapper buttonWrapper"><a class="button" href="https://github.com/biandratti/passivetcp-rs">View on GitHub</a></div>
+                                    <div class="pluginWrapper buttonWrapper"><a class="button" href="/huginn-net/docs/overview">Documentation</a></div>
+                                    <div class="pluginWrapper buttonWrapper"><a class="button" href="https://github.com/biandratti/huginn-net">View on GitHub</a></div>
                                 </div>
                             </div>
                         </div>
@@ -64,14 +64,45 @@
                 <div>
                             <span>
                                 <p>
-                                    <a href="https://crates.io/crates/passivetcp-rs"><img src="https://img.shields.io/crates/v/passivetcp-rs.svg" alt="Version" /></a>
+                                    <a href="https://crates.io/crates/huginn-net"><img src="https://img.shields.io/crates/v/huginn-net.svg" alt="Version" /></a>
                                 </p>
                                 <p>
-                                    This passive TCP fingerprint library uses <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/httparse">httparse</a> and <a href="https://crates.io/crates/pcap-file">pcap-file</a> libraries to analyze and parse TCP packets to capture HTTP traffic.<br />
-                                    This library is inspired by the well-known p0f tool for passive OS fingerprinting, which identifies the operating systems and network characteristics of remote hosts based on the analysis of TCP packets.<br />
-                                    The pnet library is employed to process and examine raw TCP packets, pcap-file to extract packets from PCAP files, while httparse is used to parse the HTTP data within the packets, enabling passive fingerprinting of HTTP traffic without directly interacting with the network. This allows for efficient monitoring and analysis of network behavior in a passive manner.<br />
+                                    <b>Huginn Net</b> is a Rust library for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
+                                    Inspired by p0f, Huginn Net extends passive OS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
+                                    It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/httparse">httparse</a>, and <a href="https://crates.io/crates/pcap-file">pcap-file</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
                                     Project is under active development. Feedback and contributions welcome.
                                 </p>
+                                <h3>Network Stack (OSI Model)</h3>
+                                <table style="min-width:350px;max-width:600px;text-align:center;margin:1em auto;border-collapse:collapse;">
+                                  <thead>
+                                    <tr>
+                                      <th style="border-bottom:1px solid #ccc;">Layer</th>
+                                      <th style="border-bottom:1px solid #ccc;">Name</th>
+                                      <th style="border-bottom:1px solid #ccc;">Protocol / Feature</th>
+                                      <th style="border-bottom:1px solid #ccc;">Example in Huginn Net</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      <td>7</td>
+                                      <td>Application Layer</td>
+                                      <td>TLS</td>
+                                      <td>JA4 (FoxIO-style)</td>
+                                    </tr>
+                                    <tr>
+                                      <td>7</td>
+                                      <td>Application Layer</td>
+                                      <td>HTTP</td>
+                                      <td>Headers, User-Agent, Lang</td>
+                                    </tr>
+                                    <tr>
+                                      <td>4</td>
+                                      <td>Transport Layer</td>
+                                      <td>TCP</td>
+                                      <td>OS Fingerprinting (p0f-style)</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
                                 <h3>
                                     <a class="anchor" aria-hidden="true" id="getting-started"></a>
                                     <a href="#getting-started" aria-hidden="true" class="hash-link">
@@ -85,9 +116,9 @@
                                     Getting Started
                                 </h3>
                                 <p>To get started with Cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
-                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />passivetcp-rs = "1.1.0"
+                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "1.4.0"
                                 </code></pre>
-                                <p>For changes, refer to the <a href="https://github.com/biandratti/passivetcp-rs/releases">release notes</a>.</p>
+                                <p>For changes, refer to the <a href="https://github.com/biandratti/huginn-net/releases">release notes</a>.</p>
                             </span>
                 </div>
             </div>
@@ -96,7 +127,7 @@
     <footer class="nav-footer" id="footer">
         <hr class="separator" />
         <section class="copyright">
-            Passive TCP Fingerprinting Based on p0f
+            Huginn Net: Multi-Protocol Passive Fingerprinting
         </section>
     </footer>
 </div>
