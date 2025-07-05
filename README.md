@@ -10,18 +10,18 @@
 > **Migration is simple:** Just update your `Cargo.toml`:
 > ```toml
 > # Old (deprecated)
-> passivetcp-rs = "1.3.0"
+> passivetcp-rs = "1.3.1"
 > 
 > # New (recommended)
 > huginn-net = "1.4.0"
 > ```
 ---
 
-# Passive TCP Fingerprint<img align="right" src="passivetcp-rs.svg" height="150px" style="padding-left: 20px"/>
+# Passive TCP Fingerprint<img align="right" src="huginn-net.svg" height="150px" style="padding-left: 20px"/>
 [![docs](https://docs.rs/passivetcp-rs/badge.svg)](https://docs.rs/passivetcp-rs)
 [![crates.io](https://img.shields.io/crates/v/passivetcp-rs.svg)](https://crates.io/crates/passivetcp-rs)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/clippy.svg)](#license)
-[![CI](https://github.com/biandratti/passivetcp-rs/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
+[![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
 [![codecov](https://codecov.io/github/biandratti/passivetcp-rs/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/passivetcp-rs)
 
 **passivetcp-rs combines p0f-inspired TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
@@ -87,7 +87,7 @@ flowchart LR
 ```toml
 [dependencies]
 # Deprecated (use for legacy compatibility only)
-passivetcp-rs = "1.3.0"
+passivetcp-rs = "1.3.1"
 
 # Recommended (new name)
 huginn-net = "1.4.0"
