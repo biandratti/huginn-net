@@ -16,26 +16,56 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  rust_stable: stable
+  rust_min: '1.80'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
       - name: Build
         run: cargo build --verbose
   format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+          components: rustfmt
       - name: Check code formatting
         run: cargo fmt -- --check
-  lint:
+  clippy:
+    name: clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+          components: clippy
       - name: Check lint
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-features -- -D warnings
+
+  minrust:
+    name: minrust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust ${{ env.rust_min }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_min }}
+      - name: Check MSRV
+        run: cargo check --all-features
+
   test:
     runs-on: ubuntu-latest
     permissions:
@@ -48,7 +78,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml --output-dir .
+          cargo +nightly tarpaulin --verbose --all-features --timeout 120 --out xml --output-dir .
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
