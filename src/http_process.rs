@@ -411,7 +411,7 @@ mod tests {
                 assert_eq!(request.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
-            Err(e) => panic!("Failed to parse HTTP request: {}", e),
+            Err(e) => panic!("Failed to parse HTTP request: {e}"),
         }
     }
 
@@ -446,7 +446,7 @@ mod tests {
                 assert_eq!(response.habsent, expected_absent);
             }
             Ok(None) => panic!("Incomplete HTTP response"),
-            Err(e) => panic!("Failed to parse HTTP response: {}", e),
+            Err(e) => panic!("Failed to parse HTTP response: {e}"),
         }
     }
 

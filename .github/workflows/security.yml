@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "master" ]
   schedule:
-    - cron: '0 2 * * 6'  # Saturdays at 2 AM UTC
+    - cron: '0 2 * * 6'
 
 permissions:
   contents: read
@@ -38,5 +38,4 @@ jobs:
         with:
           fail-on-severity: moderate
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
-          comment-summary-in-pr: true 
+          comment-summary-in-pr: true

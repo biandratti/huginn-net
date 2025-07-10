@@ -4,18 +4,22 @@ use huginn_net::HuginnNet;
 use pcap_file::pcap::PcapReader;
 use std::fs::File;
 
-fn load_packets_from_pcap(path: &str) -> Vec<Vec<u8>> {
-    let file = File::open(path).expect(
-        "Error: The file 'dump.pca' was not found. \
-        Please make sure the file exists in the current directory or provide the correct path.",
-    );
-    let mut reader = PcapReader::new(file).expect("Failed to create pcap reader");
+fn load_packets_from_pcap(path: &str) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
+    let file = File::open(path).map_err(|e| {
+        format!(
+            "Error: The file 'dump.pca' was not found. \
+            Please make sure the file exists in the current directory or provide the correct path. \
+            Error: {e}"
+        )
+    })?;
+    let mut reader =
+        PcapReader::new(file).map_err(|e| format!("Failed to create pcap reader: {e}"))?;
     let mut packets = Vec::new();
 
     while let Some(Ok(pkt)) = reader.next_packet() {
         packets.push(pkt.data.to_vec());
     }
-    packets
+    Ok(packets)
 }
 
 // Before running the benchmark, you need to create the dump.pca file with tcpdump from the following command:
@@ -27,7 +31,13 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     let db = Box::leak(Box::new(Database::default()));
     let mut analyzer = HuginnNet::new(Some(db), 100, None);
 
-    let packets = load_packets_from_pcap("~/dump.pca");
+    let packets = match load_packets_from_pcap("~/dump.pca") {
+        Ok(pkts) => pkts,
+        Err(e) => {
+            eprintln!("Failed to load packets: {e}");
+            return;
+        }
+    };
 
     let mut syn_count = 0;
     let mut syn_ack_count = 0;
@@ -59,19 +69,19 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     }
 
     println!("Packages to analyze:");
-    println!("  SYN:           {}", syn_count);
-    println!("  SYN-ACK:       {}", syn_ack_count);
-    println!("  MTU:           {}", mtu_count);
-    println!("  Uptime:        {}", uptime_count);
-    println!("  HTTP Request:  {}", http_request_count);
-    println!("  HTTP Response: {}", http_response_count);
+    println!("  SYN:           {syn_count}");
+    println!("  SYN-ACK:       {syn_ack_count}");
+    println!("  MTU:           {mtu_count}");
+    println!("  Uptime:        {uptime_count}");
+    println!("  HTTP Request:  {http_request_count}");
+    println!("  HTTP Response: {http_response_count}");
 
     let mut group = c.benchmark_group("analyze_tcp_on_pcap");
     group.sample_size(100);
     group.measurement_time(std::time::Duration::from_secs(60));
     group.bench_function("analyze_tcp_on_pcap", |b| {
         b.iter(|| {
-            for (_i, pkt) in packets.iter().enumerate() {
+            for pkt in packets.iter() {
                 let _ = analyzer.analyze_tcp(pkt);
             }
         })

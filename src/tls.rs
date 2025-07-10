@@ -358,8 +358,8 @@ mod tests {
         // JA4_original should differ from JA4 in both cipher and extension order
         assert_ne!(ja4_original.raw.value(), ja4_sorted.raw.value());
         assert_eq!(
-            ja4_original.raw.value().split('_').nth(0),
-            ja4_sorted.raw.value().split('_').nth(0)
+            ja4_original.raw.value().split('_').next(),
+            ja4_sorted.raw.value().split('_').next()
         ); // Same JA4_a
 
         // JA4_b should be different due to cipher order (original vs sorted)
@@ -464,8 +464,7 @@ mod tests {
         // Should start with "ts3d" (t=TLS, s3=SSL3.0, d=SNI present)
         assert!(
             ja4_string.starts_with("ts3d"),
-            "JA4 should start with 'ts3d' for SSL 3.0, got: {}",
-            ja4_string
+            "JA4 should start with 'ts3d' for SSL 3.0, got: {ja4_string}"
         );
     }
 
