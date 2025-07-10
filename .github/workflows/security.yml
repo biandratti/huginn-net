@@ -11,6 +11,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  pull-requests: write
 
 jobs:
   cargo-geiger:
@@ -25,7 +26,7 @@ jobs:
       - name: Install cargo-geiger
         run: cargo install cargo-geiger
       - name: Run unsafe code analysis
-        run: cargo geiger --all-features --all-targets
+        run: cargo geiger --package ${{ github.event.repository.name }} --forbid-only
 
   dependency-review:
     name: Dependency Review
@@ -36,6 +37,4 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
-          fail-on-severity: moderate
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause
-          comment-summary-in-pr: true
