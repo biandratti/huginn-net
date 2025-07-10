@@ -3,6 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/clippy.svg)](#license)
 [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
+[![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
 [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
 
 **Huginn Net combines p0f TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.

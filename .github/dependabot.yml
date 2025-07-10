@@ -1,7 +1,30 @@
 version: 2
 updates:
+  # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
-      interval: "daily"
-      time: "00:00" # UTC
+      interval: "weekly"
+      day: "saturday"
+      time: "09:00"
+    reviewers:
+      - "biandratti"
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "cargo"
+      include: "scope"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "09:00"
+    reviewers:
+      - "biandratti"
+    labels:
+      - "dependencies"
+      - "github-actions"

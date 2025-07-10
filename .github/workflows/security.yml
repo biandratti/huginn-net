@@ -1,0 +1,61 @@
+name: Security Analysis
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  schedule:
+    - cron: '0 2 * * 6'  # Saturdays at 2 AM UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  clippy-security:
+    name: Clippy Security Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Run security-focused clippy
+        run: |
+          cargo clippy --all-features --all-targets -- \
+            -D warnings \
+            -D clippy::integer_arithmetic \
+            -D clippy::unwrap_used \
+            -D clippy::expect_used \
+            -D clippy::panic \
+            -D clippy::unreachable \
+            -D clippy::todo \
+            -D clippy::unimplemented
+
+  cargo-geiger:
+    name: Unsafe Code Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Install cargo-geiger
+        run: cargo install cargo-geiger
+      - name: Run unsafe code analysis
+        run: cargo geiger --all-features --all-targets
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate 
