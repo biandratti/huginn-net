@@ -52,7 +52,16 @@ jobs:
           toolchain: ${{ env.rust_stable }}
           components: clippy
       - name: Check lint
-        run: cargo clippy --all-features -- -D warnings
+        run: |
+          cargo clippy --all-features --all-targets -- \
+            -D warnings \
+            -D clippy::integer_arithmetic \
+            -D clippy::unwrap_used \
+            -D clippy::expect_used \
+            -D clippy::panic \
+            -D clippy::unreachable \
+            -D clippy::todo \
+            -D clippy::unimplemented
 
   minrust:
     name: minrust

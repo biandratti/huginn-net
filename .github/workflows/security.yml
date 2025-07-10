@@ -1,4 +1,4 @@
-name: Security Analysis
+name: Advanced Security
 
 on:
   push:
@@ -13,28 +13,6 @@ permissions:
   security-events: write
 
 jobs:
-  clippy-security:
-    name: Clippy Security Lints
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: clippy
-      - name: Run security-focused clippy
-        run: |
-          cargo clippy --all-features --all-targets -- \
-            -D warnings \
-            -D clippy::integer_arithmetic \
-            -D clippy::unwrap_used \
-            -D clippy::expect_used \
-            -D clippy::panic \
-            -D clippy::unreachable \
-            -D clippy::todo \
-            -D clippy::unimplemented
-
   cargo-geiger:
     name: Unsafe Code Analysis
     runs-on: ubuntu-latest
@@ -58,4 +36,7 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
-          fail-on-severity: moderate 
+          fail-on-severity: moderate
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: true 

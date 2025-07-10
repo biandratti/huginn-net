@@ -1,13 +1,13 @@
 version: 2
 updates:
-  # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "saturday"
       time: "09:00"
-    reviewers:
+    open-pull-requests-limit: 5
+    assignees:
       - "biandratti"
     labels:
       - "dependencies"
@@ -16,14 +16,14 @@ updates:
       prefix: "cargo"
       include: "scope"
 
-  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "saturday"
       time: "09:00"
-    reviewers:
+    open-pull-requests-limit: 3
+    assignees:
       - "biandratti"
     labels:
       - "dependencies"
