@@ -227,8 +227,7 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Hugi
                 data, e
             );
             Err(HuginnNetError::Parse(format!(
-                "Failed to parse HTTP request: {}",
-                e
+                "Failed to parse HTTP request: {e}"
             )))
         }
     }
@@ -264,8 +263,7 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Hu
                 data, e
             );
             Err(HuginnNetError::Parse(format!(
-                "Failed to parse HTTP response: {}",
-                e
+                "Failed to parse HTTP response: {e}"
             )))
         }
     }

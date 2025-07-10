@@ -48,10 +48,7 @@ impl FromStr for Database {
                 classes.append(
                     &mut parse_classes(line)
                         .map_err(|err| {
-                            HuginnNetError::Parse(format!(
-                                "fail to parse `classes`: {}, {}",
-                                line, err
-                            ))
+                            HuginnNetError::Parse(format!("fail to parse `classes`: {line}, {err}"))
                         })?
                         .1,
                 );
@@ -59,10 +56,7 @@ impl FromStr for Database {
                 ua_os_entries.append(
                     &mut parse_ua_os(line)
                         .map_err(|err| {
-                            HuginnNetError::Parse(format!(
-                                "fail to parse `ua_os`: {}, {}",
-                                line, err
-                            ))
+                            HuginnNetError::Parse(format!("fail to parse `ua_os`: {line}, {err}"))
                         })?
                         .1,
                 );
@@ -70,16 +64,13 @@ impl FromStr for Database {
                 cur_mod = Some(
                     parse_module(line)
                         .map_err(|err| {
-                            HuginnNetError::Parse(format!(
-                                "fail to parse `module`: {}, {}",
-                                line, err
-                            ))
+                            HuginnNetError::Parse(format!("fail to parse `module`: {line}, {err}"))
                         })?
                         .1,
                 );
             } else if let Some((module, direction)) = cur_mod.as_ref() {
                 let (_, (name, value)) = parse_named_value(line).map_err(|err| {
-                    HuginnNetError::Parse(format!("fail to parse named value: {}, {}", line, err))
+                    HuginnNetError::Parse(format!("fail to parse named value: {line}, {err}"))
                 })?;
 
                 match name {
@@ -90,24 +81,19 @@ impl FromStr for Database {
                         if let Some((_label, values)) = mtu_entries.last_mut() {
                             let sig = value.parse::<u16>().map_err(|err| {
                                 HuginnNetError::Parse(format!(
-                                    "fail to parse `mtu` value: {}, {}",
-                                    value, err
+                                    "fail to parse `mtu` value: {value}, {err}"
                                 ))
                             })?;
                             values.push(sig);
                         } else {
                             return Err(HuginnNetError::Parse(format!(
-                                "`mtu` value without `label`: {}",
-                                value
+                                "`mtu` value without `label`: {value}"
                             )));
                         }
                     }
                     "label" => {
                         let (_, label) = parse_label(value).map_err(|err| {
-                            HuginnNetError::Parse(format!(
-                                "fail to parse `label`: {}, {}",
-                                value, err
-                            ))
+                            HuginnNetError::Parse(format!("fail to parse `label`: {value}, {err}"))
                         })?;
 
                         match (module.as_str(), direction.as_ref().map(|s| s.as_ref())) {
@@ -136,8 +122,7 @@ impl FromStr for Database {
                                 values.push(sig);
                             } else {
                                 return Err(HuginnNetError::Parse(format!(
-                                    "tcp signature without `label`: {}",
-                                    value
+                                    "tcp signature without `label`: {value}"
                                 )));
                             }
                         }
@@ -148,8 +133,7 @@ impl FromStr for Database {
                                 values.push(sig);
                             } else {
                                 return Err(HuginnNetError::Parse(format!(
-                                    "tcp signature without `label`: {}",
-                                    value
+                                    "tcp signature without `label`: {value}"
                                 )));
                             }
                         }
@@ -160,8 +144,7 @@ impl FromStr for Database {
                                 values.push(sig);
                             } else {
                                 return Err(HuginnNetError::Parse(format!(
-                                    "http signature without `label`: {}",
-                                    value
+                                    "http signature without `label`: {value}"
                                 )));
                             }
                         }
@@ -172,8 +155,7 @@ impl FromStr for Database {
                                 values.push(sig);
                             } else {
                                 return Err(HuginnNetError::Parse(format!(
-                                    "http signature without `label`: {}",
-                                    value
+                                    "http signature without `label`: {value}"
                                 )));
                             }
                         }
@@ -188,8 +170,7 @@ impl FromStr for Database {
                 }
             } else {
                 return Err(HuginnNetError::Parse(format!(
-                    "unexpected line outside the module: {}",
-                    line
+                    "unexpected line outside the module: {line}"
                 )));
             }
         }

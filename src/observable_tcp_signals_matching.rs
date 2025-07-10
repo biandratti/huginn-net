@@ -50,8 +50,7 @@ impl ObservedFingerprint for ObservableTcp {
     type Key = TcpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        let olayout_parts: Vec<String> =
-            self.olayout.iter().map(|opt| format!("{}", opt)).collect();
+        let olayout_parts: Vec<String> = self.olayout.iter().map(|opt| format!("{opt}")).collect();
         TcpIndexKey {
             ip_version_key: self.version,
             olayout_key: olayout_parts.join(","),
@@ -92,7 +91,7 @@ impl DatabaseSignature<ObservableTcp> for tcp::Signature {
         let olayout_key_str = self
             .olayout
             .iter()
-            .map(|opt| format!("{}", opt))
+            .map(|opt| format!("{opt}"))
             .collect::<Vec<String>>()
             .join(",");
 

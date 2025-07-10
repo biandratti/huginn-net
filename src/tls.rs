@@ -39,8 +39,8 @@ pub enum Ja4Fingerprint {
 impl fmt::Display for Ja4Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Ja4Fingerprint::Sorted(s) => write!(f, "{}", s),
-            Ja4Fingerprint::Unsorted(s) => write!(f, "{}", s),
+            Ja4Fingerprint::Sorted(s) => write!(f, "{s}"),
+            Ja4Fingerprint::Unsorted(s) => write!(f, "{s}"),
         }
     }
 }
@@ -71,8 +71,8 @@ pub enum Ja4RawFingerprint {
 impl fmt::Display for Ja4RawFingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Ja4RawFingerprint::Sorted(s) => write!(f, "{}", s),
-            Ja4RawFingerprint::Unsorted(s) => write!(f, "{}", s),
+            Ja4RawFingerprint::Sorted(s) => write!(f, "{s}"),
+            Ja4RawFingerprint::Unsorted(s) => write!(f, "{s}"),
         }
     }
 }
@@ -216,14 +216,7 @@ impl Signature {
 
         // JA4_a format: protocol + version + sni + cipher_count + extension_count + alpn_first + alpn_last
         let ja4_a = format!(
-            "{}{}{}{}{}{}{}",
-            protocol,
-            tls_version_str,
-            sni_indicator,
-            cipher_count,
-            extension_count,
-            alpn_first,
-            alpn_last
+            "{protocol}{tls_version_str}{sni_indicator}{cipher_count}{extension_count}{alpn_first}{alpn_last}"
         );
 
         // JA4_b: Cipher suites (sorted or original order, comma-separated, 4-digit hex) - GREASE filtered
@@ -233,7 +226,7 @@ impl Signature {
         }
         let ja4_b_raw = ciphers_for_b
             .iter()
-            .map(|c| format!("{:04x}", c))
+            .map(|c| format!("{c:04x}"))
             .collect::<Vec<String>>()
             .join(",");
 
@@ -249,7 +242,7 @@ impl Signature {
 
         let extensions_str = extensions_for_c
             .iter()
-            .map(|e| format!("{:04x}", e))
+            .map(|e| format!("{e:04x}"))
             .collect::<Vec<String>>()
             .join(",");
 
@@ -257,7 +250,7 @@ impl Signature {
         // But GREASE values are filtered
         let sig_algs_str = filtered_sig_algs
             .iter()
-            .map(|s| format!("{:04x}", s))
+            .map(|s| format!("{s:04x}"))
             .collect::<Vec<String>>()
             .join(",");
 
@@ -268,7 +261,7 @@ impl Signature {
         } else if extensions_str.is_empty() {
             sig_algs_str.clone()
         } else {
-            format!("{}_{}", extensions_str, sig_algs_str)
+            format!("{extensions_str}_{sig_algs_str}")
         };
 
         // Generate hashes for JA4_b and JA4_c (first 12 characters of SHA256)
@@ -276,10 +269,10 @@ impl Signature {
         let ja4_c_hash = hash12(&ja4_c_raw);
 
         // JA4 hashed: ja4_a + "_" + ja4_b_hash + "_" + ja4_c_hash
-        let ja4_hashed = format!("{}_{}_{}", ja4_a, ja4_b_hash, ja4_c_hash);
+        let ja4_hashed = format!("{ja4_a}_{ja4_b_hash}_{ja4_c_hash}");
 
         // JA4 raw: ja4_a + "_" + ja4_b_raw + "_" + ja4_c_raw
-        let ja4_raw_full = format!("{}_{}_{}", ja4_a, ja4_b_raw, ja4_c_raw);
+        let ja4_raw_full = format!("{ja4_a}_{ja4_b_raw}_{ja4_c_raw}");
 
         // Create the appropriate enum variants based on order
         let ja4_fingerprint = if original_order {
