@@ -343,20 +343,21 @@ mod tests {
         assert!(ja4.ja4_c.contains("0403"));
 
         // Test hash lengths (should be 12 characters) - use the new enum structure
-        let hash_part = ja4
-            .full
-            .value()
-            .split('_')
-            .nth(1)
-            .expect("JA4 should have second part");
-        assert_eq!(hash_part.len(), 12);
-        let hash_part = ja4
-            .full
-            .value()
-            .split('_')
-            .nth(2)
-            .expect("JA4 should have third part");
-        assert_eq!(hash_part.len(), 12);
+        let parts: Vec<&str> = ja4.full.value().split('_').collect();
+        assert!(
+            parts.len() >= 3,
+            "JA4 should have at least 3 parts separated by underscores"
+        );
+        assert_eq!(
+            parts[1].len(),
+            12,
+            "Second JA4 hash part should be 12 characters"
+        );
+        assert_eq!(
+            parts[2].len(),
+            12,
+            "Third JA4 hash part should be 12 characters"
+        );
     }
 
     #[test]

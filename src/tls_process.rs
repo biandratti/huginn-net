@@ -380,9 +380,15 @@ mod tests {
 
         // Should succeed and generate JA4 with empty extension fields (matching JA4 spec)
         let result = extract_tls_signature_from_client_hello(&client_hello);
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "Failed to extract TLS signature from ClientHello"
+        );
 
-        let signature = result.expect("Failed to extract TLS signature");
+        let signature = match result {
+            Ok(sig) => sig,
+            Err(_) => panic!("Should not fail after assert"),
+        };
         assert_eq!(signature.version, crate::tls::TlsVersion::V1_2);
         assert_eq!(signature.cipher_suites.len(), 2); // GREASE filtered out
         assert!(signature.cipher_suites.contains(&0x1301));
@@ -421,8 +427,15 @@ mod tests {
         };
 
         // Mock the extension parsing by providing minimal valid extension data
-        let signature = extract_tls_signature_from_client_hello(&client_hello)
-            .expect("Failed to extract TLS signature for GREASE test");
+        let result = extract_tls_signature_from_client_hello(&client_hello);
+        assert!(
+            result.is_ok(),
+            "Failed to extract TLS signature for GREASE test"
+        );
+        let signature = match result {
+            Ok(sig) => sig,
+            Err(_) => panic!("Should not fail after assert"),
+        };
         // Should only contain non-GREASE cipher suites
         assert_eq!(signature.cipher_suites.len(), 2);
         assert!(signature.cipher_suites.contains(&0x1301));
@@ -523,9 +536,15 @@ mod tests {
 
         // Should succeed even if extension parsing fails - falls back to empty extensions
         let result = extract_tls_signature_from_client_hello(&client_hello);
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "Should succeed even with minimal extension data"
+        );
 
-        let signature = result.unwrap();
+        let signature = match result {
+            Ok(sig) => sig,
+            Err(_) => panic!("Should not fail after assert"),
+        };
         assert_eq!(signature.version, crate::tls::TlsVersion::V1_2);
         assert_eq!(signature.cipher_suites.len(), 2);
         // Extensions might be empty if parsing failed, but that's OK for JA4

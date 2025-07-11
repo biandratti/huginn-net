@@ -711,18 +711,22 @@ mod tests {
     #[test]
     fn test_label() {
         for (s, l) in LABELS.iter() {
-            assert_eq!(&s.parse::<Label>().expect("Failed to parse label"), l);
+            let result = s.parse::<Label>();
+            assert!(result.is_ok(), "Failed to parse label: {s}");
+            if let Ok(ref parsed) = result {
+                assert_eq!(parsed, l);
+            }
         }
     }
 
     #[test]
     fn test_tcp_signature() {
         for (s, sig) in TCP_SIGNATURES.iter() {
-            assert_eq!(
-                &s.parse::<TcpSignature>()
-                    .expect("Failed to parse TCP signature"),
-                sig
-            );
+            let result = s.parse::<TcpSignature>();
+            assert!(result.is_ok(), "Failed to parse TCP signature: {s}");
+            if let Ok(ref parsed) = result {
+                assert_eq!(parsed, sig);
+            }
             assert_eq!(&sig.to_string(), s);
         }
     }
@@ -730,7 +734,11 @@ mod tests {
     #[test]
     fn test_ttl() {
         for (s, ttl) in TTLS.iter() {
-            assert_eq!(&s.parse::<Ttl>().expect("Failed to parse TTL"), ttl);
+            let result = s.parse::<Ttl>();
+            assert!(result.is_ok(), "Failed to parse TTL: {s}");
+            if let Ok(ref parsed) = result {
+                assert_eq!(parsed, ttl);
+            }
             assert_eq!(&ttl.to_string(), s);
         }
     }
@@ -738,11 +746,11 @@ mod tests {
     #[test]
     fn test_http_signature() {
         for (s, sig) in HTTP_SIGNATURES.iter() {
-            assert_eq!(
-                &s.parse::<HttpSignature>()
-                    .expect("Failed to parse HTTP signature"),
-                sig
-            );
+            let result = s.parse::<HttpSignature>();
+            assert!(result.is_ok(), "Failed to parse HTTP signature: {s}");
+            if let Ok(ref parsed) = result {
+                assert_eq!(parsed, sig);
+            }
             assert_eq!(&sig.to_string(), s);
         }
     }
@@ -750,11 +758,11 @@ mod tests {
     #[test]
     fn test_http_header() {
         for (s, h) in HTTP_HEADERS.iter() {
-            assert_eq!(
-                &s.parse::<HttpHeader>()
-                    .expect("Failed to parse HTTP header"),
-                h
-            );
+            let result = s.parse::<HttpHeader>();
+            assert!(result.is_ok(), "Failed to parse HTTP header: {s}");
+            if let Ok(ref parsed) = result {
+                assert_eq!(parsed, h);
+            }
             assert_eq!(&h.to_string(), s);
         }
     }
