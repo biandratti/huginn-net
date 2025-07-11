@@ -200,7 +200,10 @@ pub fn get_highest_quality_language(accept_language: String) -> Option<String> {
 
     for part in accept_language.split(',') {
         let mut lang_and_quality = part.split(';');
-        let full_language: String = lang_and_quality.next().unwrap().trim().to_string();
+        let full_language: String = match lang_and_quality.next() {
+            Some(lang) => lang.trim().to_string(),
+            None => continue,
+        };
         let language = full_language.split('-').next().unwrap_or("").to_string();
         let quality: f32 = lang_and_quality
             .next()
@@ -266,5 +269,14 @@ mod tests {
         let accept_language = "".to_string();
         let result = get_highest_quality_language(accept_language);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_highest_quality_language_with_malformed_parts() {
+        // Test with malformed Accept-Language header containing empty parts and semicolons
+        let accept_language = "en;q=0.8,,;q=0.5,es;q=0.9,;,fr;q=0.7".to_string();
+        let result = get_highest_quality_language(accept_language);
+        // Should still work and return Spanish (highest quality = 0.9)
+        assert_eq!(result, Some("Spanish".to_string()));
     }
 }

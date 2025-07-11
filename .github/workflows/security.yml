@@ -28,7 +28,6 @@ jobs:
         with:
           toolchain: stable
       
-      # Caché para cargo-geiger
       - name: Cache cargo-geiger
         uses: actions/cache@v4
         with:

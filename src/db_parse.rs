@@ -711,14 +711,18 @@ mod tests {
     #[test]
     fn test_label() {
         for (s, l) in LABELS.iter() {
-            assert_eq!(&s.parse::<Label>().unwrap(), l);
+            assert_eq!(&s.parse::<Label>().expect("Failed to parse label"), l);
         }
     }
 
     #[test]
     fn test_tcp_signature() {
         for (s, sig) in TCP_SIGNATURES.iter() {
-            assert_eq!(&s.parse::<TcpSignature>().unwrap(), sig);
+            assert_eq!(
+                &s.parse::<TcpSignature>()
+                    .expect("Failed to parse TCP signature"),
+                sig
+            );
             assert_eq!(&sig.to_string(), s);
         }
     }
@@ -726,7 +730,7 @@ mod tests {
     #[test]
     fn test_ttl() {
         for (s, ttl) in TTLS.iter() {
-            assert_eq!(&s.parse::<Ttl>().unwrap(), ttl);
+            assert_eq!(&s.parse::<Ttl>().expect("Failed to parse TTL"), ttl);
             assert_eq!(&ttl.to_string(), s);
         }
     }
@@ -734,7 +738,11 @@ mod tests {
     #[test]
     fn test_http_signature() {
         for (s, sig) in HTTP_SIGNATURES.iter() {
-            assert_eq!(&s.parse::<HttpSignature>().unwrap(), sig);
+            assert_eq!(
+                &s.parse::<HttpSignature>()
+                    .expect("Failed to parse HTTP signature"),
+                sig
+            );
             assert_eq!(&sig.to_string(), s);
         }
     }
@@ -742,7 +750,11 @@ mod tests {
     #[test]
     fn test_http_header() {
         for (s, h) in HTTP_HEADERS.iter() {
-            assert_eq!(&s.parse::<HttpHeader>().unwrap(), h);
+            assert_eq!(
+                &s.parse::<HttpHeader>()
+                    .expect("Failed to parse HTTP header"),
+                h
+            );
             assert_eq!(&h.to_string(), s);
         }
     }

@@ -254,24 +254,37 @@ fn execute_parallel_analysis<P: IpPacketProcessor>(
             None
         };
 
-        let http_response = http_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
-            Ok(ObservableHttpPackage {
-                http_request: None,
-                http_response: None,
+        let http_response = http_handle
+            .map(|h| {
+                h.join()
+                    .map_err(|_| HuginnNetError::Parse("HTTP thread panicked".to_string()))?
             })
-        });
+            .unwrap_or_else(|| {
+                Ok(ObservableHttpPackage {
+                    http_request: None,
+                    http_response: None,
+                })
+            });
 
-        let tcp_response = tcp_handle.map(|h| h.join().unwrap()).unwrap_or_else(|| {
-            Ok(ObservableTCPPackage {
-                tcp_request: None,
-                tcp_response: None,
-                mtu: None,
-                uptime: None,
+        let tcp_response = tcp_handle
+            .map(|h| {
+                h.join()
+                    .map_err(|_| HuginnNetError::Parse("TCP thread panicked".to_string()))?
             })
-        });
+            .unwrap_or_else(|| {
+                Ok(ObservableTCPPackage {
+                    tcp_request: None,
+                    tcp_response: None,
+                    mtu: None,
+                    uptime: None,
+                })
+            });
 
         let tls_response = tls_handle
-            .map(|h| h.join().unwrap())
+            .map(|h| {
+                h.join()
+                    .map_err(|_| HuginnNetError::Parse("TLS thread panicked".to_string()))?
+            })
             .unwrap_or_else(|| Ok(ObservableTlsPackage { tls_client: None }));
 
         handle_http_tcp_tlc(
@@ -282,7 +295,7 @@ fn execute_parallel_analysis<P: IpPacketProcessor>(
             destination,
         )
     })
-    .unwrap()
+    .map_err(|_| HuginnNetError::Parse("Parallel analysis scope failed".to_string()))?
 }
 
 fn process_ip<P: IpPacketProcessor>(

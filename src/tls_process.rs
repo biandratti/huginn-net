@@ -382,7 +382,7 @@ mod tests {
         let result = extract_tls_signature_from_client_hello(&client_hello);
         assert!(result.is_ok());
 
-        let signature = result.unwrap();
+        let signature = result.expect("Failed to extract TLS signature");
         assert_eq!(signature.version, crate::tls::TlsVersion::V1_2);
         assert_eq!(signature.cipher_suites.len(), 2); // GREASE filtered out
         assert!(signature.cipher_suites.contains(&0x1301));
@@ -421,15 +421,15 @@ mod tests {
         };
 
         // Mock the extension parsing by providing minimal valid extension data
-        if let Ok(signature) = extract_tls_signature_from_client_hello(&client_hello) {
-            // Should only contain non-GREASE cipher suites
-            assert_eq!(signature.cipher_suites.len(), 2);
-            assert!(signature.cipher_suites.contains(&0x1301));
-            assert!(signature.cipher_suites.contains(&0x1302));
-            assert!(!signature.cipher_suites.contains(&0x0a0a));
-            assert!(!signature.cipher_suites.contains(&0x1a1a));
-            assert!(!signature.cipher_suites.contains(&0x2a2a));
-        }
+        let signature = extract_tls_signature_from_client_hello(&client_hello)
+            .expect("Failed to extract TLS signature for GREASE test");
+        // Should only contain non-GREASE cipher suites
+        assert_eq!(signature.cipher_suites.len(), 2);
+        assert!(signature.cipher_suites.contains(&0x1301));
+        assert!(signature.cipher_suites.contains(&0x1302));
+        assert!(!signature.cipher_suites.contains(&0x0a0a));
+        assert!(!signature.cipher_suites.contains(&0x1a1a));
+        assert!(!signature.cipher_suites.contains(&0x2a2a));
     }
 
     #[test]

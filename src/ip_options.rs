@@ -54,7 +54,7 @@ mod tests {
     fn test_ipv4_options_length() {
         let mut data = vec![0u8; 24];
         data[0] = 0x46; // Version 4, IHL 6
-        let packet = Ipv4Packet::new(&data).unwrap();
+        let packet = Ipv4Packet::new(&data).expect("Failed to create IPv4 packet");
 
         assert_eq!(IpOptions::calculate_ipv4_length(&packet), 4);
     }
@@ -65,7 +65,7 @@ mod tests {
         data[0] = 0x60; // Version 6
         data[6] = IpNextHeaderProtocols::Tcp.0; // Next Header = TCP
 
-        let packet = Ipv6Packet::new(&data).unwrap();
+        let packet = Ipv6Packet::new(&data).expect("Failed to create IPv6 packet");
         assert_eq!(IpOptions::calculate_ipv6_length(&packet), 0);
     }
 
@@ -78,7 +78,7 @@ mod tests {
         data[5] = 8; // Length low byte
         data[40] = IpNextHeaderProtocols::Tcp.0; // Next Header = TCP
 
-        let packet = Ipv6Packet::new(&data).unwrap();
+        let packet = Ipv6Packet::new(&data).expect("Failed to create IPv6 fragment packet");
         assert_eq!(IpOptions::calculate_ipv6_length(&packet), 8);
     }
 }
