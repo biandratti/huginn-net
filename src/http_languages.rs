@@ -195,27 +195,39 @@ lazy_static! {
 }
 
 pub fn get_highest_quality_language(accept_language: String) -> Option<String> {
-    let mut highest_quality = 0.0;
-    let mut highest_language = None;
+    accept_language
+        .split(',')
+        .enumerate()
+        .filter_map(|(index, part)| {
+            let mut lang_and_quality = part.split(';');
+            let full_language = lang_and_quality.next()?.trim();
 
-    for part in accept_language.split(',') {
-        let mut lang_and_quality = part.split(';');
-        let full_language: String = match lang_and_quality.next() {
-            Some(lang) => lang.trim().to_string(),
-            None => continue,
-        };
-        let language = full_language.split('-').next().unwrap_or("").to_string();
-        let quality: f32 = lang_and_quality
-            .next()
-            .and_then(|q| q.trim_start_matches("q=").parse::<f32>().ok())
-            .unwrap_or(1.0);
+            // Skip empty language parts (malformed entries like ",," or ";q=0.5")
+            if full_language.is_empty() {
+                return None;
+            }
 
-        if quality > highest_quality {
-            highest_quality = quality;
-            highest_language = LANGUAGES.get(&language);
-        }
-    }
-    highest_language.map(|l| l.to_string())
+            let language = full_language.split('-').next().unwrap_or("").to_string();
+            let quality: f32 = lang_and_quality
+                .next()
+                .and_then(|q| q.trim_start_matches("q=").parse::<f32>().ok())
+                .unwrap_or(1.0);
+
+            LANGUAGES
+                .get(&language)
+                .map(|lang_name| (quality, index, lang_name.clone()))
+        })
+        .max_by(|a, b| {
+            // First compare by quality (higher is better)
+            match a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal) {
+                std::cmp::Ordering::Equal => {
+                    // In case of tie, prefer earlier index (lower is better)
+                    b.1.cmp(&a.1) // Reverse order for index (earlier = smaller index)
+                }
+                other => other,
+            }
+        })
+        .map(|(_, _, language_name)| language_name)
 }
 
 #[cfg(test)]
