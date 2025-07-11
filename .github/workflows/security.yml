@@ -1,0 +1,60 @@
+name: Advanced Security
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  schedule:
+    - cron: '0 2 * * 6'
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  cargo-geiger:
+    name: Unsafe Code Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      
+      # Caché para cargo-geiger
+      - name: Cache cargo-geiger
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-geiger
+          key: cargo-geiger-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-geiger-${{ runner.os }}-
+            
+      - name: Install cargo-geiger
+        run: |
+          if ! command -v cargo-geiger &> /dev/null; then
+            cargo install cargo-geiger
+          else
+            echo "cargo-geiger already installed"
+          fi
+      
+      - name: Run unsafe code analysis
+        run: cargo geiger --package ${{ github.event.repository.name }} --forbid-only
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, Unicode-3.0

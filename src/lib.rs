@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
@@ -216,7 +218,7 @@ impl<'a> HuginnNet<'a> {
         let interface = interfaces
             .into_iter()
             .find(|iface| iface.name == interface_name)
-            .ok_or_else(|| format!("Could not find network interface: {}", interface_name))?;
+            .ok_or_else(|| format!("Could not find network interface: {interface_name}"))?;
 
         debug!("Using network interface: {}", interface.name);
 
@@ -228,7 +230,7 @@ impl<'a> HuginnNet<'a> {
         let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => return Err("Unhandled channel type".into()),
-            Err(e) => return Err(format!("Unable to create channel: {}", e).into()),
+            Err(e) => return Err(format!("Unable to create channel: {e}").into()),
         };
 
         self.process_with(

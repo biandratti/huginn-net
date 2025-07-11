@@ -54,7 +54,10 @@ fn initialize_logging(log_file: Option<String>) {
         .with_writer(writer)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
+    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
+        eprintln!("Failed to set subscriber: {e}");
+        std::process::exit(1);
+    }
 }
 
 fn main() {
@@ -82,7 +85,7 @@ fn main() {
         };
 
         if let Err(e) = result {
-            eprintln!("Analysis failed: {}", e);
+            eprintln!("Analysis failed: {e}");
         }
     });
 

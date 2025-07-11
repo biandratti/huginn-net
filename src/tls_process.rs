@@ -99,10 +99,7 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetError> 
                 "No ClientHello found in TLS record".to_string(),
             ))
         }
-        Err(e) => Err(HuginnNetError::Parse(format!(
-            "TLS parsing failed: {:?}",
-            e
-        ))),
+        Err(e) => Err(HuginnNetError::Parse(format!("TLS parsing failed: {e:?}"))),
     }
 }
 

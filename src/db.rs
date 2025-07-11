@@ -45,7 +45,7 @@ pub enum Type {
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -64,8 +64,7 @@ impl Default for Database {
             Ok(db) => db,
             Err(e) => {
                 panic!(
-                    "CRITICAL: Failed to parse embedded default fingerprint file. This is a bug or a corrupted built-in DB. Error: {}",
-                    e
+                    "CRITICAL: Failed to parse embedded default fingerprint file. This is a bug or a corrupted built-in DB. Error: {e}"
                 );
             }
         }

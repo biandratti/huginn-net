@@ -25,11 +25,11 @@ pub struct SynData {
     recv_ms: u64,
 }
 
-fn get_unix_time_ms() -> u64 {
+fn get_unix_time_ms() -> Option<u64> {
     let now = SystemTime::now();
     now.duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis() as u64
+        .ok()
+        .map(|duration| duration.as_millis() as u64)
 }
 
 fn guess_frequency(raw_freq: f64, base_guess: f64, tolerance: f64) -> Option<f64> {
@@ -74,14 +74,18 @@ pub fn check_ts_tcp(
         data
     } else {
         debug!("Client SYN - storing timestamp data");
-        cache.insert(
-            connection.clone(),
-            SynData {
-                ts1: ts_val,
-                recv_ms: get_unix_time_ms(),
-            },
-            Duration::new(60, 0),
-        );
+        if let Some(recv_ms) = get_unix_time_ms() {
+            cache.insert(
+                connection.clone(),
+                SynData {
+                    ts1: ts_val,
+                    recv_ms,
+                },
+                Duration::new(60, 0),
+            );
+        } else {
+            debug!("Failed to get current time, skipping SYN data storage");
+        }
         None
     };
 
@@ -93,7 +97,13 @@ pub fn check_ts_tcp(
         }
     };
 
-    let current_time = get_unix_time_ms();
+    let current_time = match get_unix_time_ms() {
+        Some(time) => time,
+        None => {
+            debug!("Failed to get current time for uptime calculation");
+            return None;
+        }
+    };
     let ms_diff = current_time.saturating_sub(last_syn_data.recv_ms);
 
     if ms_diff > MAX_TWAIT {

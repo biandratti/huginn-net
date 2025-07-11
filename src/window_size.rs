@@ -116,7 +116,7 @@ mod tests {
         let window = 8192; // Power of 2, should match largest modulo (4096)
         let mss = 1337; // Prime number MSS to avoid any accidental divisions
         let result = detect_win_multiplicator(window, mss, 40, false, &IpVersion::V4);
-        println!("Result for window {}: {:?}", window, result);
+        println!("Result for window {window}: {result:?}");
         assert!(matches!(result, WindowSize::Mod(4096)));
     }
 

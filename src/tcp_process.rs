@@ -379,34 +379,28 @@ mod tests {
 
     #[test]
     fn test_from_client() {
-        assert_eq!(from_client(TcpFlags::SYN), true);
-        assert_eq!(from_client(TcpFlags::SYN | TcpFlags::ACK), false);
-        assert_eq!(from_client(TcpFlags::ACK), false);
+        assert!(from_client(TcpFlags::SYN));
+        assert!(!from_client(TcpFlags::SYN | TcpFlags::ACK));
+        assert!(!from_client(TcpFlags::ACK));
     }
 
     #[test]
     fn test_from_server() {
-        assert_eq!(from_server(TcpFlags::SYN | TcpFlags::ACK), true);
-        assert_eq!(from_server(TcpFlags::SYN), false);
-        assert_eq!(from_server(TcpFlags::ACK), false);
-        assert_eq!(from_server(TcpFlags::RST), false);
+        assert!(from_server(TcpFlags::SYN | TcpFlags::ACK));
+        assert!(!from_server(TcpFlags::SYN));
+        assert!(!from_server(TcpFlags::ACK));
+        assert!(!from_server(TcpFlags::RST));
     }
 
     #[test]
     fn test_is_valid() {
-        assert_eq!(is_valid(TcpFlags::SYN, TcpFlags::SYN), true);
-        assert_eq!(
-            is_valid(TcpFlags::SYN | TcpFlags::FIN, TcpFlags::SYN),
-            false
-        );
-        assert_eq!(
-            is_valid(TcpFlags::SYN | TcpFlags::RST, TcpFlags::SYN),
-            false
-        );
-        assert_eq!(
-            is_valid(TcpFlags::FIN | TcpFlags::RST, TcpFlags::FIN | TcpFlags::RST),
-            false
-        );
-        assert_eq!(is_valid(TcpFlags::SYN, 0), false);
+        assert!(is_valid(TcpFlags::SYN, TcpFlags::SYN));
+        assert!(!is_valid(TcpFlags::SYN | TcpFlags::FIN, TcpFlags::SYN));
+        assert!(!is_valid(TcpFlags::SYN | TcpFlags::RST, TcpFlags::SYN));
+        assert!(!is_valid(
+            TcpFlags::FIN | TcpFlags::RST,
+            TcpFlags::FIN | TcpFlags::RST
+        ));
+        assert!(!is_valid(TcpFlags::SYN, 0));
     }
 }
