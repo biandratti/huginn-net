@@ -1,7 +1,7 @@
 [advisories]
 vulnerability = "deny"
-unmaintained = "warn"
-unsound = "warn"
+unmaintained = "workspace"
+unsound = "workspace"
 
 [licenses]
 allow = [
