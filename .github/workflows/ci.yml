@@ -41,8 +41,7 @@ jobs:
           components: rustfmt
       - name: Check code formatting
         run: cargo fmt -- --check
-  clippy:
-    name: clippy
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
