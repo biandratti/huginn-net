@@ -42,7 +42,7 @@ mod tcp {
             )?;
 
             if let Some(mss) = self.get_mss() {
-                write!(f, "{}", mss)?;
+                write!(f, "{mss}")?;
             } else {
                 f.write_str("*")?;
             }
@@ -50,7 +50,7 @@ mod tcp {
             write!(f, ":{},", self.get_wsize())?;
 
             if let Some(scale) = self.get_wscale() {
-                write!(f, "{}", scale)?;
+                write!(f, "{scale}")?;
             } else {
                 f.write_str("*")?;
             }
@@ -61,7 +61,7 @@ mod tcp {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-                write!(f, "{}", o)?;
+                write!(f, "{o}")?;
             }
 
             f.write_str(":")?;
@@ -70,7 +70,7 @@ mod tcp {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-                write!(f, "{}", q)?;
+                write!(f, "{q}")?;
             }
 
             write!(f, ":{}", self.get_pclass())
@@ -164,10 +164,10 @@ mod tcp {
     impl fmt::Display for Ttl {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             match self {
-                Ttl::Value(ttl) => write!(f, "{}", ttl),
-                Ttl::Distance(ttl, distance) => write!(f, "{}+{}", ttl, distance),
-                Ttl::Guess(ttl) => write!(f, "{}+?", ttl),
-                Ttl::Bad(ttl) => write!(f, "{}-", ttl),
+                Ttl::Value(ttl) => write!(f, "{ttl}"),
+                Ttl::Distance(ttl, distance) => write!(f, "{ttl}+{distance}"),
+                Ttl::Guess(ttl) => write!(f, "{ttl}+?"),
+                Ttl::Bad(ttl) => write!(f, "{ttl}-"),
             }
         }
     }
@@ -177,10 +177,10 @@ mod tcp {
             use WindowSize::*;
 
             match self {
-                Mss(n) => write!(f, "mss*{}", n),
-                Mtu(n) => write!(f, "mtu*{}", n),
-                Value(n) => write!(f, "{}", n),
-                Mod(n) => write!(f, "%{}", n),
+                Mss(n) => write!(f, "mss*{n}"),
+                Mtu(n) => write!(f, "mtu*{n}"),
+                Value(n) => write!(f, "{n}"),
+                Mod(n) => write!(f, "%{n}"),
                 Any => f.write_str("*"),
             }
         }
@@ -191,14 +191,14 @@ mod tcp {
             use TcpOption::*;
 
             match self {
-                Eol(n) => write!(f, "eol+{}", n),
+                Eol(n) => write!(f, "eol+{n}"),
                 Nop => f.write_str("nop"),
                 Mss => f.write_str("mss"),
                 Ws => f.write_str("ws"),
                 Sok => f.write_str("sok"),
                 Sack => f.write_str("sack"),
                 TS => f.write_str("ts"),
-                Unknown(n) => write!(f, "?{}", n),
+                Unknown(n) => write!(f, "?{n}"),
             }
         }
     }
@@ -261,7 +261,7 @@ mod http {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-                write!(f, "{}", h)?;
+                write!(f, "{h}")?;
             }
 
             f.write_str(":")?;
@@ -270,7 +270,7 @@ mod http {
                 if i > 0 {
                     f.write_str(",")?;
                 }
-                write!(f, "{}", h)?;
+                write!(f, "{h}")?;
             }
 
             write!(f, ":{}", self.get_expsw())
@@ -359,7 +359,7 @@ mod http {
             f.write_str(&self.name)?;
 
             if let Some(ref value) = self.value {
-                write!(f, "=[{}]", value)?;
+                write!(f, "=[{value}]")?;
             }
 
             Ok(())
