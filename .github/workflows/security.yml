@@ -27,8 +27,24 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      
+      # Caché para cargo-geiger
+      - name: Cache cargo-geiger
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-geiger
+          key: cargo-geiger-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-geiger-${{ runner.os }}-
+            
       - name: Install cargo-geiger
-        run: cargo install cargo-geiger
+        run: |
+          if ! command -v cargo-geiger &> /dev/null; then
+            cargo install cargo-geiger
+          else
+            echo "cargo-geiger already installed"
+          fi
+      
       - name: Run unsafe code analysis
         run: cargo geiger --package ${{ github.event.repository.name }} --forbid-only
 
