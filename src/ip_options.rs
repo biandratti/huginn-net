@@ -13,7 +13,8 @@ impl IpOptions {
         // Subtract minimum header length (20 bytes = 5 words)
         let ihl = packet.get_header_length();
         let options_length: u8 = if ihl > 5 {
-            (ihl - 5) * 4 // Convert words to bytes
+            // convert words to bytes
+            ihl.saturating_sub(5).saturating_mul(4)
         } else {
             0 // No options: standard header only
         };
@@ -35,7 +36,11 @@ impl IpOptions {
             IpNextHeaderProtocols::Ipv6Frag => 8,
             _ => {
                 if payload.len() >= 2 {
-                    (payload[1] as usize + 1) * 8
+                    let header_len = payload[1] as usize;
+                    header_len
+                        .checked_add(1)
+                        .and_then(|sum| sum.checked_mul(8))
+                        .unwrap_or(0)
                 } else {
                     0
                 }
