@@ -118,7 +118,7 @@ impl Ttl {
                 }
             }
             (Ttl::Distance(a1, a2), Ttl::Value(b1)) => {
-                if a1 + a2 == *b1 {
+                if a1.saturating_add(*a2) == *b1 {
                     Some(TcpMatchQuality::High.as_score())
                 } else {
                     Some(TcpMatchQuality::Low.as_score())
@@ -193,13 +193,16 @@ impl WindowSize {
             }
             (WindowSize::Value(a), WindowSize::Mss(b)) => {
                 if let Some(mss_value) = mss {
-                    let ratio_other = a / mss_value;
-                    if *b as u16 == ratio_other {
-                        debug!(
-                            "window size difference: a {}, b {} == ratio_other {}",
-                            a, b, ratio_other
-                        );
-                        Some(TcpMatchQuality::High.as_score())
+                    if let Some(ratio_other) = a.checked_div(mss_value) {
+                        if *b as u16 == ratio_other {
+                            debug!(
+                                "window size difference: a {}, b {} == ratio_other {}",
+                                a, b, ratio_other
+                            );
+                            Some(TcpMatchQuality::High.as_score())
+                        } else {
+                            Some(TcpMatchQuality::Low.as_score())
+                        }
                     } else {
                         Some(TcpMatchQuality::Low.as_score())
                     }

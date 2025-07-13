@@ -41,7 +41,7 @@ trait HttpDistance {
     fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
         let mut obs_idx = 0; // Index pointer for observed headers
         let mut sig_idx = 0; // Index pointer for signature headers
-        let mut errors = 0; // Running count of matching errors
+        let mut errors: u32 = 0; // Running count of matching errors
 
         while obs_idx < observed.len() && sig_idx < signature.len() {
             let obs_header = &observed[obs_idx];
@@ -50,32 +50,32 @@ trait HttpDistance {
             // Check if headers match (name and value)
             if obs_header.name == sig_header.name && obs_header.value == sig_header.value {
                 // Perfect match - advance both pointers
-                obs_idx += 1;
-                sig_idx += 1;
+                obs_idx = obs_idx.saturating_add(1);
+                sig_idx = sig_idx.saturating_add(1);
             } else if obs_header.name == sig_header.name {
                 if !sig_header.optional {
-                    errors += 1;
+                    errors = errors.saturating_add(1);
                 }
-                obs_idx += 1;
-                sig_idx += 1;
+                obs_idx = obs_idx.saturating_add(1);
+                sig_idx = sig_idx.saturating_add(1);
             } else if sig_header.optional {
-                sig_idx += 1;
+                sig_idx = sig_idx.saturating_add(1);
             } else {
-                errors += 1;
-                sig_idx += 1;
+                errors = errors.saturating_add(1);
+                sig_idx = sig_idx.saturating_add(1);
             }
         }
 
         while obs_idx < observed.len() {
-            errors += 1;
-            obs_idx += 1;
+            errors = errors.saturating_add(1);
+            obs_idx = obs_idx.saturating_add(1);
         }
 
         while sig_idx < signature.len() {
             if !signature[sig_idx].optional {
-                errors += 1;
+                errors = errors.saturating_add(1);
             }
-            sig_idx += 1;
+            sig_idx = sig_idx.saturating_add(1);
         }
 
         // Convert error count to quality score using predefined ranges
@@ -140,10 +140,11 @@ trait HttpSignatureHelper {
         Self: AsRef<http::Signature>,
     {
         let signature = self.as_ref();
-        let distance = observed.distance_ip_version(signature)?
-            + observed.distance_horder(signature)?
-            + observed.distance_habsent(signature)?
-            + observed.distance_expsw(signature)?;
+        let distance = observed
+            .distance_ip_version(signature)?
+            .saturating_add(observed.distance_horder(signature)?)
+            .saturating_add(observed.distance_habsent(signature)?)
+            .saturating_add(observed.distance_expsw(signature)?);
         Some(distance)
     }
 

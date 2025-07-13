@@ -56,9 +56,13 @@ jobs:
             -D warnings \
             -D clippy::expect_used \
             -D clippy::unreachable \
+            -D clippy::arithmetic_side_effects \
             -D clippy::unwrap_used \
             -D clippy::todo \
-            -D clippy::unimplemented
+            -D clippy::redundant_clone \
+            -D clippy::unimplemented \
+            -D clippy::missing_panics_doc \
+            -D clippy::redundant_field_names
 
   minrust:
     name: minrust

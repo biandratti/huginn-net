@@ -51,7 +51,7 @@ impl TcpFlow {
             server_ip: dst_ip,
             client_port: src_port,
             server_port: dst_port,
-            client_data: vec![tcp_data.clone()],
+            client_data: vec![tcp_data],
             server_data: Vec::new(),
         }
     }

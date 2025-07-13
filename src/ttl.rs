@@ -1,14 +1,14 @@
 use crate::tcp::Ttl;
 
 fn guess_distance(ttl: u8) -> u8 {
-    if ttl <= 32 {
-        32 - ttl
-    } else if ttl <= 64 {
-        64 - ttl
-    } else if ttl <= 128 {
-        128 - ttl
+    if ttl > 128 {
+        255u8.saturating_sub(ttl)
+    } else if ttl > 64 {
+        128u8.saturating_sub(ttl)
+    } else if ttl > 32 {
+        64u8.saturating_sub(ttl)
     } else {
-        255 - ttl
+        32u8.saturating_sub(ttl)
     }
 }
 

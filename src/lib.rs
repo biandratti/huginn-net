@@ -3,8 +3,10 @@
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
-use crate::db::{Database, Label};
+use crate::db::Label;
 use crate::fingerprint_result::{FingerprintResult, OSQualityMatched};
+
+pub use crate::db::Database;
 
 // ============================================================================
 // TCP PROTOCOL IMPORTS (base protocol)

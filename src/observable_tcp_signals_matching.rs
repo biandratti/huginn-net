@@ -61,17 +61,21 @@ impl ObservedFingerprint for ObservableTcp {
 
 impl DatabaseSignature<ObservableTcp> for tcp::Signature {
     fn calculate_distance(&self, observed: &ObservableTcp) -> Option<u32> {
-        let distance = observed.version.distance_ip_version(&self.version)?
-            + observed.ittl.distance_ttl(&self.ittl)?
-            + observed.distance_olen(self)?
-            + observed.distance_mss(self)?
-            + observed
-                .wsize
-                .distance_window_size(&self.wsize, observed.mss)?
-            + observed.distance_wscale(self)?
-            + observed.distance_olayout(self)?
-            + observed.distance_quirks(self)?
-            + observed.pclass.distance_payload_size(&self.pclass)?;
+        let distance = observed
+            .version
+            .distance_ip_version(&self.version)?
+            .saturating_add(observed.ittl.distance_ttl(&self.ittl)?)
+            .saturating_add(observed.distance_olen(self)?)
+            .saturating_add(observed.distance_mss(self)?)
+            .saturating_add(
+                observed
+                    .wsize
+                    .distance_window_size(&self.wsize, observed.mss)?,
+            )
+            .saturating_add(observed.distance_wscale(self)?)
+            .saturating_add(observed.distance_olayout(self)?)
+            .saturating_add(observed.distance_quirks(self)?)
+            .saturating_add(observed.pclass.distance_payload_size(&self.pclass)?);
         Some(distance)
     }
 

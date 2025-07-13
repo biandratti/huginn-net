@@ -220,7 +220,7 @@ impl Signature {
         );
 
         // JA4_b: Cipher suites (sorted or original order, comma-separated, 4-digit hex) - GREASE filtered
-        let mut ciphers_for_b = filtered_ciphers.clone();
+        let mut ciphers_for_b = filtered_ciphers;
         if !original_order {
             ciphers_for_b.sort_unstable();
         }
@@ -231,7 +231,7 @@ impl Signature {
             .join(",");
 
         // JA4_c: Extensions (sorted or original order, comma-separated, 4-digit hex) + "_" + signature algorithms
-        let mut extensions_for_c = filtered_extensions.clone();
+        let mut extensions_for_c = filtered_extensions;
 
         // For sorted version: Remove SNI (0x0000) and ALPN (0x0010) from extensions AND sort
         // For original version: Keep SNI/ALPN and preserve original order
@@ -257,9 +257,9 @@ impl Signature {
         // According to the specification, "if there are no signature algorithms in the
         // Hello packet, then the string ends without an underscore".
         let ja4_c_raw = if sig_algs_str.is_empty() {
-            extensions_str.clone()
+            extensions_str
         } else if extensions_str.is_empty() {
-            sig_algs_str.clone()
+            sig_algs_str
         } else {
             format!("{extensions_str}_{sig_algs_str}")
         };
