@@ -59,7 +59,9 @@ jobs:
             -D clippy::arithmetic_side_effects \
             -D clippy::unwrap_used \
             -D clippy::todo \
-            -D clippy::unimplemented
+            -D clippy::redundant_clone \
+            -D clippy::unimplemented \
+            -D clippy::redundant_field_names
 
   minrust:
     name: minrust

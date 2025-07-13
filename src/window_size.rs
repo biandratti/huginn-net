@@ -42,14 +42,10 @@ pub fn detect_win_multiplicator(
     // 2. Check common modulo patterns first
     // These are typical values used by different operating systems
     // Iterate in reverse order to find the largest modulo that divides window_size
-    if window_size > 256 {
-        let divisor = window_size >> 8;
-        if divisor > 0 {
-            if let Some(modulo) = window_size.checked_div(divisor) {
-                if modulo > 0 && window_size.checked_rem(modulo) == Some(0) {
-                    return WindowSize::Mod(modulo);
-                }
-            }
+    let modulos = [256, 512, 1024, 2048, 4096];
+    for &modulo in modulos.iter().rev() {
+        if window_size.checked_rem(modulo) == Some(0) {
+            return WindowSize::Mod(modulo);
         }
     }
 
