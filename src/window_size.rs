@@ -31,19 +31,25 @@ pub fn detect_win_multiplicator(
         };
     }
 
-    // Check basic MSS and timestamp-adjusted MSS
-    check_mss_div!(mss);
-    if has_ts {
-        check_mss_div!(mss - TS_SIZE);
+    // 1.1 Check basic MSS and timestamp-adjusted MSS
+    if mss > 0 {
+        check_mss_div!(mss);
+        if has_ts && mss > TS_SIZE {
+            check_mss_div!(mss.saturating_sub(TS_SIZE));
+        }
     }
 
     // 2. Check common modulo patterns first
     // These are typical values used by different operating systems
     // Iterate in reverse order to find the largest modulo that divides window_size
-    let modulos = [256, 512, 1024, 2048, 4096];
-    for &modulo in modulos.iter().rev() {
-        if window_size % modulo == 0 {
-            return WindowSize::Mod(modulo);
+    if window_size > 256 {
+        let divisor = window_size >> 8;
+        if divisor > 0 {
+            if let Some(modulo) = window_size.checked_div(divisor) {
+                if modulo > 0 && window_size.checked_rem(modulo) == Some(0) {
+                    return WindowSize::Mod(modulo);
+                }
+            }
         }
     }
 
@@ -80,11 +86,16 @@ pub fn detect_win_multiplicator(
     }
 
     // 4. Check special MTU cases
-    check_mtu_div!(mss + total_header);
-    match ip_ver {
-        IpVersion::V4 => check_mtu_div!(mss + MIN_TCP4),
-        IpVersion::V6 => check_mtu_div!(mss + MIN_TCP6),
-        IpVersion::Any => {}
+    if mss > 0 {
+        if total_header > 0 {
+            check_mtu_div!(mss.saturating_add(total_header));
+        } else {
+            match ip_ver {
+                IpVersion::V4 => check_mtu_div!(mss.saturating_add(MIN_TCP4)),
+                IpVersion::V6 => check_mtu_div!(mss.saturating_add(MIN_TCP6)),
+                _ => {}
+            }
+        }
     }
 
     // If no pattern is found, return direct value
