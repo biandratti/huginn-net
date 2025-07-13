@@ -140,10 +140,11 @@ trait HttpSignatureHelper {
         Self: AsRef<http::Signature>,
     {
         let signature = self.as_ref();
-        let distance = observed.distance_ip_version(signature)?
-            + observed.distance_horder(signature)?
-            + observed.distance_habsent(signature)?
-            + observed.distance_expsw(signature)?;
+        let distance = observed
+            .distance_ip_version(signature)?
+            .saturating_add(observed.distance_horder(signature)?)
+            .saturating_add(observed.distance_habsent(signature)?)
+            .saturating_add(observed.distance_expsw(signature)?);
         Some(distance)
     }
 

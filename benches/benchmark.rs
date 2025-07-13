@@ -1,23 +1,18 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use huginn_net::db::Database;
-use huginn_net::HuginnNet;
+use huginn_net::{Database, HuginnNet};
 use pcap_file::pcap::PcapReader;
+use std::error::Error;
 use std::fs::File;
 
-fn load_packets_from_pcap(path: &str) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
-    let file = File::open(path).map_err(|e| {
-        format!(
-            "Error: The file 'dump.pca' was not found. \
-            Please make sure the file exists in the current directory or provide the correct path. \
-            Error: {e}"
-        )
-    })?;
-    let mut reader =
-        PcapReader::new(file).map_err(|e| format!("Failed to create pcap reader: {e}"))?;
-    let mut packets = Vec::new();
+criterion_group!(benches, bench_analyze_tcp_on_pcap);
+criterion_main!(benches);
 
-    while let Some(Ok(pkt)) = reader.next_packet() {
-        packets.push(pkt.data.to_vec());
+fn load_packets_from_pcap(pcap_path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+    let file = File::open(pcap_path)?;
+    let mut pcap_reader = PcapReader::new(file)?;
+    let mut packets = Vec::new();
+    while let Some(pkt) = pcap_reader.next_packet() {
+        packets.push(pkt?.data.into());
     }
     Ok(packets)
 }
@@ -28,66 +23,82 @@ fn load_packets_from_pcap(path: &str) -> Result<Vec<Vec<u8>>, Box<dyn std::error
 // ```
 // Then to run the test, you need to have the dump.pca file in your home directory.
 fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
-    let db = Box::leak(Box::new(Database::default()));
-    let mut analyzer = HuginnNet::new(Some(db), 100, None);
-
-    let packets = match load_packets_from_pcap("~/dump.pca") {
+    let packets = match load_packets_from_pcap("dump.pca") {
         Ok(pkts) => pkts,
         Err(e) => {
-            eprintln!("Failed to load packets: {e}");
+            eprintln!("Failed to load pcap file: {e}");
             return;
         }
     };
 
-    let mut syn_count = 0;
-    let mut syn_ack_count = 0;
-    let mut mtu_count = 0;
-    let mut uptime_count = 0;
-    let mut http_request_count = 0;
-    let mut http_response_count = 0;
+    let (
+        syn_count,
+        syn_ack_count,
+        mtu_count,
+        uptime_count,
+        http_request_count,
+        http_response_count,
+    ) = {
+        let mut syn_count: u64 = 0;
+        let mut syn_ack_count: u64 = 0;
+        let mut mtu_count: u64 = 0;
+        let mut uptime_count: u64 = 0;
+        let mut http_request_count: u64 = 0;
+        let mut http_response_count: u64 = 0;
 
-    for pkt in &packets {
-        let output = analyzer.analyze_tcp(pkt);
-        if output.syn.is_some() {
-            syn_count += 1;
+        let db = Database::default();
+        let mut huginn_net = HuginnNet::new(Some(&db), 1000, None);
+
+        // Process each packet
+        for packet in &packets {
+            let result = huginn_net.analyze_tcp(packet);
+            if result.syn.is_some() {
+                syn_count = syn_count.saturating_add(1);
+            }
+            if result.syn_ack.is_some() {
+                syn_ack_count = syn_ack_count.saturating_add(1);
+            }
+            if result.mtu.is_some() {
+                mtu_count = mtu_count.saturating_add(1);
+            }
+            if result.uptime.is_some() {
+                uptime_count = uptime_count.saturating_add(1);
+            }
+            if result.http_request.is_some() {
+                http_request_count = http_request_count.saturating_add(1);
+            }
+            if result.http_response.is_some() {
+                http_response_count = http_response_count.saturating_add(1);
+            }
         }
-        if output.syn_ack.is_some() {
-            syn_ack_count += 1;
-        }
-        if output.mtu.is_some() {
-            mtu_count += 1;
-        }
-        if output.uptime.is_some() {
-            uptime_count += 1;
-        }
-        if output.http_request.is_some() {
-            http_request_count += 1;
-        }
-        if output.http_response.is_some() {
-            http_response_count += 1;
-        }
-    }
+
+        (
+            syn_count,
+            syn_ack_count,
+            mtu_count,
+            uptime_count,
+            http_request_count,
+            http_response_count,
+        )
+    };
 
     println!("Packages to analyze:");
-    println!("  SYN:           {syn_count}");
-    println!("  SYN-ACK:       {syn_ack_count}");
-    println!("  MTU:           {mtu_count}");
-    println!("  Uptime:        {uptime_count}");
-    println!("  HTTP Request:  {http_request_count}");
+    println!("  SYN: {syn_count}");
+    println!("  SYN/ACK: {syn_ack_count}");
+    println!("  MTU: {mtu_count}");
+    println!("  Uptime: {uptime_count}");
+    println!("  HTTP Request: {http_request_count}");
     println!("  HTTP Response: {http_response_count}");
+    println!("--------------------");
 
-    let mut group = c.benchmark_group("analyze_tcp_on_pcap");
-    group.sample_size(100);
-    group.measurement_time(std::time::Duration::from_secs(60));
-    group.bench_function("analyze_tcp_on_pcap", |b| {
+    let db = Database::default();
+    let mut huginn_net = HuginnNet::new(Some(&db), 1000, None);
+
+    c.bench_function("analyze_tcp_pcap", |b| {
         b.iter(|| {
             for pkt in packets.iter() {
-                let _ = analyzer.analyze_tcp(pkt);
+                let _ = huginn_net.analyze_tcp(pkt);
             }
         })
     });
-    group.finish();
 }
-
-criterion_group!(benches, bench_analyze_tcp_on_pcap);
-criterion_main!(benches);
