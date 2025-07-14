@@ -1,7 +1,8 @@
 # Huginn Net - Multi-Protocol Passive Fingerprinting <img src="huginn-net.svg" width="150" align="right"/>
 [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
 [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
-[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/huginn-net.svg)](#license)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE-MIT)
 [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
 [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
 [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
