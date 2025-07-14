@@ -1,7 +1,7 @@
 # Huginn Net - Multi-Protocol Passive Fingerprinting <img src="huginn-net.svg" width="150" align="right"/>
 [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
 [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
-[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/clippy.svg)](#license)
+[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/huginn-net.svg)](#license)
 [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
 [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
 [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
@@ -217,7 +217,7 @@ To achieve the best quality in matching, a rich database will be needed.
 
 ### TLS JA4 Fingerprinting
 
-**JA4 Attribution:** This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 (TLS client) methodology and specification are Copyright (c) 2023, FoxIO, LLC. Our implementation covers only JA4 (TLS client fingerprinting) under BSD 3-Clause license and is written from scratch for Huginn Net while adhering to the published JA4 standard. We do not implement JA4+ components which are under FoxIO License 1.1.
+This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS client fingerprinting. For full attribution and licensing details, please see the [Licensing & Attribution](#-licensing--attribution) section. We do not implement JA4+ components which are under FoxIO License 1.1.
 
 ## Interactive Testing
 
@@ -249,4 +249,11 @@ We welcome contributions! Areas where help is especially valuable:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is dual-licensed under either the [MIT License](LICENSE-MIT) or the [Apache License, Version 2.0](LICENSE-APACHE), at your option.
+
+### Attribution
+
+`huginn-net` is an independent Rust implementation inspired by the methodologies of `p0f` and `JA4`.
+
+- **p0f**: The TCP fingerprinting is inspired by the original p0f by Michał Zalewski. The logic has been rewritten from scratch in Rust to ensure memory safety and performance.
+- **JA4**: The TLS fingerprinting adheres to the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4), which is available under the BSD 3-Clause license. Our implementation was written from scratch for `huginn-net` and does not use any code from the original JA4 repository. JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
