@@ -7,6 +7,29 @@ use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
+const YELLOW: &str = "\x1b[33m";
+const RESET: &str = "\x1b[0m";
+const LIGHT_BLUE: &str = "\x1b[94m";
+
+fn colored(text: &str, color: &str) -> String {
+    format!("{}{}{}", color, text, RESET)
+}
+
+fn write_key_values(f: &mut Formatter<'_>, pairs: &[(&str, String)]) -> fmt::Result {
+    let max_len = pairs.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
+    for (key, value) in pairs {
+        let padding = max_len - key.len();
+        writeln!(
+            f,
+            "| {}{} = {}",
+            colored(key, LIGHT_BLUE),
+            " ".repeat(padding),
+            value
+        )?;
+    }
+    Ok(())
+}
+
 /// Represents the output from the Huginn Net analyzer.
 ///
 /// This struct contains various optional outputs that can be derived
@@ -83,41 +106,50 @@ pub struct SynTCPOutput {
 
 impl fmt::Display for SynTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (syn) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | os       = {}\n\
-            | dist     = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "{}.-[ {}/{} -> {}/{} (syn) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
-            self.os_matched.as_ref().map_or("???".to_string(), |l| {
-                format!(
-                    "{}/{}/{}",
-                    l.os.name,
-                    l.os.family.as_deref().unwrap_or("???"),
-                    l.os.variant.as_deref().unwrap_or("??")
-                )
-            }),
-            match self.sig.ittl {
-                Ttl::Distance(_, distance) => distance,
-                Ttl::Bad(value) => value,
-                Ttl::Value(value) => value,
-                Ttl::Guess(value) => value,
-            },
-            self.os_matched
-                .as_ref()
-                .map_or("none".to_string(), |l| l.os.kind.to_string()),
-            self.sig,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            ("client", format!("{}/{}", self.source.ip, self.source.port)),
+            (
+                "os",
+                self.os_matched.as_ref().map_or("???".to_string(), |l| {
+                    format!(
+                        "{}/{}/{}",
+                        l.os.name,
+                        l.os.family.as_deref().unwrap_or("???"),
+                        l.os.variant.as_deref().unwrap_or("??")
+                    )
+                }),
+            ),
+            (
+                "dist",
+                match self.sig.ittl {
+                    Ttl::Distance(_, d) => d,
+                    Ttl::Bad(v) | Ttl::Value(v) | Ttl::Guess(v) => v,
+                }
+                .to_string(),
+            ),
+            (
+                "params",
+                self.os_matched
+                    .as_ref()
+                    .map_or("none".to_string(), |l| l.os.kind.to_string()),
+            ),
+            ("raw_sig", self.sig.to_string()),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
 
@@ -138,41 +170,53 @@ pub struct SynAckTCPOutput {
 
 impl fmt::Display for SynAckTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (syn+ack) ]-\n\
-            |\n\
-            | server   = {}/{}\n\
-            | os       = {}\n\
-            | dist     = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "{}.-[ {}/{} -> {}/{} (syn+ack) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.destination.ip,
-            self.destination.port,
-            self.os_matched.as_ref().map_or("???".to_string(), |l| {
-                format!(
-                    "{}/{}/{}",
-                    l.os.name,
-                    l.os.family.as_deref().unwrap_or("???"),
-                    l.os.variant.as_deref().unwrap_or("??")
-                )
-            }),
-            match self.sig.ittl {
-                Ttl::Distance(_, distance) => distance,
-                Ttl::Bad(value) => value,
-                Ttl::Value(value) => value,
-                Ttl::Guess(value) => value,
-            },
-            self.os_matched
-                .as_ref()
-                .map_or("none".to_string(), |l| l.os.kind.to_string()),
-            self.sig,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            (
+                "server",
+                format!("{}/{}", self.destination.ip, self.destination.port),
+            ),
+            (
+                "os",
+                self.os_matched.as_ref().map_or("???".to_string(), |l| {
+                    format!(
+                        "{}/{}/{}",
+                        l.os.name,
+                        l.os.family.as_deref().unwrap_or("???"),
+                        l.os.variant.as_deref().unwrap_or("??")
+                    )
+                }),
+            ),
+            (
+                "dist",
+                match self.sig.ittl {
+                    Ttl::Distance(_, d) => d,
+                    Ttl::Bad(v) | Ttl::Value(v) | Ttl::Guess(v) => v,
+                }
+                .to_string(),
+            ),
+            (
+                "params",
+                self.os_matched
+                    .as_ref()
+                    .map_or("none".to_string(), |l| l.os.kind.to_string()),
+            ),
+            ("raw_sig", self.sig.to_string()),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
 
@@ -193,23 +237,29 @@ pub struct MTUOutput {
 
 impl fmt::Display for MTUOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (mtu) ]-\n\
-            |\n\
-            | server   = {}/{}\n\
-            | link     = {}\n\
-            | raw_mtu  = {}\n\
-            `----\n",
+            "{}.-[ {}/{} -> {}/{} (mtu) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.destination.ip,
-            self.destination.port,
-            self.link,
-            self.mtu,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            (
+                "server",
+                format!("{}/{}", self.destination.ip, self.destination.port),
+            ),
+            ("link", self.link.clone()),
+            ("raw_mtu", self.mtu.to_string()),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
 
@@ -238,26 +288,35 @@ pub struct UptimeOutput {
 
 impl fmt::Display for UptimeOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (uptime) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
-            | raw_freq = {:.2} Hz\n\
-            `----\n",
-            self.destination.ip,
-            self.destination.port,
+            "{}.-[ {}/{} -> {}/{} (uptime) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.days,
-            self.hours,
-            self.min,
-            self.up_mod_days,
-            self.freq,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            (
+                "client",
+                format!("{}/{}", self.destination.ip, self.destination.port),
+            ),
+            (
+                "uptime",
+                format!(
+                    "{} days, {} hrs, {} min (modulo {} days)",
+                    self.days, self.hours, self.min, self.up_mod_days
+                ),
+            ),
+            ("raw_freq", format!("{:.2} Hz", self.freq)),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
 
@@ -312,36 +371,40 @@ pub struct HttpRequestOutput {
 
 impl fmt::Display for HttpRequestOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (http request) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | app      = {}\n\
-            | lang     = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "{}.-[ {}/{} -> {}/{} (http request) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
-            self.browser_matched
-                .as_ref()
-                .map_or("???".to_string(), |l| {
-                    format!(
-                        "{}/{}/{}",
-                        l.browser.name,
-                        l.browser.family.as_deref().unwrap_or("???"),
-                        l.browser.variant.as_deref().unwrap_or("???")
-                    )
-                }),
-            self.lang.as_deref().unwrap_or("???"),
-            self.diagnosis,
-            self.sig,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            ("client", format!("{}/{}", self.source.ip, self.source.port)),
+            (
+                "app",
+                self.browser_matched
+                    .as_ref()
+                    .map_or("???".to_string(), |l| {
+                        format!(
+                            "{}/{}/{}",
+                            l.browser.name,
+                            l.browser.family.as_deref().unwrap_or("???"),
+                            l.browser.variant.as_deref().unwrap_or("???")
+                        )
+                    }),
+            ),
+            ("lang", self.lang.as_deref().unwrap_or("???").to_string()),
+            ("params", self.diagnosis.to_string()),
+            ("raw_sig", self.sig.to_string()),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
 
@@ -393,34 +456,42 @@ pub struct HttpResponseOutput {
 
 impl fmt::Display for HttpResponseOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (http response) ]-\n\
-            |\n\
-            | server   = {}/{}\n\
-            | app      = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "{}.-[ {}/{} -> {}/{} (http response) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.destination.ip,
-            self.destination.port,
-            self.web_server_matched
-                .as_ref()
-                .map_or("???".to_string(), |l| {
-                    format!(
-                        "{}/{}/{}",
-                        l.web_server.name,
-                        l.web_server.family.as_deref().unwrap_or("???"),
-                        l.web_server.variant.as_deref().unwrap_or("???")
-                    )
-                }),
-            self.diagnosis,
-            self.sig,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            (
+                "server",
+                format!("{}/{}", self.destination.ip, self.destination.port),
+            ),
+            (
+                "app",
+                self.web_server_matched
+                    .as_ref()
+                    .map_or("???".to_string(), |l| {
+                        format!(
+                            "{}/{}/{}",
+                            l.web_server.name,
+                            l.web_server.family.as_deref().unwrap_or("???"),
+                            l.web_server.variant.as_deref().unwrap_or("???")
+                        )
+                    }),
+            ),
+            ("params", self.diagnosis.to_string()),
+            ("raw_sig", self.sig.to_string()),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
 
@@ -439,30 +510,29 @@ pub struct TlsClientOutput {
 
 impl fmt::Display for TlsClientOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            ".-[ {}/{} -> {}/{} (tls client) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | ja4      = {}\n\
-            | ja4_r    = {}\n\
-            | ja4_o    = {}\n\
-            | ja4_or   = {}\n\
-            | sni      = {}\n\
-            | version  = {}\n\
-            `----\n",
+            "{}.-[ {}/{} -> {}/{} (tls client) ]-{}",
+            YELLOW,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
-            self.sig.ja4.full.value(),
-            self.sig.ja4.raw.value(),
-            self.sig.ja4_original.full.value(),
-            self.sig.ja4_original.raw.value(),
-            self.sig.sni.as_deref().unwrap_or("none"),
-            self.sig.version,
-        )
+            RESET
+        )?;
+        writeln!(f, "|")?;
+
+        let pairs = [
+            ("client", format!("{}/{}", self.source.ip, self.source.port)),
+            ("ja4", self.sig.ja4.full.value().to_string()),
+            ("ja4_r", self.sig.ja4.raw.value().to_string()),
+            ("ja4_o", self.sig.ja4_original.full.value().to_string()),
+            ("ja4_or", self.sig.ja4_original.raw.value().to_string()),
+            ("sni", self.sig.sni.as_deref().unwrap_or("none").to_string()),
+            ("version", self.sig.version.to_string()),
+        ];
+
+        write_key_values(f, &pairs)?;
+        writeln!(f, "`----")
     }
 }
