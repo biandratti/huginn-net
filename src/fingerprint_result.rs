@@ -12,13 +12,13 @@ const RESET: &str = "\x1b[0m";
 const LIGHT_BLUE: &str = "\x1b[94m";
 
 fn colored(text: &str, color: &str) -> String {
-    format!("{}{}{}", color, text, RESET)
+    format!("{color}{text}{RESET}")
 }
 
 fn write_key_values(f: &mut Formatter<'_>, pairs: &[(&str, String)]) -> fmt::Result {
     let max_len = pairs.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
     for (key, value) in pairs {
-        let padding = max_len - key.len();
+        let padding = max_len.saturating_sub(key.len());
         writeln!(
             f,
             "| {}{} = {}",
