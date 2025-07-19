@@ -302,6 +302,8 @@ pub struct HttpRequestOutput {
     pub destination: IpPort,
     /// The preferred language indicated in the `Accept-Language` header, if present.
     pub lang: Option<String>,
+    /// The user agent string extracted from the `User-Agent` header, if present.
+    pub user_agent: Option<String>,
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
     /// The browser with the highest quality that matches the HTTP request.
@@ -319,6 +321,7 @@ impl fmt::Display for HttpRequestOutput {
             | client   = {}/{}\n\
             | app      = {}\n\
             | lang     = {}\n\
+            | user_agent  = {}\n\
             | params   = {}\n\
             | raw_sig  = {}\n\
             `----\n",
@@ -339,6 +342,7 @@ impl fmt::Display for HttpRequestOutput {
                     )
                 }),
             self.lang.as_deref().unwrap_or("???"),
+            self.user_agent.as_deref().unwrap_or("???"),
             self.diagnosis,
             self.sig,
         )

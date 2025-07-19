@@ -374,6 +374,7 @@ impl<'a> HuginnNet<'a> {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: observable_http_request.lang.clone(),
+                                user_agent: observable_http_request.user_agent.clone(),
                                 browser_matched: signature_matcher.map(
                                     |(label, _signature, quality)| BrowserQualityMatched {
                                         browser: Browser::from(label),
