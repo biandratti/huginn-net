@@ -7,7 +7,7 @@ use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
-const YELLOW: &str = "\x1b[33m";
+const GREEN: &str = "\x1b[32m";
 const RESET: &str = "\x1b[0m";
 const LIGHT_BLUE: &str = "\x1b[94m";
 
@@ -109,7 +109,7 @@ impl fmt::Display for SynTCPOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (syn) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -173,7 +173,7 @@ impl fmt::Display for SynAckTCPOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (syn+ack) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -240,7 +240,7 @@ impl fmt::Display for MTUOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (mtu) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -291,7 +291,7 @@ impl fmt::Display for UptimeOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (uptime) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -374,7 +374,7 @@ impl fmt::Display for HttpRequestOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (http request) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -459,7 +459,7 @@ impl fmt::Display for HttpResponseOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (http response) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -513,7 +513,7 @@ impl fmt::Display for TlsClientOutput {
         writeln!(
             f,
             "{}.-[ {}/{} -> {}/{} (tls client) ]-{}",
-            YELLOW,
+            GREEN,
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -534,5 +534,60 @@ impl fmt::Display for TlsClientOutput {
 
         write_key_values(f, &pairs)?;
         writeln!(f, "`----")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fmt;
+
+    struct Table<'a>(&'a [(&'static str, String)]);
+
+    impl<'a> fmt::Display for Table<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write_key_values(f, self.0)
+        }
+    }
+
+    // Remove ANSI colour escape sequences so we can compare on visible width.
+    fn strip_ansi(input: &str) -> String {
+        let mut out = String::with_capacity(input.len());
+        let mut chars = input.chars();
+        while let Some(c) = chars.next() {
+            if c == '\u{1b}' {
+                while let Some(n) = chars.next() {
+                    if n == 'm' {
+                        break;
+                    }
+                }
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn test_alignment_of_equals_sign() {
+        let pairs = [
+            ("server", "1".to_string()),
+            ("very_long_key", "2".to_string()),
+            ("mid", "3".to_string()),
+        ];
+        let rendered = format!("{}", Table(&pairs));
+        let stripped_lines: Vec<String> = rendered
+            .lines()
+            .map(|l| strip_ansi(l))
+            .collect();
+
+        // Collect position of '=' for each rendered line that contains it.
+        let positions: Vec<usize> = stripped_lines
+            .iter()
+            .filter_map(|l| l.find('='))
+            .collect();
+
+        // All '=' signs should be at the same column.
+        assert!(positions.windows(2).all(|w| w[0] == w[1]));
     }
 }
