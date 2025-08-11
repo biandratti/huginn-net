@@ -2,6 +2,7 @@ use crate::http::{Header, Version};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
 use crate::tls::{Ja4Payload, TlsVersion};
 use crate::Ttl;
+use std::collections::HashMap;
 
 // Observable TCP signals
 #[derive(Debug, Clone)]
@@ -61,6 +62,12 @@ pub struct ObservableHttpRequest {
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
+    /// Complete raw headers with all values for IP extraction and correlation
+    pub raw_headers: std::collections::HashMap<String, String>,
+    /// HTTP method (GET, POST, PUT, etc.)
+    pub method: Option<String>,
+    /// Request URI/path
+    pub uri: Option<String>,
 }
 
 // Observable HTTP response signals
@@ -74,6 +81,10 @@ pub struct ObservableHttpResponse {
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
+    /// Complete raw headers with all values
+    pub raw_headers: std::collections::HashMap<String, String>,
+    /// HTTP status code
+    pub status_code: Option<u16>,
 }
 
 // Observable MTU signals
