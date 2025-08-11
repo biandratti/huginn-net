@@ -8,6 +8,7 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
 use tracing::debug;
@@ -207,6 +208,12 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Hugi
                     http_languages::get_highest_quality_language(accept_language)
                 });
             let http_version: http::Version = extract_http_version(req.version);
+            let mut raw_headers = HashMap::new();
+            for header in headers {
+                if let Ok(header_value) = std::str::from_utf8(header.value) {
+                    raw_headers.insert(header.name.to_lowercase(), header_value.to_string());
+                }
+            }
 
             Ok(Some(ObservableHttpRequest {
                 lang,
@@ -215,6 +222,9 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Hugi
                 horder: headers_in_order,
                 habsent: headers_absent,
                 expsw: extract_traffic_classification(user_agent),
+                raw_headers,
+                method: req.method.map(|m| m.to_string()),
+                uri: req.path.map(|p| p.to_string()),
             }))
         }
         Ok(httparse::Status::Partial) => {
@@ -245,12 +255,20 @@ fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, Hu
             let headers_absent: Vec<http::Header> = build_headers_absent_in_order(headers, false);
             let server: Option<String> = extract_header_by_name(headers, "Server");
             let http_version: http::Version = extract_http_version(res.version);
+            let mut raw_headers = HashMap::new();
+            for header in headers {
+                if let Ok(header_value) = std::str::from_utf8(header.value) {
+                    raw_headers.insert(header.name.to_lowercase(), header_value.to_string());
+                }
+            }
 
             Ok(Some(ObservableHttpResponse {
                 version: http_version,
                 horder: headers_in_order,
                 habsent: headers_absent,
                 expsw: extract_traffic_classification(server),
+                raw_headers,
+                status_code: res.code,
             }))
         }
         Ok(httparse::Status::Partial) => {
