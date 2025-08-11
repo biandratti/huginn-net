@@ -225,7 +225,9 @@ This implementation follows the official [JA4 specification by FoxIO, LLC](https
 
 For visual analysis and experimentation, use our companion web application:
 
-**[🔗 huginn-net-profiler: Passive Network Profile Analyzer](https://github.com/biandratti/huginn-net-profiler)**
+**[huginn-net-profiler: Passive Network Profile Analyzer](https://github.com/biandratti/huginn-net-profiler)**
+
+**[Live Demo: https://huginn-net.duckdns.org/](https://huginn-net.duckdns.org/)**
 
 Features:
 - Real-time fingerprint visualization
