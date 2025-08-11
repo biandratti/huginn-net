@@ -2,7 +2,6 @@ use crate::http::{Header, Version};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
 use crate::tls::{Ja4Payload, TlsVersion};
 use crate::Ttl;
-use std::collections::HashMap;
 
 // Observable TCP signals
 #[derive(Debug, Clone)]
