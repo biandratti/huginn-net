@@ -1,49 +1,7 @@
 use crate::http;
+use crate::http_common::{HttpParser, HttpRequestLike, HttpResponseLike, HttpHeader, HttpCookie, ParsingMetadata, HeaderSource};
 use std::collections::HashMap;
 use std::time::Instant;
-
-pub trait HttpParser {
-    type Request;
-    type Response;
-    type Error;
-
-    fn parse_request(data: &[u8]) -> Result<Option<Self::Request>, Self::Error>;
-    fn parse_response(data: &[u8]) -> Result<Option<Self::Response>, Self::Error>;
-}
-
-#[derive(Debug, Clone)]
-pub enum HeaderSource {
-    Http1Line,
-    Http2PseudoHeader,
-    Http2Header,
-    Http3Header,
-}
-
-#[derive(Debug, Clone)]
-pub struct HttpHeader {
-    pub name: String,
-    pub value: String,
-    pub position: usize,
-    pub source: HeaderSource,
-}
-
-#[derive(Debug, Clone)]
-pub struct HttpCookie {
-    pub name: String,
-    pub value: Option<String>,
-    pub position: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct ParsingMetadata {
-    pub header_count: usize,
-    pub duplicate_headers: Vec<String>,
-    pub case_variations: HashMap<String, Vec<String>>,
-    pub parsing_time_ns: u64,
-    pub has_malformed_headers: bool,
-    pub request_line_length: usize,
-    pub total_headers_length: usize,
-}
 
 pub struct Http1Config {
     pub max_headers: usize,
@@ -117,14 +75,14 @@ pub enum Http1ParseError {
 impl std::fmt::Display for Http1ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidRequestLine(line) => write!(f, "Invalid request line: {}", line),
-            Self::InvalidStatusLine(line) => write!(f, "Invalid status line: {}", line),
-            Self::InvalidVersion(version) => write!(f, "Invalid HTTP version: {}", version),
-            Self::InvalidMethod(method) => write!(f, "Invalid HTTP method: {}", method),
-            Self::InvalidStatusCode(code) => write!(f, "Invalid status code: {}", code),
-            Self::HeaderTooLong(len) => write!(f, "Header too long: {} bytes", len),
-            Self::TooManyHeaders(count) => write!(f, "Too many headers: {}", count),
-            Self::MalformedHeader(header) => write!(f, "Malformed header: {}", header),
+            Self::InvalidRequestLine(line) => write!(f, "Invalid request line: {line}"),
+            Self::InvalidStatusLine(line) => write!(f, "Invalid status line: {line}"),
+            Self::InvalidVersion(version) => write!(f, "Invalid HTTP version: {version}"),
+            Self::InvalidMethod(method) => write!(f, "Invalid HTTP method: {method}"),
+            Self::InvalidStatusCode(code) => write!(f, "Invalid status code: {code}"),
+            Self::HeaderTooLong(len) => write!(f, "Header too long: {len} bytes"),
+            Self::TooManyHeaders(count) => write!(f, "Too many headers: {count}"),
+            Self::MalformedHeader(header) => write!(f, "Malformed header: {header}"),
             Self::IncompleteData => write!(f, "Incomplete HTTP data"),
             Self::InvalidUtf8 => write!(f, "Invalid UTF-8 in HTTP data"),
         }
@@ -142,10 +100,6 @@ impl Http1Parser {
         Self {
             config: Http1Config::default(),
         }
-    }
-
-    pub fn with_config(config: Http1Config) -> Self {
-        Self { config }
     }
     pub fn parse_request(&self, data: &[u8]) -> Result<Option<Http1Request>, Http1ParseError> {
         let start_time = Instant::now();
@@ -291,7 +245,7 @@ impl Http1Parser {
 
         let method = parts[0].to_string();
         let uri = parts[1].to_string();
-        let version = http::Version::from_str(parts[2])
+        let version = http::Version::parse(parts[2])
             .ok_or_else(|| Http1ParseError::InvalidVersion(parts[2].to_string()))?;
 
         if !self.is_valid_method(&method) {
@@ -310,7 +264,7 @@ impl Http1Parser {
             return Err(Http1ParseError::InvalidStatusLine(line.to_string()));
         }
 
-        let version = http::Version::from_str(parts[0])
+        let version = http::Version::parse(parts[0])
             .ok_or_else(|| Http1ParseError::InvalidVersion(parts[0].to_string()))?;
         let status_code: u16 = parts[1]
             .parse()
@@ -360,7 +314,7 @@ impl Http1Parser {
                 let name_lower = name.to_lowercase();
                 case_variations
                     .entry(name_lower.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(name.clone());
                 if headers
                     .iter()
@@ -461,12 +415,75 @@ impl HttpParser for Http1Parser {
     type Response = Http1Response;
     type Error = Http1ParseError;
 
-    fn parse_request(data: &[u8]) -> Result<Option<Self::Request>, Self::Error> {
-        Self::new().parse_request(data)
+    fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error> {
+        self.parse_request(data)
     }
 
-    fn parse_response(data: &[u8]) -> Result<Option<Self::Response>, Self::Error> {
-        Self::new().parse_response(data)
+    fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error> {
+        self.parse_response(data)
+    }
+
+    fn supported_version(&self) -> http::Version {
+        http::Version::V11
+    }
+
+    fn can_parse(&self, data: &[u8]) -> bool {
+        if data.len() < 8 {
+            return false;
+        }
+        
+        // Check for HTTP/1.x patterns
+        let data_str = String::from_utf8_lossy(data);
+        let first_line = data_str.lines().next().unwrap_or("");
+        
+        // Look for HTTP/1.x method patterns
+        let methods = ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE"];
+        methods.iter().any(|&method| first_line.starts_with(method)) ||
+        first_line.starts_with("HTTP/1.")
+    }
+}
+
+impl HttpRequestLike for Http1Request {
+    fn method(&self) -> &str {
+        &self.method
+    }
+
+    fn uri(&self) -> &str {
+        &self.uri
+    }
+
+    fn version(&self) -> http::Version {
+        self.version
+    }
+
+    fn headers(&self) -> &[HttpHeader] {
+        &self.headers
+    }
+
+    fn cookies(&self) -> &[HttpCookie] {
+        &self.cookies
+    }
+
+    fn metadata(&self) -> &ParsingMetadata {
+        &self.parsing_metadata
+    }
+}
+
+impl HttpResponseLike for Http1Response {
+    fn status_code(&self) -> u16 {
+        self.status_code
+    }
+
+    fn version(&self) -> http::Version {
+        self.version
+    }
+
+    fn headers(&self) -> &[HttpHeader] {
+        &self.headers
+    }
+
+    fn metadata(&self) -> &ParsingMetadata {
+        &self.parsing_metadata
     }
 }
 

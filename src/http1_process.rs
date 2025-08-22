@@ -1,13 +1,13 @@
 use crate::db::Label;
 use crate::error::HuginnNetError;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::{http, http1_parser, http_languages};
+use crate::{http, http1_parser, http_languages, http_common};
 use tracing::debug;
 
 fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> ObservableHttpRequest {
     let lang = req
         .accept_language
-        .and_then(|accept_language| http_languages::get_highest_quality_language(accept_language));
+        .and_then(http_languages::get_highest_quality_language);
 
     let headers_in_order = convert_headers_to_http_format(&req.headers, true);
     let headers_absent = build_absent_headers_from_new_parser(&req.headers, true);
@@ -42,7 +42,7 @@ fn convert_http1_response_to_observable(
 }
 
 fn convert_headers_to_http_format(
-    headers: &[http1_parser::HttpHeader],
+    headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<http::Header> {
     let mut headers_in_order: Vec<http::Header> = Vec::new();
@@ -56,11 +56,6 @@ fn convert_headers_to_http_format(
     } else {
         http::response_skip_value_headers()
     };
-    let common_list = if is_request {
-        http::request_common_headers()
-    } else {
-        http::response_common_headers()
-    };
 
     for header in headers {
         let value: Option<&str> = Some(&header.value);
@@ -69,8 +64,6 @@ fn convert_headers_to_http_format(
             headers_in_order.push(http::Header::new(&header.name).optional());
         } else if skip_value_list.contains(&header.name.as_str()) {
             headers_in_order.push(http::Header::new(&header.name));
-        } else if common_list.contains(&header.name.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name).with_optional_value(value));
         } else {
             headers_in_order.push(http::Header::new(&header.name).with_optional_value(value));
         }
@@ -80,7 +73,7 @@ fn convert_headers_to_http_format(
 }
 
 fn build_absent_headers_from_new_parser(
-    headers: &[http1_parser::HttpHeader],
+    headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<http::Header> {
     let mut headers_absent: Vec<http::Header> = Vec::new();

@@ -67,8 +67,7 @@ pub enum Version {
 }
 
 impl Version {
-    /// Convierte desde string de versión HTTP
-    pub fn from_str(version_str: &str) -> Option<Self> {
+    pub fn parse(version_str: &str) -> Option<Self> {
         match version_str {
             "HTTP/1.0" => Some(Version::V10),
             "HTTP/1.1" => Some(Version::V11),
@@ -77,8 +76,17 @@ impl Version {
             _ => None,
         }
     }
+}
 
-    /// Convierte a string para display
+impl std::str::FromStr for Version {
+    type Err = ();
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s).ok_or(())
+    }
+}
+
+impl Version {
     pub fn as_str(&self) -> &'static str {
         match self {
             Version::V10 => "HTTP/1.0",

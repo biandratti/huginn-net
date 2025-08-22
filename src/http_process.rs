@@ -1,6 +1,6 @@
 use crate::error::HuginnNetError;
-use crate::http1_process;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::{http1_process, http2_parser, http2_process};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -153,16 +153,18 @@ fn process_tcp_packet(
 
             if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
                 flow.client_data.push(tcp_data);
-                if let Ok(http_request_parsed) =
-                    http1_process::parse_http1_request(&flow.get_full_data(is_client))
-                {
+
+                let full_data = flow.get_full_data(is_client);
+
+                if let Ok(http_request_parsed) = parse_http_request(&full_data) {
                     observable_http_package.http_request = http_request_parsed;
                 }
             } else if src_ip == flow.server_ip && src_port == flow.server_port {
                 flow.server_data.push(tcp_data);
-                if let Ok(http_response_parsed) =
-                    http1_process::parse_http1_response(&flow.get_full_data(is_client))
-                {
+
+                let full_data = flow.get_full_data(is_client);
+
+                if let Ok(http_response_parsed) = parse_http_response(&full_data) {
                     observable_http_package.http_response = http_response_parsed;
 
                     if tcp.get_flags()
@@ -189,6 +191,33 @@ fn process_tcp_packet(
 
 // Re-export the diagnostic function from http1_process
 pub use http1_process::get_diagnostic;
+
+/// Auto-detect HTTP version and parse request accordingly
+fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+    // Check if it's HTTP/2 by looking for the connection preface
+    if http2_parser::is_http2_traffic(data) {
+        debug!("Detected HTTP/2 request traffic");
+        http2_process::parse_http2_request(data)
+    } else {
+        // Default to HTTP/1.x parsing
+        debug!("Parsing as HTTP/1.x request traffic");
+        http1_process::parse_http1_request(data)
+    }
+}
+
+/// Auto-detect HTTP version and parse response accordingly
+fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+    // For responses, we might not have the preface, so we try both
+    // First try HTTP/2 (responses might not have preface)
+    if let Ok(Some(response)) = http2_process::parse_http2_response(data) {
+        debug!("Successfully parsed as HTTP/2 response");
+        Ok(Some(response))
+    } else {
+        // Fall back to HTTP/1.x parsing
+        debug!("Parsing as HTTP/1.x response traffic");
+        http1_process::parse_http1_response(data)
+    }
+}
 
 #[cfg(test)]
 mod tests {

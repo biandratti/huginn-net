@@ -85,8 +85,11 @@ pub mod window_size;
 // HTTP PROTOCOL MODULES (depends on TCP)
 // ============================================================================
 pub mod http;
+pub mod http_common;
 pub mod http1_parser;
 pub mod http1_process;
+pub mod http2_parser;
+pub mod http2_process;
 pub mod http_languages;
 pub mod http_process;
 mod observable_http_signals_matching;
