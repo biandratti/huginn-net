@@ -345,6 +345,8 @@ mod http {
             f.write_str(match self {
                 Version::V10 => "0",
                 Version::V11 => "1",
+                Version::V20 => "2",
+                Version::V30 => "3",
                 Version::Any => "*",
             })
         }
