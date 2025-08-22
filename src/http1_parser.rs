@@ -520,7 +520,7 @@ mod tests {
 
     fn assert_parser_none<T>(result: Result<Option<T>, Http1ParseError>) {
         match result {
-            Ok(None) => {} // Expected
+            Ok(None) => {}
             Ok(Some(_)) => panic!("Expected None but got Some"),
             Err(e) => panic!("Expected None but got error: {e}"),
         }
