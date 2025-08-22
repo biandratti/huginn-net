@@ -192,28 +192,21 @@ fn process_tcp_packet(
 // Re-export the diagnostic function from http1_process
 pub use http1_process::get_diagnostic;
 
-/// Auto-detect HTTP version and parse request accordingly
 fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
-    // Check if it's HTTP/2 by looking for the connection preface
     if http2_parser::is_http2_traffic(data) {
         debug!("Detected HTTP/2 request traffic");
         http2_process::parse_http2_request(data)
     } else {
-        // Default to HTTP/1.x parsing
         debug!("Parsing as HTTP/1.x request traffic");
         http1_process::parse_http1_request(data)
     }
 }
 
-/// Auto-detect HTTP version and parse response accordingly
 fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-    // For responses, we might not have the preface, so we try both
-    // First try HTTP/2 (responses might not have preface)
     if let Ok(Some(response)) = http2_process::parse_http2_response(data) {
         debug!("Successfully parsed as HTTP/2 response");
         Ok(Some(response))
     } else {
-        // Fall back to HTTP/1.x parsing
         debug!("Parsing as HTTP/1.x response traffic");
         http1_process::parse_http1_response(data)
     }

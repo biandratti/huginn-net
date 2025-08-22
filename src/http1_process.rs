@@ -1,7 +1,7 @@
 use crate::db::Label;
 use crate::error::HuginnNetError;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::{http, http1_parser, http_languages, http_common};
+use crate::{http, http1_parser, http_common, http_languages};
 use tracing::debug;
 
 fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> ObservableHttpRequest {

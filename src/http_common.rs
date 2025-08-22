@@ -1,17 +1,12 @@
+use crate::http;
 use std::collections::HashMap;
 use std::time::Instant;
-use crate::http;
 
-/// Source of an HTTP header, useful for fingerprinting
 #[derive(Debug, Clone, PartialEq)]
 pub enum HeaderSource {
-    /// Standard HTTP/1.x header line
     Http1Line,
-    /// HTTP/2 pseudo-header (e.g., :method, :path, :authority, :scheme)
     Http2PseudoHeader,
-    /// HTTP/2 regular header
     Http2Header,
-    /// HTTP/3 header (for future use)
     Http3Header,
 }
 
@@ -83,16 +78,12 @@ pub trait HttpParser {
     type Response;
     type Error: std::error::Error;
 
-    /// Parse an HTTP request
     fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error>;
-    
-    /// Parse an HTTP response
+
     fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error>;
-    
-    /// Get the HTTP version this parser handles
+
     fn supported_version(&self) -> http::Version;
-    
-    /// Check if the parser can handle the given data
+
     fn can_parse(&self, data: &[u8]) -> bool;
 }
 

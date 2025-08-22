@@ -1,5 +1,8 @@
 use crate::http;
-use crate::http_common::{HttpParser, HttpRequestLike, HttpResponseLike, HttpHeader, HttpCookie, ParsingMetadata, HeaderSource};
+use crate::http_common::{
+    HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
+    ParsingMetadata,
+};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -160,6 +163,7 @@ impl Http2Parser {
         }
     }
 
+    /// Parse HTTP/2 request from binary data
     pub fn parse_request(&self, data: &[u8]) -> Result<Option<Http2Request>, Http2ParseError> {
         let start_time = Instant::now();
 
@@ -174,12 +178,9 @@ impl Http2Parser {
             return Ok(None);
         }
 
-        let primary_stream_id = self.find_primary_stream(&frames);
-        if primary_stream_id.is_none() {
+        let Some(stream_id) = self.find_primary_stream(&frames) else {
             return Ok(None);
-        }
-
-        let stream_id = primary_stream_id.unwrap();
+        };
         let stream = self.build_stream(stream_id, &frames)?;
 
         let method = stream
@@ -212,7 +213,7 @@ impl Http2Parser {
             total_headers_length: stream
                 .headers
                 .iter()
-                .map(|h| h.name.len() + h.value.len())
+                .map(|h| h.name.len().saturating_add(h.value.len()))
                 .sum(),
         };
 
@@ -232,6 +233,7 @@ impl Http2Parser {
         }))
     }
 
+    /// Parse HTTP/2 response from binary data
     pub fn parse_response(&self, data: &[u8]) -> Result<Option<Http2Response>, Http2ParseError> {
         let start_time = Instant::now();
 
@@ -241,12 +243,9 @@ impl Http2Parser {
             return Ok(None);
         }
 
-        let primary_stream_id = self.find_primary_stream(&frames);
-        if primary_stream_id.is_none() {
+        let Some(stream_id) = self.find_primary_stream(&frames) else {
             return Ok(None);
-        }
-
-        let stream_id = primary_stream_id.unwrap();
+        };
         let stream = self.build_stream(stream_id, &frames)?;
 
         let status = stream
@@ -272,7 +271,7 @@ impl Http2Parser {
             total_headers_length: stream
                 .headers
                 .iter()
-                .map(|h| h.name.len() + h.value.len())
+                .map(|h| h.name.len().saturating_add(h.value.len()))
                 .sum(),
         };
 
@@ -323,12 +322,17 @@ impl Http2Parser {
             return Err(Http2ParseError::FrameTooLarge(length));
         }
 
-        if data.len() < (9 + length) as usize {
+        let frame_total_size = match usize::try_from(9_u32.saturating_add(length)) {
+            Ok(size) => size,
+            Err(_) => return Err(Http2ParseError::FrameTooLarge(length)),
+        };
+
+        if data.len() < frame_total_size {
             return Err(Http2ParseError::IncompleteFrame);
         }
 
         let payload_start = 9;
-        let payload_end = (9 + length) as usize;
+        let payload_end = frame_total_size;
         let payload = data[payload_start..payload_end].to_vec();
 
         let frame = Http2Frame {
@@ -452,7 +456,13 @@ impl Http2Parser {
 
             if let Some(eq_pos) = cookie_str.find('=') {
                 let name = cookie_str[..eq_pos].trim().to_string();
-                let value = Some(cookie_str[eq_pos + 1..].trim().to_string());
+                let value = Some(
+                    cookie_str
+                        .get(eq_pos.saturating_add(1)..)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string(),
+                );
                 cookies.push(HttpCookie {
                     name,
                     value,
@@ -551,6 +561,20 @@ pub fn is_http2_traffic(data: &[u8]) -> bool {
 mod tests {
     use super::*;
 
+    fn assert_parser_error<T>(
+        result: Result<Option<T>, Http2ParseError>,
+        expected_discriminant: Http2ParseError,
+    ) {
+        match result {
+            Err(actual) => assert_eq!(
+                std::mem::discriminant(&actual),
+                std::mem::discriminant(&expected_discriminant),
+                "Expected error type {expected_discriminant:?} but got {actual:?}"
+            ),
+            Ok(_) => panic!("Expected error {expected_discriminant:?} but got Ok"),
+        }
+    }
+
     #[test]
     fn test_http2_preface_detection() {
         let http2_data = HTTP2_CONNECTION_PREFACE;
@@ -573,11 +597,9 @@ mod tests {
         let parser = Http2Parser::new();
         let invalid_data = b"GET / HTTP/1.1\r\n\r\n";
 
-        let result = parser.parse_request(invalid_data);
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            Http2ParseError::InvalidPreface
-        ));
+        assert_parser_error(
+            parser.parse_request(invalid_data),
+            Http2ParseError::InvalidPreface,
+        );
     }
 }

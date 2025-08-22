@@ -80,7 +80,7 @@ impl Version {
 
 impl std::str::FromStr for Version {
     type Err = ();
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::parse(s).ok_or(())
     }

@@ -1,5 +1,8 @@
 use crate::http;
-use crate::http_common::{HttpParser, HttpRequestLike, HttpResponseLike, HttpHeader, HttpCookie, ParsingMetadata, HeaderSource};
+use crate::http_common::{
+    HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
+    ParsingMetadata,
+};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -286,14 +289,14 @@ impl Http1Parser {
         let mut duplicate_headers = Vec::new();
         let mut case_variations: HashMap<String, Vec<String>> = HashMap::new();
         let mut has_malformed = false;
-        let mut total_length = 0;
+        let mut total_length: usize = 0;
 
         for (position, line) in lines.iter().enumerate() {
             if line.is_empty() {
                 break;
             }
 
-            total_length += line.len();
+            total_length = total_length.saturating_add(line.len());
 
             if line.len() > self.config.max_header_length {
                 return Err(Http1ParseError::HeaderTooLong(line.len()));
@@ -301,7 +304,11 @@ impl Http1Parser {
 
             if let Some(colon_pos) = line.find(':') {
                 let name = line[..colon_pos].trim().to_string();
-                let value = line[colon_pos + 1..].trim().to_string();
+                let value = line
+                    .get(colon_pos.saturating_add(1)..)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
 
                 if name.is_empty() {
                     has_malformed = true;
@@ -361,7 +368,13 @@ impl Http1Parser {
 
             if let Some(eq_pos) = cookie_str.find('=') {
                 let name = cookie_str[..eq_pos].trim().to_string();
-                let value = Some(cookie_str[eq_pos + 1..].trim().to_string());
+                let value = Some(
+                    cookie_str
+                        .get(eq_pos.saturating_add(1)..)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string(),
+                );
                 cookies.push(HttpCookie {
                     name,
                     value,
@@ -431,15 +444,17 @@ impl HttpParser for Http1Parser {
         if data.len() < 8 {
             return false;
         }
-        
+
         // Check for HTTP/1.x patterns
         let data_str = String::from_utf8_lossy(data);
         let first_line = data_str.lines().next().unwrap_or("");
-        
+
         // Look for HTTP/1.x method patterns
-        let methods = ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE"];
-        methods.iter().any(|&method| first_line.starts_with(method)) ||
-        first_line.starts_with("HTTP/1.")
+        let methods = [
+            "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE",
+        ];
+        methods.iter().any(|&method| first_line.starts_with(method))
+            || first_line.starts_with("HTTP/1.")
     }
 }
 
@@ -491,15 +506,32 @@ impl HttpResponseLike for Http1Response {
 mod tests {
     use super::*;
 
+    fn unwrap_parser_result<T>(result: Result<Option<T>, Http1ParseError>) -> T {
+        match result {
+            Ok(Some(value)) => value,
+            Ok(None) => {
+                panic!("Parser returned None when Some was expected")
+            }
+            Err(e) => {
+                panic!("Parser failed with error: {e}")
+            }
+        }
+    }
+
+    fn assert_parser_none<T>(result: Result<Option<T>, Http1ParseError>) {
+        match result {
+            Ok(None) => {} // Expected
+            Ok(Some(_)) => panic!("Expected None but got Some"),
+            Err(e) => panic!("Expected None but got error: {e}"),
+        }
+    }
+
     #[test]
     fn test_parse_simple_request() {
         let parser = Http1Parser::new();
         let data = b"GET /path HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test\r\n\r\n";
 
-        let result = parser.parse_request(data).unwrap();
-        assert!(result.is_some());
-
-        let request = result.unwrap();
+        let request = unwrap_parser_result(parser.parse_request(data));
         assert_eq!(request.method, "GET");
         assert_eq!(request.uri, "/path");
         assert_eq!(request.version, http::Version::V11);
@@ -514,10 +546,7 @@ mod tests {
         let data =
             b"GET / HTTP/1.1\r\nHost: example.com\r\nCookie: name1=value1; name2=value2\r\n\r\n";
 
-        let result = parser.parse_request(data).unwrap();
-        assert!(result.is_some());
-
-        let request = result.unwrap();
+        let request = unwrap_parser_result(parser.parse_request(data));
         assert_eq!(request.cookies.len(), 2);
         assert_eq!(request.cookies[0].name, "name1");
         assert_eq!(request.cookies[0].value, Some("value1".to_string()));
@@ -530,10 +559,7 @@ mod tests {
         let parser = Http1Parser::new();
         let data = b"HTTP/1.1 200 OK\r\nServer: nginx\r\nContent-Type: text/html\r\n\r\n";
 
-        let result = parser.parse_response(data).unwrap();
-        assert!(result.is_some());
-
-        let response = result.unwrap();
+        let response = unwrap_parser_result(parser.parse_response(data));
         assert_eq!(response.version, http::Version::V11);
         assert_eq!(response.status_code, 200);
         assert_eq!(response.reason_phrase, "OK");
@@ -544,10 +570,9 @@ mod tests {
     #[test]
     fn test_incomplete_request() {
         let parser = Http1Parser::new();
-        let data = b"GET /path HTTP/1.1\r\nHost: example.com"; // Sin \r\n\r\n
+        let data = b"GET /path HTTP/1.1\r\nHost: example.com";
 
-        let result = parser.parse_request(data).unwrap();
-        assert!(result.is_none()); // Datos incompletos
+        assert_parser_none(parser.parse_request(data));
     }
 
     #[test]
@@ -565,7 +590,7 @@ mod tests {
         let data =
             b"GET / HTTP/1.1\r\nZ-Header: first\r\nA-Header: second\r\nM-Header: third\r\n\r\n";
 
-        let result = parser.parse_request(data).unwrap().unwrap();
+        let result = unwrap_parser_result(parser.parse_request(data));
 
         assert_eq!(result.headers[0].name, "Z-Header");
         assert_eq!(result.headers[0].position, 0);
@@ -580,7 +605,7 @@ mod tests {
         let parser = Http1Parser::new();
         let data = b"GET / HTTP/1.1\r\nHost: example.com\r\nHOST: example2.com\r\n\r\n";
 
-        let result = parser.parse_request(data).unwrap().unwrap();
+        let result = unwrap_parser_result(parser.parse_request(data));
 
         assert!(result.parsing_metadata.case_variations.contains_key("host"));
         assert!(result
