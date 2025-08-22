@@ -14,7 +14,7 @@ categories = ["network-programming"]
 [dependencies]
 nom = "8.0.0"
 pnet = "0.35.0"
-thiserror = "2.0.12"
+thiserror = "2.0.14"
 tracing = "0.1.41"
 ttl_cache = "0.5.1"
 lazy_static = "1.5.0"
@@ -24,7 +24,7 @@ sha2 = "0.10.9"
 tls-parser = "0.12.2"
 
 [dev-dependencies]
-clap = { version = "4.5.43", features = ["derive"] }
+clap = { version = "4.5.45", features = ["derive"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 criterion = { version = "0.7.0", features = ["html_reports"] }
