@@ -1,6 +1,7 @@
 use crate::error::HuginnNetError;
+use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::{http1_process, http2_parser, http2_process};
+use crate::{http1_process, http2_process};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -13,6 +14,30 @@ use ttl_cache::TtlCache;
 
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
+
+/// Container for HTTP processors to avoid creating new instances on each call
+pub struct HttpProcessors {
+    pub http2_processor: http2_process::Http2Processor,
+    pub http1_processor: http1_process::Http1Processor,
+}
+
+// Re-export the diagnostic function from http1_process
+pub use http1_process::get_diagnostic;
+
+impl HttpProcessors {
+    pub fn new() -> Self {
+        Self {
+            http2_processor: http2_process::Http2Processor::new(),
+            http1_processor: http1_process::Http1Processor::new(),
+        }
+    }
+}
+
+impl Default for HttpProcessors {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 pub struct ObservableHttpPackage {
     pub http_request: Option<ObservableHttpRequest>,
@@ -37,19 +62,18 @@ pub struct TcpFlow {
 }
 
 /// Quick check if HTTP data is complete for parsing (supports HTTP/1.x and HTTP/2)
-fn has_complete_http_data(data: &[u8]) -> bool {
+fn has_complete_http_data(data: &[u8], processors: &HttpProcessors) -> bool {
     // Strategy: Don't make early decisions about protocol due to TCP fragmentation
     // Wait until we have enough data to make a reliable determination
-    // Check HTTP/2 first (handles both requests with preface and responses without preface)
-    if data.len() >= 9 && http2_process::has_complete_data(data) {
-        true
-    } else if data.len() >= 4 {
-        // Check for HTTP/1.x headers (need at least 4 bytes for \r\n\r\n)
-        http1_process::has_complete_headers(data)
-    } else {
+
+    if data.len() < 4 {
         // Not enough data yet, wait for more TCP packets
-        false
+        return false;
     }
+
+    // HTTP/2 first since it's more specific
+    processors.http2_processor.has_complete_data(data)
+        || processors.http1_processor.has_complete_data(data)
 }
 
 impl TcpFlow {
@@ -97,6 +121,7 @@ impl TcpFlow {
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv4".to_string()));
@@ -107,6 +132,7 @@ pub fn process_http_ipv4(
             tcp,
             IpAddr::V4(packet.get_source()),
             IpAddr::V4(packet.get_destination()),
+            processors,
         )
     } else {
         Ok(ObservableHttpPackage {
@@ -119,6 +145,7 @@ pub fn process_http_ipv4(
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv6".to_string()));
@@ -129,6 +156,7 @@ pub fn process_http_ipv6(
             tcp,
             IpAddr::V6(packet.get_source()),
             IpAddr::V6(packet.get_destination()),
+            processors,
         )
     } else {
         Ok(ObservableHttpPackage {
@@ -143,6 +171,7 @@ fn process_tcp_packet(
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
+    processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
@@ -179,8 +208,8 @@ fn process_tcp_packet(
                     let full_data = flow.get_full_data(is_client);
 
                     // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
-                    if has_complete_http_data(&full_data) {
-                        match parse_http_request(&full_data) {
+                    if has_complete_http_data(&full_data, processors) {
+                        match parse_http_request(&full_data, processors) {
                             Ok(Some(http_request_parsed)) => {
                                 observable_http_package.http_request = Some(http_request_parsed);
                                 flow.client_http_parsed = true;
@@ -199,8 +228,8 @@ fn process_tcp_packet(
                     let full_data = flow.get_full_data(is_client);
 
                     // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
-                    if has_complete_http_data(&full_data) {
-                        match parse_http_response(&full_data) {
+                    if has_complete_http_data(&full_data, processors) {
+                        match parse_http_response(&full_data, processors) {
                             Ok(Some(http_response_parsed)) => {
                                 observable_http_package.http_response = Some(http_response_parsed);
                                 flow.server_http_parsed = true;
@@ -244,48 +273,56 @@ fn process_tcp_packet(
     Ok(observable_http_package)
 }
 
-// Re-export the diagnostic function from http1_process
-pub use http1_process::get_diagnostic;
-
-fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
-    if http2_parser::is_http2_traffic(data) {
-        debug!("Detected HTTP/2 request traffic");
-        http2_process::parse_http2_request(data)
-    } else {
-        debug!("Parsing as HTTP/1.x request traffic");
-        http1_process::parse_http1_request(data)
+fn parse_http_request(
+    data: &[u8],
+    processors: &HttpProcessors,
+) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+    // Use provided processor instances in order (HTTP/2 first, then HTTP/1.x)
+    if processors.http2_processor.can_process_request(data) {
+        debug!(
+            "Using {} processor for request",
+            processors.http2_processor.name()
+        );
+        return processors.http2_processor.process_request(data);
     }
+
+    if processors.http1_processor.can_process_request(data) {
+        debug!(
+            "Using {} processor for request",
+            processors.http1_processor.name()
+        );
+        return processors.http1_processor.process_request(data);
+    }
+
+    Err(HuginnNetError::Parse(
+        "No HTTP processor could handle request data".to_string(),
+    ))
 }
 
-fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-    // Check if data looks like HTTP/2 frames (for responses without preface)
-    if data.len() >= 9 && looks_like_http2_response(data) {
-        debug!("Detected HTTP/2 response traffic");
-        http2_process::parse_http2_response(data)
-    } else {
-        debug!("Parsing as HTTP/1.x response traffic");
-        http1_process::parse_http1_response(data)
-    }
-}
-
-/// Check if data looks like HTTP/2 response (frames without preface)
-fn looks_like_http2_response(data: &[u8]) -> bool {
-    if data.len() < 9 {
-        return false;
+fn parse_http_response(
+    data: &[u8],
+    processors: &HttpProcessors,
+) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+    // Use provided processor instances in order (HTTP/2 first, then HTTP/1.x)
+    if processors.http2_processor.can_process_response(data) {
+        debug!(
+            "Using {} processor for response",
+            processors.http2_processor.name()
+        );
+        return processors.http2_processor.process_response(data);
     }
 
-    // HTTP/2 frame format: 3 bytes length + 1 byte type + 1 byte flags + 4 bytes stream_id
-    let frame_length = u32::from_be_bytes([0, data[0], data[1], data[2]]);
-    let frame_type = data[3];
-
-    // Check if frame length is more than the default max frame size
-    if frame_length > 16384 {
-        return false;
+    if processors.http1_processor.can_process_response(data) {
+        debug!(
+            "Using {} processor for response",
+            processors.http1_processor.name()
+        );
+        return processors.http1_processor.process_response(data);
     }
 
-    // Check if frame type is valid HTTP/2 frame type
-    // Common response frame types: HEADERS(1), DATA(0), SETTINGS(4), WINDOW_UPDATE(8)
-    matches!(frame_type, 0..=10)
+    Err(HuginnNetError::Parse(
+        "No HTTP processor could handle response data".to_string(),
+    ))
 }
 
 #[cfg(test)]
@@ -307,7 +344,7 @@ mod tests {
         Upgrade-Insecure-Requests: 1\r\n\
         User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\r\n\
         \r\n";
-        match http1_process::parse_http1_request(valid_request) {
+        match http1_process::Http1Processor::new().process_request(valid_request) {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
@@ -350,7 +387,7 @@ mod tests {
         \r\n\
         <html><body><h1>It works!</h1></body></html>";
 
-        match http1_process::parse_http1_response(valid_response) {
+        match http1_process::Http1Processor::new().process_response(valid_response) {
             Ok(Some(response)) => {
                 assert_eq!(response.expsw, "Apache");
                 assert_eq!(response.version, http::Version::V11);

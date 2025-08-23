@@ -1,5 +1,6 @@
 use crate::db::Label;
 use crate::error::HuginnNetError;
+use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http2_parser, http_common, http_languages};
 use tracing::debug;
@@ -99,9 +100,10 @@ fn build_absent_headers_from_http2(
     headers_absent
 }
 
-pub fn parse_http2_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
-    let parser = http2_parser::Http2Parser::new();
-
+fn parse_http2_request(
+    data: &[u8],
+    parser: &http2_parser::Http2Parser,
+) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
     match parser.parse_request(data) {
         Ok(Some(req)) => {
             let observable = convert_http2_request_to_observable(req);
@@ -120,9 +122,10 @@ pub fn parse_http2_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>,
     }
 }
 
-pub fn parse_http2_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-    let parser = http2_parser::Http2Parser::new();
-
+fn parse_http2_response(
+    data: &[u8],
+    parser: &http2_parser::Http2Parser,
+) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
     match parser.parse_response(data) {
         Ok(Some(res)) => {
             let observable = convert_http2_response_to_observable(res);
@@ -163,6 +166,26 @@ pub fn get_diagnostic(
             _ => http::HttpDiagnosis::None,
         },
     }
+}
+
+/// Check if data looks like HTTP/2 response (frames without preface)
+pub fn looks_like_http2_response(data: &[u8]) -> bool {
+    if data.len() < 9 {
+        return false;
+    }
+
+    // HTTP/2 frame format: 3 bytes length + 1 byte type + 1 byte flags + 4 bytes stream_id
+    let frame_length = u32::from_be_bytes([0, data[0], data[1], data[2]]);
+    let frame_type = data[3];
+
+    // Check if frame length is more than the default max frame size
+    if frame_length > 16384 {
+        return false;
+    }
+
+    // Check if frame type is valid HTTP/2 frame type
+    // Common response frame types: HEADERS(1), DATA(0), SETTINGS(4), WINDOW_UPDATE(8)
+    matches!(frame_type, 0..=10)
 }
 
 #[cfg(test)]
@@ -258,7 +281,7 @@ mod tests {
 }
 
 /// Check if HTTP/2 data has complete frames for parsing
-pub fn has_complete_data(data: &[u8]) -> bool {
+fn has_complete_data(data: &[u8]) -> bool {
     // For requests: Must have at least the connection preface
     if data.starts_with(crate::http2_parser::HTTP2_CONNECTION_PREFACE) {
         let frame_data = &data[crate::http2_parser::HTTP2_CONNECTION_PREFACE.len()..];
@@ -270,7 +293,7 @@ pub fn has_complete_data(data: &[u8]) -> bool {
 }
 
 /// Check if we have complete HTTP/2 frames (at least HEADERS frame)
-pub fn has_complete_frames(data: &[u8]) -> bool {
+fn has_complete_frames(data: &[u8]) -> bool {
     let mut remaining = data;
 
     while remaining.len() >= 9 {
@@ -303,6 +326,97 @@ pub fn has_complete_frames(data: &[u8]) -> bool {
     }
 
     false
+}
+
+/// HTTP/2 Protocol Processor
+///
+/// Implements the HttpProcessor trait for HTTP/2 protocol.
+/// Handles both request and response processing with proper protocol detection.
+/// Contains a parser instance that is created once and reused.
+///
+/// # Usage
+///
+/// ```rust
+/// use huginn_net::http2_process::Http2Processor;
+/// use huginn_net::http_common::HttpProcessor;
+///
+/// let processor = Http2Processor::new();
+/// if processor.can_process_request(data) {
+///     let result = processor.process_request(data)?;
+/// }
+/// ```
+pub struct Http2Processor {
+    parser: http2_parser::Http2Parser<'static>,
+}
+
+impl Http2Processor {
+    pub fn new() -> Self {
+        Self {
+            parser: http2_parser::Http2Parser::new(),
+        }
+    }
+}
+
+impl Default for Http2Processor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HttpProcessor for Http2Processor {
+    fn can_process_request(&self, data: &[u8]) -> bool {
+        // VERY SPECIFIC: HTTP/2 requests MUST start with exact connection preface
+        if data.len() < 24 {
+            // Minimum for preface
+            return false;
+        }
+
+        // SPECIFIC: Must start with exact HTTP/2 connection preface
+        http2_parser::is_http2_traffic(data)
+    }
+
+    fn can_process_response(&self, data: &[u8]) -> bool {
+        // VERY SPECIFIC: HTTP/2 responses are frame-based (no preface)
+        if data.len() < 9 {
+            // Minimum frame size
+            return false;
+        }
+
+        // SPECIFIC: Must NOT look like HTTP/1.x response
+        let data_str = String::from_utf8_lossy(&data[..std::cmp::min(20, data.len())]);
+        if data_str.starts_with("HTTP/1.") {
+            return false;
+        }
+
+        // SPECIFIC: Must look like valid HTTP/2 frame
+        looks_like_http2_response(data)
+    }
+
+    fn has_complete_data(&self, data: &[u8]) -> bool {
+        has_complete_data(data)
+    }
+
+    fn process_request(
+        &self,
+        data: &[u8],
+    ) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+        parse_http2_request(data, &self.parser)
+    }
+
+    fn process_response(
+        &self,
+        data: &[u8],
+    ) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+        parse_http2_response(data, &self.parser)
+    }
+
+    fn supported_version(&self) -> http::Version {
+        http::Version::V20
+    }
+
+    fn name(&self) -> &'static str {
+        "HTTP/2"
+    }
 }
 
 #[cfg(test)]

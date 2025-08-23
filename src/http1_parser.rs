@@ -670,8 +670,8 @@ mod tests {
 
         // Create request line longer than max_request_line_length (8192)
         let long_path = "a".repeat(10000);
-        let request_line = format!("GET /{} HTTP/1.1", long_path);
-        let data = format!("{}\r\nHost: example.com\r\n\r\n", request_line);
+        let request_line = format!("GET /{long_path} HTTP/1.1");
+        let data = format!("{request_line}\r\nHost: example.com\r\n\r\n");
 
         let result = parser.parse_request(data.as_bytes());
         assert!(result.is_err());
@@ -689,7 +689,7 @@ mod tests {
 
         // Create header longer than max_header_length (8192)
         let long_value = "x".repeat(10000);
-        let data = format!("GET / HTTP/1.1\r\nLong-Header: {}\r\n\r\n", long_value);
+        let data = format!("GET / HTTP/1.1\r\nLong-Header: {long_value}\r\n\r\n");
 
         let result = parser.parse_request(data.as_bytes());
         assert!(result.is_err());
@@ -708,7 +708,7 @@ mod tests {
         // Create more than max_headers (100)
         let mut data = String::from("GET / HTTP/1.1\r\n");
         for i in 0..150 {
-            data.push_str(&format!("Header-{}: value{}\r\n", i, i));
+            data.push_str(&format!("Header-{i}: value{i}\r\n"));
         }
         data.push_str("\r\n");
 
@@ -796,8 +796,10 @@ mod tests {
 
     #[test]
     fn test_strict_parsing_mode() {
-        let mut config = Http1Config::default();
-        config.strict_parsing = true;
+        let config = Http1Config {
+            strict_parsing: true,
+            ..Default::default()
+        };
         let parser = Http1Parser { config };
 
         // Malformed header should fail in strict mode
@@ -819,9 +821,9 @@ mod tests {
         let invalid_methods = ["INVALID", "123", "", "G E T", "get"];
 
         for method in invalid_methods {
-            let data = format!("{} / HTTP/1.1\r\nHost: example.com\r\n\r\n", method);
+            let data = format!("{method} / HTTP/1.1\r\nHost: example.com\r\n\r\n");
             let result = parser.parse_request(data.as_bytes());
-            assert!(result.is_err(), "Method '{}' should be invalid", method);
+            assert!(result.is_err(), "Method '{method}' should be invalid");
         }
     }
 
@@ -840,7 +842,7 @@ mod tests {
         ];
 
         for method in valid_methods {
-            let data = format!("{} / HTTP/1.1\r\nHost: example.com\r\n\r\n", method);
+            let data = format!("{method} / HTTP/1.1\r\nHost: example.com\r\n\r\n");
             let result = unwrap_parser_result(parser.parse_request(data.as_bytes()));
             assert_eq!(result.method, method);
         }
@@ -853,9 +855,9 @@ mod tests {
         let invalid_versions = ["HTTP/2.0", "HTTP/0.9", "HTTP/1.2", "HTTP/1", "HTTP", "1.1"];
 
         for version in invalid_versions {
-            let data = format!("GET / {}\r\nHost: example.com\r\n\r\n", version);
+            let data = format!("GET / {version}\r\nHost: example.com\r\n\r\n");
             let result = parser.parse_request(data.as_bytes());
-            assert!(result.is_err(), "Version '{}' should be invalid", version);
+            assert!(result.is_err(), "Version '{version}' should be invalid");
         }
     }
 
@@ -866,9 +868,9 @@ mod tests {
         let invalid_codes = ["abc", "999999", "", "-1", "1.5"];
 
         for code in invalid_codes {
-            let data = format!("HTTP/1.1 {} OK\r\nServer: test\r\n\r\n", code);
+            let data = format!("HTTP/1.1 {code} OK\r\nServer: test\r\n\r\n");
             let result = parser.parse_response(data.as_bytes());
-            assert!(result.is_err(), "Status code '{}' should be invalid", code);
+            assert!(result.is_err(), "Status code '{code}' should be invalid");
         }
     }
 
@@ -907,16 +909,13 @@ mod tests {
         ];
 
         for (cookie_str, expected_count) in cookie_test_cases {
-            let data = format!(
-                "GET / HTTP/1.1\r\nHost: example.com\r\nCookie: {}\r\n\r\n",
-                cookie_str
-            );
+            let data =
+                format!("GET / HTTP/1.1\r\nHost: example.com\r\nCookie: {cookie_str}\r\n\r\n");
             let result = unwrap_parser_result(parser.parse_request(data.as_bytes()));
             assert_eq!(
                 result.cookies.len(),
                 expected_count,
-                "Failed for cookie: '{}'",
-                cookie_str
+                "Failed for cookie: '{cookie_str}'"
             );
         }
     }
@@ -928,33 +927,27 @@ mod tests {
         // Header with no value
         let data = b"GET / HTTP/1.1\r\nEmpty-Header:\r\nHost: example.com\r\n\r\n";
         let result = unwrap_parser_result(parser.parse_request(data));
-        let empty_header = result
-            .headers
-            .iter()
-            .find(|h| h.name == "Empty-Header")
-            .unwrap();
-        assert_eq!(empty_header.value, "");
+        let empty_header = result.headers.iter().find(|h| h.name == "Empty-Header");
+        assert!(empty_header.is_some(), "Empty-Header should be present");
+        assert_eq!(empty_header.as_ref().map(|h| h.value.as_str()), Some(""));
 
         // Header with only spaces as value
         let data = b"GET / HTTP/1.1\r\nSpaces-Header:   \r\nHost: example.com\r\n\r\n";
         let result = unwrap_parser_result(parser.parse_request(data));
-        let spaces_header = result
-            .headers
-            .iter()
-            .find(|h| h.name == "Spaces-Header")
-            .unwrap();
-        assert_eq!(spaces_header.value, "");
+        let spaces_header = result.headers.iter().find(|h| h.name == "Spaces-Header");
+        assert!(spaces_header.is_some(), "Spaces-Header should be present");
+        assert_eq!(spaces_header.as_ref().map(|h| h.value.as_str()), Some(""));
 
         // Header with leading/trailing spaces
         let data =
             b"GET / HTTP/1.1\r\nTrim-Header:  value with spaces  \r\nHost: example.com\r\n\r\n";
         let result = unwrap_parser_result(parser.parse_request(data));
-        let trim_header = result
-            .headers
-            .iter()
-            .find(|h| h.name == "Trim-Header")
-            .unwrap();
-        assert_eq!(trim_header.value, "value with spaces");
+        let trim_header = result.headers.iter().find(|h| h.name == "Trim-Header");
+        assert!(trim_header.is_some(), "Trim-Header should be present");
+        assert_eq!(
+            trim_header.as_ref().map(|h| h.value.as_str()),
+            Some("value with spaces")
+        );
     }
 
     #[test]
@@ -1034,7 +1027,7 @@ mod tests {
         ];
 
         for error in errors {
-            let formatted = format!("{}", error);
+            let formatted = format!("{error}");
             assert!(!formatted.is_empty());
             assert!(!formatted.contains("Debug")); // Should be Display, not Debug
         }

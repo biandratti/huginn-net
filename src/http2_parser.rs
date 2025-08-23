@@ -713,8 +713,11 @@ mod tests {
 
         // Only preface, no frames
         let result = parser.parse_request(HTTP2_CONNECTION_PREFACE);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
+        match result {
+            Ok(None) => {} // Expected: no request without frames
+            Ok(Some(_)) => panic!("Should not return a request without frames"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -726,8 +729,11 @@ mod tests {
         data.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]); // Only 4 bytes of frame header
 
         let result = parser.parse_request(&data);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none()); // Should return None for incomplete data
+        match result {
+            Ok(None) => {} // Expected: incomplete data
+            Ok(Some(_)) => panic!("Should not return a request with incomplete data"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -748,8 +754,11 @@ mod tests {
 
         let data = create_http2_request_with_preface(&[frame]);
         let result = parser.parse_request(&data);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none()); // Should handle gracefully
+        match result {
+            Ok(None) => {} // Expected: frame too large
+            Ok(Some(_)) => panic!("Should not return a request with frame too large"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -760,12 +769,15 @@ mod tests {
         let mut frame = Vec::new();
         frame.extend_from_slice(&[0x00, 0x00, 0x64]); // Length: 100
         frame.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x01]); // Headers frame, stream 1
-        frame.extend_from_slice(&vec![0x00; 50]); // Only 50 bytes instead of 100
+        frame.extend_from_slice(&[0x00; 50]); // Only 50 bytes instead of 100
 
         let data = create_http2_request_with_preface(&[frame]);
         let result = parser.parse_request(&data);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none()); // Should handle incomplete payload gracefully
+        match result {
+            Ok(None) => {} // Expected: incomplete payload
+            Ok(Some(_)) => panic!("Should not return a request with incomplete payload"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -777,8 +789,11 @@ mod tests {
         let data = create_http2_request_with_preface(&[frame]);
 
         let result = parser.parse_request(&data);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none()); // No headers frame, so no request
+        match result {
+            Ok(None) => {} // Expected: no headers frame
+            Ok(Some(_)) => panic!("Should not return a request without headers frame"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -791,9 +806,11 @@ mod tests {
         let data = create_http2_request_with_preface(&[frame]);
 
         let result = parser.parse_request(&data);
-        assert!(result.is_ok());
-        // Should parse successfully but return None (no headers frame)
-        assert!(result.unwrap().is_none());
+        match result {
+            Ok(None) => {} // Expected: no headers frame, only data frame
+            Ok(Some(_)) => panic!("Should not return a request without headers frame"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -805,8 +822,11 @@ mod tests {
         let data = create_http2_request_with_preface(&[frame]);
 
         let result = parser.parse_request(&data);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none()); // Should return None (no valid stream found)
+        match result {
+            Ok(None) => {} // Expected: invalid stream ID 0
+            Ok(Some(_)) => panic!("Should not return a request with invalid stream ID"),
+            Err(e) => panic!("Should not error: {e:?}"),
+        }
     }
 
     #[test]
@@ -829,7 +849,7 @@ mod tests {
                 // Also expected: HPACK decoding failed
             }
             other => {
-                panic!("Unexpected result: {:?}", other);
+                panic!("Unexpected result: {other:?}");
             }
         }
     }
@@ -861,7 +881,11 @@ mod tests {
 
         let result = parser.parse_request(&data);
         // Should handle HPACK decoding failure gracefully
-        assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+        match result {
+            Ok(None) => {} // Expected: HPACK decoding failed or no valid request
+            Ok(Some(_)) => panic!("Should not return a request with HPACK decoding failure"),
+            Err(_) => {} // Also expected: HPACK decoding error
+        }
     }
 
     #[test]
@@ -875,7 +899,11 @@ mod tests {
 
         let result = parser.parse_request(&data);
         // Should either fail HPACK decoding or missing headers check
-        assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+        match result {
+            Ok(None) => {} // Expected: missing required headers or HPACK failure
+            Ok(Some(_)) => panic!("Should not return a request with missing required headers"),
+            Err(_) => {} // Also expected: HPACK decoding error
+        }
     }
 
     #[test]
@@ -887,7 +915,11 @@ mod tests {
 
         let result = parser.parse_response(&frame);
         // Should handle gracefully (likely HPACK failure)
-        assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+        match result {
+            Ok(None) => {} // Expected: HPACK failure or no valid response
+            Ok(Some(_)) => panic!("Should not return a response with HPACK failure"),
+            Err(_) => {} // Also expected: HPACK decoding error
+        }
     }
 
     #[test]
@@ -895,7 +927,7 @@ mod tests {
         let parser = Http2Parser::new();
 
         // Test various edge cases in frame parsing
-        let test_cases = vec![
+        let test_cases = [
             // Case 1: Frame with reserved bit set in stream ID
             {
                 let mut frame = create_http2_frame(0x01, 1, &[0x00]);
@@ -914,7 +946,7 @@ mod tests {
             let result = parser.parse_request(&data);
 
             // All should handle gracefully without panicking
-            assert!(result.is_ok() || result.is_err(), "Test case {} failed", i);
+            assert!(result.is_ok() || result.is_err(), "Test case {i} failed");
         }
     }
 
@@ -971,7 +1003,7 @@ mod tests {
         let parser = Http2Parser::new();
 
         // Test cases that could potentially cause security issues
-        let malicious_cases = vec![
+        let malicious_cases = [
             // Case 1: Frame with malformed length field
             vec![0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01],
             // Case 2: Frame with zero stream ID for non-connection frames
@@ -982,7 +1014,7 @@ mod tests {
             vec![0x00, 0x10, 0x00, 0xFE, 0xFF, 0x80, 0x00, 0x00, 0x01],
         ];
 
-        for (_i, malicious_frame) in malicious_cases.iter().enumerate() {
+        for malicious_frame in malicious_cases.iter() {
             let data = create_http2_request_with_preface(&[malicious_frame.clone()]);
             let result = parser.parse_request(&data);
 
@@ -1041,11 +1073,18 @@ mod tests {
 
             if should_find_stream {
                 // Should attempt to parse (likely fail on HPACK but find the stream)
-                assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+                match result {
+                    Ok(None) => {} // Expected: HPACK failure but stream found
+                    Ok(Some(_)) => panic!("Should not return a request with HPACK failure"),
+                    Err(_) => {} // Also expected: HPACK decoding error
+                }
             } else {
                 // Should return None (no valid stream found)
-                assert!(result.is_ok());
-                assert!(result.unwrap().is_none());
+                match result {
+                    Ok(None) => {} // Expected: no valid stream
+                    Ok(Some(_)) => panic!("Should not return a request with invalid stream"),
+                    Err(e) => panic!("Should not error for invalid stream: {e:?}"),
+                }
             }
         }
     }
@@ -1130,7 +1169,7 @@ mod tests {
         ];
 
         for error in errors {
-            let formatted = format!("{}", error);
+            let formatted = format!("{error}");
             assert!(!formatted.is_empty());
             assert!(!formatted.contains("Debug")); // Should be Display, not Debug
         }
@@ -1139,9 +1178,11 @@ mod tests {
     #[test]
     fn test_config_edge_cases() {
         // Test parser with different configurations
-        let mut config = Http2Config::default();
-        config.max_frame_size = 1; // Very small max frame size
-        config.strict_parsing = true;
+        let config = Http2Config {
+            max_frame_size: 1, // Very small max frame size
+            strict_parsing: true,
+            ..Default::default()
+        };
 
         let parser = Http2Parser {
             config,

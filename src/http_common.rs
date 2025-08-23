@@ -87,6 +87,52 @@ pub trait HttpParser {
     fn can_parse(&self, data: &[u8]) -> bool;
 }
 
+/// Common trait for HTTP protocol processors
+///
+/// This trait abstracts the processing logic for different HTTP versions,
+///
+/// # Design Philosophy
+///
+/// - **Protocol Detection**: Each processor can detect if it can handle the data
+/// - **Unified Interface**: Same interface for all HTTP versions
+/// - **Extensibility**: Easy to add new protocols without changing core logic
+/// - **Error Handling**: Consistent error handling across protocols
+/// ```
+pub trait HttpProcessor {
+    /// Check if this processor can handle the given request data
+    fn can_process_request(&self, data: &[u8]) -> bool;
+
+    /// Check if this processor can handle the given response data
+    fn can_process_response(&self, data: &[u8]) -> bool;
+
+    /// Check if the data appears to be complete for this protocol
+    fn has_complete_data(&self, data: &[u8]) -> bool;
+
+    /// Process HTTP request data and return observable request
+    fn process_request(
+        &self,
+        data: &[u8],
+    ) -> Result<
+        Option<crate::observable_signals::ObservableHttpRequest>,
+        crate::error::HuginnNetError,
+    >;
+
+    /// Process HTTP response data and return observable response  
+    fn process_response(
+        &self,
+        data: &[u8],
+    ) -> Result<
+        Option<crate::observable_signals::ObservableHttpResponse>,
+        crate::error::HuginnNetError,
+    >;
+
+    /// Get the HTTP version this processor handles
+    fn supported_version(&self) -> http::Version;
+
+    /// Get a human-readable name for this processor
+    fn name(&self) -> &'static str;
+}
+
 /// Common HTTP request interface
 pub trait HttpRequestLike {
     fn method(&self) -> &str;

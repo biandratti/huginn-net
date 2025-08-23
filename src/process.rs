@@ -139,7 +139,8 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     ) -> Result<ObservableHttpPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
-            http_process::process_http_ipv4(&packet, http_cache)
+            let processors = http_process::HttpProcessors::new();
+            http_process::process_http_ipv4(&packet, http_cache, &processors)
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv4 packet data".to_string(),
@@ -195,7 +196,8 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         http_cache: &mut TtlCache<FlowKey, TcpFlow>,
     ) -> Result<ObservableHttpPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
-            http_process::process_http_ipv6(&packet, http_cache)
+            let processors = http_process::HttpProcessors::new();
+            http_process::process_http_ipv6(&packet, http_cache, &processors)
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv6 packet data".to_string(),
@@ -237,6 +239,7 @@ fn execute_parallel_analysis<P: IpPacketProcessor>(
 ) -> Result<ObservablePackage, HuginnNetError> {
     crossbeam::scope(|s| {
         let http_handle = if config.http_enabled {
+            // Create processors locally for this thread to avoid RefCell sharing issues
             Some(s.spawn(|_| P::process_http_with_data(&packet_data, http_cache)))
         } else {
             None
