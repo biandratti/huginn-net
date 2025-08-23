@@ -5,6 +5,141 @@ use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http1_parser, http2_parser, http2_process, http_common, http_languages};
 use tracing::debug;
 
+/// HTTP/1.x Protocol Processor
+///
+/// Implements the HttpProcessor trait for HTTP/1.0 and HTTP/1.1 protocols.
+/// Handles both request and response processing with proper protocol detection.
+/// Contains a parser instance that is created once and reused.
+///
+/// # Usage
+///
+/// ```rust
+/// use huginn_net::http1_process::Http1Processor;
+/// use huginn_net::http_common::HttpProcessor;
+///
+/// let processor = Http1Processor::new();
+/// if processor.can_process_request(data) {
+///     let result = processor.process_request(data)?;
+/// }
+/// ```
+pub struct Http1Processor {
+    parser: http1_parser::Http1Parser,
+}
+
+impl Http1Processor {
+    pub fn new() -> Self {
+        Self {
+            parser: http1_parser::Http1Parser::new(),
+        }
+    }
+}
+
+impl Default for Http1Processor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HttpProcessor for Http1Processor {
+    fn can_process_request(&self, data: &[u8]) -> bool {
+        if data.len() < 16 {
+            // Minimum for "GET / HTTP/1.1\r\n"
+            return false;
+        }
+
+        // VERY SPECIFIC: Must NOT be HTTP/2 first
+        if http2_parser::is_http2_traffic(data) {
+            return false;
+        }
+
+        let data_str = String::from_utf8_lossy(data);
+        let first_line = data_str.lines().next().unwrap_or("");
+
+        // SPECIFIC: Must be exact HTTP/1.x request line format
+        let parts: Vec<&str> = first_line.split_whitespace().collect();
+        if parts.len() != 3 {
+            return false;
+        }
+
+        // SPECIFIC: Valid HTTP/1.x methods only
+        let methods = [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "HEAD",
+            "OPTIONS",
+            "PATCH",
+            "TRACE",
+            "CONNECT",
+            "PROPFIND",
+            "PROPPATCH",
+            "MKCOL",
+            "COPY",
+            "MOVE",
+            "LOCK",
+            "UNLOCK",
+        ];
+
+        // SPECIFIC: Must be exact HTTP/1.0 or HTTP/1.1
+        methods.contains(&parts[0])
+            && (parts[2] == "HTTP/1.0" || parts[2] == "HTTP/1.1")
+            && !parts[1].is_empty() // Must have URI
+    }
+
+    fn can_process_response(&self, data: &[u8]) -> bool {
+        if data.len() < 12 {
+            // Minimum for "HTTP/1.1 200"
+            return false;
+        }
+
+        // VERY SPECIFIC: Must NOT look like HTTP/2 frames
+        if data.len() >= 9 && http2_process::looks_like_http2_response(data) {
+            return false;
+        }
+
+        let data_str = String::from_utf8_lossy(data);
+        let first_line = data_str.lines().next().unwrap_or("");
+
+        // SPECIFIC: Must be exact HTTP/1.x response line format
+        let parts: Vec<&str> = first_line.splitn(3, ' ').collect();
+        if parts.len() < 2 {
+            return false;
+        }
+
+        // SPECIFIC: Must be exact HTTP/1.0 or HTTP/1.1 with valid status code
+        (parts[0] == "HTTP/1.0" || parts[0] == "HTTP/1.1")
+            && parts[1].len() == 3  // Status code must be 3 digits
+            && parts[1].chars().all(|c| c.is_ascii_digit()) // Must be numeric
+    }
+
+    fn has_complete_data(&self, data: &[u8]) -> bool {
+        has_complete_headers(data)
+    }
+
+    fn process_request(
+        &self,
+        data: &[u8],
+    ) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+        parse_http1_request(data, &self.parser)
+    }
+
+    fn process_response(
+        &self,
+        data: &[u8],
+    ) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+        parse_http1_response(data, &self.parser)
+    }
+
+    fn supported_version(&self) -> http::Version {
+        http::Version::V11 // Primary version, but also supports V10
+    }
+
+    fn name(&self) -> &'static str {
+        "HTTP/1.x"
+    }
+}
+
 /// Check if HTTP/1.x headers are complete (lightweight verification)
 fn has_complete_headers(data: &[u8]) -> bool {
     // Fast byte-level check for \r\n\r\n
@@ -349,141 +484,6 @@ mod tests {
 
         let diagnosis = get_diagnostic(user_agent, None, None);
         assert_eq!(diagnosis, http::HttpDiagnosis::None);
-    }
-}
-
-/// HTTP/1.x Protocol Processor
-///
-/// Implements the HttpProcessor trait for HTTP/1.0 and HTTP/1.1 protocols.
-/// Handles both request and response processing with proper protocol detection.
-/// Contains a parser instance that is created once and reused.
-///
-/// # Usage
-///
-/// ```rust
-/// use huginn_net::http1_process::Http1Processor;
-/// use huginn_net::http_common::HttpProcessor;
-///
-/// let processor = Http1Processor::new();
-/// if processor.can_process_request(data) {
-///     let result = processor.process_request(data)?;
-/// }
-/// ```
-pub struct Http1Processor {
-    parser: http1_parser::Http1Parser,
-}
-
-impl Http1Processor {
-    pub fn new() -> Self {
-        Self {
-            parser: http1_parser::Http1Parser::new(),
-        }
-    }
-}
-
-impl Default for Http1Processor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HttpProcessor for Http1Processor {
-    fn can_process_request(&self, data: &[u8]) -> bool {
-        if data.len() < 16 {
-            // Minimum for "GET / HTTP/1.1\r\n"
-            return false;
-        }
-
-        // VERY SPECIFIC: Must NOT be HTTP/2 first
-        if http2_parser::is_http2_traffic(data) {
-            return false;
-        }
-
-        let data_str = String::from_utf8_lossy(data);
-        let first_line = data_str.lines().next().unwrap_or("");
-
-        // SPECIFIC: Must be exact HTTP/1.x request line format
-        let parts: Vec<&str> = first_line.split_whitespace().collect();
-        if parts.len() != 3 {
-            return false;
-        }
-
-        // SPECIFIC: Valid HTTP/1.x methods only
-        let methods = [
-            "GET",
-            "POST",
-            "PUT",
-            "DELETE",
-            "HEAD",
-            "OPTIONS",
-            "PATCH",
-            "TRACE",
-            "CONNECT",
-            "PROPFIND",
-            "PROPPATCH",
-            "MKCOL",
-            "COPY",
-            "MOVE",
-            "LOCK",
-            "UNLOCK",
-        ];
-
-        // SPECIFIC: Must be exact HTTP/1.0 or HTTP/1.1
-        methods.contains(&parts[0])
-            && (parts[2] == "HTTP/1.0" || parts[2] == "HTTP/1.1")
-            && !parts[1].is_empty() // Must have URI
-    }
-
-    fn can_process_response(&self, data: &[u8]) -> bool {
-        if data.len() < 12 {
-            // Minimum for "HTTP/1.1 200"
-            return false;
-        }
-
-        // VERY SPECIFIC: Must NOT look like HTTP/2 frames
-        if data.len() >= 9 && http2_process::looks_like_http2_response(data) {
-            return false;
-        }
-
-        let data_str = String::from_utf8_lossy(data);
-        let first_line = data_str.lines().next().unwrap_or("");
-
-        // SPECIFIC: Must be exact HTTP/1.x response line format
-        let parts: Vec<&str> = first_line.splitn(3, ' ').collect();
-        if parts.len() < 2 {
-            return false;
-        }
-
-        // SPECIFIC: Must be exact HTTP/1.0 or HTTP/1.1 with valid status code
-        (parts[0] == "HTTP/1.0" || parts[0] == "HTTP/1.1")
-            && parts[1].len() == 3  // Status code must be 3 digits
-            && parts[1].chars().all(|c| c.is_ascii_digit()) // Must be numeric
-    }
-
-    fn has_complete_data(&self, data: &[u8]) -> bool {
-        has_complete_headers(data)
-    }
-
-    fn process_request(
-        &self,
-        data: &[u8],
-    ) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
-        parse_http1_request(data, &self.parser)
-    }
-
-    fn process_response(
-        &self,
-        data: &[u8],
-    ) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-        parse_http1_response(data, &self.parser)
-    }
-
-    fn supported_version(&self) -> http::Version {
-        http::Version::V11 // Primary version, but also supports V10
-    }
-
-    fn name(&self) -> &'static str {
-        "HTTP/1.x"
     }
 }
 

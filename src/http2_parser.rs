@@ -942,7 +942,7 @@ mod tests {
         ];
 
         for (i, frame) in test_cases.iter().enumerate() {
-            let data = create_http2_request_with_preface(&[frame.clone()]);
+            let data = create_http2_request_with_preface(std::slice::from_ref(frame));
             let result = parser.parse_request(&data);
 
             // All should handle gracefully without panicking
@@ -1015,7 +1015,7 @@ mod tests {
         ];
 
         for malicious_frame in malicious_cases.iter() {
-            let data = create_http2_request_with_preface(&[malicious_frame.clone()]);
+            let data = create_http2_request_with_preface(std::slice::from_ref(malicious_frame));
             let result = parser.parse_request(&data);
 
             // Should handle all malicious cases without panicking
