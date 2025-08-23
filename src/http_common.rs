@@ -150,3 +150,38 @@ pub trait HttpResponseLike {
     fn headers(&self) -> &[HttpHeader];
     fn metadata(&self) -> &ParsingMetadata;
 }
+
+/// HTTP diagnostic function - determines the relationship between User-Agent and OS signature
+///
+/// This function analyzes the consistency between the reported User-Agent string and
+/// the detected OS signature from TCP fingerprinting to identify potential spoofing.
+///
+/// # Arguments
+/// * `user_agent` - Optional User-Agent string from HTTP headers
+/// * `ua_matcher` - Optional tuple of (OS name, browser flavor) extracted from User-Agent
+/// * `signature_os_matcher` - Optional OS label from TCP signature matching
+///
+/// # Returns
+/// * `HttpDiagnosis::Anonymous` - No User-Agent provided
+/// * `HttpDiagnosis::Generic` - User-Agent OS matches TCP signature OS
+/// * `HttpDiagnosis::Dishonest` - User-Agent OS differs from TCP signature OS (potential spoofing)
+/// * `HttpDiagnosis::None` - Insufficient data for comparison
+pub fn get_diagnostic(
+    user_agent: Option<String>,
+    ua_matcher: Option<(&String, &Option<String>)>,
+    signature_os_matcher: Option<&crate::db::Label>,
+) -> crate::http::HttpDiagnosis {
+    match user_agent {
+        None => crate::http::HttpDiagnosis::Anonymous,
+        Some(_ua) => match (ua_matcher, signature_os_matcher) {
+            (Some((ua_name_db, _ua_flavor_db)), Some(signature_label_db)) => {
+                if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
+                    crate::http::HttpDiagnosis::Generic
+                } else {
+                    crate::http::HttpDiagnosis::Dishonest
+                }
+            }
+            _ => crate::http::HttpDiagnosis::None,
+        },
+    }
+}

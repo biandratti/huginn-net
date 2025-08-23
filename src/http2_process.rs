@@ -1,4 +1,3 @@
-use crate::db::Label;
 use crate::error::HuginnNetError;
 use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
@@ -239,26 +238,6 @@ fn extract_traffic_classification(value: Option<String>) -> String {
     value.unwrap_or_else(|| "???".to_string())
 }
 
-pub fn get_diagnostic(
-    user_agent: Option<String>,
-    ua_matcher: Option<(&String, &Option<String>)>,
-    signature_os_matcher: Option<&Label>,
-) -> http::HttpDiagnosis {
-    match user_agent {
-        None => http::HttpDiagnosis::Anonymous,
-        Some(_ua) => match (ua_matcher, signature_os_matcher) {
-            (Some((ua_name_db, _ua_flavor_db)), Some(signature_label_db)) => {
-                if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
-                    http::HttpDiagnosis::Generic
-                } else {
-                    http::HttpDiagnosis::Dishonest
-                }
-            }
-            _ => http::HttpDiagnosis::None,
-        },
-    }
-}
-
 /// Check if data looks like HTTP/2 response (frames without preface)
 pub fn looks_like_http2_response(data: &[u8]) -> bool {
     if data.len() < 9 {
@@ -348,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_get_diagnostic_for_http2() {
-        let diagnosis = get_diagnostic(None, None, None);
+        let diagnosis = http_common::get_diagnostic(None, None, None);
         assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
     }
 
@@ -366,7 +345,7 @@ mod tests {
         };
         let signature_os_matcher: Option<&db::Label> = Some(&label);
 
-        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
+        let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
     }
 }

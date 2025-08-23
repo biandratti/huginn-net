@@ -369,7 +369,7 @@ impl<'a> HuginnNet<'a> {
                                         .and_then(|matcher| matcher.matching_by_user_agent(ua))
                                 });
 
-                            let http_diagnosis = http_process::get_diagnostic(
+                            let http_diagnosis = http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
                                 ua_matcher,
                                 signature_matcher.map(|(label, _signature, _quality)| label),

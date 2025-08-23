@@ -21,9 +21,6 @@ pub struct HttpProcessors {
     pub http1_processor: http1_process::Http1Processor,
 }
 
-// Re-export the diagnostic function from http1_process
-pub use http1_process::get_diagnostic;
-
 impl HttpProcessors {
     pub fn new() -> Self {
         Self {
@@ -328,8 +325,8 @@ fn parse_http_response(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::http;
     use crate::http1_process;
-    use crate::{db, http};
 
     #[test]
     fn test_parse_http1_request() {
@@ -414,51 +411,7 @@ mod tests {
 
     #[test]
     fn test_get_diagnostic_for_empty_sw() {
-        let diagnosis: http::HttpDiagnosis = get_diagnostic(None, None, None);
+        let diagnosis: http::HttpDiagnosis = crate::http_common::get_diagnostic(None, None, None);
         assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
-    }
-
-    #[test]
-    fn test_get_diagnostic_with_existing_signature_matcher() {
-        let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
-        let os = "Linux".to_string();
-        let browser = Some("Firefox".to_string());
-        let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
-            class: None,
-            name: "Linux".to_string(),
-            flavor: None,
-        };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
-
-        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
-        assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
-    }
-
-    #[test]
-    fn test_get_diagnostic_with_dishonest_user_agent() {
-        let user_agent = Some("Mozilla/5.0".to_string());
-        let os = "Windows".to_string();
-        let browser = Some("Firefox".to_string());
-        let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
-            class: None,
-            name: "Linux".to_string(),
-            flavor: None,
-        };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
-
-        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
-        assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
-    }
-
-    #[test]
-    fn test_get_diagnostic_without_user_agent_and_signature_matcher() {
-        let user_agent = Some("Mozilla/5.0".to_string());
-
-        let diagnosis = get_diagnostic(user_agent, None, None);
-        assert_eq!(diagnosis, http::HttpDiagnosis::None);
     }
 }
