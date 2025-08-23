@@ -94,6 +94,38 @@ impl std::fmt::Display for Http1ParseError {
 
 impl std::error::Error for Http1ParseError {}
 
+/// HTTP/1.x Protocol Parser
+///
+/// Provides parsing capabilities for HTTP/1.0 and HTTP/1.1 requests and responses according to RFC 7230.
+/// Supports header parsing, cookie extraction, and various configuration options for security and performance.
+///
+/// # Thread Safety
+///
+/// **This parser is thread-safe.** Unlike the HTTP/2 parser, this parser does not maintain internal state
+/// and can be safely shared between threads or used concurrently.
+///
+/// # Example
+///
+/// ```rust
+/// use huginn_net::http1_parser::Http1Parser;
+///
+/// let parser = Http1Parser::new();
+/// // Can be used safely across multiple threads
+/// ```
+///
+/// # Security Features
+///
+/// The parser includes built-in protections against common attacks:
+/// - Request line length limits
+/// - Header count limits  
+/// - Individual header length limits
+/// - UTF-8 validation
+/// - Configurable strict parsing mode
+///
+/// # Performance
+///
+/// Optimized for high-throughput parsing with minimal allocations.
+/// Parsing metadata includes timing information for performance monitoring.
 pub struct Http1Parser {
     config: Http1Config,
 }
@@ -133,7 +165,9 @@ impl Http1Parser {
         let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
         let mut headers_map = HashMap::new();
         for header in &headers {
-            headers_map.insert(header.name.to_lowercase(), header.value.clone());
+            headers_map
+                .entry(header.name.to_lowercase())
+                .or_insert(header.value.clone());
         }
 
         let cookies = if self.config.parse_cookies {
@@ -203,7 +237,10 @@ impl Http1Parser {
         let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
         let mut headers_map = HashMap::new();
         for header in &headers {
-            headers_map.insert(header.name.to_lowercase(), header.value.clone());
+            // Only insert if not already present (first wins)
+            headers_map
+                .entry(header.name.to_lowercase())
+                .or_insert(header.value.clone());
         }
 
         let content_length = headers_map
@@ -251,6 +288,11 @@ impl Http1Parser {
         let version = http::Version::parse(parts[2])
             .ok_or_else(|| Http1ParseError::InvalidVersion(parts[2].to_string()))?;
 
+        // HTTP/1.x parser should only accept HTTP/1.0 and HTTP/1.1
+        if !matches!(version, http::Version::V10 | http::Version::V11) {
+            return Err(Http1ParseError::InvalidVersion(parts[2].to_string()));
+        }
+
         if !self.is_valid_method(&method) {
             return Err(Http1ParseError::InvalidMethod(method));
         }
@@ -269,6 +311,12 @@ impl Http1Parser {
 
         let version = http::Version::parse(parts[0])
             .ok_or_else(|| Http1ParseError::InvalidVersion(parts[0].to_string()))?;
+
+        // HTTP/1.x parser should only accept HTTP/1.0 and HTTP/1.1
+        if !matches!(version, http::Version::V10 | http::Version::V11) {
+            return Err(Http1ParseError::InvalidVersion(parts[0].to_string()));
+        }
+
         let status_code: u16 = parts[1]
             .parse()
             .map_err(|_| Http1ParseError::InvalidStatusCode(parts[1].to_string()))?;
@@ -612,5 +660,427 @@ mod tests {
             .parsing_metadata
             .duplicate_headers
             .contains(&"host".to_string()));
+    }
+
+    // ========== SECURITY TESTS ==========
+
+    #[test]
+    fn test_extremely_long_request_line() {
+        let parser = Http1Parser::new();
+
+        // Create request line longer than max_request_line_length (8192)
+        let long_path = "a".repeat(10000);
+        let request_line = format!("GET /{} HTTP/1.1", long_path);
+        let data = format!("{}\r\nHost: example.com\r\n\r\n", request_line);
+
+        let result = parser.parse_request(data.as_bytes());
+        assert!(result.is_err());
+
+        if let Err(Http1ParseError::InvalidRequestLine(msg)) = result {
+            assert!(msg.contains("too long"));
+        } else {
+            panic!("Expected InvalidRequestLine error");
+        }
+    }
+
+    #[test]
+    fn test_extremely_long_header() {
+        let parser = Http1Parser::new();
+
+        // Create header longer than max_header_length (8192)
+        let long_value = "x".repeat(10000);
+        let data = format!("GET / HTTP/1.1\r\nLong-Header: {}\r\n\r\n", long_value);
+
+        let result = parser.parse_request(data.as_bytes());
+        assert!(result.is_err());
+
+        if let Err(Http1ParseError::HeaderTooLong(len)) = result {
+            assert!(len > 8192);
+        } else {
+            panic!("Expected HeaderTooLong error");
+        }
+    }
+
+    #[test]
+    fn test_too_many_headers() {
+        let parser = Http1Parser::new();
+
+        // Create more than max_headers (100)
+        let mut data = String::from("GET / HTTP/1.1\r\n");
+        for i in 0..150 {
+            data.push_str(&format!("Header-{}: value{}\r\n", i, i));
+        }
+        data.push_str("\r\n");
+
+        let result = parser.parse_request(data.as_bytes());
+        assert!(result.is_err());
+
+        if let Err(Http1ParseError::TooManyHeaders(count)) = result {
+            assert_eq!(count, 150);
+        } else {
+            panic!("Expected TooManyHeaders error");
+        }
+    }
+
+    #[test]
+    fn test_invalid_utf8_handling() {
+        let parser = Http1Parser::new();
+
+        // Create data with invalid UTF-8 sequences
+        let mut data = Vec::from("GET / HTTP/1.1\r\nHost: ");
+        data.extend_from_slice(&[0xFF, 0xFE, 0xFD]); // Invalid UTF-8
+        data.extend_from_slice(b"\r\n\r\n");
+
+        let result = parser.parse_request(&data);
+        assert!(result.is_err());
+
+        if let Err(Http1ParseError::InvalidUtf8) = result {
+            // Expected
+        } else {
+            panic!("Expected InvalidUtf8 error");
+        }
+    }
+
+    // ========== EDGE CASES ==========
+
+    #[test]
+    fn test_empty_data() {
+        let parser = Http1Parser::new();
+
+        assert_parser_none(parser.parse_request(b""));
+        assert_parser_none(parser.parse_response(b""));
+    }
+
+    #[test]
+    fn test_only_request_line() {
+        let parser = Http1Parser::new();
+
+        // No headers, no empty line
+        let data = b"GET / HTTP/1.1";
+        assert_parser_none(parser.parse_request(data));
+
+        // With CRLF but no empty line
+        let data = b"GET / HTTP/1.1\r\n";
+        assert_parser_none(parser.parse_request(data));
+    }
+
+    #[test]
+    fn test_different_line_endings() {
+        let parser = Http1Parser::new();
+
+        // Test with LF only (Unix style)
+        let data_lf = b"GET / HTTP/1.1\nHost: example.com\n\n";
+        let result_lf = unwrap_parser_result(parser.parse_request(data_lf));
+        assert_eq!(result_lf.method, "GET");
+
+        // Test with CRLF (Windows/HTTP standard)
+        let data_crlf = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result_crlf = unwrap_parser_result(parser.parse_request(data_crlf));
+        assert_eq!(result_crlf.method, "GET");
+    }
+
+    #[test]
+    fn test_malformed_headers() {
+        let parser = Http1Parser::new();
+
+        // Header without colon (non-strict mode)
+        let data = b"GET / HTTP/1.1\r\nMalformed Header Without Colon\r\nHost: example.com\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        assert!(result.parsing_metadata.has_malformed_headers);
+
+        // Header with empty name
+        let data = b"GET / HTTP/1.1\r\n: empty-name\r\nHost: example.com\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        assert!(result.parsing_metadata.has_malformed_headers);
+    }
+
+    #[test]
+    fn test_strict_parsing_mode() {
+        let mut config = Http1Config::default();
+        config.strict_parsing = true;
+        let parser = Http1Parser { config };
+
+        // Malformed header should fail in strict mode
+        let data = b"GET / HTTP/1.1\r\nMalformed Header Without Colon\r\n\r\n";
+        let result = parser.parse_request(data);
+        assert!(result.is_err());
+
+        if let Err(Http1ParseError::MalformedHeader(header)) = result {
+            assert_eq!(header, "Malformed Header Without Colon");
+        } else {
+            panic!("Expected MalformedHeader error");
+        }
+    }
+
+    #[test]
+    fn test_invalid_methods() {
+        let parser = Http1Parser::new();
+
+        let invalid_methods = ["INVALID", "123", "", "G E T", "get"];
+
+        for method in invalid_methods {
+            let data = format!("{} / HTTP/1.1\r\nHost: example.com\r\n\r\n", method);
+            let result = parser.parse_request(data.as_bytes());
+            assert!(result.is_err(), "Method '{}' should be invalid", method);
+        }
+    }
+
+    #[test]
+    fn test_valid_extended_methods() {
+        let parser = Http1Parser::new();
+
+        let valid_methods = [
+            "PROPFIND",
+            "PROPPATCH",
+            "MKCOL",
+            "COPY",
+            "MOVE",
+            "LOCK",
+            "UNLOCK",
+        ];
+
+        for method in valid_methods {
+            let data = format!("{} / HTTP/1.1\r\nHost: example.com\r\n\r\n", method);
+            let result = unwrap_parser_result(parser.parse_request(data.as_bytes()));
+            assert_eq!(result.method, method);
+        }
+    }
+
+    #[test]
+    fn test_invalid_http_versions() {
+        let parser = Http1Parser::new();
+
+        let invalid_versions = ["HTTP/2.0", "HTTP/0.9", "HTTP/1.2", "HTTP/1", "HTTP", "1.1"];
+
+        for version in invalid_versions {
+            let data = format!("GET / {}\r\nHost: example.com\r\n\r\n", version);
+            let result = parser.parse_request(data.as_bytes());
+            assert!(result.is_err(), "Version '{}' should be invalid", version);
+        }
+    }
+
+    #[test]
+    fn test_invalid_status_codes() {
+        let parser = Http1Parser::new();
+
+        let invalid_codes = ["abc", "999999", "", "-1", "1.5"];
+
+        for code in invalid_codes {
+            let data = format!("HTTP/1.1 {} OK\r\nServer: test\r\n\r\n", code);
+            let result = parser.parse_response(data.as_bytes());
+            assert!(result.is_err(), "Status code '{}' should be invalid", code);
+        }
+    }
+
+    #[test]
+    fn test_edge_case_status_lines() {
+        let parser = Http1Parser::new();
+
+        // Status line without reason phrase
+        let data = b"HTTP/1.1 404\r\nServer: test\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_response(data));
+        assert_eq!(result.status_code, 404);
+        assert_eq!(result.reason_phrase, "");
+
+        // Status line with spaces in reason phrase
+        let data = b"HTTP/1.1 404 Not Found Here\r\nServer: test\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_response(data));
+        assert_eq!(result.status_code, 404);
+        assert_eq!(result.reason_phrase, "Not Found Here");
+    }
+
+    #[test]
+    fn test_cookie_parsing_edge_cases() {
+        let parser = Http1Parser::new();
+
+        let cookie_test_cases = vec![
+            ("", 0),                               // Empty cookie header
+            ("name=value", 1),                     // Simple cookie
+            ("name=", 1),                          // Empty value
+            ("name", 1),                           // No value
+            ("name=value; other=test", 2),         // Multiple cookies
+            ("  name  =  value  ; other=test", 2), // Whitespace handling
+            ("name=value;", 1),                    // Trailing semicolon
+            (";name=value", 1),                    // Leading semicolon
+            ("name=value;;other=test", 2),         // Double semicolon
+            ("name=value; ; other=test", 2),       // Empty cookie between
+        ];
+
+        for (cookie_str, expected_count) in cookie_test_cases {
+            let data = format!(
+                "GET / HTTP/1.1\r\nHost: example.com\r\nCookie: {}\r\n\r\n",
+                cookie_str
+            );
+            let result = unwrap_parser_result(parser.parse_request(data.as_bytes()));
+            assert_eq!(
+                result.cookies.len(),
+                expected_count,
+                "Failed for cookie: '{}'",
+                cookie_str
+            );
+        }
+    }
+
+    #[test]
+    fn test_header_value_edge_cases() {
+        let parser = Http1Parser::new();
+
+        // Header with no value
+        let data = b"GET / HTTP/1.1\r\nEmpty-Header:\r\nHost: example.com\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        let empty_header = result
+            .headers
+            .iter()
+            .find(|h| h.name == "Empty-Header")
+            .unwrap();
+        assert_eq!(empty_header.value, "");
+
+        // Header with only spaces as value
+        let data = b"GET / HTTP/1.1\r\nSpaces-Header:   \r\nHost: example.com\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        let spaces_header = result
+            .headers
+            .iter()
+            .find(|h| h.name == "Spaces-Header")
+            .unwrap();
+        assert_eq!(spaces_header.value, "");
+
+        // Header with leading/trailing spaces
+        let data =
+            b"GET / HTTP/1.1\r\nTrim-Header:  value with spaces  \r\nHost: example.com\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        let trim_header = result
+            .headers
+            .iter()
+            .find(|h| h.name == "Trim-Header")
+            .unwrap();
+        assert_eq!(trim_header.value, "value with spaces");
+    }
+
+    #[test]
+    fn test_request_line_edge_cases() {
+        let parser = Http1Parser::new();
+
+        // Too few parts
+        let data = b"GET HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = parser.parse_request(data);
+        assert!(result.is_err());
+
+        // Too many parts (extra spaces)
+        let data = b"GET / HTTP/1.1 extra\r\nHost: example.com\r\n\r\n";
+        let result = parser.parse_request(data);
+        assert!(result.is_err());
+
+        // Empty method
+        let data = b" / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = parser.parse_request(data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_content_length_parsing() {
+        let parser = Http1Parser::new();
+
+        // Valid content length
+        let data = b"GET / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 42\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(result.content_length, Some(42));
+
+        // Invalid content length (non-numeric)
+        let data = b"GET / HTTP/1.1\r\nHost: example.com\r\nContent-Length: abc\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(result.content_length, None);
+
+        // Multiple content length headers (should use first valid one)
+        let data = b"GET / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 42\r\nContent-Length: 24\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(result.content_length, Some(42));
+    }
+
+    #[test]
+    fn test_can_parse_detection() {
+        let parser = Http1Parser::new();
+
+        // Valid HTTP/1.x requests
+        assert!(parser.can_parse(b"GET / HTTP/1.1\r\n"));
+        assert!(parser.can_parse(b"POST /api HTTP/1.0\r\n"));
+        assert!(parser.can_parse(b"PUT /data HTTP/1.1\r\n"));
+
+        // Valid HTTP/1.x responses
+        assert!(parser.can_parse(b"HTTP/1.1 200 OK\r\n"));
+        assert!(parser.can_parse(b"HTTP/1.0 404 Not Found\r\n"));
+
+        // Invalid data
+        assert!(!parser.can_parse(b""));
+        assert!(!parser.can_parse(b"short"));
+        assert!(!parser.can_parse(b"INVALID DATA HERE"));
+        assert!(!parser.can_parse(b"PRI * HTTP/2.0\r\n")); // HTTP/2 preface
+    }
+
+    #[test]
+    fn test_error_display_formatting() {
+        // Test that all error types format correctly
+        let errors = vec![
+            Http1ParseError::InvalidRequestLine("test".to_string()),
+            Http1ParseError::InvalidStatusLine("test".to_string()),
+            Http1ParseError::InvalidVersion("test".to_string()),
+            Http1ParseError::InvalidMethod("test".to_string()),
+            Http1ParseError::InvalidStatusCode("test".to_string()),
+            Http1ParseError::HeaderTooLong(12345),
+            Http1ParseError::TooManyHeaders(999),
+            Http1ParseError::MalformedHeader("test".to_string()),
+            Http1ParseError::IncompleteData,
+            Http1ParseError::InvalidUtf8,
+        ];
+
+        for error in errors {
+            let formatted = format!("{}", error);
+            assert!(!formatted.is_empty());
+            assert!(!formatted.contains("Debug")); // Should be Display, not Debug
+        }
+    }
+
+    #[test]
+    fn test_config_limits() {
+        // Test with very restrictive config
+        let config = Http1Config {
+            max_headers: 2,
+            max_request_line_length: 50,
+            max_header_length: 30,
+            preserve_header_order: true,
+            parse_cookies: false,
+            strict_parsing: true,
+        };
+        let parser = Http1Parser { config };
+
+        // Should work within limits
+        let data = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(result.method, "GET");
+        assert!(result.cookies.is_empty()); // Cookie parsing disabled
+
+        // Should fail when exceeding header count limit
+        let data =
+            b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test\r\nAccept: */*\r\n\r\n";
+        let result = parser.parse_request(data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_performance_metadata() {
+        let parser = Http1Parser::new();
+        let data = b"GET /path HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test\r\n\r\n";
+
+        let result = unwrap_parser_result(parser.parse_request(data));
+
+        // Verify metadata is populated
+        assert!(result.parsing_metadata.parsing_time_ns > 0);
+        assert_eq!(result.parsing_metadata.header_count, 2);
+        assert_eq!(
+            result.parsing_metadata.request_line_length,
+            "GET /path HTTP/1.1".len()
+        );
+        assert!(result.parsing_metadata.total_headers_length > 0);
+        assert!(!result.parsing_metadata.has_malformed_headers);
     }
 }

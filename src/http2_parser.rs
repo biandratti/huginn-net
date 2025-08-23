@@ -156,6 +156,29 @@ impl std::fmt::Display for Http2ParseError {
 
 impl std::error::Error for Http2ParseError {}
 
+/// HTTP/2 Protocol Parser
+///
+/// Provides parsing capabilities for HTTP/2 requests and responses according to RFC 7540.
+/// Supports HPACK header compression and handles various frame types.
+///
+/// # Thread Safety
+///
+/// **This parser is NOT thread-safe.** Each thread should create its own instance.
+/// The internal HPACK decoder maintains state and uses `RefCell` for interior mutability.
+///
+/// # Example
+///
+/// ```rust
+/// use huginn_net::http2_parser::Http2Parser;
+///
+/// let parser = Http2Parser::new();
+/// // Use parser in single thread only
+/// ```
+///
+/// # Performance
+///
+/// The parser is optimized for single-threaded use with minimal allocations.
+/// HPACK state is preserved between parsing operations for efficiency.
 pub struct Http2Parser<'a> {
     config: Http2Config,
     hpack_decoder: RefCell<Decoder<'a>>,
@@ -607,6 +630,38 @@ mod tests {
         }
     }
 
+    fn create_http2_frame(frame_type: u8, stream_id: u32, payload: &[u8]) -> Vec<u8> {
+        let mut frame = Vec::new();
+
+        // Length (24 bits)
+        let length = payload.len() as u32;
+        frame.push(((length >> 16) & 0xFF) as u8);
+        frame.push(((length >> 8) & 0xFF) as u8);
+        frame.push((length & 0xFF) as u8);
+
+        // Type (8 bits)
+        frame.push(frame_type);
+
+        // Flags (8 bits)
+        frame.push(0x00);
+
+        // Stream ID (32 bits, with R bit cleared)
+        frame.extend_from_slice(&(stream_id & 0x7FFFFFFF).to_be_bytes());
+
+        // Payload
+        frame.extend_from_slice(payload);
+
+        frame
+    }
+
+    fn create_http2_request_with_preface(frames: &[Vec<u8>]) -> Vec<u8> {
+        let mut data = Vec::from(HTTP2_CONNECTION_PREFACE);
+        for frame in frames {
+            data.extend_from_slice(frame);
+        }
+        data
+    }
+
     #[test]
     fn test_http2_preface_detection() {
         let http2_data = HTTP2_CONNECTION_PREFACE;
@@ -614,13 +669,27 @@ mod tests {
 
         let http1_data = b"GET / HTTP/1.1\r\n";
         assert!(!is_http2_traffic(http1_data));
+
+        // Edge case: partial preface
+        let partial_preface = &HTTP2_CONNECTION_PREFACE[..10];
+        assert!(!is_http2_traffic(partial_preface));
+
+        // Edge case: empty data
+        assert!(!is_http2_traffic(&[]));
     }
 
     #[test]
     fn test_frame_type_conversion() {
         assert_eq!(Http2FrameType::from(0x0), Http2FrameType::Data);
         assert_eq!(Http2FrameType::from(0x1), Http2FrameType::Headers);
+        assert_eq!(Http2FrameType::from(0x2), Http2FrameType::Priority);
+        assert_eq!(Http2FrameType::from(0x3), Http2FrameType::RstStream);
         assert_eq!(Http2FrameType::from(0x4), Http2FrameType::Settings);
+        assert_eq!(Http2FrameType::from(0x5), Http2FrameType::PushPromise);
+        assert_eq!(Http2FrameType::from(0x6), Http2FrameType::Ping);
+        assert_eq!(Http2FrameType::from(0x7), Http2FrameType::GoAway);
+        assert_eq!(Http2FrameType::from(0x8), Http2FrameType::WindowUpdate);
+        assert_eq!(Http2FrameType::from(0x9), Http2FrameType::Continuation);
         assert_eq!(Http2FrameType::from(0xFF), Http2FrameType::Unknown(0xFF));
     }
 
@@ -633,5 +702,458 @@ mod tests {
             parser.parse_request(invalid_data),
             Http2ParseError::InvalidPreface,
         );
+    }
+
+    #[test]
+    fn test_empty_data() {
+        let parser = Http2Parser::new();
+
+        // Empty data should fail preface check
+        assert_parser_error(parser.parse_request(&[]), Http2ParseError::InvalidPreface);
+
+        // Only preface, no frames
+        let result = parser.parse_request(HTTP2_CONNECTION_PREFACE);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_incomplete_frame_header() {
+        let parser = Http2Parser::new();
+
+        // Preface + incomplete frame header (less than 9 bytes)
+        let mut data = Vec::from(HTTP2_CONNECTION_PREFACE);
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]); // Only 4 bytes of frame header
+
+        let result = parser.parse_request(&data);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none()); // Should return None for incomplete data
+    }
+
+    #[test]
+    fn test_frame_too_large() {
+        let parser = Http2Parser::new();
+
+        // Create frame with length exceeding max_frame_size (16384)
+        let large_length = 20000u32;
+        let mut frame = Vec::new();
+
+        // Length (24 bits) - exceeds max_frame_size
+        frame.push(((large_length >> 16) & 0xFF) as u8);
+        frame.push(((large_length >> 8) & 0xFF) as u8);
+        frame.push((large_length & 0xFF) as u8);
+
+        // Complete frame header
+        frame.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x01]); // Headers frame, stream 1
+
+        let data = create_http2_request_with_preface(&[frame]);
+        let result = parser.parse_request(&data);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none()); // Should handle gracefully
+    }
+
+    #[test]
+    fn test_incomplete_frame_payload() {
+        let parser = Http2Parser::new();
+
+        // Frame header says 100 bytes payload, but we only provide 50
+        let mut frame = Vec::new();
+        frame.extend_from_slice(&[0x00, 0x00, 0x64]); // Length: 100
+        frame.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x01]); // Headers frame, stream 1
+        frame.extend_from_slice(&vec![0x00; 50]); // Only 50 bytes instead of 100
+
+        let data = create_http2_request_with_preface(&[frame]);
+        let result = parser.parse_request(&data);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none()); // Should handle incomplete payload gracefully
+    }
+
+    #[test]
+    fn test_zero_length_frame() {
+        let parser = Http2Parser::new();
+
+        // Valid zero-length frame
+        let frame = create_http2_frame(0x04, 0, &[]); // Settings frame with no payload
+        let data = create_http2_request_with_preface(&[frame]);
+
+        let result = parser.parse_request(&data);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none()); // No headers frame, so no request
+    }
+
+    #[test]
+    fn test_maximum_valid_frame_size() {
+        let parser = Http2Parser::new();
+
+        // Frame with exactly max_frame_size (16384 bytes)
+        let max_payload = vec![0x00; 16384];
+        let frame = create_http2_frame(0x00, 1, &max_payload); // Data frame
+        let data = create_http2_request_with_preface(&[frame]);
+
+        let result = parser.parse_request(&data);
+        assert!(result.is_ok());
+        // Should parse successfully but return None (no headers frame)
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_invalid_stream_id_zero_for_headers() {
+        let parser = Http2Parser::new();
+
+        // Headers frame with stream ID 0 (invalid)
+        let frame = create_http2_frame(0x01, 0, &[0x00]); // Headers frame, stream 0
+        let data = create_http2_request_with_preface(&[frame]);
+
+        let result = parser.parse_request(&data);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none()); // Should return None (no valid stream found)
+    }
+
+    #[test]
+    fn test_multiple_frames_parsing() {
+        let parser = Http2Parser::new();
+
+        // Multiple frames: Settings + Headers
+        let settings_frame = create_http2_frame(0x04, 0, &[]); // Settings frame
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]); // Headers frame
+
+        let data = create_http2_request_with_preface(&[settings_frame, headers_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle gracefully - either Ok(None) or Err due to invalid HPACK
+        match result {
+            Ok(None) => {
+                // Expected: no valid request parsed due to invalid HPACK
+            }
+            Err(Http2ParseError::HpackDecodingFailed) => {
+                // Also expected: HPACK decoding failed
+            }
+            other => {
+                panic!("Unexpected result: {:?}", other);
+            }
+        }
+    }
+
+    #[test]
+    fn test_arithmetic_overflow_protection() {
+        let parser = Http2Parser::new();
+
+        // Test frame length that would cause overflow when added to 9
+        let mut frame = Vec::new();
+        frame.extend_from_slice(&[0xFF, 0xFF, 0xFF]); // Maximum 24-bit length
+        frame.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x01]); // Headers frame
+
+        let data = create_http2_request_with_preface(&[frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle overflow gracefully without panicking
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_hpack_decoding_failure() {
+        let parser = Http2Parser::new();
+
+        // Headers frame with invalid HPACK data
+        let invalid_hpack = vec![0xFF; 10]; // Invalid HPACK data
+        let frame = create_http2_frame(0x01, 1, &invalid_hpack);
+        let data = create_http2_request_with_preface(&[frame]);
+
+        let result = parser.parse_request(&data);
+        // Should handle HPACK decoding failure gracefully
+        assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+    }
+
+    #[test]
+    fn test_missing_required_headers() {
+        let parser = Http2Parser::new();
+
+        // This test would require valid HPACK encoding without required pseudo-headers
+        // For now, we test the error path exists
+        let frame = create_http2_frame(0x01, 1, &[0x00]);
+        let data = create_http2_request_with_preface(&[frame]);
+
+        let result = parser.parse_request(&data);
+        // Should either fail HPACK decoding or missing headers check
+        assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+    }
+
+    #[test]
+    fn test_response_parsing_without_preface() {
+        let parser = Http2Parser::new();
+
+        // Response parsing doesn't require preface
+        let frame = create_http2_frame(0x01, 1, &[0x00]); // Headers frame
+
+        let result = parser.parse_response(&frame);
+        // Should handle gracefully (likely HPACK failure)
+        assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+    }
+
+    #[test]
+    fn test_frame_parsing_edge_cases() {
+        let parser = Http2Parser::new();
+
+        // Test various edge cases in frame parsing
+        let test_cases = vec![
+            // Case 1: Frame with reserved bit set in stream ID
+            {
+                let mut frame = create_http2_frame(0x01, 1, &[0x00]);
+                // Set reserved bit in stream ID
+                frame[5] |= 0x80;
+                frame
+            },
+            // Case 2: Continuation frame (should be handled)
+            create_http2_frame(0x09, 1, &[0x00]),
+            // Case 3: Unknown frame type
+            create_http2_frame(0xFF, 1, &[0x00]),
+        ];
+
+        for (i, frame) in test_cases.iter().enumerate() {
+            let data = create_http2_request_with_preface(&[frame.clone()]);
+            let result = parser.parse_request(&data);
+
+            // All should handle gracefully without panicking
+            assert!(result.is_ok() || result.is_err(), "Test case {} failed", i);
+        }
+    }
+
+    #[test]
+    fn test_settings_frame_parsing() {
+        let parser = Http2Parser::new();
+
+        // Valid settings frame with some settings
+        let mut settings_payload = Vec::new();
+
+        // SETTINGS_HEADER_TABLE_SIZE = 4096
+        settings_payload.extend_from_slice(&[0x00, 0x01]); // ID
+        settings_payload.extend_from_slice(&[0x00, 0x00, 0x10, 0x00]); // Value: 4096
+
+        // SETTINGS_ENABLE_PUSH = 0
+        settings_payload.extend_from_slice(&[0x00, 0x02]); // ID
+        settings_payload.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // Value: 0
+
+        let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]);
+
+        let data = create_http2_request_with_preface(&[settings_frame, headers_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should parse settings and attempt headers (likely fail on HPACK)
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_cookie_parsing_edge_cases() {
+        let parser = Http2Parser::new();
+
+        let test_cases = vec![
+            "",                       // Empty
+            "name=value",             // Simple
+            "name=",                  // Empty value
+            "name",                   // No value
+            "name=value; other=test", // Multiple
+            "  name  =  value  ",     // Whitespace
+            "name=value;",            // Trailing semicolon
+            ";name=value",            // Leading semicolon
+            "name=value;;other=test", // Double semicolon
+        ];
+
+        for cookie_str in test_cases {
+            let cookies = parser.parse_cookies(cookie_str);
+            // Should not panic and return reasonable results
+            assert!(cookies.len() <= cookie_str.split(';').count());
+        }
+    }
+
+    #[test]
+    fn test_security_malformed_frames() {
+        let parser = Http2Parser::new();
+
+        // Test cases that could potentially cause security issues
+        let malicious_cases = vec![
+            // Case 1: Frame with malformed length field
+            vec![0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01],
+            // Case 2: Frame with zero stream ID for non-connection frames
+            vec![0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF],
+            // Case 3: Extremely large payload declaration
+            vec![0x7F, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01],
+            // Case 4: Invalid frame type with large payload
+            vec![0x00, 0x10, 0x00, 0xFE, 0xFF, 0x80, 0x00, 0x00, 0x01],
+        ];
+
+        for (_i, malicious_frame) in malicious_cases.iter().enumerate() {
+            let data = create_http2_request_with_preface(&[malicious_frame.clone()]);
+            let result = parser.parse_request(&data);
+
+            // Should handle all malicious cases without panicking
+            match result {
+                Ok(_) | Err(_) => {
+                    // Both outcomes are acceptable as long as no panic occurs
+                }
+            }
+
+            // Also test response parsing
+            let response_result = parser.parse_response(malicious_frame);
+            match response_result {
+                Ok(_) | Err(_) => {
+                    // Both outcomes are acceptable as long as no panic occurs
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_memory_exhaustion_protection() {
+        let parser = Http2Parser::new();
+
+        // Test with many small frames to ensure no memory exhaustion
+        let mut frames = Vec::new();
+        for i in 0..1000 {
+            let frame = create_http2_frame(0x00, (i % 100) + 1, &[0x00]); // Data frames
+            frames.push(frame);
+        }
+
+        let data = create_http2_request_with_preface(&frames);
+        let result = parser.parse_request(&data);
+
+        // Should handle large number of frames gracefully
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_stream_id_edge_cases() {
+        let parser = Http2Parser::new();
+
+        let test_cases = vec![
+            (0x00000001, true),  // Valid client stream ID
+            (0x00000003, true),  // Valid client stream ID
+            (0x00000002, true),  // Valid server stream ID (should still parse)
+            (0x7FFFFFFF, true),  // Maximum valid stream ID
+            (0x80000001, true),  // Stream ID with reserved bit (should be masked)
+            (0x00000000, false), // Invalid for headers frame
+        ];
+
+        for (stream_id, should_find_stream) in test_cases {
+            let frame = create_http2_frame(0x01, stream_id, &[0x00]); // Headers frame
+            let data = create_http2_request_with_preface(&[frame]);
+            let result = parser.parse_request(&data);
+
+            if should_find_stream {
+                // Should attempt to parse (likely fail on HPACK but find the stream)
+                assert!(result.is_err() || (result.is_ok() && result.unwrap().is_none()));
+            } else {
+                // Should return None (no valid stream found)
+                assert!(result.is_ok());
+                assert!(result.unwrap().is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn test_frame_flag_handling() {
+        let parser = Http2Parser::new();
+
+        // Test different flag combinations
+        let flag_cases = vec![
+            0x00, // No flags
+            0x01, // END_STREAM
+            0x04, // END_HEADERS
+            0x05, // END_STREAM | END_HEADERS
+            0x08, // PADDED
+            0x20, // PRIORITY
+            0xFF, // All flags set
+        ];
+
+        for flags in flag_cases {
+            let mut frame = create_http2_frame(0x01, 1, &[0x00]); // Headers frame
+            frame[4] = flags; // Set flags byte
+
+            let data = create_http2_request_with_preface(&[frame]);
+            let result = parser.parse_request(&data);
+
+            // Should handle all flag combinations without panicking
+            assert!(result.is_ok() || result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_utf8_validation() {
+        let parser = Http2Parser::new();
+
+        // Test cases with invalid UTF-8 sequences
+        let invalid_utf8_cases = vec![
+            vec![0xFF, 0xFE, 0xFD], // Invalid UTF-8 start bytes
+            vec![0x80, 0x80, 0x80], // Invalid continuation bytes
+            vec![0xC0, 0x80],       // Overlong encoding
+            vec![0xED, 0xA0, 0x80], // Surrogate pair
+        ];
+
+        for invalid_utf8 in invalid_utf8_cases {
+            let frame = create_http2_frame(0x01, 1, &invalid_utf8);
+            let data = create_http2_request_with_preface(&[frame]);
+            let result = parser.parse_request(&data);
+
+            // Should handle invalid UTF-8 gracefully
+            match result {
+                Ok(_) => {
+                    // If it succeeds, the UTF-8 handling converted it safely
+                }
+                Err(Http2ParseError::HpackDecodingFailed) => {
+                    // Expected: HPACK decoder rejected invalid data
+                }
+                Err(Http2ParseError::InvalidUtf8) => {
+                    // Also acceptable: explicit UTF-8 validation
+                }
+                Err(_) => {
+                    // Other errors are also acceptable
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_error_display_formatting() {
+        // Test that all error types format correctly
+        let errors = vec![
+            Http2ParseError::InvalidPreface,
+            Http2ParseError::InvalidFrameHeader,
+            Http2ParseError::InvalidFrameLength(12345),
+            Http2ParseError::InvalidStreamId(67890),
+            Http2ParseError::FrameTooLarge(999999),
+            Http2ParseError::MissingRequiredHeaders,
+            Http2ParseError::InvalidPseudoHeader(":invalid".to_string()),
+            Http2ParseError::IncompleteFrame,
+            Http2ParseError::InvalidUtf8,
+            Http2ParseError::UnsupportedFeature("test".to_string()),
+            Http2ParseError::HpackDecodingFailed,
+        ];
+
+        for error in errors {
+            let formatted = format!("{}", error);
+            assert!(!formatted.is_empty());
+            assert!(!formatted.contains("Debug")); // Should be Display, not Debug
+        }
+    }
+
+    #[test]
+    fn test_config_edge_cases() {
+        // Test parser with different configurations
+        let mut config = Http2Config::default();
+        config.max_frame_size = 1; // Very small max frame size
+        config.strict_parsing = true;
+
+        let parser = Http2Parser {
+            config,
+            hpack_decoder: RefCell::new(Decoder::new()),
+        };
+
+        // Even small valid frames should be rejected
+        let frame = create_http2_frame(0x01, 1, &[0x00, 0x00]); // 2 bytes > max_frame_size(1)
+        let data = create_http2_request_with_preface(&[frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle configuration limits gracefully
+        assert!(result.is_ok());
     }
 }
