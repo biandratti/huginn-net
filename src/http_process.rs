@@ -173,10 +173,9 @@ fn process_tcp_packet(
             };
 
             if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
-                flow.client_data.push(tcp_data);
-
-                // Only parse if not already parsed
+                // Only add data and parse if not already parsed
                 if !flow.client_http_parsed {
+                    flow.client_data.push(tcp_data);
                     let full_data = flow.get_full_data(is_client);
 
                     // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
@@ -190,12 +189,13 @@ fn process_tcp_packet(
                             Err(_e) => {}
                         }
                     }
+                } else {
+                    debug!("CLIENT: HTTP already parsed, discarding additional data");
                 }
             } else if src_ip == flow.server_ip && src_port == flow.server_port {
-                flow.server_data.push(tcp_data);
-
-                // Only parse if not already parsed
+                // Only add data and parse if not already parsed
                 if !flow.server_http_parsed {
+                    flow.server_data.push(tcp_data);
                     let full_data = flow.get_full_data(is_client);
 
                     // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
@@ -211,16 +211,25 @@ fn process_tcp_packet(
                     } else {
                         debug!("SERVER: Data not complete yet, waiting for more");
                     }
+                } else {
+                    debug!("SERVER: HTTP already parsed, discarding additional data");
                 }
+            }
 
-                // Clean up on connection close
-                if tcp.get_flags()
-                    & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-                    != 0
-                {
-                    debug!("Connection closed or reset");
-                    cache.remove(&flow_key);
-                }
+            // Remove from cache if both request and response are parsed
+            if flow.client_http_parsed && flow.server_http_parsed {
+                debug!("Both HTTP request and response parsed, removing from cache early");
+                cache.remove(&flow_key);
+                return Ok(observable_http_package);
+            }
+
+            // Clean up on connection close
+            if tcp.get_flags()
+                & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                != 0
+            {
+                debug!("Connection closed or reset");
+                cache.remove(&flow_key);
             }
         }
     } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {

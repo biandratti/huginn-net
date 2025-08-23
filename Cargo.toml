@@ -22,7 +22,7 @@ crossbeam = "0.8.4"
 pcap-file = "3.0.0-rc1"
 sha2 = "0.10.9"
 tls-parser = "0.12.2"
-hpack = "0.3"
+hpack-patched = "0.3.0"
 
 [dev-dependencies]
 clap = { version = "4.5.45", features = ["derive"] }

@@ -3,7 +3,7 @@ use crate::http_common::{
     HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
     ParsingMetadata,
 };
-use hpack::Decoder;
+use hpack_patched::Decoder;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Instant;
