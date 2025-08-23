@@ -294,3 +294,61 @@ mod tests {
         assert_eq!(diagnosis, http::HttpDiagnosis::None);
     }
 }
+
+/// Check if HTTP/1.x headers are complete (lightweight verification)
+pub fn has_complete_headers(data: &[u8]) -> bool {
+    // Fast byte-level check for \r\n\r\n
+    if data.len() < 4 {
+        return false;
+    }
+
+    // Look for the header separator pattern
+    for i in 0..data.len().saturating_sub(3) {
+        if data[i] == b'\r' && data[i + 1] == b'\n' && data[i + 2] == b'\r' && data[i + 3] == b'\n'
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod header_detection_tests {
+    use super::*;
+
+    #[test]
+    fn test_incomplete_headers() {
+        let data = b"GET /path HTTP/1.1\r\nHost: example.com\r\n";
+        assert!(!has_complete_headers(data));
+    }
+
+    #[test]
+    fn test_complete_headers() {
+        let data = b"GET /path HTTP/1.1\r\nHost: example.com\r\nCookie: session=abc\r\n\r\n";
+        assert!(has_complete_headers(data));
+    }
+
+    #[test]
+    fn test_complete_headers_with_body() {
+        let data = b"GET /path HTTP/1.1\r\nHost: example.com\r\n\r\nbody data here";
+        assert!(has_complete_headers(data));
+    }
+
+    #[test]
+    fn test_empty_data() {
+        let data = b"";
+        assert!(!has_complete_headers(data));
+    }
+
+    #[test]
+    fn test_too_short_data() {
+        let data = b"GET";
+        assert!(!has_complete_headers(data));
+    }
+
+    #[test]
+    fn test_response_headers() {
+        let data = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nSet-Cookie: id=123\r\n\r\n";
+        assert!(has_complete_headers(data));
+    }
+}

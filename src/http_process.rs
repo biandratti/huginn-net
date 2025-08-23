@@ -32,7 +32,19 @@ pub struct TcpFlow {
     server_port: u16,
     client_data: Vec<TcpData>,
     server_data: Vec<TcpData>,
+    client_http_parsed: bool,
+    server_http_parsed: bool,
 }
+
+/// Quick check if HTTP data is complete for parsing (supports HTTP/1.x and HTTP/2)
+fn has_complete_http_data(data: &[u8]) -> bool {
+    if http2_parser::is_http2_traffic(data) {
+        http2_process::has_complete_data(data)
+    } else {
+        http1_process::has_complete_headers(data)
+    }
+}
+
 impl TcpFlow {
     fn init(
         src_ip: IpAddr,
@@ -48,6 +60,8 @@ impl TcpFlow {
             server_port: dst_port,
             client_data: vec![tcp_data],
             server_data: Vec::new(),
+            client_http_parsed: false,
+            server_http_parsed: false,
         }
     }
     /// Traversing all the data in sequence in the correct order to build the full data
@@ -154,26 +168,41 @@ fn process_tcp_packet(
             if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
                 flow.client_data.push(tcp_data);
 
-                let full_data = flow.get_full_data(is_client);
+                // Only parse if not already parsed
+                if !flow.client_http_parsed {
+                    let full_data = flow.get_full_data(is_client);
 
-                if let Ok(http_request_parsed) = parse_http_request(&full_data) {
-                    observable_http_package.http_request = http_request_parsed;
+                    // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
+                    if has_complete_http_data(&full_data) {
+                        if let Ok(Some(http_request_parsed)) = parse_http_request(&full_data) {
+                            observable_http_package.http_request = Some(http_request_parsed);
+                            flow.client_http_parsed = true;
+                        }
+                    }
                 }
             } else if src_ip == flow.server_ip && src_port == flow.server_port {
                 flow.server_data.push(tcp_data);
 
-                let full_data = flow.get_full_data(is_client);
+                // Only parse if not already parsed
+                if !flow.server_http_parsed {
+                    let full_data = flow.get_full_data(is_client);
 
-                if let Ok(http_response_parsed) = parse_http_response(&full_data) {
-                    observable_http_package.http_response = http_response_parsed;
-
-                    if tcp.get_flags()
-                        & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-                        != 0
-                    {
-                        debug!("Connection closed or reset");
-                        cache.remove(&flow_key);
+                    // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
+                    if has_complete_http_data(&full_data) {
+                        if let Ok(Some(http_response_parsed)) = parse_http_response(&full_data) {
+                            observable_http_package.http_response = Some(http_response_parsed);
+                            flow.server_http_parsed = true;
+                        }
                     }
+                }
+
+                // Clean up on connection close
+                if tcp.get_flags()
+                    & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                    != 0
+                {
+                    debug!("Connection closed or reset");
+                    cache.remove(&flow_key);
                 }
             }
         }

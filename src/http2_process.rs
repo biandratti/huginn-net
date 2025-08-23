@@ -256,3 +256,131 @@ mod tests {
         assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
     }
 }
+
+/// Check if HTTP/2 data has complete frames for parsing
+pub fn has_complete_data(data: &[u8]) -> bool {
+    // Must have at least the connection preface
+    if !data.starts_with(crate::http2_parser::HTTP2_CONNECTION_PREFACE) {
+        return false;
+    }
+
+    let frame_data = &data[crate::http2_parser::HTTP2_CONNECTION_PREFACE.len()..];
+
+    // Check if we have at least one complete frame with headers
+    has_complete_frames(frame_data)
+}
+
+/// Check if we have complete HTTP/2 frames (at least HEADERS frame)
+pub fn has_complete_frames(data: &[u8]) -> bool {
+    let mut remaining = data;
+
+    while remaining.len() >= 9 {
+        // Parse frame header (9 bytes)
+        let length = u32::from_be_bytes([0, remaining[0], remaining[1], remaining[2]]);
+        let frame_type_byte = remaining[3];
+        let _flags = remaining[4];
+        let stream_id =
+            u32::from_be_bytes([remaining[5], remaining[6], remaining[7], remaining[8]])
+                & 0x7FFF_FFFF;
+
+        // Check if frame is complete
+        let frame_total_size = match usize::try_from(9_u32.saturating_add(length)) {
+            Ok(size) => size,
+            Err(_) => return false, // Frame too large
+        };
+
+        if remaining.len() < frame_total_size {
+            return false; // Incomplete frame
+        }
+
+        // Check if this is a HEADERS frame (type 0x1) with a valid stream ID
+        if frame_type_byte == 0x1 && stream_id > 0 {
+            // For JA4, we need at least one complete HEADERS frame
+            return true;
+        }
+
+        // Move to next frame
+        remaining = &remaining[frame_total_size..];
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod frame_detection_tests {
+    use super::*;
+    use crate::http2_parser::HTTP2_CONNECTION_PREFACE;
+
+    #[test]
+    fn test_no_preface() {
+        let data = b"GET /path HTTP/1.1\r\n";
+        assert!(!has_complete_data(data));
+    }
+
+    #[test]
+    fn test_preface_only() {
+        assert!(!has_complete_data(HTTP2_CONNECTION_PREFACE));
+    }
+
+    #[test]
+    fn test_incomplete_frame() {
+        let mut data = HTTP2_CONNECTION_PREFACE.to_vec();
+        // Add incomplete frame header (only 5 bytes instead of 9)
+        data.extend_from_slice(&[0x00, 0x00, 0x04, 0x01, 0x00]);
+        assert!(!has_complete_data(&data));
+    }
+
+    #[test]
+    fn test_complete_settings_frame_no_headers() {
+        let mut data = HTTP2_CONNECTION_PREFACE.to_vec();
+        // Add complete SETTINGS frame (type 0x4)
+        data.extend_from_slice(&[
+            0x00, 0x00, 0x00, // Length: 0
+            0x04, // Type: SETTINGS
+            0x00, // Flags: 0
+            0x00, 0x00, 0x00, 0x00, // Stream ID: 0
+        ]);
+        assert!(!has_complete_data(&data)); // No HEADERS frame
+    }
+
+    #[test]
+    fn test_complete_headers_frame() {
+        let mut data = HTTP2_CONNECTION_PREFACE.to_vec();
+        // Add complete HEADERS frame (type 0x1) with stream ID 1
+        data.extend_from_slice(&[
+            0x00, 0x00, 0x04, // Length: 4
+            0x01, // Type: HEADERS
+            0x00, // Flags: 0
+            0x00, 0x00, 0x00, 0x01, // Stream ID: 1
+            0x00, 0x00, 0x00, 0x00, // Payload (4 bytes)
+        ]);
+        assert!(has_complete_data(&data));
+    }
+
+    #[test]
+    fn test_incomplete_headers_frame() {
+        let mut data = HTTP2_CONNECTION_PREFACE.to_vec();
+        // Add incomplete HEADERS frame (missing payload)
+        data.extend_from_slice(&[
+            0x00, 0x00, 0x04, // Length: 4
+            0x01, // Type: HEADERS
+            0x00, // Flags: 0
+            0x00, 0x00, 0x00, 0x01, // Stream ID: 1
+            0x00, 0x00, // Only 2 bytes of 4-byte payload
+        ]);
+        assert!(!has_complete_data(&data));
+    }
+
+    #[test]
+    fn test_headers_frame_stream_id_zero() {
+        let mut data = HTTP2_CONNECTION_PREFACE.to_vec();
+        // Add HEADERS frame with stream ID 0 (invalid)
+        data.extend_from_slice(&[
+            0x00, 0x00, 0x00, // Length: 0
+            0x01, // Type: HEADERS
+            0x00, // Flags: 0
+            0x00, 0x00, 0x00, 0x00, // Stream ID: 0 (invalid)
+        ]);
+        assert!(!has_complete_data(&data)); // Stream ID 0 is invalid for HEADERS
+    }
+}
