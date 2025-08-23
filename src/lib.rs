@@ -135,6 +135,7 @@ pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
+    http_processors: http_process::HttpProcessors,
     config: AnalysisConfig,
 }
 
@@ -177,6 +178,7 @@ impl<'a> HuginnNet<'a> {
             matcher,
             tcp_cache: TtlCache::new(tcp_cache_size),
             http_cache: TtlCache::new(http_cache_size),
+            http_processors: crate::http_process::HttpProcessors::new(),
             config,
         }
     }
@@ -287,6 +289,7 @@ impl<'a> HuginnNet<'a> {
             packet,
             &mut self.tcp_cache,
             &mut self.http_cache,
+            &self.http_processors,
             &self.config,
         ) {
             Ok(observable_package) => {
