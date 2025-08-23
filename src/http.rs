@@ -58,8 +58,44 @@ pub enum Version {
     V10,
     /// HTTP/1.1
     V11,
+    /// HTTP/2
+    V20,
+    /// HTTP/3
+    V30,
     /// Matches any HTTP version (used in database signatures).
     Any,
+}
+
+impl Version {
+    pub fn parse(version_str: &str) -> Option<Self> {
+        match version_str {
+            "HTTP/1.0" => Some(Version::V10),
+            "HTTP/1.1" => Some(Version::V11),
+            "HTTP/2" | "HTTP/2.0" => Some(Version::V20),
+            "HTTP/3" | "HTTP/3.0" => Some(Version::V30),
+            _ => None,
+        }
+    }
+}
+
+impl std::str::FromStr for Version {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s).ok_or(())
+    }
+}
+
+impl Version {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Version::V10 => "HTTP/1.0",
+            Version::V11 => "HTTP/1.1",
+            Version::V20 => "HTTP/2",
+            Version::V30 => "HTTP/3",
+            Version::Any => "Any",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

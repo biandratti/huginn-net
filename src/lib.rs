@@ -85,6 +85,11 @@ pub mod window_size;
 // HTTP PROTOCOL MODULES (depends on TCP)
 // ============================================================================
 pub mod http;
+pub mod http1_parser;
+pub mod http1_process;
+pub mod http2_parser;
+pub mod http2_process;
+pub mod http_common;
 pub mod http_languages;
 pub mod http_process;
 mod observable_http_signals_matching;
@@ -130,6 +135,7 @@ pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     tcp_cache: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
+    http_processors: http_process::HttpProcessors,
     config: AnalysisConfig,
 }
 
@@ -172,6 +178,7 @@ impl<'a> HuginnNet<'a> {
             matcher,
             tcp_cache: TtlCache::new(tcp_cache_size),
             http_cache: TtlCache::new(http_cache_size),
+            http_processors: crate::http_process::HttpProcessors::new(),
             config,
         }
     }
@@ -282,6 +289,7 @@ impl<'a> HuginnNet<'a> {
             packet,
             &mut self.tcp_cache,
             &mut self.http_cache,
+            &self.http_processors,
             &self.config,
         ) {
             Ok(observable_package) => {
@@ -364,7 +372,7 @@ impl<'a> HuginnNet<'a> {
                                         .and_then(|matcher| matcher.matching_by_user_agent(ua))
                                 });
 
-                            let http_diagnosis = http_process::get_diagnostic(
+                            let http_diagnosis = http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
                                 ua_matcher,
                                 signature_matcher.map(|(label, _signature, _quality)| label),

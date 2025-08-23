@@ -1,24 +1,40 @@
-use crate::db::Label;
 use crate::error::HuginnNetError;
+use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::{http, http_languages};
-use httparse::{Request, Response, EMPTY_HEADER};
+use crate::{http1_process, http2_process};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
 use tracing::debug;
 use ttl_cache::TtlCache;
 
-/// Maximum number of HTTP headers
-const HTTP_MAX_HDRS: usize = 32;
-
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
+
+/// Container for HTTP processors to avoid creating new instances on each call
+pub struct HttpProcessors {
+    pub http2_processor: http2_process::Http2Processor,
+    pub http1_processor: http1_process::Http1Processor,
+}
+
+impl HttpProcessors {
+    pub fn new() -> Self {
+        Self {
+            http2_processor: http2_process::Http2Processor::new(),
+            http1_processor: http1_process::Http1Processor::new(),
+        }
+    }
+}
+
+impl Default for HttpProcessors {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 pub struct ObservableHttpPackage {
     pub http_request: Option<ObservableHttpRequest>,
@@ -38,7 +54,25 @@ pub struct TcpFlow {
     server_port: u16,
     client_data: Vec<TcpData>,
     server_data: Vec<TcpData>,
+    client_http_parsed: bool,
+    server_http_parsed: bool,
 }
+
+/// Quick check if HTTP data is complete for parsing (supports HTTP/1.x and HTTP/2)
+fn has_complete_http_data(data: &[u8], processors: &HttpProcessors) -> bool {
+    // Strategy: Don't make early decisions about protocol due to TCP fragmentation
+    // Wait until we have enough data to make a reliable determination
+
+    if data.len() < 4 {
+        // Not enough data yet, wait for more TCP packets
+        return false;
+    }
+
+    // HTTP/2 first since it's more specific
+    processors.http2_processor.has_complete_data(data)
+        || processors.http1_processor.has_complete_data(data)
+}
+
 impl TcpFlow {
     fn init(
         src_ip: IpAddr,
@@ -54,6 +88,8 @@ impl TcpFlow {
             server_port: dst_port,
             client_data: vec![tcp_data],
             server_data: Vec::new(),
+            client_http_parsed: false,
+            server_http_parsed: false,
         }
     }
     /// Traversing all the data in sequence in the correct order to build the full data
@@ -82,6 +118,7 @@ impl TcpFlow {
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv4".to_string()));
@@ -92,6 +129,7 @@ pub fn process_http_ipv4(
             tcp,
             IpAddr::V4(packet.get_source()),
             IpAddr::V4(packet.get_destination()),
+            processors,
         )
     } else {
         Ok(ObservableHttpPackage {
@@ -104,6 +142,7 @@ pub fn process_http_ipv4(
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     cache: &mut TtlCache<FlowKey, TcpFlow>,
+    processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv6".to_string()));
@@ -114,6 +153,7 @@ pub fn process_http_ipv6(
             tcp,
             IpAddr::V6(packet.get_source()),
             IpAddr::V6(packet.get_destination()),
+            processors,
         )
     } else {
         Ok(ObservableHttpPackage {
@@ -128,6 +168,7 @@ fn process_tcp_packet(
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
+    processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
@@ -158,26 +199,63 @@ fn process_tcp_packet(
             };
 
             if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
-                flow.client_data.push(tcp_data);
-                if let Ok(http_request_parsed) = parse_http_request(&flow.get_full_data(is_client))
-                {
-                    observable_http_package.http_request = http_request_parsed;
+                // Only add data and parse if not already parsed
+                if !flow.client_http_parsed {
+                    flow.client_data.push(tcp_data);
+                    let full_data = flow.get_full_data(is_client);
+
+                    // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
+                    if has_complete_http_data(&full_data, processors) {
+                        match parse_http_request(&full_data, processors) {
+                            Ok(Some(http_request_parsed)) => {
+                                observable_http_package.http_request = Some(http_request_parsed);
+                                flow.client_http_parsed = true;
+                            }
+                            Ok(None) => {}
+                            Err(_e) => {}
+                        }
+                    }
+                } else {
+                    debug!("CLIENT: HTTP already parsed, discarding additional data");
                 }
             } else if src_ip == flow.server_ip && src_port == flow.server_port {
-                flow.server_data.push(tcp_data);
-                if let Ok(http_response_parsed) =
-                    parse_http_response(&flow.get_full_data(is_client))
-                {
-                    observable_http_package.http_response = http_response_parsed;
+                // Only add data and parse if not already parsed
+                if !flow.server_http_parsed {
+                    flow.server_data.push(tcp_data);
+                    let full_data = flow.get_full_data(is_client);
 
-                    if tcp.get_flags()
-                        & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-                        != 0
-                    {
-                        debug!("Connection closed or reset");
-                        cache.remove(&flow_key);
+                    // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
+                    if has_complete_http_data(&full_data, processors) {
+                        match parse_http_response(&full_data, processors) {
+                            Ok(Some(http_response_parsed)) => {
+                                observable_http_package.http_response = Some(http_response_parsed);
+                                flow.server_http_parsed = true;
+                            }
+                            Ok(None) => {}
+                            Err(_e) => {}
+                        }
+                    } else {
+                        debug!("SERVER: Data not complete yet, waiting for more");
                     }
+                } else {
+                    debug!("SERVER: HTTP already parsed, discarding additional data");
                 }
+            }
+
+            // Remove from cache if both request and response are parsed
+            if flow.client_http_parsed && flow.server_http_parsed {
+                debug!("Both HTTP request and response parsed, removing from cache early");
+                cache.remove(&flow_key);
+                return Ok(observable_http_package);
+            }
+
+            // Clean up on connection close
+            if tcp.get_flags()
+                & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                != 0
+            {
+                debug!("Connection closed or reset");
+                cache.remove(&flow_key);
             }
         }
     } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
@@ -192,203 +270,66 @@ fn process_tcp_packet(
     Ok(observable_http_package)
 }
 
-fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
-    let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
-    let mut req = Request::new(&mut headers);
-
-    match req.parse(data) {
-        Ok(httparse::Status::Complete(_)) => {
-            let headers: &[httparse::Header] = req.headers;
-
-            let headers_in_order: Vec<http::Header> = build_headers_in_order(headers, true);
-            let headers_absent: Vec<http::Header> = build_headers_absent_in_order(headers, true);
-            let user_agent: Option<String> = extract_header_by_name(headers, "User-Agent");
-            let lang: Option<String> =
-                extract_header_by_name(headers, "Accept-Language").and_then(|accept_language| {
-                    http_languages::get_highest_quality_language(accept_language)
-                });
-            let http_version: http::Version = extract_http_version(req.version);
-            let mut raw_headers = HashMap::new();
-            for header in headers {
-                if let Ok(header_value) = std::str::from_utf8(header.value) {
-                    raw_headers.insert(header.name.to_lowercase(), header_value.to_string());
-                }
-            }
-
-            Ok(Some(ObservableHttpRequest {
-                lang,
-                user_agent: user_agent.clone(),
-                version: http_version,
-                horder: headers_in_order,
-                habsent: headers_absent,
-                expsw: extract_traffic_classification(user_agent),
-                raw_headers,
-                method: req.method.map(|m| m.to_string()),
-                uri: req.path.map(|p| p.to_string()),
-            }))
-        }
-        Ok(httparse::Status::Partial) => {
-            debug!("Incomplete HTTP request data. Data: {:?}", data);
-            Ok(None)
-        }
-        Err(e) => {
-            debug!(
-                "Failed to parse HTTP request with Data: {:?}. Error: {}",
-                data, e
-            );
-            Err(HuginnNetError::Parse(format!(
-                "Failed to parse HTTP request: {e}"
-            )))
-        }
-    }
-}
-
-fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-    let mut headers = [EMPTY_HEADER; HTTP_MAX_HDRS];
-    let mut res = Response::new(&mut headers);
-
-    match res.parse(data) {
-        Ok(httparse::Status::Complete(_)) => {
-            let headers: &[httparse::Header] = res.headers;
-
-            let headers_in_order: Vec<http::Header> = build_headers_in_order(headers, false);
-            let headers_absent: Vec<http::Header> = build_headers_absent_in_order(headers, false);
-            let server: Option<String> = extract_header_by_name(headers, "Server");
-            let http_version: http::Version = extract_http_version(res.version);
-            let mut raw_headers = HashMap::new();
-            for header in headers {
-                if let Ok(header_value) = std::str::from_utf8(header.value) {
-                    raw_headers.insert(header.name.to_lowercase(), header_value.to_string());
-                }
-            }
-
-            Ok(Some(ObservableHttpResponse {
-                version: http_version,
-                horder: headers_in_order,
-                habsent: headers_absent,
-                expsw: extract_traffic_classification(server),
-                raw_headers,
-                status_code: res.code,
-            }))
-        }
-        Ok(httparse::Status::Partial) => {
-            debug!("Incomplete HTTP response data. Data: {:?}", data);
-            Ok(None)
-        }
-        Err(e) => {
-            debug!(
-                "Failed to parse HTTP response with Data: {:?}. Error: {}",
-                data, e
-            );
-            Err(HuginnNetError::Parse(format!(
-                "Failed to parse HTTP response: {e}"
-            )))
-        }
-    }
-}
-
-fn build_headers_in_order(headers: &[httparse::Header], is_request: bool) -> Vec<http::Header> {
-    let mut headers_in_order: Vec<http::Header> = Vec::new();
-    let optional_list = if is_request {
-        http::request_optional_headers()
-    } else {
-        http::response_optional_headers()
-    };
-    let skip_value_list = if is_request {
-        http::request_skip_value_headers()
-    } else {
-        http::response_skip_value_headers()
-    };
-    let common_list = if is_request {
-        http::request_common_headers()
-    } else {
-        http::response_common_headers()
-    };
-
-    #[allow(clippy::if_same_then_else)]
-    for header in headers {
-        let value: Option<&str> = std::str::from_utf8(header.value).ok();
-
-        if optional_list.contains(&header.name) {
-            headers_in_order.push(http::Header::new(header.name).optional());
-        } else if skip_value_list.contains(&header.name) {
-            headers_in_order.push(http::Header::new(header.name));
-        } else if common_list.contains(&header.name) {
-            headers_in_order.push(http::Header::new(header.name).with_optional_value(value));
-        } else {
-            headers_in_order.push(http::Header::new(header.name).with_optional_value(value));
-        }
+fn parse_http_request(
+    data: &[u8],
+    processors: &HttpProcessors,
+) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+    // Use provided processor instances in order (HTTP/2 first, then HTTP/1.x)
+    if processors.http2_processor.can_process_request(data) {
+        debug!(
+            "Using {} processor for request",
+            processors.http2_processor.name()
+        );
+        return processors.http2_processor.process_request(data);
     }
 
-    headers_in_order
-}
-
-fn build_headers_absent_in_order(
-    headers: &[httparse::Header],
-    is_request: bool,
-) -> Vec<http::Header> {
-    let mut headers_absent: Vec<http::Header> = Vec::new();
-    let common_list: Vec<&str> = if is_request {
-        http::request_common_headers()
-    } else {
-        http::response_common_headers()
-    };
-    let current_headers: Vec<&str> = headers.iter().map(|h| h.name).collect();
-
-    for header in &common_list {
-        if !current_headers.contains(header) {
-            headers_absent.push(http::Header::new(header));
-        }
+    if processors.http1_processor.can_process_request(data) {
+        debug!(
+            "Using {} processor for request",
+            processors.http1_processor.name()
+        );
+        return processors.http1_processor.process_request(data);
     }
-    headers_absent
+
+    Err(HuginnNetError::Parse(
+        "No HTTP processor could handle request data".to_string(),
+    ))
 }
 
-fn extract_header_by_name(headers: &[httparse::Header], name: &str) -> Option<String> {
-    headers
-        .iter()
-        .find(|header| header.name.eq_ignore_ascii_case(name))
-        .map(|header| String::from_utf8_lossy(header.value).to_string())
-}
-
-fn extract_traffic_classification(value: Option<String>) -> String {
-    value.unwrap_or_else(|| "???".to_string())
-}
-
-fn extract_http_version(version: Option<u8>) -> http::Version {
-    match version {
-        Some(0) => http::Version::V10,
-        Some(1) => http::Version::V11,
-        _ => http::Version::Any,
+fn parse_http_response(
+    data: &[u8],
+    processors: &HttpProcessors,
+) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+    // Use provided processor instances in order (HTTP/2 first, then HTTP/1.x)
+    if processors.http2_processor.can_process_response(data) {
+        debug!(
+            "Using {} processor for response",
+            processors.http2_processor.name()
+        );
+        return processors.http2_processor.process_response(data);
     }
-}
 
-pub fn get_diagnostic(
-    user_agent: Option<String>,
-    ua_matcher: Option<(&String, &Option<String>)>,
-    signature_os_matcher: Option<&Label>,
-) -> http::HttpDiagnosis {
-    match user_agent {
-        None => http::HttpDiagnosis::Anonymous,
-        Some(_ua) => match (ua_matcher, signature_os_matcher) {
-            (Some((ua_name_db, _ua_flavor_db)), Some(signature_label_db)) => {
-                if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
-                    http::HttpDiagnosis::Generic
-                } else {
-                    http::HttpDiagnosis::Dishonest
-                }
-            }
-            _ => http::HttpDiagnosis::None,
-        },
+    if processors.http1_processor.can_process_response(data) {
+        debug!(
+            "Using {} processor for response",
+            processors.http1_processor.name()
+        );
+        return processors.http1_processor.process_response(data);
     }
+
+    Err(HuginnNetError::Parse(
+        "No HTTP processor could handle response data".to_string(),
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use crate::http;
+    use crate::http1_process;
 
     #[test]
-    fn test_parse_http_request() {
+    fn test_parse_http1_request() {
         let valid_request = b"GET / HTTP/1.1\r\n\
         Host: example.com\r\n\
         Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n\
@@ -400,7 +341,7 @@ mod tests {
         Upgrade-Insecure-Requests: 1\r\n\
         User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\r\n\
         \r\n";
-        match parse_http_request(valid_request) {
+        match http1_process::Http1Processor::new().process_request(valid_request) {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
@@ -434,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_http_response() {
+    fn test_parse_http1_response() {
         let valid_response = b"HTTP/1.1 200 OK\r\n\
         Server: Apache\r\n\
         Content-Type: text/html; charset=UTF-8\r\n\
@@ -443,7 +384,7 @@ mod tests {
         \r\n\
         <html><body><h1>It works!</h1></body></html>";
 
-        match parse_http_response(valid_response) {
+        match http1_process::Http1Processor::new().process_response(valid_response) {
             Ok(Some(response)) => {
                 assert_eq!(response.expsw, "Apache");
                 assert_eq!(response.version, http::Version::V11);
@@ -470,51 +411,7 @@ mod tests {
 
     #[test]
     fn test_get_diagnostic_for_empty_sw() {
-        let diagnosis: http::HttpDiagnosis = get_diagnostic(None, None, None);
+        let diagnosis: http::HttpDiagnosis = crate::http_common::get_diagnostic(None, None, None);
         assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
-    }
-
-    #[test]
-    fn test_get_diagnostic_with_existing_signature_matcher() {
-        let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
-        let os = "Linux".to_string();
-        let browser = Some("Firefox".to_string());
-        let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = Label {
-            ty: db::Type::Specified,
-            class: None,
-            name: "Linux".to_string(),
-            flavor: None,
-        };
-        let signature_os_matcher: Option<&Label> = Some(&label);
-
-        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
-        assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
-    }
-
-    #[test]
-    fn test_get_diagnostic_with_dishonest_user_agent() {
-        let user_agent = Some("Mozilla/5.0".to_string());
-        let os = "Windows".to_string();
-        let browser = Some("Firefox".to_string());
-        let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = Label {
-            ty: db::Type::Specified,
-            class: None,
-            name: "Linux".to_string(),
-            flavor: None,
-        };
-        let signature_os_matcher: Option<&Label> = Some(&label);
-
-        let diagnosis = get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
-        assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
-    }
-
-    #[test]
-    fn test_get_diagnostic_without_user_agent_and_signature_matcher() {
-        let user_agent = Some("Mozilla/5.0".to_string());
-
-        let diagnosis = get_diagnostic(user_agent, None, None);
-        assert_eq!(diagnosis, http::HttpDiagnosis::None);
     }
 }
