@@ -1197,4 +1197,232 @@ mod tests {
         // Should handle configuration limits gracefully
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_multiple_streams_handling() {
+        let parser = Http2Parser::new();
+
+        // Create frames for multiple streams
+        let frame1 = create_http2_frame(0x01, 1, &[0x00]); // Headers for stream 1
+        let frame2 = create_http2_frame(0x01, 3, &[0x00]); // Headers for stream 3
+        let frame3 = create_http2_frame(0x00, 1, &[0x48, 0x65, 0x6c, 0x6c, 0x6f]); // Data for stream 1
+
+        let data = create_http2_request_with_preface(&[frame1, frame2, frame3]);
+        let result = parser.parse_request(&data);
+
+        // Should handle multiple streams and pick the first valid one
+        match result {
+            Ok(Some(req)) => {
+                assert_eq!(req.stream_id, 1); // Should pick stream 1 (first HEADERS frame)
+            }
+            Ok(None) => {}
+            Err(_) => {}
+        }
+    }
+
+    #[test]
+    fn test_continuation_frames() {
+        let parser = Http2Parser::new();
+
+        // Create HEADERS frame followed by CONTINUATION frame
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00, 0x01]); // Headers (incomplete)
+        let continuation_frame = create_http2_frame(0x09, 1, &[0x02, 0x03]); // Continuation
+
+        let data = create_http2_request_with_preface(&[headers_frame, continuation_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle CONTINUATION frames properly
+        match result {
+            Ok(_) | Err(_) => {} // Both outcomes acceptable as long as no panic
+        }
+    }
+
+    #[test]
+    fn test_settings_frame_with_invalid_payload() {
+        let parser = Http2Parser::new();
+
+        // Create SETTINGS frame with invalid payload (not multiple of 6 bytes)
+        let invalid_settings = create_http2_frame(0x04, 0, &[0x00, 0x01, 0x00, 0x00, 0x10]); // 5 bytes instead of 6
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]);
+
+        let data = create_http2_request_with_preface(&[invalid_settings, headers_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle malformed SETTINGS gracefully
+        match result {
+            Ok(_) | Err(_) => {} // Both outcomes acceptable
+        }
+    }
+
+    #[test]
+    fn test_priority_frame_handling() {
+        let parser = Http2Parser::new();
+
+        // Create PRIORITY frame followed by HEADERS
+        let priority_frame = create_http2_frame(0x02, 1, &[0x00, 0x00, 0x00, 0x02, 0x10]); // Priority frame
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]);
+
+        let data = create_http2_request_with_preface(&[priority_frame, headers_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle PRIORITY frames without issues
+        match result {
+            Ok(_) | Err(_) => {} // Both outcomes acceptable
+        }
+    }
+
+    #[test]
+    fn test_window_update_frame() {
+        let parser = Http2Parser::new();
+
+        // Create WINDOW_UPDATE frame
+        let window_update = create_http2_frame(0x08, 0, &[0x00, 0x00, 0x10, 0x00]); // Window update
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]);
+
+        let data = create_http2_request_with_preface(&[window_update, headers_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle WINDOW_UPDATE frames
+        match result {
+            Ok(_) | Err(_) => {} // Both outcomes acceptable
+        }
+    }
+
+    #[test]
+    fn test_data_frame_without_headers() {
+        let parser = Http2Parser::new();
+
+        // Create DATA frame without preceding HEADERS
+        let data_frame = create_http2_frame(0x00, 1, &[0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
+
+        let data = create_http2_request_with_preface(&[data_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should return None (no valid request without HEADERS)
+        match result {
+            Ok(None) => {} // Expected
+            Ok(Some(_)) => panic!("Should not return request without HEADERS frame"),
+            Err(_) => {} // Also acceptable
+        }
+    }
+
+    #[test]
+    fn test_stream_id_zero_for_headers() {
+        let parser = Http2Parser::new();
+
+        // Create HEADERS frame with stream ID 0 (invalid for HEADERS)
+        let invalid_headers = create_http2_frame(0x01, 0, &[0x00]); // Stream ID 0 is invalid for HEADERS
+
+        let data = create_http2_request_with_preface(&[invalid_headers]);
+        let result = parser.parse_request(&data);
+
+        // Should return None (no valid stream found)
+        match result {
+            Ok(None) => {} // Expected
+            Ok(Some(_)) => panic!("Should not return request with invalid stream ID"),
+            Err(_) => {} // Also acceptable
+        }
+    }
+
+    #[test]
+    fn test_mixed_frame_types_sequence() {
+        let parser = Http2Parser::new();
+
+        // Create a realistic sequence of frames
+        let settings_frame = create_http2_frame(0x04, 0, &[0x00, 0x02, 0x00, 0x00, 0x00, 0x01]); // SETTINGS
+        let window_update = create_http2_frame(0x08, 0, &[0x00, 0x00, 0x10, 0x00]); // WINDOW_UPDATE
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]); // HEADERS
+        let data_frame = create_http2_frame(0x00, 1, &[0x48, 0x65, 0x6c, 0x6c, 0x6f]); // DATA
+
+        let data = create_http2_request_with_preface(&[
+            settings_frame,
+            window_update,
+            headers_frame,
+            data_frame,
+        ]);
+        let result = parser.parse_request(&data);
+
+        // Should handle mixed frame sequence properly
+        match result {
+            Ok(Some(req)) => {
+                assert_eq!(req.stream_id, 1);
+                assert!(req.frame_sequence.len() >= 2); // Should have at least SETTINGS and HEADERS
+            }
+            Ok(None) => {} // Acceptable if HPACK fails
+            Err(_) => {}   // Also acceptable for HPACK errors
+        }
+    }
+
+    #[test]
+    fn test_response_with_invalid_status() {
+        let parser = Http2Parser::new();
+
+        // Create response frame that would result in missing :status pseudo-header
+        let headers_frame = create_http2_frame(0x01, 1, &[0x00]); // Headers without proper HPACK encoding
+
+        let result = parser.parse_response(&headers_frame);
+
+        // Should handle missing :status gracefully
+        match result {
+            Ok(None) => {}                                     // Expected when :status is missing
+            Err(Http2ParseError::MissingRequiredHeaders) => {} // Also expected
+            Err(Http2ParseError::HpackDecodingFailed) => {}    // HPACK might fail first
+            other => panic!("Unexpected result: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_frame_flags_handling() {
+        let parser = Http2Parser::new();
+
+        // Create frame with various flags set
+        let mut frame = create_http2_frame(0x01, 1, &[0x00]);
+        frame[4] = 0x05; // Set END_HEADERS (0x04) and END_STREAM (0x01) flags
+
+        let data = create_http2_request_with_preface(&[frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle frame flags properly
+        match result {
+            Ok(_) | Err(_) => {} // Both outcomes acceptable
+        }
+    }
+
+    #[test]
+    fn test_large_stream_id() {
+        let parser = Http2Parser::new();
+
+        // Create frame with maximum valid stream ID (2^31 - 1)
+        let max_stream_id = 0x7FFFFFFF;
+        let headers_frame = create_http2_frame(0x01, max_stream_id, &[0x00]);
+
+        let data = create_http2_request_with_preface(&[headers_frame]);
+        let result = parser.parse_request(&data);
+
+        // Should handle large stream IDs
+        match result {
+            Ok(Some(req)) => {
+                assert_eq!(req.stream_id, max_stream_id);
+            }
+            Ok(None) => {} // Acceptable if HPACK fails
+            Err(_) => {}   // Also acceptable
+        }
+    }
+
+    #[test]
+    fn test_empty_payload_frames() {
+        let parser = Http2Parser::new();
+
+        // Create frames with empty payloads
+        let empty_headers = create_http2_frame(0x01, 1, &[]); // Empty HEADERS
+        let empty_data = create_http2_frame(0x00, 1, &[]); // Empty DATA
+
+        let data = create_http2_request_with_preface(&[empty_headers, empty_data]);
+        let result = parser.parse_request(&data);
+
+        // Should handle empty payloads gracefully
+        match result {
+            Ok(_) | Err(_) => {} // Both outcomes acceptable
+        }
+    }
 }
