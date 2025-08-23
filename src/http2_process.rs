@@ -650,7 +650,11 @@ mod frame_detection_tests {
 
         // Valid preface but no frames should return Ok(None)
         let result = processor.process_request(HTTP2_CONNECTION_PREFACE);
-        assert!(result.unwrap().is_none());
+        match result {
+            Ok(None) => {} // Expected
+            Ok(Some(_)) => panic!("Should return None for preface without frames"),
+            Err(e) => panic!("Should not error for valid preface: {e:?}"),
+        }
     }
 
     #[test]
@@ -659,7 +663,11 @@ mod frame_detection_tests {
 
         // Empty data should return Ok(None)
         let result = processor.process_response(&[]);
-        assert!(result.unwrap().is_none());
+        match result {
+            Ok(None) => {} // Expected
+            Ok(Some(_)) => panic!("Should return None for empty data"),
+            Err(e) => panic!("Should not error for empty data: {e:?}"),
+        }
 
         // Invalid frame should return error or None
         let invalid_frame = [0x00, 0x00, 0x01, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00];
