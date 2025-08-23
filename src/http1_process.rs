@@ -304,7 +304,10 @@ pub fn has_complete_headers(data: &[u8]) -> bool {
 
     // Look for the header separator pattern
     for i in 0..data.len().saturating_sub(3) {
-        if data[i] == b'\r' && data[i + 1] == b'\n' && data[i + 2] == b'\r' && data[i + 3] == b'\n'
+        if data[i] == b'\r'
+            && data.get(i.saturating_add(1)) == Some(&b'\n')
+            && data.get(i.saturating_add(2)) == Some(&b'\r')
+            && data.get(i.saturating_add(3)) == Some(&b'\n')
         {
             return true;
         }

@@ -38,10 +38,17 @@ pub struct TcpFlow {
 
 /// Quick check if HTTP data is complete for parsing (supports HTTP/1.x and HTTP/2)
 fn has_complete_http_data(data: &[u8]) -> bool {
-    if http2_parser::is_http2_traffic(data) {
-        http2_process::has_complete_data(data)
-    } else {
+    // Strategy: Don't make early decisions about protocol due to TCP fragmentation
+    // Wait until we have enough data to make a reliable determination
+    // Check HTTP/2 first (handles both requests with preface and responses without preface)
+    if data.len() >= 9 && http2_process::has_complete_data(data) {
+        true
+    } else if data.len() >= 4 {
+        // Check for HTTP/1.x headers (need at least 4 bytes for \r\n\r\n)
         http1_process::has_complete_headers(data)
+    } else {
+        // Not enough data yet, wait for more TCP packets
+        false
     }
 }
 
@@ -174,9 +181,13 @@ fn process_tcp_packet(
 
                     // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
                     if has_complete_http_data(&full_data) {
-                        if let Ok(Some(http_request_parsed)) = parse_http_request(&full_data) {
-                            observable_http_package.http_request = Some(http_request_parsed);
-                            flow.client_http_parsed = true;
+                        match parse_http_request(&full_data) {
+                            Ok(Some(http_request_parsed)) => {
+                                observable_http_package.http_request = Some(http_request_parsed);
+                                flow.client_http_parsed = true;
+                            }
+                            Ok(None) => {}
+                            Err(_e) => {}
                         }
                     }
                 }
@@ -189,10 +200,16 @@ fn process_tcp_packet(
 
                     // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
                     if has_complete_http_data(&full_data) {
-                        if let Ok(Some(http_response_parsed)) = parse_http_response(&full_data) {
-                            observable_http_package.http_response = Some(http_response_parsed);
-                            flow.server_http_parsed = true;
+                        match parse_http_response(&full_data) {
+                            Ok(Some(http_response_parsed)) => {
+                                observable_http_package.http_response = Some(http_response_parsed);
+                                flow.server_http_parsed = true;
+                            }
+                            Ok(None) => {}
+                            Err(_e) => {}
                         }
+                    } else {
+                        debug!("SERVER: Data not complete yet, waiting for more");
                     }
                 }
 
@@ -232,13 +249,34 @@ fn parse_http_request(data: &[u8]) -> Result<Option<ObservableHttpRequest>, Hugi
 }
 
 fn parse_http_response(data: &[u8]) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-    if let Ok(Some(response)) = http2_process::parse_http2_response(data) {
-        debug!("Successfully parsed as HTTP/2 response");
-        Ok(Some(response))
+    // Check if data looks like HTTP/2 frames (for responses without preface)
+    if data.len() >= 9 && looks_like_http2_response(data) {
+        debug!("Detected HTTP/2 response traffic");
+        http2_process::parse_http2_response(data)
     } else {
         debug!("Parsing as HTTP/1.x response traffic");
         http1_process::parse_http1_response(data)
     }
+}
+
+/// Check if data looks like HTTP/2 response (frames without preface)
+fn looks_like_http2_response(data: &[u8]) -> bool {
+    if data.len() < 9 {
+        return false;
+    }
+
+    // HTTP/2 frame format: 3 bytes length + 1 byte type + 1 byte flags + 4 bytes stream_id
+    let frame_length = u32::from_be_bytes([0, data[0], data[1], data[2]]);
+    let frame_type = data[3];
+
+    // Check if frame length is more than the default max frame size
+    if frame_length > 16384 {
+        return false;
+    }
+
+    // Check if frame type is valid HTTP/2 frame type
+    // Common response frame types: HEADERS(1), DATA(0), SETTINGS(4), WINDOW_UPDATE(8)
+    matches!(frame_type, 0..=10)
 }
 
 #[cfg(test)]

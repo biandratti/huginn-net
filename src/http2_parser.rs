@@ -3,6 +3,8 @@ use crate::http_common::{
     HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
     ParsingMetadata,
 };
+use hpack::Decoder;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -131,6 +133,7 @@ pub enum Http2ParseError {
     IncompleteFrame,
     InvalidUtf8,
     UnsupportedFeature(String),
+    HpackDecodingFailed,
 }
 
 impl std::fmt::Display for Http2ParseError {
@@ -146,20 +149,29 @@ impl std::fmt::Display for Http2ParseError {
             Self::IncompleteFrame => write!(f, "Incomplete HTTP/2 frame"),
             Self::InvalidUtf8 => write!(f, "Invalid UTF-8 in HTTP/2 data"),
             Self::UnsupportedFeature(feature) => write!(f, "Unsupported feature: {feature}"),
+            Self::HpackDecodingFailed => write!(f, "HPACK decoding failed"),
         }
     }
 }
 
 impl std::error::Error for Http2ParseError {}
 
-pub struct Http2Parser {
+pub struct Http2Parser<'a> {
     config: Http2Config,
+    hpack_decoder: RefCell<Decoder<'a>>,
 }
 
-impl Http2Parser {
+impl<'a> Default for Http2Parser<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'a> Http2Parser<'a> {
     pub fn new() -> Self {
         Self {
             config: Http2Config::default(),
+            hpack_decoder: RefCell::new(Decoder::new()),
         }
     }
 
@@ -297,18 +309,37 @@ impl Http2Parser {
         let mut remaining = data;
 
         while remaining.len() >= 9 {
-            let (rest, frame) = self.parse_single_frame(remaining)?;
-            frames.push(frame);
-            remaining = rest;
+            // Check if we have enough data for the complete frame
+            let frame_length = u32::from_be_bytes([0, remaining[0], remaining[1], remaining[2]]);
+            let frame_total_size = match usize::try_from(9_u32.saturating_add(frame_length)) {
+                Ok(size) => size,
+                Err(_) => break, // Frame too large, skip remaining data
+            };
+
+            if remaining.len() < frame_total_size {
+                // Incomplete frame at the end, stop parsing here
+                break;
+            }
+
+            match self.parse_single_frame(remaining) {
+                Ok((rest, frame)) => {
+                    frames.push(frame);
+                    remaining = rest;
+                }
+                Err(_) => {
+                    // Skip this frame and continue
+                    break;
+                }
+            }
         }
 
         Ok(frames)
     }
 
-    fn parse_single_frame<'a>(
+    fn parse_single_frame<'b>(
         &self,
-        data: &'a [u8],
-    ) -> Result<(&'a [u8], Http2Frame), Http2ParseError> {
+        data: &'b [u8],
+    ) -> Result<(&'b [u8], Http2Frame), Http2ParseError> {
         if data.len() < 9 {
             return Err(Http2ParseError::IncompleteFrame);
         }
@@ -400,21 +431,28 @@ impl Http2Parser {
         })
     }
 
-    fn parse_headers_payload(&self, _payload: &[u8]) -> Result<Vec<HttpHeader>, Http2ParseError> {
-        if self.config.enable_hpack {
-            return Err(Http2ParseError::UnsupportedFeature(
-                "HPACK compression".to_string(),
-            ));
+    fn parse_headers_payload(&self, payload: &[u8]) -> Result<Vec<HttpHeader>, Http2ParseError> {
+        let headers = self
+            .hpack_decoder
+            .borrow_mut()
+            .decode(payload)
+            .map_err(|_| Http2ParseError::HpackDecodingFailed)?;
+
+        let mut http_headers = Vec::new();
+
+        for (position, (name, value)) in headers.iter().enumerate() {
+            let name_str = String::from_utf8_lossy(name).to_string();
+            let value_str = String::from_utf8_lossy(value).to_string();
+
+            http_headers.push(HttpHeader {
+                name: name_str,
+                value: value_str,
+                position,
+                source: HeaderSource::Http2Header,
+            });
         }
 
-        let headers = vec![HttpHeader {
-            name: "user-agent".to_string(),
-            value: "HTTP2-Test-Agent".to_string(),
-            position: 0,
-            source: HeaderSource::Http2Header,
-        }];
-
-        Ok(headers)
+        Ok(http_headers)
     }
 
     fn extract_settings(&self, frames: &[Http2Frame]) -> Http2Settings {
@@ -481,23 +519,17 @@ impl Http2Parser {
     }
 }
 
-impl Default for Http2Parser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HttpParser for Http2Parser {
+impl<'a> HttpParser for Http2Parser<'a> {
     type Request = Http2Request;
     type Response = Http2Response;
     type Error = Http2ParseError;
 
     fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error> {
-        self.parse_request(data)
+        Http2Parser::parse_request(self, data)
     }
 
     fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error> {
-        self.parse_response(data)
+        Http2Parser::parse_response(self, data)
     }
 
     fn supported_version(&self) -> http::Version {

@@ -259,15 +259,14 @@ mod tests {
 
 /// Check if HTTP/2 data has complete frames for parsing
 pub fn has_complete_data(data: &[u8]) -> bool {
-    // Must have at least the connection preface
-    if !data.starts_with(crate::http2_parser::HTTP2_CONNECTION_PREFACE) {
-        return false;
+    // For requests: Must have at least the connection preface
+    if data.starts_with(crate::http2_parser::HTTP2_CONNECTION_PREFACE) {
+        let frame_data = &data[crate::http2_parser::HTTP2_CONNECTION_PREFACE.len()..];
+        return has_complete_frames(frame_data);
     }
 
-    let frame_data = &data[crate::http2_parser::HTTP2_CONNECTION_PREFACE.len()..];
-
-    // Check if we have at least one complete frame with headers
-    has_complete_frames(frame_data)
+    // For responses: No preface, check frames directly
+    has_complete_frames(data)
 }
 
 /// Check if we have complete HTTP/2 frames (at least HEADERS frame)
@@ -295,7 +294,7 @@ pub fn has_complete_frames(data: &[u8]) -> bool {
 
         // Check if this is a HEADERS frame (type 0x1) with a valid stream ID
         if frame_type_byte == 0x1 && stream_id > 0 {
-            // For JA4, we need at least one complete HEADERS frame
+            // We need at least one complete HEADERS frame
             return true;
         }
 
