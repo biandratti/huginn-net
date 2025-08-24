@@ -1,5 +1,6 @@
 use crate::error::HuginnNetError;
-use crate::http_common::{HttpHeader, HttpProcessor};
+use crate::http::Header;
+use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http2_parser, http_common, http_languages};
 use tracing::debug;
@@ -122,7 +123,7 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(user_agent),
-        raw_headers: req.headers,
+        headers_raw: req.headers,
         method: Some(req.method),
         uri: Some(req.path),
     }
@@ -139,7 +140,7 @@ fn convert_http2_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        raw_headers: res.headers,
+        headers_raw: res.headers,
         status_code: Some(res.status),
     }
 }
@@ -147,8 +148,8 @@ fn convert_http2_response_to_observable(
 fn convert_http2_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<HttpHeader> {
-    let mut headers_in_order: Vec<HttpHeader> = Vec::new();
+) -> Vec<Header> {
+    let mut headers_in_order: Vec<Header> = Vec::new();
     let optional_list = if is_request {
         http::request_optional_headers()
     } else {
@@ -162,13 +163,13 @@ fn convert_http2_headers_to_http_format(
 
     for header in headers {
         let header_name_lower = header.name.to_lowercase();
-
         if optional_list.contains(&header_name_lower.as_str()) {
-            headers_in_order.push(header.clone());
+            headers_in_order.push(http::Header::new(&header.name).optional());
         } else if skip_value_list.contains(&header_name_lower.as_str()) {
-            headers_in_order.push(header.clone());
+            headers_in_order.push(http::Header::new(&header.name));
         } else {
-            headers_in_order.push(header.clone());
+            headers_in_order
+                .push(http::Header::new(&header.name).with_optional_value(header.value.clone()));
         }
     }
 
@@ -178,8 +179,8 @@ fn convert_http2_headers_to_http_format(
 fn build_absent_headers_from_http2(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<HttpHeader> {
-    let mut headers_absent: Vec<HttpHeader> = Vec::new();
+) -> Vec<Header> {
+    let mut headers_absent: Vec<Header> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
     } else {
@@ -187,14 +188,9 @@ fn build_absent_headers_from_http2(
     };
     let current_headers: Vec<String> = headers.iter().map(|h| h.name.to_lowercase()).collect();
 
-    for (i, header) in common_list.iter().enumerate() {
+    for header in &common_list {
         if !current_headers.contains(&header.to_lowercase()) {
-            headers_absent.push(HttpHeader::new(
-                header,
-                None,
-                i,
-                http_common::HeaderSource::Http2Header,
-            ));
+            headers_absent.push(http::Header::new(header));
         }
     }
     headers_absent
@@ -775,7 +771,7 @@ mod frame_detection_tests {
         assert_eq!(observable.method, Some("POST".to_string()));
         assert_eq!(observable.uri, Some("/api/test".to_string()));
         assert_eq!(observable.version, http::Version::V20);
-        assert!(!observable.raw_headers.is_empty());
+        assert!(!observable.headers_raw.is_empty());
 
         // Test response conversion with all fields
         let res = http2_parser::Http2Response {
@@ -817,6 +813,6 @@ mod frame_detection_tests {
 
         assert_eq!(observable.status_code, Some(201));
         assert_eq!(observable.version, http::Version::V20);
-        assert!(!observable.raw_headers.is_empty());
+        assert!(!observable.headers_raw.is_empty());
     }
 }

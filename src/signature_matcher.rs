@@ -70,7 +70,6 @@ mod tests {
     use super::*;
     use crate::db::Type;
     use crate::http::Version as HttpVersion;
-    use crate::http_common::{HeaderSource, HttpHeader};
     use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
 
@@ -159,28 +158,18 @@ mod tests {
             user_agent: None,
             version: HttpVersion::V10,
             horder: vec![
-                HttpHeader::new("Host", None, 0, HeaderSource::Http1Line),
-                HttpHeader::new("User-Agent", None, 1, HeaderSource::Http1Line),
-                HttpHeader::new("Accept", Some(",*/*;q="), 2, HeaderSource::Http1Line),
-                HttpHeader::new("Accept-Language", None, 3, HeaderSource::Http1Line),
-                HttpHeader::new(
-                    "Accept-Encoding",
-                    Some("gzip,deflate"),
-                    4,
-                    HeaderSource::Http1Line,
-                ),
-                HttpHeader::new(
-                    "Accept-Charset",
-                    Some("utf-8;q=0.7,*;q=0.7"),
-                    5,
-                    HeaderSource::Http1Line,
-                ),
-                HttpHeader::new("Keep-Alive", Some("300"), 6, HeaderSource::Http1Line),
-                HttpHeader::new("Connection", Some("keep-alive"), 7, HeaderSource::Http1Line),
+                http::Header::new("Host"),
+                http::Header::new("User-Agent"),
+                http::Header::new("Accept").with_value(",*/*;q="),
+                http::Header::new("Accept-Language").optional(),
+                http::Header::new("Accept-Encoding").with_value("gzip,deflate"),
+                http::Header::new("Accept-Charset").with_value("utf-8;q=0.7,*;q=0.7"),
+                http::Header::new("Keep-Alive").with_value("300"),
+                http::Header::new("Connection").with_value("keep-alive"),
             ],
             habsent: vec![],
             expsw: "Firefox/".to_string(),
-            raw_headers: vec![],
+            headers_raw: vec![],
             method: Some("GET".to_string()),
             uri: Some("/".to_string()),
         };
@@ -207,25 +196,24 @@ mod tests {
         let apache_signature = ObservableHttpResponse {
             version: HttpVersion::V11,
             horder: vec![
-                HttpHeader::new("Date", None, 0, HeaderSource::Http1Line),
-                HttpHeader::new("Server", None, 1, HeaderSource::Http1Line),
-                HttpHeader::new("Last-Modified", None, 2, HeaderSource::Http1Line),
-                HttpHeader::new("Accept-Ranges", Some("bytes"), 3, HeaderSource::Http1Line),
-                HttpHeader::new("Content-Length", None, 4, HeaderSource::Http1Line),
-                HttpHeader::new("Content-Range", None, 5, HeaderSource::Http1Line),
-                HttpHeader::new("Keep-Alive", Some("timeout"), 6, HeaderSource::Http1Line),
-                HttpHeader::new("Connection", Some("Keep-Alive"), 7, HeaderSource::Http1Line),
-                HttpHeader::new(
-                    "Transfer-Encoding",
-                    Some("chunked"),
-                    8,
-                    HeaderSource::Http1Line,
-                ),
-                HttpHeader::new("Content-Type", None, 9, HeaderSource::Http1Line),
+                http::Header::new("Date"),
+                http::Header::new("Server"),
+                http::Header::new("Last-Modified").optional(),
+                http::Header::new("Accept-Ranges")
+                    .optional()
+                    .with_value("bytes"),
+                http::Header::new("Content-Length").optional(),
+                http::Header::new("Content-Range").optional(),
+                http::Header::new("Keep-Alive").with_value("timeout"),
+                http::Header::new("Connection").with_value("Keep-Alive"),
+                http::Header::new("Transfer-Encoding")
+                    .optional()
+                    .with_value("chunked"),
+                http::Header::new("Content-Type"),
             ],
             habsent: vec![],
             expsw: "Apache".to_string(),
-            raw_headers: vec![],
+            headers_raw: vec![],
             status_code: Some(200),
         };
 
@@ -253,20 +241,20 @@ mod tests {
             user_agent: Some("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string()),
             version: HttpVersion::V11, // HTTP/1.1
             horder: vec![
-                HttpHeader::new("Host", None, 0, HeaderSource::Http1Line),
-                HttpHeader::new("Connection", Some("keep-alive"), 1, HeaderSource::Http1Line),
-                HttpHeader::new("User-Agent", None, 2, HeaderSource::Http1Line),
-                HttpHeader::new("Accept", Some("image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"), 3, HeaderSource::Http1Line),
-                HttpHeader::new("Referer", None, 4, HeaderSource::Http1Line), // ?Referer
-                HttpHeader::new("Accept-Encoding", Some("gzip, deflate"), 5, HeaderSource::Http1Line),
-                HttpHeader::new("Accept-Language", Some("en-US,en;q=0.9,es;q=0.8"), 6, HeaderSource::Http1Line),
+                http::Header::new("Host"),
+                http::Header::new("Connection").with_value("keep-alive"),
+                http::Header::new("User-Agent"),
+                http::Header::new("Accept").with_value("image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"),
+                http::Header::new("Referer").optional(), // ?Referer
+                http::Header::new("Accept-Encoding").with_value("gzip, deflate"),
+                http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
             ],
             habsent: vec![
-                HttpHeader::new("Accept-Charset", None, 7, HeaderSource::Http1Line),
-                HttpHeader::new("Keep-Alive", None, 8, HeaderSource::Http1Line),
+                http::Header::new("Accept-Charset"),
+                http::Header::new("Keep-Alive"),
             ],
             expsw: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string(),
-            raw_headers: vec![],
+            headers_raw: vec![],
             method: Some("GET".to_string()),
             uri: Some("/".to_string()),
         };

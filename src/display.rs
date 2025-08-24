@@ -249,34 +249,6 @@ mod http {
     use core::fmt;
     use std::fmt::Formatter;
 
-    trait HttpRawDisplayFormat {
-        fn get_version(&self) -> Version;
-        fn get_horder(&self) -> &[HttpHeader];
-        fn get_habsent(&self) -> &[HttpHeader];
-        fn get_expsw(&self) -> &str;
-
-        fn format_http_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:", self.get_version())?;
-
-            for (i, h) in self.get_horder().iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-                write!(f, "{h}")?;
-            }
-
-            f.write_str(":")?;
-
-            for (i, h) in self.get_habsent().iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-                write!(f, "{h}")?;
-            }
-
-            write!(f, ":{}", self.get_expsw())
-        }
-    }
     trait HttpDisplayFormat {
         fn get_version(&self) -> Version;
         fn get_horder(&self) -> &[Header];
@@ -306,14 +278,14 @@ mod http {
         }
     }
 
-    impl HttpRawDisplayFormat for ObservableHttpRequest {
+    impl HttpDisplayFormat for ObservableHttpRequest {
         fn get_version(&self) -> Version {
             self.version
         }
-        fn get_horder(&self) -> &[HttpHeader] {
+        fn get_horder(&self) -> &[Header] {
             &self.horder
         }
-        fn get_habsent(&self) -> &[HttpHeader] {
+        fn get_habsent(&self) -> &[Header] {
             &self.habsent
         }
         fn get_expsw(&self) -> &str {
@@ -321,14 +293,14 @@ mod http {
         }
     }
 
-    impl HttpRawDisplayFormat for ObservableHttpResponse {
+    impl HttpDisplayFormat for ObservableHttpResponse {
         fn get_version(&self) -> Version {
             self.version
         }
-        fn get_horder(&self) -> &[HttpHeader] {
+        fn get_horder(&self) -> &[Header] {
             &self.horder
         }
-        fn get_habsent(&self) -> &[HttpHeader] {
+        fn get_habsent(&self) -> &[Header] {
             &self.habsent
         }
         fn get_expsw(&self) -> &str {
