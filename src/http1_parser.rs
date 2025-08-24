@@ -162,7 +162,6 @@ impl Http1Parser {
         let header_lines = &lines[1..header_end];
         let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
 
-        // Create temporary map for efficient lookups (only headers with values)
         let mut headers_map = HashMap::new();
         for header in &headers {
             if let Some(ref value) = header.value {
@@ -237,7 +236,6 @@ impl Http1Parser {
         let header_lines = &lines[1..header_end];
         let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
 
-        // Create temporary map for efficient lookups (only headers with values)
         let mut headers_map = HashMap::new();
         for header in &headers {
             if let Some(ref value) = header.value {

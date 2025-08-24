@@ -225,7 +225,6 @@ impl<'a> Http2Parser<'a> {
         let frame_sequence: Vec<Http2FrameType> =
             frames.iter().map(|f| f.frame_type.clone()).collect();
 
-        // Create temporary map for efficient lookups (only headers with values)
         let mut headers_map = HashMap::new();
         for header in &stream.headers {
             if let Some(ref value) = header.value {
@@ -295,7 +294,6 @@ impl<'a> Http2Parser<'a> {
         let frame_sequence: Vec<Http2FrameType> =
             frames.iter().map(|f| f.frame_type.clone()).collect();
 
-        // Create temporary map for efficient lookups (only headers with values)
         let mut headers_map = HashMap::new();
         for header in &stream.headers {
             if let Some(ref value) = header.value {
