@@ -169,7 +169,7 @@ mod tests {
             ],
             habsent: vec![],
             expsw: "Firefox/".to_string(),
-            raw_headers: std::collections::HashMap::new(),
+            headers_raw: vec![],
             method: Some("GET".to_string()),
             uri: Some("/".to_string()),
         };
@@ -213,7 +213,7 @@ mod tests {
             ],
             habsent: vec![],
             expsw: "Apache".to_string(),
-            raw_headers: std::collections::HashMap::new(),
+            headers_raw: vec![],
             status_code: Some(200),
         };
 
@@ -254,7 +254,7 @@ mod tests {
                 http::Header::new("Keep-Alive"),
             ],
             expsw: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string(),
-            raw_headers: std::collections::HashMap::new(),
+            headers_raw: vec![],
             method: Some("GET".to_string()),
             uri: Some("/".to_string()),
         };

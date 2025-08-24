@@ -11,18 +11,29 @@ pub enum HeaderSource {
 }
 
 /// Represents an HTTP header with metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HttpHeader {
     pub name: String,
-    pub value: String,
+    pub value: Option<String>,
     /// Position in the original header sequence (0-based)
     pub position: usize,
     /// Source protocol/type of this header
     pub source: HeaderSource,
 }
 
+impl HttpHeader {
+    pub fn new(name: &str, value: Option<&str>, position: usize, source: HeaderSource) -> Self {
+        Self {
+            name: name.to_string(),
+            value: value.map(String::from),
+            position,
+            source,
+        }
+    }
+}
+
 /// Represents an HTTP cookie
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HttpCookie {
     pub name: String,
     pub value: Option<String>,

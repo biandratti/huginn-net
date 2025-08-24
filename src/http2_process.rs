@@ -1,4 +1,5 @@
 use crate::error::HuginnNetError;
+use crate::http::Header;
 use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http2_parser, http_common, http_languages};
@@ -96,17 +97,24 @@ impl HttpProcessor for Http2Processor {
 }
 
 fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> ObservableHttpRequest {
-    let lang = req
-        .headers_map
+    // Create map once for all lookups (only headers with values)
+    let mut headers_map = std::collections::HashMap::new();
+    for header in &req.headers {
+        if let Some(ref value) = header.value {
+            headers_map.insert(header.name.to_lowercase(), value.as_str());
+        }
+    }
+
+    let lang = headers_map
         .get("accept-language")
         .and_then(|accept_language| {
-            http_languages::get_highest_quality_language(accept_language.clone())
+            http_languages::get_highest_quality_language(accept_language.to_string())
         });
 
     let headers_in_order = convert_http2_headers_to_http_format(&req.headers, true);
     let headers_absent = build_absent_headers_from_http2(&req.headers, true);
 
-    let user_agent = req.headers_map.get("user-agent").cloned();
+    let user_agent = headers_map.get("user-agent").map(|s| s.to_string());
 
     ObservableHttpRequest {
         lang,
@@ -115,7 +123,7 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(user_agent),
-        raw_headers: req.headers_map,
+        headers_raw: req.headers,
         method: Some(req.method),
         uri: Some(req.path),
     }
@@ -132,7 +140,7 @@ fn convert_http2_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        raw_headers: res.headers_map,
+        headers_raw: res.headers,
         status_code: Some(res.status),
     }
 }
@@ -140,8 +148,8 @@ fn convert_http2_response_to_observable(
 fn convert_http2_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<http::Header> {
-    let mut headers_in_order: Vec<http::Header> = Vec::new();
+) -> Vec<Header> {
+    let mut headers_in_order: Vec<Header> = Vec::new();
     let optional_list = if is_request {
         http::request_optional_headers()
     } else {
@@ -154,16 +162,14 @@ fn convert_http2_headers_to_http_format(
     };
 
     for header in headers {
-        let value: Option<&str> = Some(&header.value);
-
         let header_name_lower = header.name.to_lowercase();
-
         if optional_list.contains(&header_name_lower.as_str()) {
             headers_in_order.push(http::Header::new(&header.name).optional());
         } else if skip_value_list.contains(&header_name_lower.as_str()) {
             headers_in_order.push(http::Header::new(&header.name));
         } else {
-            headers_in_order.push(http::Header::new(&header.name).with_optional_value(value));
+            headers_in_order
+                .push(http::Header::new(&header.name).with_optional_value(header.value.clone()));
         }
     }
 
@@ -173,8 +179,8 @@ fn convert_http2_headers_to_http_format(
 fn build_absent_headers_from_http2(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<http::Header> {
-    let mut headers_absent: Vec<http::Header> = Vec::new();
+) -> Vec<Header> {
+    let mut headers_absent: Vec<Header> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
     } else {
@@ -273,7 +279,6 @@ mod tests {
             scheme: Some("https".to_string()),
             version: http::Version::V20,
             headers: vec![],
-            headers_map: std::collections::HashMap::new(),
             cookies: vec![],
             stream_id: 1,
             parsing_metadata: http_common::ParsingMetadata {
@@ -302,7 +307,6 @@ mod tests {
             status: 200,
             version: http::Version::V20,
             headers: vec![],
-            headers_map: std::collections::HashMap::new(),
             stream_id: 1,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 0,
@@ -728,19 +732,14 @@ mod frame_detection_tests {
             version: http::Version::V20,
             headers: vec![http_common::HttpHeader {
                 name: "content-type".to_string(),
-                value: "application/json".to_string(),
+                value: Some("application/json".to_string()),
                 position: 0,
                 source: http_common::HeaderSource::Http2Header,
             }],
-            headers_map: {
-                let mut map = std::collections::HashMap::new();
-                map.insert("content-type".to_string(), "application/json".to_string());
-                map
-            },
             cookies: vec![http_common::HttpCookie {
                 name: "session".to_string(),
                 value: Some("abc123".to_string()),
-                position: 0,
+                position: 1,
             }],
             stream_id: 3,
             parsing_metadata: http_common::ParsingMetadata {
@@ -772,24 +771,26 @@ mod frame_detection_tests {
         assert_eq!(observable.method, Some("POST".to_string()));
         assert_eq!(observable.uri, Some("/api/test".to_string()));
         assert_eq!(observable.version, http::Version::V20);
-        assert!(!observable.raw_headers.is_empty());
+        assert!(!observable.headers_raw.is_empty());
 
         // Test response conversion with all fields
         let res = http2_parser::Http2Response {
             status: 201,
             version: http::Version::V20,
-            headers: vec![http_common::HttpHeader {
-                name: "server".to_string(),
-                value: "nginx/1.20".to_string(),
-                position: 0,
-                source: http_common::HeaderSource::Http2Header,
-            }],
-            headers_map: {
-                let mut map = std::collections::HashMap::new();
-                map.insert("server".to_string(), "nginx/1.20".to_string());
-                map.insert("content-type".to_string(), "text/html".to_string());
-                map
-            },
+            headers: vec![
+                http_common::HttpHeader {
+                    name: "server".to_string(),
+                    value: Some("nginx/1.20".to_string()),
+                    position: 0,
+                    source: http_common::HeaderSource::Http2Header,
+                },
+                http_common::HttpHeader {
+                    name: "content-type".to_string(),
+                    value: Some("text/html".to_string()),
+                    position: 1,
+                    source: http_common::HeaderSource::Http2Header,
+                },
+            ],
             stream_id: 5,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 2,
@@ -812,6 +813,6 @@ mod frame_detection_tests {
 
         assert_eq!(observable.status_code, Some(201));
         assert_eq!(observable.version, http::Version::V20);
-        assert!(!observable.raw_headers.is_empty());
+        assert!(!observable.headers_raw.is_empty());
     }
 }

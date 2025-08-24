@@ -34,7 +34,6 @@ pub struct Http1Request {
     pub uri: String,
     pub version: http::Version,
     pub headers: Vec<HttpHeader>,
-    pub headers_map: HashMap<String, String>,
     pub cookies: Vec<HttpCookie>,
     pub content_length: Option<usize>,
     pub transfer_encoding: Option<String>,
@@ -52,7 +51,6 @@ pub struct Http1Response {
     pub status_code: u16,
     pub reason_phrase: String,
     pub headers: Vec<HttpHeader>,
-    pub headers_map: HashMap<String, String>,
     pub content_length: Option<usize>,
     pub transfer_encoding: Option<String>,
     pub server: Option<String>,
@@ -163,11 +161,14 @@ impl Http1Parser {
 
         let header_lines = &lines[1..header_end];
         let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
+
         let mut headers_map = HashMap::new();
         for header in &headers {
-            headers_map
-                .entry(header.name.to_lowercase())
-                .or_insert(header.value.clone());
+            if let Some(ref value) = header.value {
+                headers_map
+                    .entry(header.name.to_lowercase())
+                    .or_insert(value.clone());
+            }
         }
 
         let cookies = if self.config.parse_cookies {
@@ -204,7 +205,6 @@ impl Http1Parser {
             accept_language: headers_map.get("accept-language").cloned(),
             raw_request_line: lines[0].to_string(),
             parsing_metadata: final_metadata,
-            headers_map,
         }))
     }
 
@@ -235,12 +235,14 @@ impl Http1Parser {
 
         let header_lines = &lines[1..header_end];
         let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
+
         let mut headers_map = HashMap::new();
         for header in &headers {
-            // Only insert if not already present (first wins)
-            headers_map
-                .entry(header.name.to_lowercase())
-                .or_insert(header.value.clone());
+            if let Some(ref value) = header.value {
+                headers_map
+                    .entry(header.name.to_lowercase())
+                    .or_insert(value.clone());
+            }
         }
 
         let content_length = headers_map
@@ -263,7 +265,6 @@ impl Http1Parser {
             content_type: headers_map.get("content-type").cloned(),
             raw_status_line: lines[0].to_string(),
             parsing_metadata: final_metadata,
-            headers_map,
         }))
     }
 
@@ -354,9 +355,7 @@ impl Http1Parser {
                 let name = line[..colon_pos].trim().to_string();
                 let value = line
                     .get(colon_pos.saturating_add(1)..)
-                    .unwrap_or("")
-                    .trim()
-                    .to_string();
+                    .map(|v| v.trim().to_string());
 
                 if name.is_empty() {
                     has_malformed = true;
@@ -929,14 +928,20 @@ mod tests {
         let result = unwrap_parser_result(parser.parse_request(data));
         let empty_header = result.headers.iter().find(|h| h.name == "Empty-Header");
         assert!(empty_header.is_some(), "Empty-Header should be present");
-        assert_eq!(empty_header.as_ref().map(|h| h.value.as_str()), Some(""));
+        assert_eq!(
+            empty_header.as_ref().and_then(|h| h.value.as_deref()),
+            Some("")
+        );
 
         // Header with only spaces as value
         let data = b"GET / HTTP/1.1\r\nSpaces-Header:   \r\nHost: example.com\r\n\r\n";
         let result = unwrap_parser_result(parser.parse_request(data));
         let spaces_header = result.headers.iter().find(|h| h.name == "Spaces-Header");
         assert!(spaces_header.is_some(), "Spaces-Header should be present");
-        assert_eq!(spaces_header.as_ref().map(|h| h.value.as_str()), Some(""));
+        assert_eq!(
+            spaces_header.as_ref().and_then(|h| h.value.as_deref()),
+            Some("")
+        );
 
         // Header with leading/trailing spaces
         let data =
@@ -945,7 +950,7 @@ mod tests {
         let trim_header = result.headers.iter().find(|h| h.name == "Trim-Header");
         assert!(trim_header.is_some(), "Trim-Header should be present");
         assert_eq!(
-            trim_header.as_ref().map(|h| h.value.as_str()),
+            trim_header.as_ref().and_then(|h| h.value.as_deref()),
             Some("value with spaces")
         );
     }

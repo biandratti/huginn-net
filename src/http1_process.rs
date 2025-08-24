@@ -1,4 +1,5 @@
 use crate::error::HuginnNetError;
+use crate::http::Header;
 use crate::http_common::HttpProcessor;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http1_parser, http2_parser, http2_process, http_common, http_languages};
@@ -174,7 +175,7 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(req.user_agent),
-        raw_headers: req.headers_map,
+        headers_raw: req.headers,
         method: Some(req.method),
         uri: Some(req.uri),
     }
@@ -191,7 +192,7 @@ fn convert_http1_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        raw_headers: res.headers_map,
+        headers_raw: res.headers,
         status_code: Some(res.status_code),
     }
 }
@@ -199,8 +200,8 @@ fn convert_http1_response_to_observable(
 fn convert_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<http::Header> {
-    let mut headers_in_order: Vec<http::Header> = Vec::new();
+) -> Vec<Header> {
+    let mut headers_in_order: Vec<Header> = Vec::new();
     let optional_list = if is_request {
         http::request_optional_headers()
     } else {
@@ -213,14 +214,13 @@ fn convert_headers_to_http_format(
     };
 
     for header in headers {
-        let value: Option<&str> = Some(&header.value);
-
         if optional_list.contains(&header.name.as_str()) {
             headers_in_order.push(http::Header::new(&header.name).optional());
         } else if skip_value_list.contains(&header.name.as_str()) {
             headers_in_order.push(http::Header::new(&header.name));
         } else {
-            headers_in_order.push(http::Header::new(&header.name).with_optional_value(value));
+            headers_in_order
+                .push(Header::new(&header.name).with_optional_value(header.value.clone()));
         }
     }
 
@@ -230,7 +230,7 @@ fn convert_headers_to_http_format(
 fn build_absent_headers_from_new_parser(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<http::Header> {
+) -> Vec<Header> {
     let mut headers_absent: Vec<http::Header> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
@@ -359,7 +359,7 @@ mod tests {
                     http::Header::new("Cache-Control").optional(),
                     http::Header::new("Connection").with_value("keep-alive"),
                     http::Header::new("If-Modified-Since").optional(),
-                    http::Header::new("If-None-Match").optional(),
+                    Header::new("If-None-Match").optional(),
                     http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
                     http::Header::new("User-Agent"),
                 ];

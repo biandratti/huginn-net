@@ -1,4 +1,5 @@
 use crate::http::{Header, Version};
+use crate::http_common::HttpHeader;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
 use crate::tls::{Ja4Payload, TlsVersion};
 use crate::Ttl;
@@ -62,7 +63,7 @@ pub struct ObservableHttpRequest {
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
     /// Complete raw headers with all values for IP extraction and correlation
-    pub raw_headers: std::collections::HashMap<String, String>,
+    pub headers_raw: Vec<HttpHeader>,
     /// HTTP method (GET, POST, PUT, etc.)
     pub method: Option<String>,
     /// Request URI/path
@@ -81,7 +82,7 @@ pub struct ObservableHttpResponse {
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
     /// Complete raw headers with all values
-    pub raw_headers: std::collections::HashMap<String, String>,
+    pub headers_raw: Vec<HttpHeader>,
     /// HTTP status code
     pub status_code: Option<u16>,
 }

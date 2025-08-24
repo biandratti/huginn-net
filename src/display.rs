@@ -244,6 +244,7 @@ mod tcp {
 
 mod http {
     use crate::http::{Header, HttpDiagnosis, Signature, Version};
+    use crate::http_common::HttpHeader;
     use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
     use core::fmt;
     use std::fmt::Formatter;
@@ -377,6 +378,15 @@ mod http {
                 Generic => "generic",
                 None => "none",
             })
+        }
+    }
+    impl fmt::Display for HttpHeader {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            if let Some(ref value) = self.value {
+                write!(f, "{}={}", self.name, value)
+            } else {
+                write!(f, "{}", self.name)
+            }
         }
     }
 }
