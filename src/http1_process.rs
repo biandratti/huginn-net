@@ -1,5 +1,5 @@
 use crate::error::HuginnNetError;
-use crate::http_common::HttpProcessor;
+use crate::http_common::{HttpHeader, HttpProcessor};
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http1_parser, http2_parser, http2_process, http_common, http_languages};
 use tracing::debug;
@@ -174,7 +174,7 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(req.user_agent),
-        raw_headers: req.headers_map,
+        raw_headers: req.headers,
         method: Some(req.method),
         uri: Some(req.uri),
     }
@@ -191,7 +191,7 @@ fn convert_http1_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        raw_headers: res.headers_map,
+        raw_headers: res.headers,
         status_code: Some(res.status_code),
     }
 }
@@ -199,8 +199,8 @@ fn convert_http1_response_to_observable(
 fn convert_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<http::Header> {
-    let mut headers_in_order: Vec<http::Header> = Vec::new();
+) -> Vec<HttpHeader> {
+    let mut headers_in_order: Vec<HttpHeader> = Vec::new();
     let optional_list = if is_request {
         http::request_optional_headers()
     } else {
@@ -213,14 +213,12 @@ fn convert_headers_to_http_format(
     };
 
     for header in headers {
-        let value: Option<&str> = Some(&header.value);
-
         if optional_list.contains(&header.name.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name).optional());
+            headers_in_order.push(header.clone());
         } else if skip_value_list.contains(&header.name.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name));
+            headers_in_order.push(header.clone());
         } else {
-            headers_in_order.push(http::Header::new(&header.name).with_optional_value(value));
+            headers_in_order.push(header.clone());
         }
     }
 
@@ -230,8 +228,8 @@ fn convert_headers_to_http_format(
 fn build_absent_headers_from_new_parser(
     headers: &[http_common::HttpHeader],
     is_request: bool,
-) -> Vec<http::Header> {
-    let mut headers_absent: Vec<http::Header> = Vec::new();
+) -> Vec<HttpHeader> {
+    let mut headers_absent: Vec<HttpHeader> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
     } else {
@@ -239,9 +237,14 @@ fn build_absent_headers_from_new_parser(
     };
     let current_headers: Vec<String> = headers.iter().map(|h| h.name.to_lowercase()).collect();
 
-    for header in &common_list {
+    for (i, header) in common_list.iter().enumerate() {
         if !current_headers.contains(&header.to_lowercase()) {
-            headers_absent.push(http::Header::new(header));
+            headers_absent.push(HttpHeader::new(
+                header,
+                None,
+                i,
+                http_common::HeaderSource::Http1Line,
+            ));
         }
     }
     headers_absent
@@ -353,22 +356,32 @@ mod tests {
                 assert_eq!(request.version, http::Version::V11);
 
                 let expected_horder = vec![
-                    http::Header::new("Host"),
-                    http::Header::new("Accept").with_value("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
-                    http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
-                    http::Header::new("Cache-Control").optional(),
-                    http::Header::new("Connection").with_value("keep-alive"),
-                    http::Header::new("If-Modified-Since").optional(),
-                    http::Header::new("If-None-Match").optional(),
-                    http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
-                    http::Header::new("User-Agent"),
+                    HttpHeader::new("Host", None, 0, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("Accept", Some("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"), 1, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("Accept-Language", Some("en-US,en;q=0.9,es;q=0.8"), 2, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("Cache-Control", None, 3, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("Connection", Some("keep-alive"), 4, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("If-Modified-Since", None, 5, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("If-None-Match", None, 6, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("Upgrade-Insecure-Requests", Some("1"), 7, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new("User-Agent", None, 8, http_common::HeaderSource::Http1Line),
                 ];
                 assert_eq!(request.horder, expected_horder);
 
                 let expected_habsent = vec![
-                    http::Header::new("Accept-Encoding"),
-                    http::Header::new("Accept-Charset"),
-                    http::Header::new("Keep-Alive"),
+                    HttpHeader::new(
+                        "Accept-Encoding",
+                        None,
+                        9,
+                        http_common::HeaderSource::Http1Line,
+                    ),
+                    HttpHeader::new(
+                        "Accept-Charset",
+                        None,
+                        10,
+                        http_common::HeaderSource::Http1Line,
+                    ),
+                    HttpHeader::new("Keep-Alive", None, 11, http_common::HeaderSource::Http1Line),
                 ];
                 assert_eq!(request.habsent, expected_habsent);
 
@@ -396,17 +409,37 @@ mod tests {
                 assert_eq!(response.version, http::Version::V11);
 
                 let expected_horder = vec![
-                    http::Header::new("Server"),
-                    http::Header::new("Content-Type"),
-                    http::Header::new("Content-Length").optional(),
-                    http::Header::new("Connection").with_value("keep-alive"),
+                    HttpHeader::new("Server", None, 0, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new(
+                        "Content-Type",
+                        None,
+                        1,
+                        http_common::HeaderSource::Http1Line,
+                    ),
+                    HttpHeader::new(
+                        "Content-Length",
+                        None,
+                        2,
+                        http_common::HeaderSource::Http1Line,
+                    ),
+                    HttpHeader::new(
+                        "Connection",
+                        Some("keep-alive"),
+                        3,
+                        http_common::HeaderSource::Http1Line,
+                    ),
                 ];
                 assert_eq!(response.horder, expected_horder);
 
                 let expected_absent = vec![
-                    http::Header::new("Keep-Alive"),
-                    http::Header::new("Accept-Ranges"),
-                    http::Header::new("Date"),
+                    HttpHeader::new("Keep-Alive", None, 4, http_common::HeaderSource::Http1Line),
+                    HttpHeader::new(
+                        "Accept-Ranges",
+                        None,
+                        5,
+                        http_common::HeaderSource::Http1Line,
+                    ),
+                    HttpHeader::new("Date", None, 6, http_common::HeaderSource::Http1Line),
                 ];
                 assert_eq!(response.habsent, expected_absent);
             }

@@ -327,6 +327,7 @@ mod tests {
     use super::*;
     use crate::http;
     use crate::http1_process;
+    use crate::http_common::{HeaderSource, HttpHeader};
 
     #[test]
     fn test_parse_http1_request() {
@@ -348,22 +349,22 @@ mod tests {
                 assert_eq!(request.version, http::Version::V11);
 
                 let expected_horder = vec![
-                    http::Header::new("Host"),
-                    http::Header::new("Accept").with_value("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
-                    http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
-                    http::Header::new("Cache-Control").optional(),
-                    http::Header::new("Connection").with_value("keep-alive"),
-                    http::Header::new("If-Modified-Since").optional(),
-                    http::Header::new("If-None-Match").optional(),
-                    http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
-                    http::Header::new("User-Agent"),
+                    HttpHeader::new("Host", None, 0, HeaderSource::Http1Line),
+                    HttpHeader::new("Accept", Some("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"), 1, HeaderSource::Http1Line),
+                    HttpHeader::new("Accept-Language", Some("en-US,en;q=0.9,es;q=0.8"), 2, HeaderSource::Http1Line),
+                    HttpHeader::new("Cache-Control", None, 3, HeaderSource::Http1Line),
+                    HttpHeader::new("Connection", Some("keep-alive"), 4, HeaderSource::Http1Line),
+                    HttpHeader::new("If-Modified-Since", None, 5, HeaderSource::Http1Line),
+                    HttpHeader::new("If-None-Match", None, 5, HeaderSource::Http1Line),
+                    HttpHeader::new("Upgrade-Insecure-Requests", Some("1"), 6, HeaderSource::Http1Line),
+                    HttpHeader::new("User-Agent", None, 7, HeaderSource::Http1Line),
                 ];
                 assert_eq!(request.horder, expected_horder);
 
                 let expected_habsent = vec![
-                    http::Header::new("Accept-Encoding"),
-                    http::Header::new("Accept-Charset"),
-                    http::Header::new("Keep-Alive"),
+                    HttpHeader::new("Accept-Encoding", None, 0, HeaderSource::Http1Line),
+                    HttpHeader::new("Accept-Charset", None, 0, HeaderSource::Http1Line),
+                    HttpHeader::new("Keep-Alive", None, 0, HeaderSource::Http1Line),
                 ];
                 assert_eq!(request.habsent, expected_habsent);
 
@@ -390,17 +391,17 @@ mod tests {
                 assert_eq!(response.version, http::Version::V11);
 
                 let expected_horder = vec![
-                    http::Header::new("Server"),
-                    http::Header::new("Content-Type"),
-                    http::Header::new("Content-Length").optional(),
-                    http::Header::new("Connection").with_value("keep-alive"),
+                    HttpHeader::new("Server", None, 0, HeaderSource::Http1Line),
+                    HttpHeader::new("Content-Type", None, 1, HeaderSource::Http1Line),
+                    HttpHeader::new("Content-Length", None, 2, HeaderSource::Http1Line),
+                    HttpHeader::new("Connection", Some("keep-alive"), 3, HeaderSource::Http1Line),
                 ];
                 assert_eq!(response.horder, expected_horder);
 
                 let expected_absent = vec![
-                    http::Header::new("Keep-Alive"),
-                    http::Header::new("Accept-Ranges"),
-                    http::Header::new("Date"),
+                    HttpHeader::new("Keep-Alive", None, 0, HeaderSource::Http1Line),
+                    HttpHeader::new("Accept-Ranges", None, 0, HeaderSource::Http1Line),
+                    HttpHeader::new("Date", None, 0, HeaderSource::Http1Line),
                 ];
                 assert_eq!(response.habsent, expected_absent);
             }

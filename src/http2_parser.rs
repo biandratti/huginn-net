@@ -100,7 +100,6 @@ pub struct Http2Request {
     pub scheme: Option<String>,
     pub version: http::Version,
     pub headers: Vec<HttpHeader>,
-    pub headers_map: HashMap<String, String>,
     pub cookies: Vec<HttpCookie>,
     pub stream_id: u32,
     pub parsing_metadata: ParsingMetadata,
@@ -113,7 +112,6 @@ pub struct Http2Response {
     pub status: u16,
     pub version: http::Version,
     pub headers: Vec<HttpHeader>,
-    pub headers_map: HashMap<String, String>,
     pub stream_id: u32,
     pub parsing_metadata: ParsingMetadata,
     pub frame_sequence: Vec<Http2FrameType>,
@@ -227,9 +225,12 @@ impl<'a> Http2Parser<'a> {
         let frame_sequence: Vec<Http2FrameType> =
             frames.iter().map(|f| f.frame_type.clone()).collect();
 
+        // Create temporary map for efficient lookups (only headers with values)
         let mut headers_map = HashMap::new();
         for header in &stream.headers {
-            headers_map.insert(header.name.to_lowercase(), header.value.clone());
+            if let Some(ref value) = header.value {
+                headers_map.insert(header.name.to_lowercase(), value.clone());
+            }
         }
 
         let cookies = if let Some(cookie_header) = headers_map.get("cookie") {
@@ -248,7 +249,11 @@ impl<'a> Http2Parser<'a> {
             total_headers_length: stream
                 .headers
                 .iter()
-                .map(|h| h.name.len().saturating_add(h.value.len()))
+                .map(|h| {
+                    h.name
+                        .len()
+                        .saturating_add(h.value.as_ref().map_or(0, |v| v.len()))
+                })
                 .sum(),
         };
 
@@ -259,7 +264,6 @@ impl<'a> Http2Parser<'a> {
             scheme: stream.scheme,
             version: http::Version::V20,
             headers: stream.headers,
-            headers_map,
             cookies,
             stream_id,
             parsing_metadata: metadata,
@@ -291,9 +295,12 @@ impl<'a> Http2Parser<'a> {
         let frame_sequence: Vec<Http2FrameType> =
             frames.iter().map(|f| f.frame_type.clone()).collect();
 
+        // Create temporary map for efficient lookups (only headers with values)
         let mut headers_map = HashMap::new();
         for header in &stream.headers {
-            headers_map.insert(header.name.to_lowercase(), header.value.clone());
+            if let Some(ref value) = header.value {
+                headers_map.insert(header.name.to_lowercase(), value.clone());
+            }
         }
 
         let metadata = ParsingMetadata {
@@ -306,7 +313,11 @@ impl<'a> Http2Parser<'a> {
             total_headers_length: stream
                 .headers
                 .iter()
-                .map(|h| h.name.len().saturating_add(h.value.len()))
+                .map(|h| {
+                    h.name
+                        .len()
+                        .saturating_add(h.value.as_ref().map_or(0, |v| v.len()))
+                })
                 .sum(),
         };
 
@@ -314,7 +325,6 @@ impl<'a> Http2Parser<'a> {
             status,
             version: http::Version::V20,
             headers: stream.headers,
-            headers_map: headers_map.clone(),
             stream_id,
             parsing_metadata: metadata,
             frame_sequence,
@@ -430,11 +440,15 @@ impl<'a> Http2Parser<'a> {
                     let frame_headers = self.parse_headers_payload(&frame.payload)?;
                     for header in frame_headers {
                         match header.name.as_str() {
-                            ":method" => method = Some(header.value.clone()),
-                            ":path" => path = Some(header.value.clone()),
-                            ":authority" => authority = Some(header.value.clone()),
-                            ":scheme" => scheme = Some(header.value.clone()),
-                            ":status" => status = header.value.parse().ok(),
+                            ":method" => method = Some(header.value.clone().unwrap_or_default()),
+                            ":path" => path = Some(header.value.clone().unwrap_or_default()),
+                            ":authority" => {
+                                authority = Some(header.value.clone().unwrap_or_default())
+                            }
+                            ":scheme" => scheme = Some(header.value.clone().unwrap_or_default()),
+                            ":status" => {
+                                status = header.value.as_ref().and_then(|v| v.parse().ok())
+                            }
                             _ => headers.push(header),
                         }
                     }
@@ -465,11 +479,16 @@ impl<'a> Http2Parser<'a> {
 
         for (position, (name, value)) in headers.iter().enumerate() {
             let name_str = String::from_utf8_lossy(name).to_string();
-            let value_str = String::from_utf8_lossy(value).to_string();
+            let value_str = String::from_utf8_lossy(value);
+            let value_opt = if value_str.is_empty() {
+                None
+            } else {
+                Some(value_str.to_string())
+            };
 
             http_headers.push(HttpHeader {
                 name: name_str,
-                value: value_str,
+                value: value_opt,
                 position,
                 source: HeaderSource::Http2Header,
             });

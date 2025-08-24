@@ -1,4 +1,5 @@
-use crate::http::{Header, Version};
+use crate::http::Version;
+use crate::http_common::HttpHeader;
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
 use crate::tls::{Ja4Payload, TlsVersion};
 use crate::Ttl;
@@ -56,13 +57,13 @@ pub struct ObservableHttpRequest {
     /// HTTP version
     pub version: Version,
     /// ordered list of headers that should appear in matching traffic.
-    pub horder: Vec<Header>,
+    pub horder: Vec<HttpHeader>,
     /// list of headers that must *not* appear in matching traffic.
-    pub habsent: Vec<Header>,
+    pub habsent: Vec<HttpHeader>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
     /// Complete raw headers with all values for IP extraction and correlation
-    pub raw_headers: std::collections::HashMap<String, String>,
+    pub raw_headers: Vec<HttpHeader>, //TODO: rename to headers_raw
     /// HTTP method (GET, POST, PUT, etc.)
     pub method: Option<String>,
     /// Request URI/path
@@ -75,13 +76,13 @@ pub struct ObservableHttpResponse {
     /// HTTP version
     pub version: Version,
     /// ordered list of headers that should appear in matching traffic.
-    pub horder: Vec<Header>,
+    pub horder: Vec<HttpHeader>,
     /// list of headers that must *not* appear in matching traffic.
-    pub habsent: Vec<Header>,
+    pub habsent: Vec<HttpHeader>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
     /// Complete raw headers with all values
-    pub raw_headers: std::collections::HashMap<String, String>,
+    pub raw_headers: Vec<HttpHeader>, //TODO: rename to headers_raw
     /// HTTP status code
     pub status_code: Option<u16>,
 }
