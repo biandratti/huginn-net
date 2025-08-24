@@ -30,11 +30,11 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 
 ### Network Stack analysis supported by Huginn Net (OSI Model)
 
-| Layer | Protocol / Feature        | Huginn Net Analysis          |
-|-------|---------------------------|------------------------------|
-| 7     | TLS                       | JA4 (FoxIO-style)            |
-| 7     | HTTP                      | Headers, User-Agent, Lang    |
-| 4     | TCP                       | OS Fingerprinting (p0f-style)|
+| Layer | Protocol / Feature        | Huginn Net Analysis                         |
+|-------|---------------------------|---------------------------------------------|
+| 7     | TLS                       | JA4 (FoxIO-style)                           |
+| 7     | HTTP                      | HTTP/1 & HTTP/2 - Headers, User-Agent, Lang |
+| 4     | TCP                       | OS Fingerprinting (p0f-style)               |
 
 
 
@@ -51,7 +51,7 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 ### Installation
 ```toml
 [dependencies]
-huginn-net = "1.4.2"
+huginn-net = "1.4.3"
 ```
 
 ###  Examples & Tutorials:
