@@ -134,10 +134,41 @@ mod tests {
             pclass: PayloadSize::Zero,
         };
 
+        //sig: "4:57+7:0:1460:65535,9:mss,sok,ts,nop,ws:df,id+:0"
+        let android_signature_with_distance = ObservableTcp {
+            version: IpVersion::V4,
+            ittl: Ttl::Distance(67,7),
+            olen: 0,
+            mss: Some(1460),
+            wsize: WindowSize::Value(65535),
+            wscale: Some(9),
+            olayout: vec![
+                TcpOption::Mss,
+                TcpOption::Sok,
+                TcpOption::TS,
+                TcpOption::Nop,
+                TcpOption::Ws,
+            ],
+            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            pclass: PayloadSize::Zero,
+        };
+
         let matcher = SignatureMatcher::new(db);
 
         if let Some((label, _matched_db_sig, quality)) =
             matcher.matching_by_tcp_request(&android_signature)
+        {
+            assert_eq!(label.name, "Linux");
+            assert_eq!(label.class, Some("unix".to_string()));
+            assert_eq!(label.flavor, Some("Android".to_string()));
+            assert_eq!(label.ty, Type::Specified);
+            assert_eq!(quality, 1.0);
+        } else {
+            panic!("No match found");
+        }
+
+        if let Some((label, _matched_db_sig, quality)) =
+            matcher.matching_by_tcp_request(&android_signature_with_distance)
         {
             assert_eq!(label.name, "Linux");
             assert_eq!(label.class, Some("unix".to_string()));
