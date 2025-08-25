@@ -12,6 +12,8 @@ fn guess_distance(ttl: u8) -> u8 {
     }
 }
 
+const MAX_HOPS_ACCEPTABLE: u8 = 30;
+
 /// Calculate TTL using the Known TTL values from common operating systems
 /// TTL_WINDOWS: u8 = 128; // Windows typically uses 128
 /// TTL_LINUX: u8 = 64; // Linux typically uses 64
@@ -24,11 +26,11 @@ fn guess_distance(ttl: u8) -> u8 {
 /// 1. Guess the distance from the observed ttl
 /// 2. Determine the likely initial ttl based on the observed ttl range
 /// 3. If ttl_observed is 0, return Ttl::Bad(0)
-/// 4. If the distance is reasonable (e.g., <= 30 hops), consider it a valid distance calculation
+/// 4. If the distance is reasonable (e.g., <= MAX_HOPS_ACCEPTABLE hops), consider it a valid distance calculation
 /// 5. If the ttl doesn't match common patterns, classify it as Ttl::Value (raw ttl)
 pub fn calculate_ttl(ttl_observed: u8) -> Ttl {
     if ttl_observed == 0 {
-        return Ttl::Bad(ttl_observed); // Bad TTL value
+        return Ttl::Bad(ttl_observed);
     }
 
     let distance = guess_distance(ttl_observed);
@@ -43,7 +45,7 @@ pub fn calculate_ttl(ttl_observed: u8) -> Ttl {
         32
     };
 
-    if distance <= 30 {
+    if distance <= MAX_HOPS_ACCEPTABLE {
         Ttl::Distance(initial_ttl, distance)
     } else {
         Ttl::Value(ttl_observed)
