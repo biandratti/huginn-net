@@ -556,7 +556,7 @@ impl<'a> Http2Parser<'a> {
                                 position,
                             });
                         }
-                        position += 1;
+                        position = position.saturating_add(1);
                     }
                 }
             }
@@ -1032,8 +1032,7 @@ mod tests {
             assert_eq!(
                 cookies.len(),
                 expected_count,
-                "Failed for case: '{}'",
-                cookie_str
+                "Failed for case: '{cookie_str}'"
             );
 
             match cookie_str {

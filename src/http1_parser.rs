@@ -941,8 +941,7 @@ mod tests {
             assert_eq!(
                 cookies.len(),
                 expected_count,
-                "Failed for case: '{}'",
-                cookie_str
+                "Failed for case: '{cookie_str}'"
             );
 
             match cookie_str {
@@ -1026,8 +1025,7 @@ mod tests {
             assert_eq!(
                 cookies.len(),
                 expected_cookies.len(),
-                "Failed for RFC case: '{}'",
-                cookie_str
+                "Failed for RFC case: '{cookie_str}'"
             );
 
             for (i, (expected_name, expected_value)) in expected_cookies.iter().enumerate() {
