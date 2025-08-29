@@ -404,6 +404,7 @@ impl Http1Parser {
         Ok((headers, metadata))
     }
 
+    /// HTTP/1.x cookie parsing - single cookie header with '; ' separation according to RFC 6265
     fn parse_cookies(&self, cookie_header: &str) -> Vec<HttpCookie> {
         let mut cookies = Vec::new();
 

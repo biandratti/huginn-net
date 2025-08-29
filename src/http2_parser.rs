@@ -232,11 +232,7 @@ impl<'a> Http2Parser<'a> {
             }
         }
 
-        let cookies = if let Some(cookie_header) = headers_map.get("cookie") {
-            self.parse_cookies(cookie_header)
-        } else {
-            Vec::new()
-        };
+        let cookies = self.parse_cookies_http2(&stream.headers);
 
         let metadata = ParsingMetadata {
             header_count: stream.headers.len(),
@@ -523,35 +519,46 @@ impl<'a> Http2Parser<'a> {
         settings
     }
 
-    fn parse_cookies(&self, cookie_header: &str) -> Vec<HttpCookie> {
+    /// HTTP/2 cookie parsing - handles multiple cookie headers according to RFC 7540
+    fn parse_cookies_http2(&self, headers: &[HttpHeader]) -> Vec<HttpCookie> {
         let mut cookies = Vec::new();
+        let mut position = 0;
 
-        for (position, cookie_str) in cookie_header.split(';').enumerate() {
-            let cookie_str = cookie_str.trim();
-            if cookie_str.is_empty() {
-                continue;
-            }
+        // Get all cookie headers (HTTP/2 can have multiple)
+        for header in headers {
+            if header.name.to_lowercase() == "cookie" {
+                if let Some(ref cookie_value) = header.value {
+                    // Each cookie header can still contain multiple cookies separated by '; '
+                    for cookie_str in cookie_value.split(';') {
+                        let cookie_str = cookie_str.trim();
+                        if cookie_str.is_empty() {
+                            continue;
+                        }
 
-            if let Some(eq_pos) = cookie_str.find('=') {
-                let name = cookie_str[..eq_pos].trim().to_string();
-                let value = Some(
-                    cookie_str
-                        .get(eq_pos.saturating_add(1)..)
-                        .unwrap_or("")
-                        .trim()
-                        .to_string(),
-                );
-                cookies.push(HttpCookie {
-                    name,
-                    value,
-                    position,
-                });
-            } else {
-                cookies.push(HttpCookie {
-                    name: cookie_str.to_string(),
-                    value: None,
-                    position,
-                });
+                        if let Some(eq_pos) = cookie_str.find('=') {
+                            let name = cookie_str[..eq_pos].trim().to_string();
+                            let value = Some(
+                                cookie_str
+                                    .get(eq_pos.saturating_add(1)..)
+                                    .unwrap_or("")
+                                    .trim()
+                                    .to_string(),
+                            );
+                            cookies.push(HttpCookie {
+                                name,
+                                value,
+                                position,
+                            });
+                        } else {
+                            cookies.push(HttpCookie {
+                                name: cookie_str.to_string(),
+                                value: None,
+                                position,
+                            });
+                        }
+                        position += 1;
+                    }
+                }
             }
         }
 
@@ -994,25 +1001,126 @@ mod tests {
 
     #[test]
     fn test_cookie_parsing_edge_cases() {
+        use crate::http_common::HttpHeader;
         let parser = Http2Parser::new();
 
         let test_cases = vec![
-            "",                       // Empty
-            "name=value",             // Simple
-            "name=",                  // Empty value
-            "name",                   // No value
-            "name=value; other=test", // Multiple
-            "  name  =  value  ",     // Whitespace
-            "name=value;",            // Trailing semicolon
-            ";name=value",            // Leading semicolon
-            "name=value;;other=test", // Double semicolon
+            ("", 0),
+            ("name=value", 1),
+            ("name=", 1),
+            ("name", 1),
+            ("name=value; other=test", 2),
+            ("  name  =  value  ", 1),
+            ("name=value;", 1),
+            (";name=value", 1),
+            ("name=value;;other=test", 2),
         ];
 
-        for cookie_str in test_cases {
-            let cookies = parser.parse_cookies(cookie_str);
-            // Should not panic and return reasonable results
-            assert!(cookies.len() <= cookie_str.split(';').count());
+        for (cookie_str, expected_count) in test_cases {
+            let headers = vec![HttpHeader {
+                name: "cookie".to_string(),
+                value: if cookie_str.is_empty() {
+                    None
+                } else {
+                    Some(cookie_str.to_string())
+                },
+                position: 0,
+                source: crate::http_common::HeaderSource::Http2Header,
+            }];
+
+            let cookies = parser.parse_cookies_http2(&headers);
+            assert_eq!(
+                cookies.len(),
+                expected_count,
+                "Failed for case: '{}'",
+                cookie_str
+            );
+
+            // Validate specific cases
+            match cookie_str {
+                "" => {
+                    assert!(cookies.is_empty());
+                }
+                "name=value" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                }
+                "name=" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("".to_string()));
+                }
+                "name" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, None);
+                }
+                "name=value; other=test" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[1].name, "other");
+                    assert_eq!(cookies[1].value, Some("test".to_string()));
+                }
+                "  name  =  value  " => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                }
+                "name=value;" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                }
+                ";name=value" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                }
+                "name=value;;other=test" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[1].name, "other");
+                    assert_eq!(cookies[1].value, Some("test".to_string()));
+                }
+                _ => {}
+            }
         }
+    }
+
+    #[test]
+    fn test_multiple_cookie_headers_http2() {
+        use crate::http_common::HttpHeader;
+        let parser = Http2Parser::new();
+
+        // HTTP/2 can have multiple cookie headers according to RFC 7540
+        let headers = vec![
+            HttpHeader {
+                name: "cookie".to_string(),
+                value: Some("session_id=abc123".to_string()),
+                position: 0,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: "cookie".to_string(),
+                value: Some("user_id=456".to_string()),
+                position: 1,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: "cookie".to_string(),
+                value: Some("theme=dark; lang=en".to_string()),
+                position: 2,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+        ];
+
+        let cookies = parser.parse_cookies_http2(&headers);
+
+        // Should get all 4 cookies: session_id, user_id, theme, lang
+        assert_eq!(cookies.len(), 4);
+        assert_eq!(cookies[0].name, "session_id");
+        assert_eq!(cookies[0].value, Some("abc123".to_string()));
+        assert_eq!(cookies[1].name, "user_id");
+        assert_eq!(cookies[1].value, Some("456".to_string()));
+        assert_eq!(cookies[2].name, "theme");
+        assert_eq!(cookies[2].value, Some("dark".to_string()));
+        assert_eq!(cookies[3].name, "lang");
+        assert_eq!(cookies[3].value, Some("en".to_string()));
     }
 
     #[test]
