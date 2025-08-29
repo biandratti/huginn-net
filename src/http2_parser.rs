@@ -1036,7 +1036,6 @@ mod tests {
                 cookie_str
             );
 
-            // Validate specific cases
             match cookie_str {
                 "" => {
                     assert!(cookies.is_empty());
@@ -1111,7 +1110,6 @@ mod tests {
 
         let cookies = parser.parse_cookies_http2(&headers);
 
-        // Should get all 4 cookies: session_id, user_id, theme, lang
         assert_eq!(cookies.len(), 4);
         assert_eq!(cookies[0].name, "session_id");
         assert_eq!(cookies[0].value, Some("abc123".to_string()));

@@ -921,6 +921,124 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_cookies_direct() {
+        let parser = Http1Parser::new();
+
+        let test_cases = vec![
+            ("", 0),
+            ("name=value", 1),
+            ("name=", 1),
+            ("name", 1),
+            ("name=value; other=test", 2),
+            ("  name  =  value  ", 1),
+            ("name=value;", 1),
+            (";name=value", 1),
+            ("name=value;;other=test", 2),
+        ];
+
+        for (cookie_str, expected_count) in test_cases {
+            let cookies = parser.parse_cookies(cookie_str);
+            assert_eq!(
+                cookies.len(),
+                expected_count,
+                "Failed for case: '{}'",
+                cookie_str
+            );
+
+            match cookie_str {
+                "" => {
+                    assert!(cookies.is_empty());
+                }
+                "name=value" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, None);
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=value; other=test" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                    assert_eq!(cookies[1].name, "other");
+                    assert_eq!(cookies[1].value, Some("test".to_string()));
+                    assert_eq!(cookies[1].position, 1);
+                }
+                "  name  =  value  " => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=value;" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                ";name=value" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=value;;other=test" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                    assert_eq!(cookies[1].name, "other");
+                    assert_eq!(cookies[1].value, Some("test".to_string()));
+                    assert_eq!(cookies[1].position, 1);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_cookies_rfc6265_compliance() {
+        let parser = Http1Parser::new();
+
+        // RFC 6265 examples - HTTP/1.x single cookie header format
+        let rfc_cases = vec![
+            (
+                "session_id=abc123; user_id=456; theme=dark; lang=en",
+                vec![
+                    ("session_id", Some("abc123")),
+                    ("user_id", Some("456")),
+                    ("theme", Some("dark")),
+                    ("lang", Some("en")),
+                ],
+            ),
+            (
+                "token=xyz; secure; httponly",
+                vec![("token", Some("xyz")), ("secure", None), ("httponly", None)],
+            ),
+        ];
+
+        for (cookie_str, expected_cookies) in rfc_cases {
+            let cookies = parser.parse_cookies(cookie_str);
+            assert_eq!(
+                cookies.len(),
+                expected_cookies.len(),
+                "Failed for RFC case: '{}'",
+                cookie_str
+            );
+
+            for (i, (expected_name, expected_value)) in expected_cookies.iter().enumerate() {
+                assert_eq!(cookies[i].name, *expected_name);
+                assert_eq!(cookies[i].value, expected_value.map(|v| v.to_string()));
+                assert_eq!(cookies[i].position, i);
+            }
+        }
+    }
+
+    #[test]
     fn test_header_value_edge_cases() {
         let parser = Http1Parser::new();
 
