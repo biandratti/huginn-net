@@ -174,7 +174,6 @@ pub enum WindowSize {
 }
 
 impl WindowSize {
-    // Function to calculate the distance between two window sizes
     pub fn distance_window_size(&self, other: &WindowSize, mss: Option<u16>) -> Option<u32> {
         match (self, other) {
             (WindowSize::Mss(a), WindowSize::Mss(b)) => {
@@ -311,5 +310,149 @@ impl PayloadSize {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_ttl_value_same() {
+        let ttl1 = Ttl::Value(64);
+        let ttl2 = Ttl::Value(64);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_value_different() {
+        let ttl1 = Ttl::Value(64);
+        let ttl2 = Ttl::Value(128);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_distance_same() {
+        let ttl1 = Ttl::Distance(57, 7);
+        let ttl2 = Ttl::Distance(57, 7);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_distance_to_value_matching() {
+        let ttl1 = Ttl::Distance(57, 7);
+        let ttl2 = Ttl::Value(64);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_distance_to_value_non_matching() {
+        let ttl1 = Ttl::Distance(57, 7);
+        let ttl2 = Ttl::Value(128);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_distance_overflow_protection() {
+        let ttl1 = Ttl::Distance(57, 7);
+        let ttl2 = Ttl::Value(64);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_guess_same() {
+        let ttl1 = Ttl::Guess(64);
+        let ttl2 = Ttl::Guess(64);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_guess_different() {
+        let ttl1 = Ttl::Guess(64);
+        let ttl2 = Ttl::Guess(128);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_bad_same() {
+        let ttl1 = Ttl::Bad(0);
+        let ttl2 = Ttl::Bad(0);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_bad_different() {
+        let ttl1 = Ttl::Bad(0);
+        let ttl2 = Ttl::Bad(1);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_guess_to_value_same() {
+        let ttl1 = Ttl::Guess(64);
+        let ttl2 = Ttl::Value(64);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_guess_to_value_different() {
+        let ttl1 = Ttl::Guess(64);
+        let ttl2 = Ttl::Value(128);
+        assert_eq!(
+            ttl1.distance_ttl(&ttl2),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_incompatible_types() {
+        let ttl1 = Ttl::Value(64);
+        let ttl2 = Ttl::Distance(64, 7);
+        assert_eq!(ttl1.distance_ttl(&ttl2), None);
+
+        let ttl1 = Ttl::Value(64);
+        let ttl2 = Ttl::Guess(64);
+        assert_eq!(ttl1.distance_ttl(&ttl2), None);
+
+        let ttl1 = Ttl::Distance(64, 7);
+        let ttl2 = Ttl::Guess(64);
+        assert_eq!(ttl1.distance_ttl(&ttl2), None);
+
+        let ttl1 = Ttl::Bad(0);
+        let ttl2 = Ttl::Value(64);
+        assert_eq!(ttl1.distance_ttl(&ttl2), None);
     }
 }

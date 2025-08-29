@@ -137,7 +137,7 @@ mod tests {
         //sig: "4:57+7:0:1460:65535,9:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature_with_distance = ObservableTcp {
             version: IpVersion::V4,
-            ittl: Ttl::Distance(67,7),
+            ittl: Ttl::Distance(57, 7),
             olen: 0,
             mss: Some(1460),
             wsize: WindowSize::Value(65535),
