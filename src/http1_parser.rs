@@ -35,6 +35,7 @@ pub struct Http1Request {
     pub version: http::Version,
     pub headers: Vec<HttpHeader>,
     pub cookies: Vec<HttpCookie>,
+    pub referer: Option<String>,
     pub content_length: Option<usize>,
     pub transfer_encoding: Option<String>,
     pub connection: Option<String>,
@@ -160,20 +161,37 @@ impl Http1Parser {
             .unwrap_or(lines.len());
 
         let header_lines = &lines[1..header_end];
-        let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
+        let (all_headers, parsing_metadata) = self.parse_headers(header_lines)?;
 
+        let mut headers = Vec::new();
         let mut headers_map = HashMap::new();
-        for header in &headers {
-            if let Some(ref value) = header.value {
-                headers_map
-                    .entry(header.name.to_lowercase())
-                    .or_insert(value.clone());
+        let mut cookie_header_value: Option<String> = None;
+        let mut referer: Option<String> = None;
+
+        for header in all_headers {
+            let header_name_lower = header.name.to_lowercase();
+
+            if header_name_lower == "cookie" {
+                if let Some(ref value) = header.value {
+                    cookie_header_value = Some(value.clone());
+                }
+            } else if header_name_lower == "referer" {
+                if let Some(ref value) = header.value {
+                    referer = Some(value.clone());
+                }
+            } else {
+                if let Some(ref value) = header.value {
+                    headers_map
+                        .entry(header_name_lower)
+                        .or_insert(value.clone());
+                }
+                headers.push(header);
             }
         }
 
         let cookies = if self.config.parse_cookies {
-            if let Some(cookie_header) = headers_map.get("cookie") {
-                self.parse_cookies(cookie_header)
+            if let Some(cookie_header) = cookie_header_value {
+                self.parse_cookies(&cookie_header)
             } else {
                 Vec::new()
             }
@@ -197,6 +215,7 @@ impl Http1Parser {
             version,
             headers,
             cookies,
+            referer,
             content_length,
             transfer_encoding: headers_map.get("transfer-encoding").cloned(),
             connection: headers_map.get("connection").cloned(),
@@ -600,6 +619,72 @@ mod tests {
         assert_eq!(request.cookies[0].value, Some("value1".to_string()));
         assert_eq!(request.cookies[1].name, "name2");
         assert_eq!(request.cookies[1].value, Some("value2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_request_with_referer() {
+        let parser = Http1Parser::new();
+        let data = b"GET /page HTTP/1.1\r\nHost: example.com\r\nReferer: https://google.com/search\r\nUser-Agent: test-browser\r\n\r\n";
+
+        let request = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.uri, "/page");
+        assert_eq!(request.host, Some("example.com".to_string()));
+        assert_eq!(
+            request.referer,
+            Some("https://google.com/search".to_string())
+        );
+        assert_eq!(request.user_agent, Some("test-browser".to_string()));
+    }
+
+    #[test]
+    fn test_parse_request_without_referer() {
+        let parser = Http1Parser::new();
+        let data = b"GET /page HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test-browser\r\n\r\n";
+
+        let request = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.uri, "/page");
+        assert_eq!(request.host, Some("example.com".to_string()));
+        assert_eq!(request.referer, None);
+        assert_eq!(request.user_agent, Some("test-browser".to_string()));
+    }
+
+    #[test]
+    fn test_cookie_and_referer_excluded_from_headers_list() {
+        let parser = Http1Parser::new();
+        let data = b"GET /page HTTP/1.1\r\nHost: example.com\r\nCookie: session=abc123\r\nReferer: https://google.com\r\nUser-Agent: test-browser\r\nAccept: text/html\r\n\r\n";
+
+        let request = unwrap_parser_result(parser.parse_request(data));
+
+        // Verify cookie and referer are extracted to their own fields
+        assert_eq!(request.cookies.len(), 1);
+        assert_eq!(request.cookies[0].name, "session");
+        assert_eq!(request.cookies[0].value, Some("abc123".to_string()));
+        assert_eq!(request.referer, Some("https://google.com".to_string()));
+
+        // Verify cookie and referer are NOT in the headers list
+        let header_names: Vec<String> = request
+            .headers
+            .iter()
+            .map(|h| h.name.to_lowercase())
+            .collect();
+        assert!(
+            !header_names.contains(&"cookie".to_string()),
+            "Cookie header should not be in headers list"
+        );
+        assert!(
+            !header_names.contains(&"referer".to_string()),
+            "Referer header should not be in headers list"
+        );
+
+        // Verify other headers are still present
+        assert!(header_names.contains(&"host".to_string()));
+        assert!(header_names.contains(&"user-agent".to_string()));
+        assert!(header_names.contains(&"accept".to_string()));
+
+        // Total headers should be 3 (host, user-agent, accept) not 5
+        assert_eq!(request.headers.len(), 3);
     }
 
     #[test]

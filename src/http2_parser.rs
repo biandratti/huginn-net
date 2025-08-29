@@ -101,6 +101,7 @@ pub struct Http2Request {
     pub version: http::Version,
     pub headers: Vec<HttpHeader>,
     pub cookies: Vec<HttpCookie>,
+    pub referer: Option<String>,
     pub stream_id: u32,
     pub parsing_metadata: ParsingMetadata,
     pub frame_sequence: Vec<Http2FrameType>,
@@ -225,24 +226,37 @@ impl<'a> Http2Parser<'a> {
         let frame_sequence: Vec<Http2FrameType> =
             frames.iter().map(|f| f.frame_type.clone()).collect();
 
+        let cookies = self.parse_cookies_http2(&stream.headers);
+
+        let mut headers = Vec::new();
         let mut headers_map = HashMap::new();
-        for header in &stream.headers {
-            if let Some(ref value) = header.value {
-                headers_map.insert(header.name.to_lowercase(), value.clone());
+        let mut referer: Option<String> = None;
+
+        for header in stream.headers {
+            let header_name_lower = header.name.to_lowercase();
+
+            if header_name_lower == "cookie" {
+                continue;
+            } else if header_name_lower == "referer" {
+                if let Some(ref value) = header.value {
+                    referer = Some(value.clone());
+                }
+            } else {
+                if let Some(ref value) = header.value {
+                    headers_map.insert(header_name_lower, value.clone());
+                }
+                headers.push(header);
             }
         }
 
-        let cookies = self.parse_cookies_http2(&stream.headers);
-
         let metadata = ParsingMetadata {
-            header_count: stream.headers.len(),
+            header_count: headers.len(),
             duplicate_headers: Vec::new(),
             case_variations: HashMap::new(),
             parsing_time_ns: parsing_time,
             has_malformed_headers: false,
             request_line_length: 0,
-            total_headers_length: stream
-                .headers
+            total_headers_length: headers
                 .iter()
                 .map(|h| {
                     h.name
@@ -258,8 +272,9 @@ impl<'a> Http2Parser<'a> {
             authority: stream.authority,
             scheme: stream.scheme,
             version: http::Version::V20,
-            headers: stream.headers,
+            headers,
             cookies,
+            referer,
             stream_id,
             parsing_metadata: metadata,
             frame_sequence,
@@ -519,6 +534,7 @@ impl<'a> Http2Parser<'a> {
         settings
     }
 
+    //TODO: WIP: Analize split in one itteration
     /// HTTP/2 cookie parsing - handles multiple cookie headers according to RFC 7540
     fn parse_cookies_http2(&self, headers: &[HttpHeader]) -> Vec<HttpCookie> {
         let mut cookies = Vec::new();
@@ -1546,5 +1562,103 @@ mod tests {
         match result {
             Ok(_) | Err(_) => {} // Both outcomes acceptable
         }
+    }
+
+    #[test]
+    fn test_cookie_and_referer_excluded_from_headers_list_http2() {
+        use crate::http_common::HttpHeader;
+        let parser = Http2Parser::new();
+
+        // Create HTTP/2 headers including cookie and referer
+        let headers = vec![
+            HttpHeader {
+                name: ":method".to_string(),
+                value: Some("GET".to_string()),
+                position: 0,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: ":path".to_string(),
+                value: Some("/page".to_string()),
+                position: 1,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: ":authority".to_string(),
+                value: Some("example.com".to_string()),
+                position: 2,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: "cookie".to_string(),
+                value: Some("session=abc123".to_string()),
+                position: 3,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: "referer".to_string(),
+                value: Some("https://google.com".to_string()),
+                position: 4,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: "user-agent".to_string(),
+                value: Some("test-browser".to_string()),
+                position: 5,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+            HttpHeader {
+                name: "accept".to_string(),
+                value: Some("text/html".to_string()),
+                position: 6,
+                source: crate::http_common::HeaderSource::Http2Header,
+            },
+        ];
+
+        let cookies = parser.parse_cookies_http2(&headers);
+
+        assert_eq!(cookies.len(), 1);
+        assert_eq!(cookies[0].name, "session");
+        assert_eq!(cookies[0].value, Some("abc123".to_string()));
+
+        let mut filtered_headers = Vec::new();
+        let mut referer_found: Option<String> = None;
+
+        for header in headers {
+            let header_name_lower = header.name.to_lowercase();
+
+            if header_name_lower == "cookie" {
+                continue;
+            } else if header_name_lower == "referer" {
+                if let Some(ref value) = header.value {
+                    referer_found = Some(value.clone());
+                }
+            } else {
+                filtered_headers.push(header);
+            }
+        }
+
+        assert_eq!(referer_found, Some("https://google.com".to_string()));
+
+        let header_names: Vec<String> = filtered_headers
+            .iter()
+            .map(|h| h.name.to_lowercase())
+            .collect();
+        assert!(
+            !header_names.contains(&"cookie".to_string()),
+            "Cookie header should not be in headers list"
+        );
+        assert!(
+            !header_names.contains(&"referer".to_string()),
+            "Referer header should not be in headers list"
+        );
+
+        assert!(header_names.contains(&":method".to_string()));
+        assert!(header_names.contains(&":path".to_string()));
+        assert!(header_names.contains(&":authority".to_string()));
+        assert!(header_names.contains(&"user-agent".to_string()));
+        assert!(header_names.contains(&"accept".to_string()));
+
+        assert_eq!(filtered_headers.len(), 5);
     }
 }

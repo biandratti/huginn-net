@@ -280,6 +280,7 @@ mod tests {
             version: http::Version::V20,
             headers: vec![],
             cookies: vec![],
+            referer: None,
             stream_id: 1,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 0,
@@ -741,6 +742,7 @@ mod frame_detection_tests {
                 value: Some("abc123".to_string()),
                 position: 1,
             }],
+            referer: Some("https://example.com/previous".to_string()),
             stream_id: 3,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 1,
