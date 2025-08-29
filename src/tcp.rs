@@ -145,6 +145,20 @@ impl Ttl {
                     Some(TcpMatchQuality::Low.as_score())
                 }
             }
+            (Ttl::Value(a), Ttl::Distance(b1, b2)) => {
+                if *a == b1.saturating_add(*b2) {
+                    Some(TcpMatchQuality::High.as_score())
+                } else {
+                    Some(TcpMatchQuality::Low.as_score())
+                }
+            }
+            (Ttl::Value(a), Ttl::Guess(b)) => {
+                if a == b {
+                    Some(TcpMatchQuality::High.as_score())
+                } else {
+                    Some(TcpMatchQuality::Low.as_score())
+                }
+            }
             _ => None,
         }
     }
@@ -318,141 +332,61 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_distance_ttl_value_same() {
-        let ttl1 = Ttl::Value(64);
-        let ttl2 = Ttl::Value(64);
+    fn test_distance_ttl_matching_cases() {
         assert_eq!(
-            ttl1.distance_ttl(&ttl2),
+            Ttl::Value(64).distance_ttl(&Ttl::Value(64)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Distance(57, 7).distance_ttl(&Ttl::Distance(57, 7)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Distance(57, 7).distance_ttl(&Ttl::Value(64)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Guess(64).distance_ttl(&Ttl::Value(64)),
             Some(TcpMatchQuality::High.as_score())
         );
     }
 
     #[test]
-    fn test_distance_ttl_value_different() {
-        let ttl1 = Ttl::Value(64);
-        let ttl2 = Ttl::Value(128);
+    fn test_distance_ttl_non_matching_cases() {
         assert_eq!(
-            ttl1.distance_ttl(&ttl2),
+            Ttl::Value(64).distance_ttl(&Ttl::Value(128)),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+        assert_eq!(
+            Ttl::Distance(57, 7).distance_ttl(&Ttl::Value(128)),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+        assert_eq!(
+            Ttl::Bad(0).distance_ttl(&Ttl::Bad(1)),
             Some(TcpMatchQuality::Low.as_score())
         );
     }
 
     #[test]
-    fn test_distance_ttl_distance_same() {
-        let ttl1 = Ttl::Distance(57, 7);
-        let ttl2 = Ttl::Distance(57, 7);
+    fn test_distance_ttl_additional_cases() {
         assert_eq!(
-            ttl1.distance_ttl(&ttl2),
+            Ttl::Value(64).distance_ttl(&Ttl::Distance(57, 7)),
             Some(TcpMatchQuality::High.as_score())
         );
-    }
-
-    #[test]
-    fn test_distance_ttl_distance_to_value_matching() {
-        let ttl1 = Ttl::Distance(57, 7);
-        let ttl2 = Ttl::Value(64);
         assert_eq!(
-            ttl1.distance_ttl(&ttl2),
+            Ttl::Value(64).distance_ttl(&Ttl::Guess(64)),
             Some(TcpMatchQuality::High.as_score())
         );
-    }
-
-    #[test]
-    fn test_distance_ttl_distance_to_value_non_matching() {
-        let ttl1 = Ttl::Distance(57, 7);
-        let ttl2 = Ttl::Value(128);
         assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::Low.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_distance_overflow_protection() {
-        let ttl1 = Ttl::Distance(57, 7);
-        let ttl2 = Ttl::Value(64);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::High.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_guess_same() {
-        let ttl1 = Ttl::Guess(64);
-        let ttl2 = Ttl::Guess(64);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::High.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_guess_different() {
-        let ttl1 = Ttl::Guess(64);
-        let ttl2 = Ttl::Guess(128);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::Low.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_bad_same() {
-        let ttl1 = Ttl::Bad(0);
-        let ttl2 = Ttl::Bad(0);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::High.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_bad_different() {
-        let ttl1 = Ttl::Bad(0);
-        let ttl2 = Ttl::Bad(1);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::Low.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_guess_to_value_same() {
-        let ttl1 = Ttl::Guess(64);
-        let ttl2 = Ttl::Value(64);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
-            Some(TcpMatchQuality::High.as_score())
-        );
-    }
-
-    #[test]
-    fn test_distance_ttl_guess_to_value_different() {
-        let ttl1 = Ttl::Guess(64);
-        let ttl2 = Ttl::Value(128);
-        assert_eq!(
-            ttl1.distance_ttl(&ttl2),
+            Ttl::Value(64).distance_ttl(&Ttl::Distance(60, 7)),
             Some(TcpMatchQuality::Low.as_score())
         );
     }
 
     #[test]
     fn test_distance_ttl_incompatible_types() {
-        let ttl1 = Ttl::Value(64);
-        let ttl2 = Ttl::Distance(64, 7);
-        assert_eq!(ttl1.distance_ttl(&ttl2), None);
-
-        let ttl1 = Ttl::Value(64);
-        let ttl2 = Ttl::Guess(64);
-        assert_eq!(ttl1.distance_ttl(&ttl2), None);
-
-        let ttl1 = Ttl::Distance(64, 7);
-        let ttl2 = Ttl::Guess(64);
-        assert_eq!(ttl1.distance_ttl(&ttl2), None);
-
-        let ttl1 = Ttl::Bad(0);
-        let ttl2 = Ttl::Value(64);
-        assert_eq!(ttl1.distance_ttl(&ttl2), None);
+        assert_eq!(Ttl::Bad(0).distance_ttl(&Ttl::Value(64)), None);
+        assert_eq!(Ttl::Distance(64, 7).distance_ttl(&Ttl::Bad(0)), None);
+        assert_eq!(Ttl::Guess(64).distance_ttl(&Ttl::Distance(64, 7)), None);
     }
 }
