@@ -145,6 +145,20 @@ impl Ttl {
                     Some(TcpMatchQuality::Low.as_score())
                 }
             }
+            (Ttl::Value(a), Ttl::Distance(b1, b2)) => {
+                if *a == b1.saturating_add(*b2) {
+                    Some(TcpMatchQuality::High.as_score())
+                } else {
+                    Some(TcpMatchQuality::Low.as_score())
+                }
+            }
+            (Ttl::Value(a), Ttl::Guess(b)) => {
+                if a == b {
+                    Some(TcpMatchQuality::High.as_score())
+                } else {
+                    Some(TcpMatchQuality::Low.as_score())
+                }
+            }
             _ => None,
         }
     }
@@ -174,7 +188,6 @@ pub enum WindowSize {
 }
 
 impl WindowSize {
-    // Function to calculate the distance between two window sizes
     pub fn distance_window_size(&self, other: &WindowSize, mss: Option<u16>) -> Option<u32> {
         match (self, other) {
             (WindowSize::Mss(a), WindowSize::Mss(b)) => {
@@ -311,5 +324,69 @@ impl PayloadSize {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_ttl_matching_cases() {
+        assert_eq!(
+            Ttl::Value(64).distance_ttl(&Ttl::Value(64)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Distance(57, 7).distance_ttl(&Ttl::Distance(57, 7)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Distance(57, 7).distance_ttl(&Ttl::Value(64)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Guess(64).distance_ttl(&Ttl::Value(64)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_non_matching_cases() {
+        assert_eq!(
+            Ttl::Value(64).distance_ttl(&Ttl::Value(128)),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+        assert_eq!(
+            Ttl::Distance(57, 7).distance_ttl(&Ttl::Value(128)),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+        assert_eq!(
+            Ttl::Bad(0).distance_ttl(&Ttl::Bad(1)),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_additional_cases() {
+        assert_eq!(
+            Ttl::Value(64).distance_ttl(&Ttl::Distance(57, 7)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Value(64).distance_ttl(&Ttl::Guess(64)),
+            Some(TcpMatchQuality::High.as_score())
+        );
+        assert_eq!(
+            Ttl::Value(64).distance_ttl(&Ttl::Distance(60, 7)),
+            Some(TcpMatchQuality::Low.as_score())
+        );
+    }
+
+    #[test]
+    fn test_distance_ttl_incompatible_types() {
+        assert_eq!(Ttl::Bad(0).distance_ttl(&Ttl::Value(64)), None);
+        assert_eq!(Ttl::Distance(64, 7).distance_ttl(&Ttl::Bad(0)), None);
+        assert_eq!(Ttl::Guess(64).distance_ttl(&Ttl::Distance(64, 7)), None);
     }
 }
