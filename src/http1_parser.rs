@@ -657,13 +657,11 @@ mod tests {
 
         let request = unwrap_parser_result(parser.parse_request(data));
 
-        // Verify cookie and referer are extracted to their own fields
         assert_eq!(request.cookies.len(), 1);
         assert_eq!(request.cookies[0].name, "session");
         assert_eq!(request.cookies[0].value, Some("abc123".to_string()));
         assert_eq!(request.referer, Some("https://google.com".to_string()));
 
-        // Verify cookie and referer are NOT in the headers list
         let header_names: Vec<String> = request
             .headers
             .iter()
@@ -678,12 +676,10 @@ mod tests {
             "Referer header should not be in headers list"
         );
 
-        // Verify other headers are still present
         assert!(header_names.contains(&"host".to_string()));
         assert!(header_names.contains(&"user-agent".to_string()));
         assert!(header_names.contains(&"accept".to_string()));
 
-        // Total headers should be 3 (host, user-agent, accept) not 5
         assert_eq!(request.headers.len(), 3);
     }
 
