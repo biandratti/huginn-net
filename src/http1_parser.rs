@@ -1,8 +1,5 @@
 use crate::http;
-use crate::http_common::{
-    HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
-    ParsingMetadata,
-};
+use crate::http_common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -102,29 +99,6 @@ impl std::error::Error for Http1ParseError {}
 ///
 /// **This parser is thread-safe.** Unlike the HTTP/2 parser, this parser does not maintain internal state
 /// and can be safely shared between threads or used concurrently.
-///
-/// # Example
-///
-/// ```rust
-/// use huginn_net::http1_parser::Http1Parser;
-///
-/// let parser = Http1Parser::new();
-/// // Can be used safely across multiple threads
-/// ```
-///
-/// # Security Features
-///
-/// The parser includes built-in protections against common attacks:
-/// - Request line length limits
-/// - Header count limits  
-/// - Individual header length limits
-/// - UTF-8 validation
-/// - Configurable strict parsing mode
-///
-/// # Performance
-///
-/// Optimized for high-throughput parsing with minimal allocations.
-/// Parsing metadata includes timing information for performance monitoring.
 pub struct Http1Parser {
     config: Http1Config,
 }
@@ -489,89 +463,6 @@ impl Http1Parser {
 impl Default for Http1Parser {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl HttpParser for Http1Parser {
-    type Request = Http1Request;
-    type Response = Http1Response;
-    type Error = Http1ParseError;
-
-    fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error> {
-        self.parse_request(data)
-    }
-
-    fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error> {
-        self.parse_response(data)
-    }
-
-    fn supported_version(&self) -> http::Version {
-        http::Version::V11
-    }
-
-    fn can_parse(&self, data: &[u8]) -> bool {
-        if data.len() < 8 {
-            return false;
-        }
-
-        // Check for HTTP/1.x patterns
-        let data_str = String::from_utf8_lossy(data);
-        let first_line = data_str.lines().next().unwrap_or("");
-
-        // Look for HTTP/1.x method patterns
-        let methods = [
-            "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE",
-        ];
-        methods.iter().any(|&method| first_line.starts_with(method))
-            || first_line.starts_with("HTTP/1.")
-    }
-}
-
-impl HttpRequestLike for Http1Request {
-    fn method(&self) -> &str {
-        &self.method
-    }
-
-    fn uri(&self) -> &str {
-        &self.uri
-    }
-
-    fn version(&self) -> http::Version {
-        self.version
-    }
-
-    fn headers(&self) -> &[HttpHeader] {
-        &self.headers
-    }
-
-    fn cookies(&self) -> &[HttpCookie] {
-        &self.cookies
-    }
-
-    fn metadata(&self) -> &ParsingMetadata {
-        &self.parsing_metadata
-    }
-
-    fn referer(&self) -> Option<&str> {
-        self.referer.as_deref()
-    }
-}
-
-impl HttpResponseLike for Http1Response {
-    fn status_code(&self) -> u16 {
-        self.status_code
-    }
-
-    fn version(&self) -> http::Version {
-        self.version
-    }
-
-    fn headers(&self) -> &[HttpHeader] {
-        &self.headers
-    }
-
-    fn metadata(&self) -> &ParsingMetadata {
-        &self.parsing_metadata
     }
 }
 
@@ -1201,22 +1092,33 @@ mod tests {
 
     #[test]
     fn test_can_parse_detection() {
-        let parser = Http1Parser::new();
+        use crate::http_process::HttpProcessors;
+        let processors = HttpProcessors::new();
 
-        // Valid HTTP/1.x requests
-        assert!(parser.can_parse(b"GET / HTTP/1.1\r\n"));
-        assert!(parser.can_parse(b"POST /api HTTP/1.0\r\n"));
-        assert!(parser.can_parse(b"PUT /data HTTP/1.1\r\n"));
+        // Valid HTTP/1.x requests - should be parseable
+        assert!(processors
+            .parse_request(b"GET / HTTP/1.1\r\n\r\n")
+            .is_some());
+        assert!(processors
+            .parse_request(b"POST /api HTTP/1.0\r\n\r\n")
+            .is_some());
+        assert!(processors
+            .parse_request(b"PUT /data HTTP/1.1\r\n\r\n")
+            .is_some());
 
-        // Valid HTTP/1.x responses
-        assert!(parser.can_parse(b"HTTP/1.1 200 OK\r\n"));
-        assert!(parser.can_parse(b"HTTP/1.0 404 Not Found\r\n"));
+        // Valid HTTP/1.x responses - should be parseable
+        assert!(processors
+            .parse_response(b"HTTP/1.1 200 OK\r\n\r\n")
+            .is_some());
+        assert!(processors
+            .parse_response(b"HTTP/1.0 404 Not Found\r\n\r\n")
+            .is_some());
 
-        // Invalid data
-        assert!(!parser.can_parse(b""));
-        assert!(!parser.can_parse(b"short"));
-        assert!(!parser.can_parse(b"INVALID DATA HERE"));
-        assert!(!parser.can_parse(b"PRI * HTTP/2.0\r\n")); // HTTP/2 preface
+        // Invalid data - should not be parseable
+        assert!(processors.parse_request(b"").is_none());
+        assert!(processors.parse_request(b"short").is_none());
+        assert!(processors.parse_request(b"INVALID DATA HERE").is_none());
+        assert!(processors.parse_request(b"PRI * HTTP/2.0\r\n").is_none()); // HTTP/2 preface
     }
 
     #[test]

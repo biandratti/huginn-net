@@ -1,8 +1,5 @@
 use crate::http;
-use crate::http_common::{
-    HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
-    ParsingMetadata,
-};
+use crate::http_common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
 use hpack_patched::Decoder;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -164,20 +161,6 @@ impl std::error::Error for Http2ParseError {}
 ///
 /// **This parser is NOT thread-safe.** Each thread should create its own instance.
 /// The internal HPACK decoder maintains state and uses `RefCell` for interior mutability.
-///
-/// # Example
-///
-/// ```rust
-/// use huginn_net::http2_parser::Http2Parser;
-///
-/// let parser = Http2Parser::new();
-/// // Use parser in single thread only
-/// ```
-///
-/// # Performance
-///
-/// The parser is optimized for single-threaded use with minimal allocations.
-/// HPACK state is preserved between parsing operations for efficiency.
 pub struct Http2Parser<'a> {
     config: Http2Config,
     hpack_decoder: RefCell<Decoder<'a>>,
@@ -577,76 +560,6 @@ impl<'a> Http2Parser<'a> {
         }
 
         cookies
-    }
-}
-
-impl<'a> HttpParser for Http2Parser<'a> {
-    type Request = Http2Request;
-    type Response = Http2Response;
-    type Error = Http2ParseError;
-
-    fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error> {
-        Http2Parser::parse_request(self, data)
-    }
-
-    fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error> {
-        Http2Parser::parse_response(self, data)
-    }
-
-    fn supported_version(&self) -> http::Version {
-        http::Version::V20
-    }
-
-    fn can_parse(&self, data: &[u8]) -> bool {
-        is_http2_traffic(data)
-    }
-}
-
-impl HttpRequestLike for Http2Request {
-    fn method(&self) -> &str {
-        &self.method
-    }
-
-    fn uri(&self) -> &str {
-        &self.path
-    }
-
-    fn version(&self) -> http::Version {
-        self.version
-    }
-
-    fn headers(&self) -> &[HttpHeader] {
-        &self.headers
-    }
-
-    fn cookies(&self) -> &[HttpCookie] {
-        &self.cookies
-    }
-
-    fn metadata(&self) -> &ParsingMetadata {
-        &self.parsing_metadata
-    }
-
-    fn referer(&self) -> Option<&str> {
-        self.referer.as_deref()
-    }
-}
-
-impl HttpResponseLike for Http2Response {
-    fn status_code(&self) -> u16 {
-        self.status
-    }
-
-    fn version(&self) -> http::Version {
-        self.version
-    }
-
-    fn headers(&self) -> &[HttpHeader] {
-        &self.headers
-    }
-
-    fn metadata(&self) -> &ParsingMetadata {
-        &self.parsing_metadata
     }
 }
 
