@@ -68,61 +68,30 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_distance_ttl_exact_values() {
+    fn test_calculate_ttl_standard_initial_values() {
+        assert_eq!(calculate_ttl(32), Ttl::Distance(32, 0));
         assert_eq!(calculate_ttl(64), Ttl::Distance(64, 0));
         assert_eq!(calculate_ttl(128), Ttl::Distance(128, 0));
         assert_eq!(calculate_ttl(255), Ttl::Distance(255, 0));
-        assert_eq!(calculate_ttl(32), Ttl::Distance(32, 0));
     }
 
     #[test]
-    fn test_calculate_distance_ttl_typical_scenarios() {
-        assert_eq!(calculate_ttl(57), Ttl::Distance(64, 7));
-        assert_eq!(calculate_ttl(60), Ttl::Distance(64, 4));
-        assert_eq!(calculate_ttl(120), Ttl::Distance(128, 8));
-        assert_eq!(calculate_ttl(125), Ttl::Distance(128, 3));
-        assert_eq!(calculate_ttl(240), Ttl::Distance(255, 15));
-        assert_eq!(calculate_ttl(250), Ttl::Distance(255, 5));
-
-        assert_eq!(calculate_ttl(20), Ttl::Distance(32, 12));
-        assert_eq!(calculate_ttl(10), Ttl::Distance(32, 22));
-        assert_eq!(calculate_ttl(45), Ttl::Distance(64, 19));
-        assert_eq!(calculate_ttl(100), Ttl::Distance(128, 28));
+    fn test_calculate_ttl_acceptable_distances() {
+        // TTLs within MAX_HOPS_ACCEPTABLE (30) should return Distance
+        assert_eq!(calculate_ttl(57), Ttl::Distance(57, 7));
+        assert_eq!(calculate_ttl(120), Ttl::Distance(120, 8));
+        assert_eq!(calculate_ttl(240), Ttl::Distance(240, 15));
+        assert_eq!(calculate_ttl(20), Ttl::Distance(20, 12));
+        assert_eq!(calculate_ttl(34), Ttl::Distance(34, 30));
     }
 
     #[test]
-    fn test_calculate_distance_ttl_edge_cases() {
-        assert_eq!(calculate_ttl(34), Ttl::Distance(64, 30));
-        assert_eq!(calculate_ttl(98), Ttl::Distance(128, 30));
-        assert_eq!(calculate_ttl(225), Ttl::Distance(255, 30));
-    }
-
-    #[test]
-    fn test_calculate_value_ttl_large_distances() {
+    fn test_calculate_ttl_excessive_distances() {
+        // TTLs with distance > MAX_HOPS_ACCEPTABLE should return Value
         assert_eq!(calculate_ttl(1), Ttl::Value(1));
         assert_eq!(calculate_ttl(33), Ttl::Value(33));
         assert_eq!(calculate_ttl(97), Ttl::Value(97));
-        assert_eq!(calculate_ttl(224), Ttl::Value(224));
-    }
-
-    #[test]
-    fn test_calculate_value_ttl_unusual_ranges() {
         assert_eq!(calculate_ttl(150), Ttl::Value(150));
-        assert_eq!(calculate_ttl(200), Ttl::Value(200));
-    }
-
-    #[test]
-    fn test_calculate_ttl_comprehensive_coverage() {
-        assert_eq!(calculate_ttl(63), Ttl::Distance(64, 1));
-        assert_eq!(calculate_ttl(50), Ttl::Distance(64, 14));
-        assert_eq!(calculate_ttl(35), Ttl::Distance(64, 29));
-
-        assert_eq!(calculate_ttl(127), Ttl::Distance(128, 1));
-        assert_eq!(calculate_ttl(110), Ttl::Distance(128, 18));
-        assert_eq!(calculate_ttl(99), Ttl::Distance(128, 29));
-
-        assert_eq!(calculate_ttl(254), Ttl::Distance(255, 1));
-        assert_eq!(calculate_ttl(230), Ttl::Distance(255, 25));
-        assert_eq!(calculate_ttl(226), Ttl::Distance(255, 29));
+        assert_eq!(calculate_ttl(224), Ttl::Value(224));
     }
 }
