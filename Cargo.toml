@@ -1,6 +1,6 @@
 [package]
 name = "huginn-net"
-version = "1.4.4"
+version = "1.4.5"
 edition = "2021"
 rust-version = "1.80"
 description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"

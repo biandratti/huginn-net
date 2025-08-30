@@ -51,7 +51,7 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 ### Installation
 ```toml
 [dependencies]
-huginn-net = "1.4.4"
+huginn-net = "1.4.5"
 ```
 
 ###  Examples & Tutorials:
