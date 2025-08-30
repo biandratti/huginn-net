@@ -32,21 +32,9 @@ pub fn calculate_ttl(ttl_observed: u8) -> Ttl {
     if ttl_observed == 0 {
         return Ttl::Bad(ttl_observed);
     }
-
     let distance = guess_distance(ttl_observed);
-
-    let initial_ttl = if ttl_observed > 128 {
-        255
-    } else if ttl_observed > 64 {
-        128
-    } else if ttl_observed > 32 {
-        64
-    } else {
-        32
-    };
-
     if distance <= MAX_HOPS_ACCEPTABLE {
-        Ttl::Distance(initial_ttl, distance)
+        Ttl::Distance(ttl_observed, distance)
     } else {
         Ttl::Value(ttl_observed)
     }
