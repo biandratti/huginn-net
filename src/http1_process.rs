@@ -163,8 +163,8 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(req.user_agent),
-        headers_raw: req.headers,
-        cookies_raw: req.cookies.clone(),
+        headers: req.headers,
+        cookies: req.cookies.clone(),
         referer: req.referer.clone(),
         method: Some(req.method),
         uri: Some(req.uri),
@@ -182,7 +182,7 @@ fn convert_http1_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        headers_raw: res.headers,
+        headers: res.headers,
         status_code: Some(res.status_code),
     }
 }

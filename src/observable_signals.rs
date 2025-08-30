@@ -56,16 +56,16 @@ pub struct ObservableHttpRequest {
     pub user_agent: Option<String>,
     /// HTTP version
     pub version: Version,
-    /// ordered list of headers that should appear in matching traffic.
+    /// ordered list of headers that should appear in matching traffic (p0f style).
     pub horder: Vec<Header>,
-    /// list of headers that must *not* appear in matching traffic.
+    /// list of headers that must *not* appear in matching traffic (p0f style).
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
-    /// Complete raw headers with all values for IP extraction and correlation
-    pub headers_raw: Vec<HttpHeader>,
-    /// Complete raw cookies with all values
-    pub cookies_raw: Vec<HttpCookie>,
+    /// All parsed HTTP headers with original order, position, and source information
+    pub headers: Vec<HttpHeader>,
+    /// All parsed HTTP cookies with names, values, and positions
+    pub cookies: Vec<HttpCookie>,
     /// Referer header value
     pub referer: Option<String>,
     /// HTTP method (GET, POST, PUT, etc.)
@@ -79,14 +79,14 @@ pub struct ObservableHttpRequest {
 pub struct ObservableHttpResponse {
     /// HTTP version
     pub version: Version,
-    /// ordered list of headers that should appear in matching traffic.
+    /// ordered list of headers that should appear in matching traffic (p0f style).
     pub horder: Vec<Header>,
-    /// list of headers that must *not* appear in matching traffic.
+    /// list of headers that must *not* appear in matching traffic (p0f style).
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
-    /// Complete raw headers with all values
-    pub headers_raw: Vec<HttpHeader>,
+    /// All parsed HTTP headers with original order, position, and source information
+    pub headers: Vec<HttpHeader>,
     /// HTTP status code
     pub status_code: Option<u16>,
 }
