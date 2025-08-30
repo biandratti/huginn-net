@@ -26,8 +26,8 @@ impl HttpProcessors {
     pub fn new() -> Self {
         Self {
             parsers: vec![
-                Box::new(Http1ProcessorWrapper::new()),
-                Box::new(Http2ProcessorWrapper::new()),
+                Box::new(Http1ParserAdapter::new()),
+                Box::new(Http2ParserAdapter::new()),
             ],
         }
     }
@@ -62,12 +62,12 @@ impl HttpProcessors {
     }
 }
 
-/// Wrapper for HTTP/1.x processor to implement HttpParser trait
-struct Http1ProcessorWrapper {
+/// Adapter that bridges HTTP/1.x processor to the unified HttpParser interface
+struct Http1ParserAdapter {
     processor: http1_process::Http1Processor,
 }
 
-impl Http1ProcessorWrapper {
+impl Http1ParserAdapter {
     fn new() -> Self {
         Self {
             processor: http1_process::Http1Processor::new(),
@@ -75,7 +75,7 @@ impl Http1ProcessorWrapper {
     }
 }
 
-impl HttpParser for Http1ProcessorWrapper {
+impl HttpParser for Http1ParserAdapter {
     fn supported_version(&self) -> crate::http::Version {
         crate::http::Version::V11
     }
@@ -97,12 +97,12 @@ impl HttpParser for Http1ProcessorWrapper {
     }
 }
 
-/// Wrapper for HTTP/2 processor to implement HttpParser trait
-struct Http2ProcessorWrapper {
+/// Adapter that bridges HTTP/2 processor to the unified HttpParser interface
+struct Http2ParserAdapter {
     processor: http2_process::Http2Processor,
 }
 
-impl Http2ProcessorWrapper {
+impl Http2ParserAdapter {
     fn new() -> Self {
         Self {
             processor: http2_process::Http2Processor::new(),
@@ -110,7 +110,7 @@ impl Http2ProcessorWrapper {
     }
 }
 
-impl HttpParser for Http2ProcessorWrapper {
+impl HttpParser for Http2ParserAdapter {
     fn supported_version(&self) -> crate::http::Version {
         crate::http::Version::V20
     }
