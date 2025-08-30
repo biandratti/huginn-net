@@ -10,18 +10,6 @@ use tracing::debug;
 /// Implements the HttpProcessor trait for HTTP/1.0 and HTTP/1.1 protocols.
 /// Handles both request and response processing with proper protocol detection.
 /// Contains a parser instance that is created once and reused.
-///
-/// # Usage
-///
-/// ```rust
-/// use huginn_net::http1_process::Http1Processor;
-/// use huginn_net::http_common::HttpProcessor;
-///
-/// let processor = Http1Processor::new();
-/// if processor.can_process_request(data) {
-///     let result = processor.process_request(data)?;
-/// }
-/// ```
 pub struct Http1Processor {
     parser: http1_parser::Http1Parser,
 }
@@ -175,7 +163,9 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(req.user_agent),
-        headers_raw: req.headers,
+        headers: req.headers,
+        cookies: req.cookies.clone(),
+        referer: req.referer.clone(),
         method: Some(req.method),
         uri: Some(req.uri),
     }
@@ -192,7 +182,7 @@ fn convert_http1_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        headers_raw: res.headers,
+        headers: res.headers,
         status_code: Some(res.status_code),
     }
 }
