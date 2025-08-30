@@ -1,5 +1,5 @@
 use crate::http::{Header, Version};
-use crate::http_common::HttpHeader;
+use crate::http_common::{HttpCookie, HttpHeader};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
 use crate::tls::{Ja4Payload, TlsVersion};
 use crate::Ttl;
@@ -64,6 +64,10 @@ pub struct ObservableHttpRequest {
     pub expsw: String,
     /// Complete raw headers with all values for IP extraction and correlation
     pub headers_raw: Vec<HttpHeader>,
+    /// Complete raw cookies with all values
+    pub cookies_raw: Vec<HttpCookie>,
+    /// Referer header value
+    pub referer: Option<String>,
     /// HTTP method (GET, POST, PUT, etc.)
     pub method: Option<String>,
     /// Request URI/path

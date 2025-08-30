@@ -626,6 +626,10 @@ impl HttpRequestLike for Http2Request {
     fn metadata(&self) -> &ParsingMetadata {
         &self.parsing_metadata
     }
+
+    fn referer(&self) -> Option<&str> {
+        self.referer.as_deref()
+    }
 }
 
 impl HttpResponseLike for Http2Response {

@@ -176,6 +176,8 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
         habsent: headers_absent,
         expsw: extract_traffic_classification(req.user_agent),
         headers_raw: req.headers,
+        cookies_raw: req.cookies.clone(),
+        referer: req.referer.clone(),
         method: Some(req.method),
         uri: Some(req.uri),
     }

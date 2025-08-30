@@ -151,6 +151,7 @@ pub trait HttpRequestLike {
     fn version(&self) -> http::Version;
     fn headers(&self) -> &[HttpHeader];
     fn cookies(&self) -> &[HttpCookie];
+    fn referer(&self) -> Option<&str>;
     fn metadata(&self) -> &ParsingMetadata;
 }
 

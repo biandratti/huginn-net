@@ -124,6 +124,8 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
         habsent: headers_absent,
         expsw: extract_traffic_classification(user_agent),
         headers_raw: req.headers,
+        cookies_raw: req.cookies.clone(),
+        referer: req.referer.clone(),
         method: Some(req.method),
         uri: Some(req.path),
     }
@@ -742,7 +744,7 @@ mod frame_detection_tests {
                 value: Some("abc123".to_string()),
                 position: 1,
             }],
-            referer: Some("https://example.com/previous".to_string()),
+            referer: Some("https://example.com".to_string()),
             stream_id: 3,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 1,
