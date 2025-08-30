@@ -10,18 +10,6 @@ use tracing::debug;
 /// Implements the HttpProcessor trait for HTTP/2 protocol.
 /// Handles both request and response processing with proper protocol detection.
 /// Contains a parser instance that is created once and reused.
-///
-/// # Usage
-///
-/// ```rust
-/// use huginn_net::http2_process::Http2Processor;
-/// use huginn_net::http_common::HttpProcessor;
-///
-/// let processor = Http2Processor::new();
-/// if processor.can_process_request(data) {
-///     let result = processor.process_request(data)?;
-/// }
-/// ```
 pub struct Http2Processor {
     parser: http2_parser::Http2Parser<'static>,
 }
@@ -123,7 +111,9 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(user_agent),
-        headers_raw: req.headers,
+        headers: req.headers,
+        cookies: req.cookies.clone(),
+        referer: req.referer.clone(),
         method: Some(req.method),
         uri: Some(req.path),
     }
@@ -140,7 +130,7 @@ fn convert_http2_response_to_observable(
         horder: headers_in_order,
         habsent: headers_absent,
         expsw: extract_traffic_classification(res.server),
-        headers_raw: res.headers,
+        headers: res.headers,
         status_code: Some(res.status),
     }
 }
@@ -280,6 +270,7 @@ mod tests {
             version: http::Version::V20,
             headers: vec![],
             cookies: vec![],
+            referer: None,
             stream_id: 1,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 0,
@@ -741,6 +732,7 @@ mod frame_detection_tests {
                 value: Some("abc123".to_string()),
                 position: 1,
             }],
+            referer: Some("https://example.com".to_string()),
             stream_id: 3,
             parsing_metadata: http_common::ParsingMetadata {
                 header_count: 1,
@@ -771,7 +763,7 @@ mod frame_detection_tests {
         assert_eq!(observable.method, Some("POST".to_string()));
         assert_eq!(observable.uri, Some("/api/test".to_string()));
         assert_eq!(observable.version, http::Version::V20);
-        assert!(!observable.headers_raw.is_empty());
+        assert!(!observable.headers.is_empty());
 
         // Test response conversion with all fields
         let res = http2_parser::Http2Response {
@@ -813,6 +805,6 @@ mod frame_detection_tests {
 
         assert_eq!(observable.status_code, Some(201));
         assert_eq!(observable.version, http::Version::V20);
-        assert!(!observable.headers_raw.is_empty());
+        assert!(!observable.headers.is_empty());
     }
 }
