@@ -1,8 +1,5 @@
 use crate::http;
-use crate::http_common::{
-    HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpRequestLike, HttpResponseLike,
-    ParsingMetadata,
-};
+use crate::http_common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -35,6 +32,7 @@ pub struct Http1Request {
     pub version: http::Version,
     pub headers: Vec<HttpHeader>,
     pub cookies: Vec<HttpCookie>,
+    pub referer: Option<String>,
     pub content_length: Option<usize>,
     pub transfer_encoding: Option<String>,
     pub connection: Option<String>,
@@ -101,29 +99,6 @@ impl std::error::Error for Http1ParseError {}
 ///
 /// **This parser is thread-safe.** Unlike the HTTP/2 parser, this parser does not maintain internal state
 /// and can be safely shared between threads or used concurrently.
-///
-/// # Example
-///
-/// ```rust
-/// use huginn_net::http1_parser::Http1Parser;
-///
-/// let parser = Http1Parser::new();
-/// // Can be used safely across multiple threads
-/// ```
-///
-/// # Security Features
-///
-/// The parser includes built-in protections against common attacks:
-/// - Request line length limits
-/// - Header count limits  
-/// - Individual header length limits
-/// - UTF-8 validation
-/// - Configurable strict parsing mode
-///
-/// # Performance
-///
-/// Optimized for high-throughput parsing with minimal allocations.
-/// Parsing metadata includes timing information for performance monitoring.
 pub struct Http1Parser {
     config: Http1Config,
 }
@@ -160,20 +135,37 @@ impl Http1Parser {
             .unwrap_or(lines.len());
 
         let header_lines = &lines[1..header_end];
-        let (headers, parsing_metadata) = self.parse_headers(header_lines)?;
+        let (all_headers, parsing_metadata) = self.parse_headers(header_lines)?;
 
+        let mut headers = Vec::new();
         let mut headers_map = HashMap::new();
-        for header in &headers {
-            if let Some(ref value) = header.value {
-                headers_map
-                    .entry(header.name.to_lowercase())
-                    .or_insert(value.clone());
+        let mut cookie_header_value: Option<String> = None;
+        let mut referer: Option<String> = None;
+
+        for header in all_headers {
+            let header_name_lower = header.name.to_lowercase();
+
+            if header_name_lower == "cookie" {
+                if let Some(ref value) = header.value {
+                    cookie_header_value = Some(value.clone());
+                }
+            } else if header_name_lower == "referer" {
+                if let Some(ref value) = header.value {
+                    referer = Some(value.clone());
+                }
+            } else {
+                if let Some(ref value) = header.value {
+                    headers_map
+                        .entry(header_name_lower)
+                        .or_insert(value.clone());
+                }
+                headers.push(header);
             }
         }
 
         let cookies = if self.config.parse_cookies {
-            if let Some(cookie_header) = headers_map.get("cookie") {
-                self.parse_cookies(cookie_header)
+            if let Some(cookie_header) = cookie_header_value {
+                self.parse_cookies(&cookie_header)
             } else {
                 Vec::new()
             }
@@ -197,6 +189,7 @@ impl Http1Parser {
             version,
             headers,
             cookies,
+            referer,
             content_length,
             transfer_encoding: headers_map.get("transfer-encoding").cloned(),
             connection: headers_map.get("connection").cloned(),
@@ -404,10 +397,12 @@ impl Http1Parser {
         Ok((headers, metadata))
     }
 
-    fn parse_cookies(&self, cookie_header: &str) -> Vec<HttpCookie> {
+    /// HTTP/1.x cookie parsing - single cookie header with '; ' separation according to RFC 6265
+    pub fn parse_cookies(&self, cookie_header: &str) -> Vec<HttpCookie> {
         let mut cookies = Vec::new();
+        let mut position = 0;
 
-        for (position, cookie_str) in cookie_header.split(';').enumerate() {
+        for cookie_str in cookie_header.split(';') {
             let cookie_str = cookie_str.trim();
             if cookie_str.is_empty() {
                 continue;
@@ -434,6 +429,7 @@ impl Http1Parser {
                     position,
                 });
             }
+            position = position.saturating_add(1);
         }
 
         cookies
@@ -467,85 +463,6 @@ impl Http1Parser {
 impl Default for Http1Parser {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl HttpParser for Http1Parser {
-    type Request = Http1Request;
-    type Response = Http1Response;
-    type Error = Http1ParseError;
-
-    fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error> {
-        self.parse_request(data)
-    }
-
-    fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error> {
-        self.parse_response(data)
-    }
-
-    fn supported_version(&self) -> http::Version {
-        http::Version::V11
-    }
-
-    fn can_parse(&self, data: &[u8]) -> bool {
-        if data.len() < 8 {
-            return false;
-        }
-
-        // Check for HTTP/1.x patterns
-        let data_str = String::from_utf8_lossy(data);
-        let first_line = data_str.lines().next().unwrap_or("");
-
-        // Look for HTTP/1.x method patterns
-        let methods = [
-            "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE",
-        ];
-        methods.iter().any(|&method| first_line.starts_with(method))
-            || first_line.starts_with("HTTP/1.")
-    }
-}
-
-impl HttpRequestLike for Http1Request {
-    fn method(&self) -> &str {
-        &self.method
-    }
-
-    fn uri(&self) -> &str {
-        &self.uri
-    }
-
-    fn version(&self) -> http::Version {
-        self.version
-    }
-
-    fn headers(&self) -> &[HttpHeader] {
-        &self.headers
-    }
-
-    fn cookies(&self) -> &[HttpCookie] {
-        &self.cookies
-    }
-
-    fn metadata(&self) -> &ParsingMetadata {
-        &self.parsing_metadata
-    }
-}
-
-impl HttpResponseLike for Http1Response {
-    fn status_code(&self) -> u16 {
-        self.status_code
-    }
-
-    fn version(&self) -> http::Version {
-        self.version
-    }
-
-    fn headers(&self) -> &[HttpHeader] {
-        &self.headers
-    }
-
-    fn metadata(&self) -> &ParsingMetadata {
-        &self.parsing_metadata
     }
 }
 
@@ -599,6 +516,68 @@ mod tests {
         assert_eq!(request.cookies[0].value, Some("value1".to_string()));
         assert_eq!(request.cookies[1].name, "name2");
         assert_eq!(request.cookies[1].value, Some("value2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_request_with_referer() {
+        let parser = Http1Parser::new();
+        let data = b"GET /page HTTP/1.1\r\nHost: example.com\r\nReferer: https://google.com/search\r\nUser-Agent: test-browser\r\n\r\n";
+
+        let request = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.uri, "/page");
+        assert_eq!(request.host, Some("example.com".to_string()));
+        assert_eq!(
+            request.referer,
+            Some("https://google.com/search".to_string())
+        );
+        assert_eq!(request.user_agent, Some("test-browser".to_string()));
+    }
+
+    #[test]
+    fn test_parse_request_without_referer() {
+        let parser = Http1Parser::new();
+        let data = b"GET /page HTTP/1.1\r\nHost: example.com\r\nUser-Agent: test-browser\r\n\r\n";
+
+        let request = unwrap_parser_result(parser.parse_request(data));
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.uri, "/page");
+        assert_eq!(request.host, Some("example.com".to_string()));
+        assert_eq!(request.referer, None);
+        assert_eq!(request.user_agent, Some("test-browser".to_string()));
+    }
+
+    #[test]
+    fn test_cookie_and_referer_excluded_from_headers_list() {
+        let parser = Http1Parser::new();
+        let data = b"GET /page HTTP/1.1\r\nHost: example.com\r\nCookie: session=abc123\r\nReferer: https://google.com\r\nUser-Agent: test-browser\r\nAccept: text/html\r\n\r\n";
+
+        let request = unwrap_parser_result(parser.parse_request(data));
+
+        assert_eq!(request.cookies.len(), 1);
+        assert_eq!(request.cookies[0].name, "session");
+        assert_eq!(request.cookies[0].value, Some("abc123".to_string()));
+        assert_eq!(request.referer, Some("https://google.com".to_string()));
+
+        let header_names: Vec<String> = request
+            .headers
+            .iter()
+            .map(|h| h.name.to_lowercase())
+            .collect();
+        assert!(
+            !header_names.contains(&"cookie".to_string()),
+            "Cookie header should not be in headers list"
+        );
+        assert!(
+            !header_names.contains(&"referer".to_string()),
+            "Referer header should not be in headers list"
+        );
+
+        assert!(header_names.contains(&"host".to_string()));
+        assert!(header_names.contains(&"user-agent".to_string()));
+        assert!(header_names.contains(&"accept".to_string()));
+
+        assert_eq!(request.headers.len(), 3);
     }
 
     #[test]
@@ -920,6 +899,122 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_cookies_direct() {
+        let parser = Http1Parser::new();
+
+        let test_cases = vec![
+            ("", 0),
+            ("name=value", 1),
+            ("name=", 1),
+            ("name", 1),
+            ("name=value; other=test", 2),
+            ("  name  =  value  ", 1),
+            ("name=value;", 1),
+            (";name=value", 1),
+            ("name=value;;other=test", 2),
+        ];
+
+        for (cookie_str, expected_count) in test_cases {
+            let cookies = parser.parse_cookies(cookie_str);
+            assert_eq!(
+                cookies.len(),
+                expected_count,
+                "Failed for case: '{cookie_str}'"
+            );
+
+            match cookie_str {
+                "" => {
+                    assert!(cookies.is_empty());
+                }
+                "name=value" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, None);
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=value; other=test" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                    assert_eq!(cookies[1].name, "other");
+                    assert_eq!(cookies[1].value, Some("test".to_string()));
+                    assert_eq!(cookies[1].position, 1);
+                }
+                "  name  =  value  " => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=value;" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                ";name=value" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                }
+                "name=value;;other=test" => {
+                    assert_eq!(cookies[0].name, "name");
+                    assert_eq!(cookies[0].value, Some("value".to_string()));
+                    assert_eq!(cookies[0].position, 0);
+                    assert_eq!(cookies[1].name, "other");
+                    assert_eq!(cookies[1].value, Some("test".to_string()));
+                    assert_eq!(cookies[1].position, 1);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_cookies_rfc6265_compliance() {
+        let parser = Http1Parser::new();
+
+        // RFC 6265 examples - HTTP/1.x single cookie header format
+        let rfc_cases = vec![
+            (
+                "session_id=abc123; user_id=456; theme=dark; lang=en",
+                vec![
+                    ("session_id", Some("abc123")),
+                    ("user_id", Some("456")),
+                    ("theme", Some("dark")),
+                    ("lang", Some("en")),
+                ],
+            ),
+            (
+                "token=xyz; secure; httponly",
+                vec![("token", Some("xyz")), ("secure", None), ("httponly", None)],
+            ),
+        ];
+
+        for (cookie_str, expected_cookies) in rfc_cases {
+            let cookies = parser.parse_cookies(cookie_str);
+            assert_eq!(
+                cookies.len(),
+                expected_cookies.len(),
+                "Failed for RFC case: '{cookie_str}'"
+            );
+
+            for (i, (expected_name, expected_value)) in expected_cookies.iter().enumerate() {
+                assert_eq!(cookies[i].name, *expected_name);
+                assert_eq!(cookies[i].value, expected_value.map(|v| v.to_string()));
+                assert_eq!(cookies[i].position, i);
+            }
+        }
+    }
+
+    #[test]
     fn test_header_value_edge_cases() {
         let parser = Http1Parser::new();
 
@@ -997,22 +1092,33 @@ mod tests {
 
     #[test]
     fn test_can_parse_detection() {
-        let parser = Http1Parser::new();
+        use crate::http_process::HttpProcessors;
+        let processors = HttpProcessors::new();
 
-        // Valid HTTP/1.x requests
-        assert!(parser.can_parse(b"GET / HTTP/1.1\r\n"));
-        assert!(parser.can_parse(b"POST /api HTTP/1.0\r\n"));
-        assert!(parser.can_parse(b"PUT /data HTTP/1.1\r\n"));
+        // Valid HTTP/1.x requests - should be parseable
+        assert!(processors
+            .parse_request(b"GET / HTTP/1.1\r\n\r\n")
+            .is_some());
+        assert!(processors
+            .parse_request(b"POST /api HTTP/1.0\r\n\r\n")
+            .is_some());
+        assert!(processors
+            .parse_request(b"PUT /data HTTP/1.1\r\n\r\n")
+            .is_some());
 
-        // Valid HTTP/1.x responses
-        assert!(parser.can_parse(b"HTTP/1.1 200 OK\r\n"));
-        assert!(parser.can_parse(b"HTTP/1.0 404 Not Found\r\n"));
+        // Valid HTTP/1.x responses - should be parseable
+        assert!(processors
+            .parse_response(b"HTTP/1.1 200 OK\r\n\r\n")
+            .is_some());
+        assert!(processors
+            .parse_response(b"HTTP/1.0 404 Not Found\r\n\r\n")
+            .is_some());
 
-        // Invalid data
-        assert!(!parser.can_parse(b""));
-        assert!(!parser.can_parse(b"short"));
-        assert!(!parser.can_parse(b"INVALID DATA HERE"));
-        assert!(!parser.can_parse(b"PRI * HTTP/2.0\r\n")); // HTTP/2 preface
+        // Invalid data - should not be parseable
+        assert!(processors.parse_request(b"").is_none());
+        assert!(processors.parse_request(b"short").is_none());
+        assert!(processors.parse_request(b"INVALID DATA HERE").is_none());
+        assert!(processors.parse_request(b"PRI * HTTP/2.0\r\n").is_none()); // HTTP/2 preface
     }
 
     #[test]

@@ -83,32 +83,29 @@ impl Default for ParsingMetadata {
     }
 }
 
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+
 /// Common trait for all HTTP parsers across different versions
 pub trait HttpParser {
-    type Request;
-    type Response;
-    type Error: std::error::Error;
-
-    fn parse_request(&self, data: &[u8]) -> Result<Option<Self::Request>, Self::Error>;
-
-    fn parse_response(&self, data: &[u8]) -> Result<Option<Self::Response>, Self::Error>;
-
+    /// Get the HTTP version this parser supports
     fn supported_version(&self) -> http::Version;
 
+    /// Check if this parser can handle the given data
     fn can_parse(&self, data: &[u8]) -> bool;
+
+    /// Get a human-readable name for this parser
+    fn name(&self) -> &'static str;
+
+    /// Parse HTTP request data into observable signals
+    /// Returns None if data cannot be parsed by this parser
+    fn parse_request(&self, data: &[u8]) -> Option<ObservableHttpRequest>;
+
+    /// Parse HTTP response data into observable signals  
+    /// Returns None if data cannot be parsed by this parser
+    fn parse_response(&self, data: &[u8]) -> Option<ObservableHttpResponse>;
 }
 
 /// Common trait for HTTP protocol processors
-///
-/// This trait abstracts the processing logic for different HTTP versions,
-///
-/// # Design Philosophy
-///
-/// - **Protocol Detection**: Each processor can detect if it can handle the data
-/// - **Unified Interface**: Same interface for all HTTP versions
-/// - **Extensibility**: Easy to add new protocols without changing core logic
-/// - **Error Handling**: Consistent error handling across protocols
-/// ```
 pub trait HttpProcessor {
     /// Check if this processor can handle the given request data
     fn can_process_request(&self, data: &[u8]) -> bool;
@@ -123,43 +120,19 @@ pub trait HttpProcessor {
     fn process_request(
         &self,
         data: &[u8],
-    ) -> Result<
-        Option<crate::observable_signals::ObservableHttpRequest>,
-        crate::error::HuginnNetError,
-    >;
+    ) -> Result<Option<ObservableHttpRequest>, crate::error::HuginnNetError>;
 
     /// Process HTTP response data and return observable response  
     fn process_response(
         &self,
         data: &[u8],
-    ) -> Result<
-        Option<crate::observable_signals::ObservableHttpResponse>,
-        crate::error::HuginnNetError,
-    >;
+    ) -> Result<Option<ObservableHttpResponse>, crate::error::HuginnNetError>;
 
     /// Get the HTTP version this processor handles
     fn supported_version(&self) -> http::Version;
 
     /// Get a human-readable name for this processor
     fn name(&self) -> &'static str;
-}
-
-/// Common HTTP request interface
-pub trait HttpRequestLike {
-    fn method(&self) -> &str;
-    fn uri(&self) -> &str;
-    fn version(&self) -> http::Version;
-    fn headers(&self) -> &[HttpHeader];
-    fn cookies(&self) -> &[HttpCookie];
-    fn metadata(&self) -> &ParsingMetadata;
-}
-
-/// Common HTTP response interface
-pub trait HttpResponseLike {
-    fn status_code(&self) -> u16;
-    fn version(&self) -> http::Version;
-    fn headers(&self) -> &[HttpHeader];
-    fn metadata(&self) -> &ParsingMetadata;
 }
 
 /// HTTP diagnostic function - determines the relationship between User-Agent and OS signature
@@ -181,18 +154,18 @@ pub fn get_diagnostic(
     user_agent: Option<String>,
     ua_matcher: Option<(&String, &Option<String>)>,
     signature_os_matcher: Option<&crate::db::Label>,
-) -> crate::http::HttpDiagnosis {
+) -> http::HttpDiagnosis {
     match user_agent {
-        None => crate::http::HttpDiagnosis::Anonymous,
+        None => http::HttpDiagnosis::Anonymous,
         Some(_ua) => match (ua_matcher, signature_os_matcher) {
             (Some((ua_name_db, _ua_flavor_db)), Some(signature_label_db)) => {
                 if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
-                    crate::http::HttpDiagnosis::Generic
+                    http::HttpDiagnosis::Generic
                 } else {
-                    crate::http::HttpDiagnosis::Dishonest
+                    http::HttpDiagnosis::Dishonest
                 }
             }
-            _ => crate::http::HttpDiagnosis::None,
+            _ => http::HttpDiagnosis::None,
         },
     }
 }

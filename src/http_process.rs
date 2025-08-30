@@ -15,18 +15,120 @@ use ttl_cache::TtlCache;
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
-/// Container for HTTP processors to avoid creating new instances on each call
+use crate::http_common::HttpParser;
+
+/// HTTP parser that automatically detects and processes different HTTP versions
 pub struct HttpProcessors {
-    pub http2_processor: http2_process::Http2Processor,
-    pub http1_processor: http1_process::Http1Processor,
+    parsers: Vec<Box<dyn HttpParser>>,
 }
 
 impl HttpProcessors {
     pub fn new() -> Self {
         Self {
-            http2_processor: http2_process::Http2Processor::new(),
-            http1_processor: http1_process::Http1Processor::new(),
+            parsers: vec![
+                Box::new(Http1ParserAdapter::new()),
+                Box::new(Http2ParserAdapter::new()),
+            ],
         }
+    }
+
+    /// Parse HTTP request data using the appropriate parser
+    pub fn parse_request(&self, data: &[u8]) -> Option<ObservableHttpRequest> {
+        for parser in &self.parsers {
+            if parser.can_parse(data) {
+                if let Some(result) = parser.parse_request(data) {
+                    return Some(result);
+                }
+            }
+        }
+        None
+    }
+
+    /// Parse HTTP response data using the appropriate parser
+    pub fn parse_response(&self, data: &[u8]) -> Option<ObservableHttpResponse> {
+        for parser in &self.parsers {
+            if parser.can_parse(data) {
+                if let Some(result) = parser.parse_response(data) {
+                    return Some(result);
+                }
+            }
+        }
+        None
+    }
+
+    /// Get all supported HTTP versions
+    pub fn supported_versions(&self) -> Vec<crate::http::Version> {
+        self.parsers.iter().map(|p| p.supported_version()).collect()
+    }
+}
+
+/// Adapter that bridges HTTP/1.x processor to the unified HttpParser interface
+struct Http1ParserAdapter {
+    processor: http1_process::Http1Processor,
+}
+
+impl Http1ParserAdapter {
+    fn new() -> Self {
+        Self {
+            processor: http1_process::Http1Processor::new(),
+        }
+    }
+}
+
+impl HttpParser for Http1ParserAdapter {
+    fn supported_version(&self) -> crate::http::Version {
+        crate::http::Version::V11
+    }
+
+    fn can_parse(&self, data: &[u8]) -> bool {
+        self.processor.can_process_request(data) || self.processor.can_process_response(data)
+    }
+
+    fn name(&self) -> &'static str {
+        "HTTP/1.x"
+    }
+
+    fn parse_request(&self, data: &[u8]) -> Option<ObservableHttpRequest> {
+        self.processor.process_request(data).ok().flatten()
+    }
+
+    fn parse_response(&self, data: &[u8]) -> Option<ObservableHttpResponse> {
+        self.processor.process_response(data).ok().flatten()
+    }
+}
+
+/// Adapter that bridges HTTP/2 processor to the unified HttpParser interface
+struct Http2ParserAdapter {
+    processor: http2_process::Http2Processor,
+}
+
+impl Http2ParserAdapter {
+    fn new() -> Self {
+        Self {
+            processor: http2_process::Http2Processor::new(),
+        }
+    }
+}
+
+impl HttpParser for Http2ParserAdapter {
+    fn supported_version(&self) -> crate::http::Version {
+        crate::http::Version::V20
+    }
+
+    fn can_parse(&self, data: &[u8]) -> bool {
+        self.processor.can_process_request(data) || self.processor.can_process_response(data)
+    }
+
+    fn name(&self) -> &'static str {
+        "HTTP/2"
+    }
+
+    fn parse_request(&self, data: &[u8]) -> Option<ObservableHttpRequest> {
+        self.processor.process_request(data).ok().flatten()
+    }
+
+    fn parse_response(&self, data: &[u8]) -> Option<ObservableHttpResponse> {
+        self.processor.process_response(data).ok().flatten()
     }
 }
 
@@ -68,9 +170,8 @@ fn has_complete_http_data(data: &[u8], processors: &HttpProcessors) -> bool {
         return false;
     }
 
-    // HTTP/2 first since it's more specific
-    processors.http2_processor.has_complete_data(data)
-        || processors.http1_processor.has_complete_data(data)
+    // Try to parse with any available parser - if successful, data is complete
+    processors.parse_request(data).is_some() || processors.parse_response(data).is_some()
 }
 
 impl TcpFlow {
@@ -274,52 +375,32 @@ fn parse_http_request(
     data: &[u8],
     processors: &HttpProcessors,
 ) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
-    // Use provided processor instances in order (HTTP/2 first, then HTTP/1.x)
-    if processors.http2_processor.can_process_request(data) {
-        debug!(
-            "Using {} processor for request",
-            processors.http2_processor.name()
-        );
-        return processors.http2_processor.process_request(data);
+    match processors.parse_request(data) {
+        Some(request) => {
+            debug!("Successfully parsed HTTP request using polymorphic parser");
+            Ok(Some(request))
+        }
+        None => {
+            debug!("No HTTP parser could handle request data");
+            Ok(None)
+        }
     }
-
-    if processors.http1_processor.can_process_request(data) {
-        debug!(
-            "Using {} processor for request",
-            processors.http1_processor.name()
-        );
-        return processors.http1_processor.process_request(data);
-    }
-
-    Err(HuginnNetError::Parse(
-        "No HTTP processor could handle request data".to_string(),
-    ))
 }
 
 fn parse_http_response(
     data: &[u8],
     processors: &HttpProcessors,
 ) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
-    // Use provided processor instances in order (HTTP/2 first, then HTTP/1.x)
-    if processors.http2_processor.can_process_response(data) {
-        debug!(
-            "Using {} processor for response",
-            processors.http2_processor.name()
-        );
-        return processors.http2_processor.process_response(data);
+    match processors.parse_response(data) {
+        Some(response) => {
+            debug!("Successfully parsed HTTP response using polymorphic parser");
+            Ok(Some(response))
+        }
+        None => {
+            debug!("No HTTP parser could handle response data");
+            Ok(None)
+        }
     }
-
-    if processors.http1_processor.can_process_response(data) {
-        debug!(
-            "Using {} processor for response",
-            processors.http1_processor.name()
-        );
-        return processors.http1_processor.process_response(data);
-    }
-
-    Err(HuginnNetError::Parse(
-        "No HTTP processor could handle response data".to_string(),
-    ))
 }
 
 #[cfg(test)]
