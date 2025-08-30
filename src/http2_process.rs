@@ -10,18 +10,6 @@ use tracing::debug;
 /// Implements the HttpProcessor trait for HTTP/2 protocol.
 /// Handles both request and response processing with proper protocol detection.
 /// Contains a parser instance that is created once and reused.
-///
-/// # Usage
-///
-/// ```rust
-/// use huginn_net::http2_process::Http2Processor;
-/// use huginn_net::http_common::HttpProcessor;
-///
-/// let processor = Http2Processor::new();
-/// if processor.can_process_request(data) {
-///     let result = processor.process_request(data)?;
-/// }
-/// ```
 pub struct Http2Processor {
     parser: http2_parser::Http2Parser<'static>,
 }

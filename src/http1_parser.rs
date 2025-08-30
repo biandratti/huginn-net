@@ -424,10 +424,11 @@ impl Http1Parser {
     }
 
     /// HTTP/1.x cookie parsing - single cookie header with '; ' separation according to RFC 6265
-    fn parse_cookies(&self, cookie_header: &str) -> Vec<HttpCookie> {
+    pub fn parse_cookies(&self, cookie_header: &str) -> Vec<HttpCookie> {
         let mut cookies = Vec::new();
+        let mut position = 0;
 
-        for (position, cookie_str) in cookie_header.split(';').enumerate() {
+        for cookie_str in cookie_header.split(';') {
             let cookie_str = cookie_str.trim();
             if cookie_str.is_empty() {
                 continue;
@@ -454,6 +455,7 @@ impl Http1Parser {
                     position,
                 });
             }
+            position = position.saturating_add(1);
         }
 
         cookies
