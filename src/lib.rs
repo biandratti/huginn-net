@@ -321,8 +321,14 @@ impl<'a> HuginnNet<'a> {
                                         matcher.matching_by_tcp_request(&observable_tcp)
                                     })
                                     .map(|(label, _signature, quality)| OSQualityMatched {
-                                        os: OperativeSystem::from(label),
-                                        quality,
+                                        os: Some(OperativeSystem::from(label)),
+                                        quality: fingerprint_result::MatchQualityType::Matched(
+                                            quality,
+                                        ),
+                                    })
+                                    .unwrap_or(OSQualityMatched {
+                                        os: None,
+                                        quality: fingerprint_result::MatchQualityType::NotMatched,
                                     }),
                                 sig: observable_tcp,
                             });
@@ -340,8 +346,14 @@ impl<'a> HuginnNet<'a> {
                                         matcher.matching_by_tcp_response(&observable_tcp)
                                     })
                                     .map(|(label, _signature, quality)| OSQualityMatched {
-                                        os: OperativeSystem::from(label),
-                                        quality,
+                                        os: Some(OperativeSystem::from(label)),
+                                        quality: fingerprint_result::MatchQualityType::Matched(
+                                            quality,
+                                        ),
+                                    })
+                                    .unwrap_or(OSQualityMatched {
+                                        os: None,
+                                        quality: fingerprint_result::MatchQualityType::NotMatched,
                                     }),
                                 sig: observable_tcp,
                             });
@@ -382,12 +394,17 @@ impl<'a> HuginnNet<'a> {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: observable_http_request.lang.clone(),
-                                browser_matched: signature_matcher.map(
-                                    |(label, _signature, quality)| BrowserQualityMatched {
-                                        browser: Browser::from(label),
-                                        quality,
-                                    },
-                                ),
+                                browser_matched: signature_matcher
+                                    .map(|(label, _signature, quality)| BrowserQualityMatched {
+                                        browser: Some(Browser::from(label)),
+                                        quality: fingerprint_result::MatchQualityType::Matched(
+                                            quality,
+                                        ),
+                                    })
+                                    .unwrap_or(BrowserQualityMatched {
+                                        browser: None,
+                                        quality: fingerprint_result::MatchQualityType::NotMatched,
+                                    }),
                                 diagnosis: http_diagnosis,
                                 sig: observable_http_request,
                             }
@@ -398,14 +415,20 @@ impl<'a> HuginnNet<'a> {
                         .map(|observable_http_response| HttpResponseOutput {
                             source: observable_package.source.clone(),
                             destination: observable_package.destination.clone(),
-                            web_server_matched: self.matcher.as_ref().and_then(|matcher| {
-                                matcher
-                                    .matching_by_http_response(&observable_http_response)
-                                    .map(|(label, _signature, quality)| WebServerQualityMatched {
-                                        web_server: WebServer::from(label),
-                                        quality,
-                                    })
-                            }),
+                            web_server_matched: self
+                                .matcher
+                                .as_ref()
+                                .and_then(|matcher| {
+                                    matcher.matching_by_http_response(&observable_http_response)
+                                })
+                                .map(|(label, _signature, quality)| WebServerQualityMatched {
+                                    web_server: Some(WebServer::from(label)),
+                                    quality: fingerprint_result::MatchQualityType::Matched(quality),
+                                })
+                                .unwrap_or(WebServerQualityMatched {
+                                    web_server: None,
+                                    quality: fingerprint_result::MatchQualityType::NotMatched,
+                                }),
                             diagnosis: HttpDiagnosis::None,
                             sig: observable_http_response,
                         });
