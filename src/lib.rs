@@ -4,7 +4,7 @@
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
 use crate::db::Label;
-use crate::fingerprint_result::{FingerprintResult, OSQualityMatched};
+use crate::fingerprint_result::{FingerprintResult, MatchQualityType, OSQualityMatched};
 
 pub use crate::db::Database;
 
@@ -12,7 +12,7 @@ pub use crate::db::Database;
 // TCP PROTOCOL IMPORTS (base protocol)
 // ============================================================================
 use crate::fingerprint_result::{
-    MTUOutput, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+    MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
 use crate::uptime::{Connection, SynData};
 pub use tcp::Ttl;
@@ -301,7 +301,10 @@ impl<'a> HuginnNet<'a> {
                                     |(link, _mtu_result)| MTUOutput {
                                         source: observable_package.source.clone(),
                                         destination: observable_package.destination.clone(),
-                                        link: link.clone(),
+                                        link: MTUQualityMatched {
+                                            link: Some(link.clone()),
+                                            quality: MatchQualityType::Matched(1.0),
+                                        },
                                         mtu: observable_mtu.value,
                                     },
                                 )

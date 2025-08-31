@@ -186,6 +186,11 @@ impl fmt::Display for SynAckTCPOutput {
     }
 }
 
+pub struct MTUQualityMatched {
+    pub link: Option<String>,
+    pub quality: MatchQualityType,
+}
+
 /// Holds information about the estimated Maximum Transmission Unit (MTU) of a link.
 ///
 /// This structure contains the source and destination addresses, an estimation
@@ -196,7 +201,7 @@ pub struct MTUOutput {
     /// The destination IP address and port (usually the server).
     pub destination: IpPort,
     /// An estimated link type (e.g., "Ethernet", "PPPoE") based on the calculated MTU.
-    pub link: String,
+    pub link: MTUQualityMatched,
     /// The calculated Maximum Transmission Unit (MTU) value in bytes.
     pub mtu: u16,
 }
@@ -217,7 +222,10 @@ impl fmt::Display for MTUOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.link,
+            self.link
+                .link
+                .as_ref()
+                .map_or("???".to_string(), |link| link.clone()),
             self.mtu,
         )
     }
