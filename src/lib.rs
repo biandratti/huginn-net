@@ -111,9 +111,16 @@ pub mod signature_matcher;
 /// Configuration for protocol analysis
 #[derive(Debug, Clone)]
 pub struct AnalysisConfig {
+    /// Enable HTTP protocol analysis
     pub http_enabled: bool,
+    /// Enable TCP protocol analysis
     pub tcp_enabled: bool,
+    /// Enable TLS protocol analysis
     pub tls_enabled: bool,
+    /// Enable fingerprint matching against the database.
+    /// When false, no database loading or signature matching will be performed,
+    /// all quality matched results will be Disabled, and MTU detection will be skipped.
+    pub matcher_enabled: bool,
 }
 
 impl Default for AnalysisConfig {
@@ -122,6 +129,7 @@ impl Default for AnalysisConfig {
             http_enabled: true,
             tcp_enabled: true,
             tls_enabled: true,
+            matcher_enabled: true,
         }
     }
 }
@@ -144,9 +152,11 @@ impl<'a> HuginnNet<'a> {
     ///
     /// # Parameters
     /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
-    ///   Required if HTTP or TCP analysis is enabled. Not needed for TLS-only analysis.
+    ///   Only loaded if `matcher_enabled` is true and HTTP or TCP analysis is enabled.
+    ///   Not needed for TLS-only analysis or when fingerprint matching is disabled.
     /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
+    ///   When `matcher_enabled` is false, the database won't be loaded and no signature matching will be performed.
     ///
     /// # Returns
     /// A new `HuginnNet` instance initialized with the given database, cache capacity, and configuration.
@@ -157,7 +167,7 @@ impl<'a> HuginnNet<'a> {
     ) -> Self {
         let config = config.unwrap_or_default();
 
-        let matcher = if config.tcp_enabled || config.http_enabled {
+        let matcher = if config.matcher_enabled && (config.tcp_enabled || config.http_enabled) {
             database.map(SignatureMatcher::new)
         } else {
             None
@@ -294,22 +304,33 @@ impl<'a> HuginnNet<'a> {
         ) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
-                    let mtu: Option<MTUOutput> =
-                        observable_package.mtu.and_then(|observable_mtu| {
-                            self.matcher.as_ref().and_then(|matcher| {
-                                matcher.matching_by_mtu(&observable_mtu.value).map(
-                                    |(link, _mtu_result)| MTUOutput {
-                                        source: observable_package.source.clone(),
-                                        destination: observable_package.destination.clone(),
-                                        link: MTUQualityMatched {
-                                            link: Some(link.clone()),
-                                            quality: MatchQualityType::Matched(1.0),
-                                        },
-                                        mtu: observable_mtu.value,
-                                    },
-                                )
-                            })
-                        });
+                    let mtu: Option<MTUOutput> = observable_package.mtu.map(|observable_mtu| {
+                        let link_quality = if self.config.matcher_enabled {
+                            self.matcher
+                                .as_ref()
+                                .and_then(|matcher| matcher.matching_by_mtu(&observable_mtu.value))
+                                .map(|(link, _)| MTUQualityMatched {
+                                    link: Some(link.clone()),
+                                    quality: MatchQualityType::Matched(1.0),
+                                })
+                                .unwrap_or(MTUQualityMatched {
+                                    link: None,
+                                    quality: MatchQualityType::NotMatched,
+                                })
+                        } else {
+                            MTUQualityMatched {
+                                link: None,
+                                quality: MatchQualityType::Disabled,
+                            }
+                        };
+
+                        MTUOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            link: link_quality,
+                            mtu: observable_mtu.value,
+                        }
+                    });
 
                     let syn: Option<SynTCPOutput> =
                         observable_package
