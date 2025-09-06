@@ -42,7 +42,7 @@ impl ObservablePackage {
     pub fn extract(
         packet: &[u8],
         connection_tracker: &mut TtlCache<Connection, SynData>,
-        http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+        http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
         config: &AnalysisConfig,
     ) -> Result<Self, HuginnNetError> {
@@ -54,7 +54,7 @@ impl ObservablePackage {
                 visit_ethernet(
                     packet.get_ethertype(),
                     connection_tracker,
-                    http_cache,
+                    http_flows,
                     http_processors,
                     packet.payload(),
                     config,
@@ -66,7 +66,7 @@ impl ObservablePackage {
 fn visit_ethernet(
     ether_type: EtherType,
     connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     payload: &[u8],
     config: &AnalysisConfig,
@@ -74,18 +74,38 @@ fn visit_ethernet(
     match ether_type {
         EtherTypes::Vlan => VlanPacket::new(payload)
             .ok_or_else(|| HuginnNetError::UnexpectedPackage("vlan packet too short".to_string()))
-            .and_then(|packet| visit_vlan(connection_tracker, http_cache, http_processors, packet, config)),
+            .and_then(|packet| {
+                visit_vlan(
+                    connection_tracker,
+                    http_flows,
+                    http_processors,
+                    packet,
+                    config,
+                )
+            }),
 
         EtherTypes::Ipv4 => Ipv4Packet::new(payload)
             .ok_or_else(|| HuginnNetError::UnexpectedPackage("ipv4 packet too short".to_string()))
             .and_then(|packet| {
-                process_ipv4(connection_tracker, http_cache, http_processors, packet, config)
+                process_ipv4(
+                    connection_tracker,
+                    http_flows,
+                    http_processors,
+                    packet,
+                    config,
+                )
             }),
 
         EtherTypes::Ipv6 => Ipv6Packet::new(payload)
             .ok_or_else(|| HuginnNetError::UnexpectedPackage("ipv6 packet too short".to_string()))
             .and_then(|packet| {
-                process_ipv6(connection_tracker, http_cache, http_processors, packet, config)
+                process_ipv6(
+                    connection_tracker,
+                    http_flows,
+                    http_processors,
+                    packet,
+                    config,
+                )
             }),
 
         ty => Err(HuginnNetError::UnsupportedEthernetType(ty)),
@@ -94,7 +114,7 @@ fn visit_ethernet(
 
 fn visit_vlan(
     connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: VlanPacket,
     config: &AnalysisConfig,
@@ -102,7 +122,7 @@ fn visit_vlan(
     visit_ethernet(
         packet.get_ethertype(),
         connection_tracker,
-        http_cache,
+        http_flows,
         http_processors,
         packet.payload(),
         config,
@@ -115,7 +135,7 @@ trait IpPacketProcessor: Packet {
     fn get_addresses(&self) -> (IpAddr, IpAddr);
     fn process_http_with_data(
         data: &[u8],
-        http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+        http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
     ) -> Result<ObservableHttpPackage, HuginnNetError>;
     fn process_tcp_with_data(
@@ -146,11 +166,11 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
 
     fn process_http_with_data(
         data: &[u8],
-        http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+        http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
     ) -> Result<ObservableHttpPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
-            http_process::process_http_ipv4(&packet, http_cache, http_processors)
+            http_process::process_http_ipv4(&packet, http_flows, http_processors)
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv4 packet data".to_string(),
@@ -203,11 +223,11 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 
     fn process_http_with_data(
         data: &[u8],
-        http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+        http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
     ) -> Result<ObservableHttpPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
-            http_process::process_http_ipv6(&packet, http_cache, http_processors)
+            http_process::process_http_ipv6(&packet, http_flows, http_processors)
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv6 packet data".to_string(),
@@ -242,14 +262,14 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 fn execute_analysis<P: IpPacketProcessor>(
     packet_data: &[u8],
     connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     config: &AnalysisConfig,
     source: IpPort,
     destination: IpPort,
 ) -> Result<ObservablePackage, HuginnNetError> {
     let http_response = if config.http_enabled {
-        P::process_http_with_data(packet_data, http_cache, http_processors)?
+        P::process_http_with_data(packet_data, http_flows, http_processors)?
     } else {
         ObservableHttpPackage {
             http_request: None,
@@ -285,7 +305,7 @@ fn execute_analysis<P: IpPacketProcessor>(
 
 fn process_ip<P: IpPacketProcessor>(
     connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: P,
     config: &AnalysisConfig,
@@ -314,7 +334,7 @@ fn process_ip<P: IpPacketProcessor>(
     execute_analysis::<P>(
         packet_data,
         connection_tracker,
-        http_cache,
+        http_flows,
         http_processors,
         config,
         source,
@@ -324,22 +344,34 @@ fn process_ip<P: IpPacketProcessor>(
 
 pub fn process_ipv4(
     connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: Ipv4Packet,
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
-    process_ip(connection_tracker, http_cache, http_processors, packet, config)
+    process_ip(
+        connection_tracker,
+        http_flows,
+        http_processors,
+        packet,
+        config,
+    )
 }
 
 pub fn process_ipv6(
     connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: Ipv6Packet,
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
-    process_ip(connection_tracker, http_cache, http_processors, packet, config)
+    process_ip(
+        connection_tracker,
+        http_flows,
+        http_processors,
+        packet,
+        config,
+    )
 }
 
 fn handle_http_tcp_tlc(

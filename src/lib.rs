@@ -142,7 +142,7 @@ impl Default for AnalysisConfig {
 pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     connection_tracker: TtlCache<Connection, SynData>,
-    http_cache: TtlCache<FlowKey, TcpFlow>,
+    http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: http_process::HttpProcessors,
     config: AnalysisConfig,
 }
@@ -154,7 +154,7 @@ impl<'a> HuginnNet<'a> {
     /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
     ///   Only loaded if `matcher_enabled` is true and HTTP or TCP analysis is enabled.
     ///   Not needed for TLS-only analysis or when fingerprint matching is disabled.
-    /// - `cache_capacity`: The maximum number of connections to maintain in the connection tracker.
+    /// - `cache_capacity`: The maximum number of connections to maintain in the connection tracker and HTTP flows.
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
     ///   When `matcher_enabled` is false, the database won't be loaded and no signature matching will be performed.
     ///
@@ -178,7 +178,7 @@ impl<'a> HuginnNet<'a> {
         } else {
             0
         };
-        let http_cache_size = if config.http_enabled {
+        let http_flows_size = if config.http_enabled {
             cache_capacity
         } else {
             0
@@ -187,7 +187,7 @@ impl<'a> HuginnNet<'a> {
         Self {
             matcher,
             connection_tracker: TtlCache::new(connection_tracker_size),
-            http_cache: TtlCache::new(http_cache_size),
+            http_flows: TtlCache::new(http_flows_size),
             http_processors: crate::http_process::HttpProcessors::new(),
             config,
         }
@@ -298,7 +298,7 @@ impl<'a> HuginnNet<'a> {
         match ObservablePackage::extract(
             packet,
             &mut self.connection_tracker,
-            &mut self.http_cache,
+            &mut self.http_flows,
             &self.http_processors,
             &self.config,
         ) {
