@@ -3,8 +3,8 @@
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
-use crate::db::Label;
-use crate::fingerprint_result::{FingerprintResult, OSQualityMatched};
+pub use crate::db::Label;
+use crate::fingerprint_result::{FingerprintResult, MatchQualityType, OSQualityMatched};
 
 pub use crate::db::Database;
 
@@ -12,7 +12,7 @@ pub use crate::db::Database;
 // TCP PROTOCOL IMPORTS (base protocol)
 // ============================================================================
 use crate::fingerprint_result::{
-    MTUOutput, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+    MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
 use crate::uptime::{Connection, SynData};
 pub use tcp::Ttl;
@@ -24,7 +24,7 @@ use crate::fingerprint_result::{
     Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, WebServer,
     WebServerQualityMatched,
 };
-use crate::http::{HttpDiagnosis, Signature};
+use crate::http::HttpDiagnosis;
 use crate::http_process::{FlowKey, TcpFlow};
 
 // ============================================================================
@@ -59,6 +59,8 @@ use std::fs::File;
 use std::sync::mpsc::Sender;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
+
+pub mod matcher;
 
 // ============================================================================
 // CORE MODULES (always required - database, matching, errors, results)
@@ -111,9 +113,14 @@ pub mod signature_matcher;
 /// Configuration for protocol analysis
 #[derive(Debug, Clone)]
 pub struct AnalysisConfig {
+    /// Enable HTTP protocol analysis
     pub http_enabled: bool,
+    /// Enable TCP protocol analysis
     pub tcp_enabled: bool,
+    /// Enable TLS protocol analysis
     pub tls_enabled: bool,
+    /// Enable fingerprint matching against the database. When false, all quality matched results will be Disabled.
+    pub matcher_enabled: bool,
 }
 
 impl Default for AnalysisConfig {
@@ -122,6 +129,7 @@ impl Default for AnalysisConfig {
             http_enabled: true,
             tcp_enabled: true,
             tls_enabled: true,
+            matcher_enabled: true,
         }
     }
 }
@@ -144,9 +152,11 @@ impl<'a> HuginnNet<'a> {
     ///
     /// # Parameters
     /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
-    ///   Required if HTTP or TCP analysis is enabled. Not needed for TLS-only analysis.
+    ///   Only loaded if `matcher_enabled` is true and HTTP or TCP analysis is enabled.
+    ///   Not needed for TLS-only analysis or when fingerprint matching is disabled.
     /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
+    ///   When `matcher_enabled` is false, the database won't be loaded and no signature matching will be performed.
     ///
     /// # Returns
     /// A new `HuginnNet` instance initialized with the given database, cache capacity, and configuration.
@@ -157,7 +167,7 @@ impl<'a> HuginnNet<'a> {
     ) -> Self {
         let config = config.unwrap_or_default();
 
-        let matcher = if config.tcp_enabled || config.http_enabled {
+        let matcher = if config.matcher_enabled && (config.tcp_enabled || config.http_enabled) {
             database.map(SignatureMatcher::new)
         } else {
             None
@@ -294,57 +304,88 @@ impl<'a> HuginnNet<'a> {
         ) {
             Ok(observable_package) => {
                 let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
-                    let mtu: Option<MTUOutput> =
-                        observable_package.mtu.and_then(|observable_mtu| {
-                            self.matcher.as_ref().and_then(|matcher| {
-                                matcher.matching_by_mtu(&observable_mtu.value).map(
-                                    |(link, _mtu_result)| MTUOutput {
-                                        source: observable_package.source.clone(),
-                                        destination: observable_package.destination.clone(),
-                                        link: link.clone(),
-                                        mtu: observable_mtu.value,
-                                    },
-                                )
-                            })
-                        });
+                    let mtu: Option<MTUOutput> = observable_package.mtu.map(|observable_mtu| {
+                        let link_quality = simple_quality_match!(
+                            enabled: self.config.matcher_enabled,
+                            matcher: self.matcher,
+                            method: matching_by_mtu(&observable_mtu.value),
+                            success: (link, _) => MTUQualityMatched {
+                                link: Some(link.clone()),
+                                quality: MatchQualityType::Matched(1.0),
+                            },
+                            failure: MTUQualityMatched {
+                                link: None,
+                                quality: MatchQualityType::NotMatched,
+                            },
+                            disabled: MTUQualityMatched {
+                                link: None,
+                                quality: MatchQualityType::Disabled,
+                            }
+                        );
+
+                        MTUOutput {
+                            source: observable_package.source.clone(),
+                            destination: observable_package.destination.clone(),
+                            link: link_quality,
+                            mtu: observable_mtu.value,
+                        }
+                    });
 
                     let syn: Option<SynTCPOutput> =
-                        observable_package
-                            .tcp_request
-                            .map(|observable_tcp| SynTCPOutput {
+                        observable_package.tcp_request.map(|observable_tcp| {
+                            let os_quality = simple_quality_match!(
+                                enabled: self.config.matcher_enabled,
+                                matcher: self.matcher,
+                                method: matching_by_tcp_request(&observable_tcp),
+                                success: (label, _signature, quality) => OSQualityMatched {
+                                    os: Some(OperativeSystem::from(label)),
+                                    quality: MatchQualityType::Matched(quality),
+                                },
+                                failure: OSQualityMatched {
+                                    os: None,
+                                    quality: MatchQualityType::NotMatched,
+                                },
+                                disabled: OSQualityMatched {
+                                    os: None,
+                                    quality: MatchQualityType::Disabled,
+                                }
+                            );
+
+                            SynTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                os_matched: self
-                                    .matcher
-                                    .as_ref()
-                                    .and_then(|matcher| {
-                                        matcher.matching_by_tcp_request(&observable_tcp)
-                                    })
-                                    .map(|(label, _signature, quality)| OSQualityMatched {
-                                        os: OperativeSystem::from(label),
-                                        quality,
-                                    }),
+                                os_matched: os_quality,
                                 sig: observable_tcp,
-                            });
+                            }
+                        });
 
                     let syn_ack: Option<SynAckTCPOutput> =
-                        observable_package
-                            .tcp_response
-                            .map(|observable_tcp| SynAckTCPOutput {
+                        observable_package.tcp_response.map(|observable_tcp| {
+                            let os_quality = simple_quality_match!(
+                                enabled: self.config.matcher_enabled,
+                                matcher: self.matcher,
+                                method: matching_by_tcp_response(&observable_tcp),
+                                success: (label, _signature, quality) => OSQualityMatched {
+                                    os: Some(OperativeSystem::from(label)),
+                                    quality: MatchQualityType::Matched(quality),
+                                },
+                                failure: OSQualityMatched {
+                                    os: None,
+                                    quality: MatchQualityType::NotMatched,
+                                },
+                                disabled: OSQualityMatched {
+                                    os: None,
+                                    quality: MatchQualityType::Disabled,
+                                }
+                            );
+
+                            SynAckTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                os_matched: self
-                                    .matcher
-                                    .as_ref()
-                                    .and_then(|matcher| {
-                                        matcher.matching_by_tcp_response(&observable_tcp)
-                                    })
-                                    .map(|(label, _signature, quality)| OSQualityMatched {
-                                        os: OperativeSystem::from(label),
-                                        quality,
-                                    }),
+                                os_matched: os_quality,
                                 sig: observable_tcp,
-                            });
+                            }
+                        });
 
                     let uptime: Option<UptimeOutput> =
                         observable_package.uptime.map(|update| UptimeOutput {
@@ -360,17 +401,42 @@ impl<'a> HuginnNet<'a> {
                     let http_request: Option<HttpRequestOutput> = observable_package
                         .http_request
                         .map(|observable_http_request| {
-                            let signature_matcher: Option<(&Label, &Signature, f32)> =
-                                self.matcher.as_ref().and_then(|matcher| {
-                                    matcher.matching_by_http_request(&observable_http_request)
-                                });
-
-                            let ua_matcher: Option<(&String, &Option<String>)> =
-                                observable_http_request.user_agent.clone().and_then(|ua| {
-                                    self.matcher
-                                        .as_ref()
-                                        .and_then(|matcher| matcher.matching_by_user_agent(ua))
-                                });
+                            let (signature_matcher, ua_matcher, browser_quality) = quality_match!(
+                                enabled: self.config.matcher_enabled,
+                                matcher: self.matcher,
+                                call: matcher => {
+                                    let sig_match = matcher.matching_by_http_request(&observable_http_request);
+                                    let ua_match = observable_http_request.user_agent.clone()
+                                        .and_then(|ua| matcher.matching_by_user_agent(ua));
+                                    Some((sig_match, ua_match))
+                                },
+                                matched: (signature_matcher, ua_matcher) => {
+                                    let browser_quality = signature_matcher
+                                        .map(|(label, _signature, quality)| BrowserQualityMatched {
+                                            browser: Some(Browser::from(label)),
+                                            quality: MatchQualityType::Matched(quality),
+                                        })
+                                        .unwrap_or(BrowserQualityMatched {
+                                            browser: None,
+                                            quality: MatchQualityType::NotMatched,
+                                        });
+                                    (signature_matcher, ua_matcher, browser_quality)
+                                },
+                                not_matched: {
+                                    let browser_quality = BrowserQualityMatched {
+                                        browser: None,
+                                        quality: MatchQualityType::NotMatched,
+                                    };
+                                    (None, None, browser_quality)
+                                },
+                                disabled: {
+                                    let browser_quality = BrowserQualityMatched {
+                                        browser: None,
+                                        quality: MatchQualityType::Disabled,
+                                    };
+                                    (None, None, browser_quality)
+                                }
+                            );
 
                             let http_diagnosis = http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
@@ -382,12 +448,7 @@ impl<'a> HuginnNet<'a> {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: observable_http_request.lang.clone(),
-                                browser_matched: signature_matcher.map(
-                                    |(label, _signature, quality)| BrowserQualityMatched {
-                                        browser: Browser::from(label),
-                                        quality,
-                                    },
-                                ),
+                                browser_matched: browser_quality,
                                 diagnosis: http_diagnosis,
                                 sig: observable_http_request,
                             }
@@ -395,19 +456,32 @@ impl<'a> HuginnNet<'a> {
 
                     let http_response: Option<HttpResponseOutput> = observable_package
                         .http_response
-                        .map(|observable_http_response| HttpResponseOutput {
-                            source: observable_package.source.clone(),
-                            destination: observable_package.destination.clone(),
-                            web_server_matched: self.matcher.as_ref().and_then(|matcher| {
-                                matcher
-                                    .matching_by_http_response(&observable_http_response)
-                                    .map(|(label, _signature, quality)| WebServerQualityMatched {
-                                        web_server: WebServer::from(label),
-                                        quality,
-                                    })
-                            }),
-                            diagnosis: HttpDiagnosis::None,
-                            sig: observable_http_response,
+                        .map(|observable_http_response| {
+                            let web_server_quality = simple_quality_match!(
+                                enabled: self.config.matcher_enabled,
+                                matcher: self.matcher,
+                                method: matching_by_http_response(&observable_http_response),
+                                success: (label, _signature, quality) => WebServerQualityMatched {
+                                    web_server: Some(WebServer::from(label)),
+                                    quality: MatchQualityType::Matched(quality),
+                                },
+                                failure: WebServerQualityMatched {
+                                    web_server: None,
+                                    quality: MatchQualityType::NotMatched,
+                                },
+                                disabled: WebServerQualityMatched {
+                                    web_server: None,
+                                    quality: MatchQualityType::Disabled,
+                                }
+                            );
+
+                            HttpResponseOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                web_server_matched: web_server_quality,
+                                diagnosis: HttpDiagnosis::None,
+                                sig: observable_http_response,
+                            }
                         });
 
                     let tls_client: Option<TlsClientOutput> =
