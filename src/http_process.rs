@@ -218,7 +218,7 @@ impl TcpFlow {
 
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
-    cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
@@ -226,7 +226,7 @@ pub fn process_http_ipv4(
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
-            cache,
+            http_flows,
             tcp,
             IpAddr::V4(packet.get_source()),
             IpAddr::V4(packet.get_destination()),
@@ -242,7 +242,7 @@ pub fn process_http_ipv4(
 
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
-    cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
@@ -250,7 +250,7 @@ pub fn process_http_ipv6(
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
-            cache,
+            http_flows,
             tcp,
             IpAddr::V6(packet.get_source()),
             IpAddr::V6(packet.get_destination()),
@@ -265,7 +265,7 @@ pub fn process_http_ipv6(
 }
 
 fn process_tcp_packet(
-    cache: &mut TtlCache<FlowKey, TcpFlow>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     tcp: TcpPacket,
     src_ip: IpAddr,
     dst_ip: IpAddr,
@@ -280,11 +280,11 @@ fn process_tcp_packet(
 
     let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
     let (tcp_flow, is_client) = {
-        if let Some(flow) = cache.get_mut(&flow_key) {
+        if let Some(flow) = http_flows.get_mut(&flow_key) {
             (Some(flow), true)
         } else {
             let reversed_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
-            if let Some(flow) = cache.get_mut(&reversed_key) {
+            if let Some(flow) = http_flows.get_mut(&reversed_key) {
                 (Some(flow), false)
             } else {
                 (None, false)
@@ -343,10 +343,10 @@ fn process_tcp_packet(
                 }
             }
 
-            // Remove from cache if both request and response are parsed
+            // Remove from http_flows if both request and response are parsed
             if flow.client_http_parsed && flow.server_http_parsed {
-                debug!("Both HTTP request and response parsed, removing from cache early");
-                cache.remove(&flow_key);
+                debug!("Both HTTP request and response parsed, removing from http_flows early");
+                http_flows.remove(&flow_key);
                 return Ok(observable_http_package);
             }
 
@@ -356,7 +356,7 @@ fn process_tcp_packet(
                 != 0
             {
                 debug!("Connection closed or reset");
-                cache.remove(&flow_key);
+                http_flows.remove(&flow_key);
             }
         }
     } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
@@ -365,7 +365,7 @@ fn process_tcp_packet(
             data: Vec::from(tcp.payload()),
         };
         let flow: TcpFlow = TcpFlow::init(src_ip, src_port, dst_ip, dst_port, tcp_data);
-        cache.insert(flow_key, flow, Duration::new(60, 0));
+        http_flows.insert(flow_key, flow, Duration::new(60, 0));
     }
 
     Ok(observable_http_package)

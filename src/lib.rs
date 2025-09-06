@@ -141,8 +141,8 @@ impl Default for AnalysisConfig {
 /// client analysis following the official FoxIO specification.
 pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
-    tcp_cache: TtlCache<Connection, SynData>,
-    http_cache: TtlCache<FlowKey, TcpFlow>,
+    connection_tracker: TtlCache<Connection, SynData>,
+    http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: http_process::HttpProcessors,
     config: AnalysisConfig,
 }
@@ -154,15 +154,15 @@ impl<'a> HuginnNet<'a> {
     /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
     ///   Only loaded if `matcher_enabled` is true and HTTP or TCP analysis is enabled.
     ///   Not needed for TLS-only analysis or when fingerprint matching is disabled.
-    /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
+    /// - `max_connections`: The maximum number of connections to maintain in the connection tracker and HTTP flows.
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
     ///   When `matcher_enabled` is false, the database won't be loaded and no signature matching will be performed.
     ///
     /// # Returns
-    /// A new `HuginnNet` instance initialized with the given database, cache capacity, and configuration.
+    /// A new `HuginnNet` instance initialized with the given database, max connections, and configuration.
     pub fn new(
         database: Option<&'a Database>,
-        cache_capacity: usize,
+        max_connections: usize,
         config: Option<AnalysisConfig>,
     ) -> Self {
         let config = config.unwrap_or_default();
@@ -173,21 +173,21 @@ impl<'a> HuginnNet<'a> {
             None
         };
 
-        let tcp_cache_size = if config.tcp_enabled {
-            cache_capacity
+        let connection_tracker_size = if config.tcp_enabled {
+            max_connections
         } else {
             0
         };
-        let http_cache_size = if config.http_enabled {
-            cache_capacity
+        let http_flows_size = if config.http_enabled {
+            max_connections
         } else {
             0
         };
 
         Self {
             matcher,
-            tcp_cache: TtlCache::new(tcp_cache_size),
-            http_cache: TtlCache::new(http_cache_size),
+            connection_tracker: TtlCache::new(connection_tracker_size),
+            http_flows: TtlCache::new(http_flows_size),
             http_processors: crate::http_process::HttpProcessors::new(),
             config,
         }
@@ -297,8 +297,8 @@ impl<'a> HuginnNet<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(
             packet,
-            &mut self.tcp_cache,
-            &mut self.http_cache,
+            &mut self.connection_tracker,
+            &mut self.http_flows,
             &self.http_processors,
             &self.config,
         ) {
