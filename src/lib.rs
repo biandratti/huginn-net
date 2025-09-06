@@ -117,9 +117,7 @@ pub struct AnalysisConfig {
     pub tcp_enabled: bool,
     /// Enable TLS protocol analysis
     pub tls_enabled: bool,
-    /// Enable fingerprint matching against the database.
-    /// When false, no database loading or signature matching will be performed,
-    /// all quality matched results will be Disabled, and MTU detection will be skipped.
+    /// Enable fingerprint matching against the database. When false, all quality matched results will be Disabled.
     pub matcher_enabled: bool,
 }
 
@@ -333,54 +331,66 @@ impl<'a> HuginnNet<'a> {
                     });
 
                     let syn: Option<SynTCPOutput> =
-                        observable_package
-                            .tcp_request
-                            .map(|observable_tcp| SynTCPOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
-                                os_matched: self
-                                    .matcher
+                        observable_package.tcp_request.map(|observable_tcp| {
+                            let os_quality = if self.config.matcher_enabled {
+                                self.matcher
                                     .as_ref()
                                     .and_then(|matcher| {
                                         matcher.matching_by_tcp_request(&observable_tcp)
                                     })
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: Some(OperativeSystem::from(label)),
-                                        quality: fingerprint_result::MatchQualityType::Matched(
-                                            quality,
-                                        ),
+                                        quality: MatchQualityType::Matched(quality),
                                     })
                                     .unwrap_or(OSQualityMatched {
                                         os: None,
-                                        quality: fingerprint_result::MatchQualityType::NotMatched,
-                                    }),
-                                sig: observable_tcp,
-                            });
+                                        quality: MatchQualityType::NotMatched,
+                                    })
+                            } else {
+                                OSQualityMatched {
+                                    os: None,
+                                    quality: MatchQualityType::Disabled,
+                                }
+                            };
 
-                    let syn_ack: Option<SynAckTCPOutput> =
-                        observable_package
-                            .tcp_response
-                            .map(|observable_tcp| SynAckTCPOutput {
+                            SynTCPOutput {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
-                                os_matched: self
-                                    .matcher
+                                os_matched: os_quality,
+                                sig: observable_tcp,
+                            }
+                        });
+
+                    let syn_ack: Option<SynAckTCPOutput> =
+                        observable_package.tcp_response.map(|observable_tcp| {
+                            let os_quality = if self.config.matcher_enabled {
+                                self.matcher
                                     .as_ref()
                                     .and_then(|matcher| {
                                         matcher.matching_by_tcp_response(&observable_tcp)
                                     })
                                     .map(|(label, _signature, quality)| OSQualityMatched {
                                         os: Some(OperativeSystem::from(label)),
-                                        quality: fingerprint_result::MatchQualityType::Matched(
-                                            quality,
-                                        ),
+                                        quality: MatchQualityType::Matched(quality),
                                     })
                                     .unwrap_or(OSQualityMatched {
                                         os: None,
-                                        quality: fingerprint_result::MatchQualityType::NotMatched,
-                                    }),
+                                        quality: MatchQualityType::NotMatched,
+                                    })
+                            } else {
+                                OSQualityMatched {
+                                    os: None,
+                                    quality: MatchQualityType::Disabled,
+                                }
+                            };
+
+                            SynAckTCPOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                os_matched: os_quality,
                                 sig: observable_tcp,
-                            });
+                            }
+                        });
 
                     let uptime: Option<UptimeOutput> =
                         observable_package.uptime.map(|update| UptimeOutput {
@@ -396,17 +406,39 @@ impl<'a> HuginnNet<'a> {
                     let http_request: Option<HttpRequestOutput> = observable_package
                         .http_request
                         .map(|observable_http_request| {
-                            let signature_matcher: Option<(&Label, &Signature, f32)> =
-                                self.matcher.as_ref().and_then(|matcher| {
-                                    matcher.matching_by_http_request(&observable_http_request)
-                                });
+                            let (signature_matcher, ua_matcher, browser_quality) =
+                                if self.config.matcher_enabled {
+                                    let signature_matcher: Option<(&Label, &Signature, f32)> =
+                                        self.matcher.as_ref().and_then(|matcher| {
+                                            matcher
+                                                .matching_by_http_request(&observable_http_request)
+                                        });
 
-                            let ua_matcher: Option<(&String, &Option<String>)> =
-                                observable_http_request.user_agent.clone().and_then(|ua| {
-                                    self.matcher
-                                        .as_ref()
-                                        .and_then(|matcher| matcher.matching_by_user_agent(ua))
-                                });
+                                    let ua_matcher: Option<(&String, &Option<String>)> =
+                                        observable_http_request.user_agent.clone().and_then(|ua| {
+                                            self.matcher.as_ref().and_then(|matcher| {
+                                                matcher.matching_by_user_agent(ua)
+                                            })
+                                        });
+
+                                    let browser_quality = signature_matcher
+                                        .map(|(label, _signature, quality)| BrowserQualityMatched {
+                                            browser: Some(Browser::from(label)),
+                                            quality: MatchQualityType::Matched(quality),
+                                        })
+                                        .unwrap_or(BrowserQualityMatched {
+                                            browser: None,
+                                            quality: MatchQualityType::NotMatched,
+                                        });
+
+                                    (signature_matcher, ua_matcher, browser_quality)
+                                } else {
+                                    let browser_quality = BrowserQualityMatched {
+                                        browser: None,
+                                        quality: MatchQualityType::Disabled,
+                                    };
+                                    (None, None, browser_quality)
+                                };
 
                             let http_diagnosis = http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
@@ -418,17 +450,7 @@ impl<'a> HuginnNet<'a> {
                                 source: observable_package.source.clone(),
                                 destination: observable_package.destination.clone(),
                                 lang: observable_http_request.lang.clone(),
-                                browser_matched: signature_matcher
-                                    .map(|(label, _signature, quality)| BrowserQualityMatched {
-                                        browser: Some(Browser::from(label)),
-                                        quality: fingerprint_result::MatchQualityType::Matched(
-                                            quality,
-                                        ),
-                                    })
-                                    .unwrap_or(BrowserQualityMatched {
-                                        browser: None,
-                                        quality: fingerprint_result::MatchQualityType::NotMatched,
-                                    }),
+                                browser_matched: browser_quality,
                                 diagnosis: http_diagnosis,
                                 sig: observable_http_request,
                             }
@@ -436,25 +458,35 @@ impl<'a> HuginnNet<'a> {
 
                     let http_response: Option<HttpResponseOutput> = observable_package
                         .http_response
-                        .map(|observable_http_response| HttpResponseOutput {
-                            source: observable_package.source.clone(),
-                            destination: observable_package.destination.clone(),
-                            web_server_matched: self
-                                .matcher
-                                .as_ref()
-                                .and_then(|matcher| {
-                                    matcher.matching_by_http_response(&observable_http_response)
-                                })
-                                .map(|(label, _signature, quality)| WebServerQualityMatched {
-                                    web_server: Some(WebServer::from(label)),
-                                    quality: fingerprint_result::MatchQualityType::Matched(quality),
-                                })
-                                .unwrap_or(WebServerQualityMatched {
+                        .map(|observable_http_response| {
+                            let web_server_quality = if self.config.matcher_enabled {
+                                self.matcher
+                                    .as_ref()
+                                    .and_then(|matcher| {
+                                        matcher.matching_by_http_response(&observable_http_response)
+                                    })
+                                    .map(|(label, _signature, quality)| WebServerQualityMatched {
+                                        web_server: Some(WebServer::from(label)),
+                                        quality: MatchQualityType::Matched(quality),
+                                    })
+                                    .unwrap_or(WebServerQualityMatched {
+                                        web_server: None,
+                                        quality: MatchQualityType::NotMatched,
+                                    })
+                            } else {
+                                WebServerQualityMatched {
                                     web_server: None,
-                                    quality: fingerprint_result::MatchQualityType::NotMatched,
-                                }),
-                            diagnosis: HttpDiagnosis::None,
-                            sig: observable_http_response,
+                                    quality: MatchQualityType::Disabled,
+                                }
+                            };
+
+                            HttpResponseOutput {
+                                source: observable_package.source.clone(),
+                                destination: observable_package.destination.clone(),
+                                web_server_matched: web_server_quality,
+                                diagnosis: HttpDiagnosis::None,
+                                sig: observable_http_response,
+                            }
                         });
 
                     let tls_client: Option<TlsClientOutput> =
