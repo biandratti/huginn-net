@@ -3,6 +3,7 @@
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
+pub use crate::db::Label;
 use crate::fingerprint_result::{FingerprintResult, MatchQualityType, OSQualityMatched};
 
 pub use crate::db::Database;
