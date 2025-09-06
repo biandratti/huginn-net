@@ -49,7 +49,7 @@ fn guess_frequency(raw_freq: f64, base_guess: f64, tolerance: f64) -> Option<f64
 }
 
 pub fn check_ts_tcp(
-    cache: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<Connection, SynData>,
     connection: &Connection,
     from_client: bool,
     ts_val: u32,
@@ -67,15 +67,15 @@ pub fn check_ts_tcp(
             dst_port: connection.src_port,
         };
         debug!("Server response - looking for client SYN data");
-        let data = cache.remove(&client_connection);
+        let data = connection_tracker.remove(&client_connection);
         if data.is_none() {
-            debug!("No SYN data found in cache for connection");
+            debug!("No SYN data found in connection_tracker for connection");
         }
         data
     } else {
         debug!("Client SYN - storing timestamp data");
         if let Some(recv_ms) = get_unix_time_ms() {
-            cache.insert(
+            connection_tracker.insert(
                 connection.clone(),
                 SynData {
                     ts1: ts_val,

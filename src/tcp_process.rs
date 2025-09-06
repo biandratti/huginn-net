@@ -54,7 +54,7 @@ fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 
 pub fn process_tcp_ipv4(
     packet: &Ipv4Packet,
-    cache: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<Connection, SynData>,
 ) -> Result<ObservableTCPPackage, HuginnNetError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv4".to_string()));
@@ -101,7 +101,7 @@ pub fn process_tcp_ipv4(
         .ok_or_else(|| HuginnNetError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
             visit_tcp(
-                cache,
+                connection_tracker,
                 &tcp_packet,
                 version,
                 ttl,
@@ -116,7 +116,7 @@ pub fn process_tcp_ipv4(
 
 pub fn process_tcp_ipv6(
     packet: &Ipv6Packet,
-    cache: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<Connection, SynData>,
 ) -> Result<ObservableTCPPackage, HuginnNetError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv6".to_string()));
@@ -143,7 +143,7 @@ pub fn process_tcp_ipv6(
         .ok_or_else(|| HuginnNetError::UnexpectedPackage("TCP packet too short".to_string()))
         .and_then(|tcp_packet| {
             visit_tcp(
-                cache,
+                connection_tracker,
                 &tcp_packet,
                 version,
                 ttl,
@@ -158,7 +158,7 @@ pub fn process_tcp_ipv6(
 
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
-    cache: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<Connection, SynData>,
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
@@ -310,7 +310,7 @@ fn visit_tcp(
                         dst_ip: destination_ip,
                         dst_port: tcp.get_destination(),
                     };
-                    uptime = check_ts_tcp(cache, &connection, from_client, ts_val);
+                    uptime = check_ts_tcp(connection_tracker, &connection, from_client, ts_val);
                 }
 
                 /*if data.len() != 10 {
