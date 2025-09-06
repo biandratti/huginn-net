@@ -60,10 +60,18 @@ impl From<&Label> for OperativeSystem {
     }
 }
 
+/// Represents the quality of a match between an observed fingerprint and a database signature.
+#[derive(Clone, Debug)]
+pub enum MatchQualityType {
+    Matched(f32), // 0.05 to 1.0 (quality score: 1.0 = perfect match, 0.05 = worst match)
+    NotMatched,
+    Disabled,
+}
+
 /// The operative system with the highest quality that matches the packet. Quality is a value between 0.0 and 1.0. 1.0 is a perfect match.
 pub struct OSQualityMatched {
-    pub os: OperativeSystem,
-    pub quality: f32,
+    pub os: Option<OperativeSystem>,
+    pub quality: MatchQualityType,
 }
 
 /// Holds information derived from analyzing a TCP SYN packet (client initiation).
@@ -76,7 +84,7 @@ pub struct SynTCPOutput {
     /// The destination IP address and port of the server receiving the SYN.
     pub destination: IpPort,
     /// The operative system with the highest quality that matches the SYN packet.
-    pub os_matched: Option<OSQualityMatched>,
+    pub os_matched: OSQualityMatched,
     /// The raw TCP signature extracted from the SYN packet.
     pub sig: ObservableTcp,
 }
@@ -99,12 +107,12 @@ impl fmt::Display for SynTCPOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
-            self.os_matched.as_ref().map_or("???".to_string(), |l| {
+            self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
                 format!(
                     "{}/{}/{}",
-                    l.os.name,
-                    l.os.family.as_deref().unwrap_or("???"),
-                    l.os.variant.as_deref().unwrap_or("??")
+                    os.name,
+                    os.family.as_deref().unwrap_or("???"),
+                    os.variant.as_deref().unwrap_or("??")
                 )
             }),
             match self.sig.ittl {
@@ -114,8 +122,9 @@ impl fmt::Display for SynTCPOutput {
                 Ttl::Guess(value) => value,
             },
             self.os_matched
+                .os
                 .as_ref()
-                .map_or("none".to_string(), |l| l.os.kind.to_string()),
+                .map_or("none".to_string(), |os| os.kind.to_string()),
             self.sig,
         )
     }
@@ -131,7 +140,7 @@ pub struct SynAckTCPOutput {
     /// The destination IP address and port of the client receiving the SYN+ACK.
     pub destination: IpPort,
     /// The operative system with the highest quality that matches the SYN+ACK packet.
-    pub os_matched: Option<OSQualityMatched>,
+    pub os_matched: OSQualityMatched,
     /// The raw TCP signature extracted from the SYN+ACK packet.
     pub sig: ObservableTcp,
 }
@@ -154,12 +163,12 @@ impl fmt::Display for SynAckTCPOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.os_matched.as_ref().map_or("???".to_string(), |l| {
+            self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
                 format!(
                     "{}/{}/{}",
-                    l.os.name,
-                    l.os.family.as_deref().unwrap_or("???"),
-                    l.os.variant.as_deref().unwrap_or("??")
+                    os.name,
+                    os.family.as_deref().unwrap_or("???"),
+                    os.variant.as_deref().unwrap_or("??")
                 )
             }),
             match self.sig.ittl {
@@ -169,11 +178,17 @@ impl fmt::Display for SynAckTCPOutput {
                 Ttl::Guess(value) => value,
             },
             self.os_matched
+                .os
                 .as_ref()
-                .map_or("none".to_string(), |l| l.os.kind.to_string()),
+                .map_or("none".to_string(), |os| os.kind.to_string()),
             self.sig,
         )
     }
+}
+
+pub struct MTUQualityMatched {
+    pub link: Option<String>,
+    pub quality: MatchQualityType,
 }
 
 /// Holds information about the estimated Maximum Transmission Unit (MTU) of a link.
@@ -186,7 +201,7 @@ pub struct MTUOutput {
     /// The destination IP address and port (usually the server).
     pub destination: IpPort,
     /// An estimated link type (e.g., "Ethernet", "PPPoE") based on the calculated MTU.
-    pub link: String,
+    pub link: MTUQualityMatched,
     /// The calculated Maximum Transmission Unit (MTU) value in bytes.
     pub mtu: u16,
 }
@@ -207,7 +222,10 @@ impl fmt::Display for MTUOutput {
             self.destination.port,
             self.destination.ip,
             self.destination.port,
-            self.link,
+            self.link
+                .link
+                .as_ref()
+                .map_or("???".to_string(), |link| link.clone()),
             self.mtu,
         )
     }
@@ -262,8 +280,8 @@ impl fmt::Display for UptimeOutput {
 }
 
 pub struct BrowserQualityMatched {
-    pub browser: Browser,
-    pub quality: f32,
+    pub browser: Option<Browser>,
+    pub quality: MatchQualityType,
 }
 
 /// Represents a browser.
@@ -305,7 +323,7 @@ pub struct HttpRequestOutput {
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
     /// The browser with the highest quality that matches the HTTP request.
-    pub browser_matched: Option<BrowserQualityMatched>,
+    pub browser_matched: BrowserQualityMatched,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: ObservableHttpRequest,
 }
@@ -329,13 +347,14 @@ impl fmt::Display for HttpRequestOutput {
             self.source.ip,
             self.source.port,
             self.browser_matched
+                .browser
                 .as_ref()
-                .map_or("???".to_string(), |l| {
+                .map_or("???".to_string(), |browser| {
                     format!(
                         "{}/{}/{}",
-                        l.browser.name,
-                        l.browser.family.as_deref().unwrap_or("???"),
-                        l.browser.variant.as_deref().unwrap_or("???")
+                        browser.name,
+                        browser.family.as_deref().unwrap_or("???"),
+                        browser.variant.as_deref().unwrap_or("???")
                     )
                 }),
             self.lang.as_deref().unwrap_or("???"),
@@ -346,8 +365,8 @@ impl fmt::Display for HttpRequestOutput {
 }
 
 pub struct WebServerQualityMatched {
-    pub web_server: WebServer,
-    pub quality: f32,
+    pub web_server: Option<WebServer>,
+    pub quality: MatchQualityType,
 }
 
 /// Represents a web server.
@@ -386,7 +405,7 @@ pub struct HttpResponseOutput {
     /// Diagnostic information about potential HTTP specification violations or common practices.
     pub diagnosis: HttpDiagnosis,
     /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
-    pub web_server_matched: Option<WebServerQualityMatched>,
+    pub web_server_matched: WebServerQualityMatched,
     /// The raw signature representing the HTTP headers and their order.
     pub sig: ObservableHttpResponse,
 }
@@ -409,13 +428,14 @@ impl fmt::Display for HttpResponseOutput {
             self.destination.ip,
             self.destination.port,
             self.web_server_matched
+                .web_server
                 .as_ref()
-                .map_or("???".to_string(), |l| {
+                .map_or("???".to_string(), |web_server| {
                     format!(
                         "{}/{}/{}",
-                        l.web_server.name,
-                        l.web_server.family.as_deref().unwrap_or("???"),
-                        l.web_server.variant.as_deref().unwrap_or("???")
+                        web_server.name,
+                        web_server.family.as_deref().unwrap_or("???"),
+                        web_server.variant.as_deref().unwrap_or("???")
                     )
                 }),
             self.diagnosis,
