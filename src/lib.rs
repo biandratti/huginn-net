@@ -141,7 +141,7 @@ impl Default for AnalysisConfig {
 /// client analysis following the official FoxIO specification.
 pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
-    tcp_cache: TtlCache<Connection, SynData>,
+    connection_tracker: TtlCache<Connection, SynData>,
     http_cache: TtlCache<FlowKey, TcpFlow>,
     http_processors: http_process::HttpProcessors,
     config: AnalysisConfig,
@@ -154,7 +154,7 @@ impl<'a> HuginnNet<'a> {
     /// - `database`: Optional reference to the database containing known TCP/Http signatures from p0f.
     ///   Only loaded if `matcher_enabled` is true and HTTP or TCP analysis is enabled.
     ///   Not needed for TLS-only analysis or when fingerprint matching is disabled.
-    /// - `cache_capacity`: The maximum number of connections to maintain in the TTL cache.
+    /// - `cache_capacity`: The maximum number of connections to maintain in the connection tracker.
     /// - `config`: Optional configuration specifying which protocols to analyze. If None, uses default (all enabled).
     ///   When `matcher_enabled` is false, the database won't be loaded and no signature matching will be performed.
     ///
@@ -173,7 +173,7 @@ impl<'a> HuginnNet<'a> {
             None
         };
 
-        let tcp_cache_size = if config.tcp_enabled {
+        let connection_tracker_size = if config.tcp_enabled {
             cache_capacity
         } else {
             0
@@ -186,7 +186,7 @@ impl<'a> HuginnNet<'a> {
 
         Self {
             matcher,
-            tcp_cache: TtlCache::new(tcp_cache_size),
+            connection_tracker: TtlCache::new(connection_tracker_size),
             http_cache: TtlCache::new(http_cache_size),
             http_processors: crate::http_process::HttpProcessors::new(),
             config,
@@ -297,7 +297,7 @@ impl<'a> HuginnNet<'a> {
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(
             packet,
-            &mut self.tcp_cache,
+            &mut self.connection_tracker,
             &mut self.http_cache,
             &self.http_processors,
             &self.config,
