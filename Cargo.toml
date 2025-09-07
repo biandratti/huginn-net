@@ -23,10 +23,9 @@ sha2 = "0.10.9"
 tls-parser = "0.12.2"
 hpack-patched = "0.3.0"
 hex = "0.4.3"
-rustls = "0.23.31"
+# TLS decryption - only the crypto we actually need
 aes-gcm = "0.10.3"
 chacha20poly1305 = "0.10.1"
-ring = "0.17.14"
 
 [dev-dependencies]
 clap = { version = "4.5.47", features = ["derive"] }
