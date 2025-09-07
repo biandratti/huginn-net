@@ -23,7 +23,6 @@ sha2 = "0.10.9"
 tls-parser = "0.12.2"
 hpack-patched = "0.3.0"
 hex = "0.4.3"
-# TLS decryption - only the crypto we actually need
 aes-gcm = "0.10.3"
 chacha20poly1305 = "0.10.1"
 
@@ -37,18 +36,6 @@ pcap-file = "3.0.0-rc1"
 [[example]]
 name = "capture"
 path = "examples/capture.rs"
-
-[[example]]
-name = "tls_keylog_example"
-path = "examples/tls_keylog_example.rs"
-
-[[example]]
-name = "tls_decryption_example"
-path = "examples/tls_decryption_example.rs"
-
-[[example]]
-name = "https_analysis_example"
-path = "examples/https_analysis_example.rs"
 
 [[bench]]
 name = "benchmark"
