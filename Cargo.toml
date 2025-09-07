@@ -22,6 +22,7 @@ pcap-file = "3.0.0-rc1"
 sha2 = "0.10.9"
 tls-parser = "0.12.2"
 hpack-patched = "0.3.0"
+hex = "0.4.3"
 
 [dev-dependencies]
 clap = { version = "4.5.47", features = ["derive"] }
@@ -33,6 +34,10 @@ pcap-file = "3.0.0-rc1"
 [[example]]
 name = "capture"
 path = "examples/capture.rs"
+
+[[example]]
+name = "tls_keylog_example"
+path = "examples/tls_keylog_example.rs"
 
 [[bench]]
 name = "benchmark"

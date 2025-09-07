@@ -276,7 +276,7 @@ fn process_tcp_packet(
     src_ip: IpAddr,
     dst_ip: IpAddr,
     processors: &HttpProcessors,
-    config: &crate::AnalysisConfig,
+    _config: &crate::AnalysisConfig,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();

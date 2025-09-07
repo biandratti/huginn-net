@@ -49,6 +49,11 @@ pub use observable_signals::{
 };
 
 // ============================================================================
+// TLS KEYLOG EXPORTS (for HTTPS decryption)
+// ============================================================================
+pub use tls_keylog::{KeyMaterial, KeyType, TlsKeylog, TlsKeylogManager};
+
+// ============================================================================
 // EXTERNAL CRATE IMPORTS
 // ============================================================================
 use pcap_file::pcap::PcapReader;
@@ -100,6 +105,7 @@ mod observable_http_signals_matching;
 // TLS PROTOCOL MODULES (depends on TCP)
 // ============================================================================
 pub mod tls;
+pub mod tls_keylog;
 pub mod tls_process;
 
 // ============================================================================
@@ -123,16 +129,20 @@ pub struct AnalysisConfig {
     pub tls_enabled: bool,
     /// Enable fingerprint matching against the database. When false, all quality matched results will be Disabled.
     pub matcher_enabled: bool,
+    /// Paths to TLS keylog files for HTTPS decryption (SSLKEYLOGFILE format)
+    /// Supports multiple keylog files for different certificates/domains
+    pub tls_keylog_files: Vec<std::path::PathBuf>,
 }
 
 impl Default for AnalysisConfig {
     fn default() -> Self {
         Self {
             http_enabled: true,
-            https_enabled: false, // Default to false as it requires keylog setup
+            https_enabled: false,
             tcp_enabled: true,
             tls_enabled: true,
             matcher_enabled: true,
+            tls_keylog_files: Vec::new(),
         }
     }
 }
