@@ -115,6 +115,8 @@ pub mod signature_matcher;
 pub struct AnalysisConfig {
     /// Enable HTTP protocol analysis
     pub http_enabled: bool,
+    /// Enable HTTPS protocol analysis (requires TLS keylog file)
+    pub https_enabled: bool,
     /// Enable TCP protocol analysis
     pub tcp_enabled: bool,
     /// Enable TLS protocol analysis
@@ -127,6 +129,7 @@ impl Default for AnalysisConfig {
     fn default() -> Self {
         Self {
             http_enabled: true,
+            https_enabled: false, // Default to false as it requires keylog setup
             tcp_enabled: true,
             tls_enabled: true,
             matcher_enabled: true,

@@ -137,6 +137,7 @@ trait IpPacketProcessor: Packet {
         data: &[u8],
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
+        config: &AnalysisConfig,
     ) -> Result<ObservableHttpPackage, HuginnNetError>;
     fn process_tcp_with_data(
         data: &[u8],
@@ -168,9 +169,10 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         data: &[u8],
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
+        config: &AnalysisConfig,
     ) -> Result<ObservableHttpPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
-            http_process::process_http_ipv4(&packet, http_flows, http_processors)
+            http_process::process_http_ipv4(&packet, http_flows, http_processors, config)
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv4 packet data".to_string(),
@@ -225,9 +227,10 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         data: &[u8],
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
+        config: &AnalysisConfig,
     ) -> Result<ObservableHttpPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
-            http_process::process_http_ipv6(&packet, http_flows, http_processors)
+            http_process::process_http_ipv6(&packet, http_flows, http_processors, config)
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv6 packet data".to_string(),
@@ -269,7 +272,7 @@ fn execute_analysis<P: IpPacketProcessor>(
     destination: IpPort,
 ) -> Result<ObservablePackage, HuginnNetError> {
     let http_response = if config.http_enabled {
-        P::process_http_with_data(packet_data, http_flows, http_processors)?
+        P::process_http_with_data(packet_data, http_flows, http_processors, config)?
     } else {
         ObservableHttpPackage {
             http_request: None,

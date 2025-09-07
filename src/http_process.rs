@@ -145,7 +145,7 @@ pub struct ObservableHttpPackage {
 
 #[derive(Clone)]
 struct TcpData {
-    sequence: u32,
+    timestamp: std::time::Instant,
     data: Vec<u8>,
 }
 
@@ -193,7 +193,9 @@ impl TcpFlow {
             server_http_parsed: false,
         }
     }
-    /// Traversing all the data in sequence in the correct order to build the full data
+    /// Traversing all the data in arrival order to preserve original packet sequence
+    /// This preserves HTTP header order as seen on the wire, which is critical for
+    /// accurate fingerprinting when packets pass through proxies or load balancers.
     ///
     /// # Parameters
     /// - `is_client`: If the data comes from the client.
@@ -206,7 +208,7 @@ impl TcpFlow {
 
         let mut sorted_data = data.clone();
 
-        sorted_data.sort_by_key(|tcp_data| tcp_data.sequence);
+        sorted_data.sort_by_key(|tcp_data| tcp_data.timestamp);
 
         let mut full_data = Vec::new();
         for tcp_data in sorted_data {
@@ -220,6 +222,7 @@ pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
+    config: &crate::AnalysisConfig,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv4".to_string()));
@@ -231,6 +234,7 @@ pub fn process_http_ipv4(
             IpAddr::V4(packet.get_source()),
             IpAddr::V4(packet.get_destination()),
             processors,
+            config,
         )
     } else {
         Ok(ObservableHttpPackage {
@@ -244,6 +248,7 @@ pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
+    config: &crate::AnalysisConfig,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetError::UnsupportedProtocol("IPv6".to_string()));
@@ -255,6 +260,7 @@ pub fn process_http_ipv6(
             IpAddr::V6(packet.get_source()),
             IpAddr::V6(packet.get_destination()),
             processors,
+            config,
         )
     } else {
         Ok(ObservableHttpPackage {
@@ -270,6 +276,7 @@ fn process_tcp_packet(
     src_ip: IpAddr,
     dst_ip: IpAddr,
     processors: &HttpProcessors,
+    config: &crate::AnalysisConfig,
 ) -> Result<ObservableHttpPackage, HuginnNetError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
@@ -295,7 +302,7 @@ fn process_tcp_packet(
     if let Some(flow) = tcp_flow {
         if !tcp.payload().is_empty() {
             let tcp_data = TcpData {
-                sequence: tcp.get_sequence(),
+                timestamp: std::time::Instant::now(),
                 data: Vec::from(tcp.payload()),
             };
 
@@ -361,7 +368,7 @@ fn process_tcp_packet(
         }
     } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
         let tcp_data: TcpData = TcpData {
-            sequence: tcp.get_sequence(),
+            timestamp: std::time::Instant::now(),
             data: Vec::from(tcp.payload()),
         };
         let flow: TcpFlow = TcpFlow::init(src_ip, src_port, dst_ip, dst_port, tcp_data);
