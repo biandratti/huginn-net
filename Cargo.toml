@@ -22,6 +22,9 @@ pcap-file = "3.0.0-rc1"
 sha2 = "0.10.9"
 tls-parser = "0.12.2"
 hpack-patched = "0.3.0"
+hex = "0.4.3"
+aes-gcm = "0.10.3"
+chacha20poly1305 = "0.10.1"
 
 [dev-dependencies]
 clap = { version = "4.5.47", features = ["derive"] }
