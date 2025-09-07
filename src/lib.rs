@@ -166,6 +166,8 @@ pub struct HuginnNet<'a> {
     connection_tracker: TtlCache<Connection, SynData>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: http_process::HttpProcessors,
+    https_processor: Option<HttpsProcessor>,
+    tls_keylog_manager: Option<TlsKeylogManager>,
     config: AnalysisConfig,
 }
 
@@ -200,10 +202,40 @@ impl<'a> HuginnNet<'a> {
         } else {
             0
         };
-        let http_flows_size = if config.http_enabled {
+        let http_flows_size = if config.http_enabled || config.https_enabled {
             max_connections
         } else {
             0
+        };
+
+        // Initialize TLS keylog manager if HTTPS is enabled
+        let tls_keylog_manager = if config.https_enabled && !config.tls_keylog_files.is_empty() {
+            match TlsKeylogManager::from_files(&config.tls_keylog_files) {
+                Ok(manager) => {
+                    tracing::info!(
+                        "Loaded {} TLS keylog files with {} total keys",
+                        manager.keylog_count(),
+                        manager.total_key_count()
+                    );
+                    Some(manager)
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to load TLS keylog files: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // Initialize HTTPS processor if enabled
+        let https_processor = if config.https_enabled {
+            let tls_decryptor = tls_keylog_manager
+                .as_ref()
+                .map(|manager| TlsDecryptor::new((*manager).clone()));
+            Some(HttpsProcessor::new(tls_decryptor))
+        } else {
+            None
         };
 
         Self {
@@ -211,8 +243,74 @@ impl<'a> HuginnNet<'a> {
             connection_tracker: TtlCache::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
             http_processors: crate::http_process::HttpProcessors::new(),
+            https_processor,
+            tls_keylog_manager,
             config,
         }
+    }
+
+    /// Add TLS keylog file for HTTPS decryption
+    ///
+    /// This allows adding keylog files dynamically after initialization.
+    /// Useful when keylog files become available during runtime.
+    pub fn add_tls_keylog_file<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<(), crate::error::HuginnNetError> {
+        if !self.config.https_enabled {
+            return Err(crate::error::HuginnNetError::Parse(
+                "HTTPS is not enabled in configuration".to_string(),
+            ));
+        }
+
+        // Initialize keylog manager if it doesn't exist
+        if self.tls_keylog_manager.is_none() {
+            self.tls_keylog_manager = Some(TlsKeylogManager::new());
+        }
+
+        // Load the new keylog file
+        let _keylog = TlsKeylog::from_file(path.as_ref())?;
+        let filename = path
+            .as_ref()
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        if let Some(manager) = &mut self.tls_keylog_manager {
+            let content = std::fs::read_to_string(path.as_ref()).map_err(|e| {
+                crate::error::HuginnNetError::Parse(format!("Failed to read keylog file: {e}"))
+            })?;
+            manager.add_keylog_from_string(filename, &content)?;
+
+            // Update HTTPS processor with new keylog manager
+            if let Some(https_proc) = &mut self.https_processor {
+                let tls_decryptor = Some(TlsDecryptor::new(manager.clone()));
+                *https_proc = HttpsProcessor::new(tls_decryptor);
+            }
+
+            tracing::info!("Added TLS keylog file: {:?}", path.as_ref());
+        }
+
+        Ok(())
+    }
+
+    /// Get HTTPS statistics
+    pub fn https_stats(&self) -> Option<(usize, usize, usize)> {
+        self.tls_keylog_manager.as_ref().map(|manager| {
+            (
+                manager.keylog_count(),
+                manager.total_key_count(),
+                manager.total_client_count(),
+            )
+        })
+    }
+
+    /// Check if HTTPS decryption is available
+    pub fn is_https_ready(&self) -> bool {
+        self.config.https_enabled
+            && self.tls_keylog_manager.is_some()
+            && self.https_processor.is_some()
     }
 
     fn process_with<F>(

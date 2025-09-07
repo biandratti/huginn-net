@@ -47,6 +47,10 @@ path = "examples/tls_keylog_example.rs"
 name = "tls_decryption_example"
 path = "examples/tls_decryption_example.rs"
 
+[[example]]
+name = "https_analysis_example"
+path = "examples/https_analysis_example.rs"
+
 [[bench]]
 name = "benchmark"
 harness = false

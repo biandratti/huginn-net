@@ -53,7 +53,7 @@ pub struct KeyMaterial {
 /// CLIENT_TRAFFIC_SECRET_0 <client_random> <secret>
 /// SERVER_TRAFFIC_SECRET_0 <client_random> <secret>
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TlsKeylog {
     /// Map from client_random to key material
     keys: HashMap<Vec<u8>, Vec<KeyMaterial>>,
@@ -253,7 +253,7 @@ impl Default for TlsKeylog {
 ///
 /// Handles multiple keylog files for different certificates/domains.
 /// Searches across all loaded keylogs to find the appropriate key material.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TlsKeylogManager {
     /// List of loaded keylogs with their source information
     keylogs: Vec<(String, TlsKeylog)>, // (source_name, keylog)
