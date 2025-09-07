@@ -53,6 +53,10 @@ pub use observable_signals::{
 // ============================================================================
 pub use tls_keylog::{KeyMaterial, KeyType, TlsKeylog, TlsKeylogManager};
 
+// TLS DECRYPTION EXPORTS
+// ============================================================================
+pub use tls_decryption::{CipherSuite, TlsConnectionState, TlsDecryptor};
+
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
 // ============================================================================
@@ -106,6 +110,7 @@ mod observable_http_signals_matching;
 // ============================================================================
 pub mod tls;
 pub mod tls_keylog;
+pub mod tls_decryption;
 pub mod tls_process;
 
 // ============================================================================
