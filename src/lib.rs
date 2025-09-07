@@ -57,6 +57,10 @@ pub use tls_keylog::{KeyMaterial, KeyType, TlsKeylog, TlsKeylogManager};
 // ============================================================================
 pub use tls_decryption::{CipherSuite, TlsConnectionState, TlsDecryptor};
 
+// HTTPS PROCESSING EXPORTS
+// ============================================================================
+pub use http_process::HttpsProcessor;
+
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
 // ============================================================================
@@ -109,8 +113,8 @@ mod observable_http_signals_matching;
 // TLS PROTOCOL MODULES (depends on TCP)
 // ============================================================================
 pub mod tls;
-pub mod tls_keylog;
 pub mod tls_decryption;
+pub mod tls_keylog;
 pub mod tls_process;
 
 // ============================================================================

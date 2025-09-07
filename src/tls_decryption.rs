@@ -1,12 +1,12 @@
 //! TLS Decryption Module
-//! 
+//!
 //! This module provides TLS decryption capabilities using keylog files.
 //! It supports TLS 1.2 and TLS 1.3 decryption with various cipher suites.
 
 use crate::error::HuginnNetError;
 use crate::tls_keylog::{KeyMaterial, KeyType, TlsKeylogManager};
-use aes_gcm::{Aes128Gcm, Aes256Gcm, KeyInit, Nonce};
 use aes_gcm::aead::Aead;
+use aes_gcm::{Aes128Gcm, Aes256Gcm, KeyInit, Nonce};
 use chacha20poly1305::{ChaCha20Poly1305, Key};
 use std::collections::HashMap;
 use tls_parser::TlsMessageHandshake;
@@ -128,19 +128,13 @@ impl TlsDecryptor {
     ) -> Result<(), HuginnNetError> {
         match handshake_msg {
             TlsMessageHandshake::ClientHello(_client_hello) => {
-                debug!(
-                    "Processing ClientHello for connection: {}",
-                    connection_id
-                );
+                debug!("Processing ClientHello for connection: {}", connection_id);
                 // Store client random for later use
                 // Note: In a real implementation, we'd need to parse the full handshake
                 // This is a simplified version for demonstration
             }
             TlsMessageHandshake::ServerHello(_server_hello) => {
-                debug!(
-                    "Processing ServerHello for connection: {}",
-                    connection_id
-                );
+                debug!("Processing ServerHello for connection: {}", connection_id);
                 // Extract cipher suite and create connection state
                 // This would need full handshake parsing in practice
             }
@@ -181,11 +175,19 @@ impl TlsDecryptor {
             CipherSuite::Aes128GcmSha256 | CipherSuite::Aes256GcmSha384 => {
                 Self::decrypt_aes_gcm(encrypted_data, &key_material, connection, is_client_data)
             }
-            CipherSuite::ChaCha20Poly1305Sha256 => {
-                Self::decrypt_chacha20_poly1305(encrypted_data, &key_material, connection, is_client_data)
-            }
+            CipherSuite::ChaCha20Poly1305Sha256 => Self::decrypt_chacha20_poly1305(
+                encrypted_data,
+                &key_material,
+                connection,
+                is_client_data,
+            ),
             CipherSuite::EcdheRsaAes128GcmSha256 | CipherSuite::EcdheRsaAes256GcmSha384 => {
-                Self::decrypt_tls12_aes_gcm(encrypted_data, &key_material, connection, is_client_data)
+                Self::decrypt_tls12_aes_gcm(
+                    encrypted_data,
+                    &key_material,
+                    connection,
+                    is_client_data,
+                )
             }
         }
     }
@@ -227,12 +229,14 @@ impl TlsDecryptor {
         is_client_data: bool,
     ) -> Result<Vec<u8>, HuginnNetError> {
         if encrypted_data.len() < 16 {
-            return Err(HuginnNetError::Parse("Encrypted data too short".to_string()));
+            return Err(HuginnNetError::Parse(
+                "Encrypted data too short".to_string(),
+            ));
         }
 
         // Extract nonce and ciphertext
         let (nonce_bytes, ciphertext) = encrypted_data.split_at(12);
-        
+
         // Get sequence number and increment
         let _seq_num = if is_client_data {
             let seq = connection.client_seq_num;
@@ -248,9 +252,9 @@ impl TlsDecryptor {
             CipherSuite::Aes128GcmSha256 => {
                 let cipher = Aes128Gcm::new_from_slice(&key_material.key_data[..16])
                     .map_err(|e| HuginnNetError::Parse(format!("Invalid AES-128 key: {e}")))?;
-                
+
                 let nonce = Nonce::from_slice(nonce_bytes);
-                
+
                 cipher
                     .decrypt(nonce, ciphertext)
                     .map_err(|e| HuginnNetError::Parse(format!("AES-GCM decryption failed: {e}")))
@@ -258,14 +262,16 @@ impl TlsDecryptor {
             CipherSuite::Aes256GcmSha384 => {
                 let cipher = Aes256Gcm::new_from_slice(&key_material.key_data[..32])
                     .map_err(|e| HuginnNetError::Parse(format!("Invalid AES-256 key: {e}")))?;
-                
+
                 let nonce = Nonce::from_slice(nonce_bytes);
-                
+
                 cipher
                     .decrypt(nonce, ciphertext)
                     .map_err(|e| HuginnNetError::Parse(format!("AES-GCM decryption failed: {e}")))
             }
-            _ => Err(HuginnNetError::Parse("Invalid cipher suite for AES-GCM".to_string())),
+            _ => Err(HuginnNetError::Parse(
+                "Invalid cipher suite for AES-GCM".to_string(),
+            )),
         }
     }
 
@@ -277,12 +283,14 @@ impl TlsDecryptor {
         is_client_data: bool,
     ) -> Result<Vec<u8>, HuginnNetError> {
         if encrypted_data.len() < 16 {
-            return Err(HuginnNetError::Parse("Encrypted data too short".to_string()));
+            return Err(HuginnNetError::Parse(
+                "Encrypted data too short".to_string(),
+            ));
         }
 
         // Extract nonce and ciphertext
         let (nonce_bytes, ciphertext) = encrypted_data.split_at(12);
-        
+
         // Get sequence number and increment
         let _seq_num = if is_client_data {
             let seq = connection.client_seq_num;
@@ -296,9 +304,9 @@ impl TlsDecryptor {
 
         let key = Key::from_slice(&key_material.key_data[..32]);
         let cipher = ChaCha20Poly1305::new(key);
-        
+
         let nonce = chacha20poly1305::Nonce::from_slice(nonce_bytes);
-        
+
         cipher
             .decrypt(nonce, ciphertext)
             .map_err(|e| HuginnNetError::Parse(format!("ChaCha20-Poly1305 decryption failed: {e}")))
@@ -314,7 +322,9 @@ impl TlsDecryptor {
         // TLS 1.2 decryption is more complex as it requires deriving keys from master secret
         // This is a simplified implementation
         warn!("TLS 1.2 decryption not fully implemented yet");
-        Err(HuginnNetError::Parse("TLS 1.2 decryption not implemented".to_string()))
+        Err(HuginnNetError::Parse(
+            "TLS 1.2 decryption not implemented".to_string(),
+        ))
     }
 
     /// Add a new TLS connection to track
@@ -405,7 +415,7 @@ mod tests {
     fn test_tls_decryptor_creation() {
         let keylog_manager = TlsKeylogManager::new();
         let decryptor = TlsDecryptor::new(keylog_manager);
-        
+
         assert_eq!(decryptor.connection_count(), 0);
         assert!(!decryptor.has_connection("test"));
     }
