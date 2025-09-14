@@ -78,7 +78,7 @@ mod tests {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                panic!("Failed to create default database: {}", e);
+                panic!("Failed to create default database: {e}");
             }
         };
 
@@ -121,7 +121,7 @@ mod tests {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                panic!("Failed to create default database: {}", e);
+                panic!("Failed to create default database: {e}");
             }
         };
 
@@ -195,7 +195,7 @@ mod tests {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                panic!("Failed to create default database: {}", e);
+                panic!("Failed to create default database: {e}");
             }
         };
 
@@ -242,7 +242,7 @@ mod tests {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                panic!("Failed to create default database: {}", e);
+                panic!("Failed to create default database: {e}");
             }
         };
 
@@ -290,7 +290,7 @@ mod tests {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                panic!("Failed to create default database: {}", e);
+                panic!("Failed to create default database: {e}");
             }
         };
 

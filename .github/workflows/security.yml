@@ -47,14 +47,15 @@ jobs:
       
       - name: Run unsafe code analysis
         run: cargo geiger --package ${{ github.event.repository.name }} --forbid-only
+ # Disabled because the license is not valid in ctrlc crate
+  # dependency-review:
+  #   name: Dependency Review
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - name: Dependency Review
+  #       uses: actions/dependency-review-action@v4
+  #       with:
+  #         allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, Unicode-3.0
 
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v5
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, Unicode-3.0

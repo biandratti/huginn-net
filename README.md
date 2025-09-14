@@ -74,7 +74,7 @@ let db = match Database::load_default() {
     }
 };
 let (sender, receiver) = mpsc::channel();
-let analyzer = match HuginnNet::new(Some(&db), 100, None) {
+let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
     Ok(analyzer) => analyzer,
     Err(e) => {
         error!("Failed to create HuginnNet analyzer: {}", e);
@@ -85,10 +85,10 @@ let analyzer = match HuginnNet::new(Some(&db), 100, None) {
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
     // Live network capture
-    analyzer.analyze_network("eth0", sender);
+    analyzer.analyze_network("eth0", sender, None);
     
     // OR PCAP file analysis
-    // analyzer.analyze_pcap("traffic.pcap", sender);
+    // analyzer.analyze_pcap("traffic.pcap", sender, None);
 });
 
 // Process results

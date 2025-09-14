@@ -56,7 +56,9 @@ use pnet::datalink;
 use pnet::datalink::Config;
 use std::error::Error;
 use std::fs::File;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
@@ -209,11 +211,19 @@ impl<'a> HuginnNet<'a> {
         &mut self,
         mut packet_fn: F,
         sender: Sender<FingerprintResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut() -> Option<Result<Vec<u8>, Box<dyn Error>>>,
     {
         while let Some(packet_result) = packet_fn() {
+            if let Some(ref cancel) = cancel_signal {
+                if cancel.load(Ordering::Relaxed) {
+                    debug!("Cancellation signal received, stopping packet processing");
+                    break;
+                }
+            }
+
             match packet_result {
                 Ok(packet) => {
                     let output = self.analyze_tcp(&packet);
@@ -237,6 +247,7 @@ impl<'a> HuginnNet<'a> {
     /// # Parameters
     /// - `interface_name`: The name of the network interface to analyze.
     /// - `sender`: A `Sender` to send `FingerprintResult` objects back to the caller.
+    /// - `cancel_signal`: Optional `Arc<AtomicBool>` to signal graceful shutdown.
     ///
     /// # Errors
     /// - If the network interface cannot be found or a channel cannot be created.
@@ -244,6 +255,7 @@ impl<'a> HuginnNet<'a> {
         &mut self,
         interface_name: &str,
         sender: Sender<FingerprintResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
     ) -> Result<(), Box<dyn Error>> {
         let interfaces = datalink::interfaces();
         let interface = interfaces
@@ -270,6 +282,7 @@ impl<'a> HuginnNet<'a> {
                 Err(e) => Some(Err(e.into())),
             },
             sender,
+            cancel_signal,
         )
     }
 
@@ -278,6 +291,7 @@ impl<'a> HuginnNet<'a> {
     /// # Parameters
     /// - `pcap_path`: The path to the PCAP file to analyze.
     /// - `sender`: A `Sender` to send `FingerprintResult` objects back to the caller.
+    /// - `cancel_signal`: Optional `Arc<AtomicBool>` to signal graceful shutdown.
     ///
     /// # Errors
     /// - If the PCAP file cannot be opened or read.
@@ -285,6 +299,7 @@ impl<'a> HuginnNet<'a> {
         &mut self,
         pcap_path: &str,
         sender: Sender<FingerprintResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
     ) -> Result<(), Box<dyn Error>> {
         let file = File::open(pcap_path)?;
         let mut pcap_reader = PcapReader::new(file)?;
@@ -296,6 +311,7 @@ impl<'a> HuginnNet<'a> {
                 None => None,
             },
             sender,
+            cancel_signal,
         )
     }
 

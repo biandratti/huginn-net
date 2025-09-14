@@ -49,14 +49,14 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                eprintln!("Failed to load default database: {}", e);
+                eprintln!("Failed to load default database: {e}");
                 return;
             }
         };
         let mut huginn_net = match HuginnNet::new(Some(&db), 1000, None) {
             Ok(analyzer) => analyzer,
             Err(e) => {
-                eprintln!("Failed to create HuginnNet analyzer: {}", e);
+                eprintln!("Failed to create HuginnNet analyzer: {e}");
                 return;
             }
         };
@@ -106,14 +106,14 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     let db = match Database::load_default() {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to load default database: {}", e);
+            eprintln!("Failed to load default database: {e}");
             return;
         }
     };
     let mut huginn_net = match HuginnNet::new(Some(&db), 1000, None) {
         Ok(analyzer) => analyzer,
         Err(e) => {
-            eprintln!("Failed to create HuginnNet analyzer: {}", e);
+            eprintln!("Failed to create HuginnNet analyzer: {e}");
             return;
         }
     };
