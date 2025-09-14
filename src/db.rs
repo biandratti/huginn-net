@@ -76,7 +76,12 @@ mod tests {
 
     #[test]
     fn test_default_database() {
-        let db = Database::load_default().expect("Failed to create default database");
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                panic!("Failed to create default database: {}", e);
+            }
+        };
 
         assert_eq!(db.classes, vec!["win", "unix", "other"]);
 
