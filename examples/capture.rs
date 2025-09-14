@@ -2,8 +2,10 @@ use clap::{Parser, Subcommand};
 use huginn_net::db::Database;
 use huginn_net::fingerprint_result::FingerprintResult;
 use huginn_net::HuginnNet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
 use std::thread;
 use tracing::{debug, error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -67,6 +69,16 @@ fn main() {
     let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
         mpsc::channel();
 
+    let cancel_signal = Arc::new(AtomicBool::new(false));
+    let cancel_clone = cancel_signal.clone(); // Clone for the analysis thread
+
+    let ctrl_c_signal = cancel_signal.clone();
+    ctrlc::set_handler(move || {
+        info!("Received signal, initiating graceful shutdown...");
+        ctrl_c_signal.store(true, Ordering::Relaxed);
+    })
+    .expect("Error setting signal handler");
+
     thread::spawn(move || {
         let db = match Database::load_default() {
             Ok(db) => db,
@@ -88,11 +100,11 @@ fn main() {
         let result = match args.command {
             Commands::Live { interface } => {
                 info!("Starting live capture on interface: {}", interface);
-                analyzer.analyze_network(&interface, sender)
+                analyzer.analyze_network(&interface, sender, Some(cancel_clone))
             }
             Commands::Pcap { file } => {
                 info!("Analyzing PCAP file: {}", file);
-                analyzer.analyze_pcap(&file, sender)
+                analyzer.analyze_pcap(&file, sender, Some(cancel_clone))
             }
         };
 
@@ -102,6 +114,11 @@ fn main() {
     });
 
     for output in receiver {
+        if cancel_signal.load(Ordering::Relaxed) {
+            info!("Shutdown signal received, stopping result processing");
+            break;
+        }
+
         if let Some(syn) = output.syn {
             info!("{}", syn);
         }
@@ -124,4 +141,6 @@ fn main() {
             info!("{}", tls_client);
         }
     }
+
+    info!("Analysis shutdown completed");
 }
