@@ -73,11 +73,13 @@ fn main() {
     let cancel_clone = cancel_signal.clone(); // Clone for the analysis thread
 
     let ctrl_c_signal = cancel_signal.clone();
-    ctrlc::set_handler(move || {
+    if let Err(e) = ctrlc::set_handler(move || {
         info!("Received signal, initiating graceful shutdown...");
         ctrl_c_signal.store(true, Ordering::Relaxed);
-    })
-    .expect("Error setting signal handler");
+    }) {
+        error!("Error setting signal handler: {e}");
+        return;
+    }
 
     thread::spawn(move || {
         let db = match Database::load_default() {

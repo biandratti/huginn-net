@@ -63,8 +63,7 @@ impl Database {
 
         Database::from_str(DEFAULT_FP_CONTENTS).map_err(|e| {
             crate::error::HuginnNetError::MissConfiguration(format!(
-                "Failed to parse embedded default p0f database: {}",
-                e
+                "Failed to parse embedded default p0f database: {e}"
             ))
         })
     }
@@ -79,7 +78,7 @@ mod tests {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                panic!("Failed to create default database: {}", e);
+                panic!("Failed to create default database: {e}");
             }
         };
 
