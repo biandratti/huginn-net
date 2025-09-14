@@ -162,7 +162,7 @@ impl<'a> HuginnNet<'a> {
     /// A new `HuginnNet` instance initialized with the given database, max connections, and configuration.
     ///
     /// # Errors
-    /// Returns `HuginnNetError::DatabaseRequiredForMatcher` if `matcher_enabled` is true but no database is provided.
+    /// Returns `HuginnNetError::MissConfiguration` if `matcher_enabled` is true but no database is provided.
     pub fn new(
         database: Option<&'a Database>,
         max_connections: usize,
@@ -170,7 +170,6 @@ impl<'a> HuginnNet<'a> {
     ) -> Result<Self, crate::error::HuginnNetError> {
         let config = config.unwrap_or_default();
 
-        // Check if matcher is enabled but no database is provided
         if config.matcher_enabled
             && (config.tcp_enabled || config.http_enabled)
             && database.is_none()
