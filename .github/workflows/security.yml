@@ -57,4 +57,4 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, Unicode-3.0
+          allow-licenses: MIT, Apache-2.0, MIT/Apache-2.0, BSD-2-Clause, BSD-3-Clause, Unicode-3.0
