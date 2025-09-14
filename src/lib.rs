@@ -160,12 +160,24 @@ impl<'a> HuginnNet<'a> {
     ///
     /// # Returns
     /// A new `HuginnNet` instance initialized with the given database, max connections, and configuration.
+    ///
+    /// # Errors
+    /// Returns `HuginnNetError::MissConfiguration` if `matcher_enabled` is true but no database is provided.
     pub fn new(
         database: Option<&'a Database>,
         max_connections: usize,
         config: Option<AnalysisConfig>,
-    ) -> Self {
+    ) -> Result<Self, crate::error::HuginnNetError> {
         let config = config.unwrap_or_default();
+
+        if config.matcher_enabled
+            && (config.tcp_enabled || config.http_enabled)
+            && database.is_none()
+        {
+            return Err(crate::error::HuginnNetError::MissConfiguration(
+                "Database is required when matcher is enabled".to_string(),
+            ));
+        }
 
         let matcher = if config.matcher_enabled && (config.tcp_enabled || config.http_enabled) {
             database.map(SignatureMatcher::new)
@@ -184,13 +196,13 @@ impl<'a> HuginnNet<'a> {
             0
         };
 
-        Self {
+        Ok(Self {
             matcher,
             connection_tracker: TtlCache::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
             http_processors: crate::http_process::HttpProcessors::new(),
             config,
-        }
+        })
     }
 
     fn process_with<F>(
@@ -226,7 +238,7 @@ impl<'a> HuginnNet<'a> {
     /// - `interface_name`: The name of the network interface to analyze.
     /// - `sender`: A `Sender` to send `FingerprintResult` objects back to the caller.
     ///
-    /// # Panics
+    /// # Errors
     /// - If the network interface cannot be found or a channel cannot be created.
     pub fn analyze_network(
         &mut self,
@@ -267,7 +279,7 @@ impl<'a> HuginnNet<'a> {
     /// - `pcap_path`: The path to the PCAP file to analyze.
     /// - `sender`: A `Sender` to send `FingerprintResult` objects back to the caller.
     ///
-    /// # Panics
+    /// # Errors
     /// - If the PCAP file cannot be opened or read.
     pub fn analyze_pcap(
         &mut self,

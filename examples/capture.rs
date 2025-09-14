@@ -5,7 +5,7 @@ use huginn_net::HuginnNet;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -64,14 +64,26 @@ fn main() {
     let args = Args::parse();
     initialize_logging(args.log_file);
 
-    let db = Box::leak(Box::new(Database::default()));
-    debug!("Loaded database: {:?}", db);
-
     let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
         mpsc::channel();
 
     thread::spawn(move || {
-        let mut analyzer = HuginnNet::new(Some(db), 100, None);
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                error!("Failed to load default database: {}", e);
+                return;
+            }
+        };
+        debug!("Loaded database: {:?}", db);
+
+        let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
+            Ok(analyzer) => analyzer,
+            Err(e) => {
+                error!("Failed to create HuginnNet analyzer: {}", e);
+                return;
+            }
+        };
 
         let result = match args.command {
             Commands::Live { interface } => {

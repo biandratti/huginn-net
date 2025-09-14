@@ -75,7 +75,12 @@ mod tests {
 
     #[test]
     fn matching_linux_by_tcp_request() {
-        let db = Box::leak(Box::new(Database::default()));
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                panic!("Failed to create default database: {}", e);
+            }
+        };
 
         //sig: 4:58+6:0:1452:mss*44,7:mss,sok,ts,nop,ws:df,id+:0
         let linux_signature = ObservableTcp {
@@ -96,7 +101,7 @@ mod tests {
             pclass: PayloadSize::Zero,
         };
 
-        let matcher = SignatureMatcher::new(db);
+        let matcher = SignatureMatcher::new(&db);
 
         if let Some((label, _matched_db_sig, quality)) =
             matcher.matching_by_tcp_request(&linux_signature)
@@ -113,7 +118,12 @@ mod tests {
 
     #[test]
     fn matching_android_by_tcp_request() {
-        let db = Box::leak(Box::new(Database::default()));
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                panic!("Failed to create default database: {}", e);
+            }
+        };
 
         //sig: "4:64+0:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature = ObservableTcp {
@@ -153,7 +163,7 @@ mod tests {
             pclass: PayloadSize::Zero,
         };
 
-        let matcher = SignatureMatcher::new(db);
+        let matcher = SignatureMatcher::new(&db);
 
         if let Some((label, _matched_db_sig, quality)) =
             matcher.matching_by_tcp_request(&android_signature)
@@ -182,7 +192,12 @@ mod tests {
 
     #[test]
     fn matching_firefox2_by_http_request() {
-        let db = Box::leak(Box::new(Database::default()));
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                panic!("Failed to create default database: {}", e);
+            }
+        };
 
         let firefox_signature = ObservableHttpRequest {
             lang: None,
@@ -207,7 +222,7 @@ mod tests {
             uri: Some("/".to_string()),
         };
 
-        let matcher = SignatureMatcher::new(db);
+        let matcher = SignatureMatcher::new(&db);
 
         if let Some((label, _matched_db_sig, quality)) =
             matcher.matching_by_http_request(&firefox_signature)
@@ -224,7 +239,12 @@ mod tests {
 
     #[test]
     fn matching_apache_by_http_response() {
-        let db = Box::leak(Box::new(Database::default()));
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                panic!("Failed to create default database: {}", e);
+            }
+        };
 
         let apache_signature = ObservableHttpResponse {
             version: HttpVersion::V11,
@@ -250,7 +270,7 @@ mod tests {
             status_code: Some(200),
         };
 
-        let matcher = SignatureMatcher::new(db);
+        let matcher = SignatureMatcher::new(&db);
 
         if let Some((label, _matched_db_sig, quality)) =
             matcher.matching_by_http_response(&apache_signature)
@@ -267,7 +287,12 @@ mod tests {
 
     #[test]
     fn matching_android_chrome_by_http_request() {
-        let db = Box::leak(Box::new(Database::default()));
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                panic!("Failed to create default database: {}", e);
+            }
+        };
 
         let android_chrome_signature = ObservableHttpRequest {
             lang: Some("English".to_string()),
@@ -294,7 +319,7 @@ mod tests {
             uri: Some("/".to_string()),
         };
 
-        let matcher = SignatureMatcher::new(db);
+        let matcher = SignatureMatcher::new(&db);
 
         match matcher.matching_by_http_request(&android_chrome_signature) {
             Some((label, _matched_db_sig, quality)) => {
