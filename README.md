@@ -248,13 +248,7 @@ Features:
 
 ## 🤝 Contributing
 
-We welcome contributions! Areas where help is especially valuable:
-
-### How to Contribute
-1. **Database Contributions**: Add new `.fp` signatures in the `config/` directory
-2. **Code Improvements**: Bug fixes, feature additions, optimizations
-3. **Testing**: Validate accuracy on new device types
-4. **Documentation**: Examples, tutorials, API improvements
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on how to get started.
 
 **Your signature contributions directly improve detection accuracy for the entire community!**
 
@@ -265,7 +259,7 @@ We welcome contributions! Areas where help is especially valuable:
 
 ## 📄 License
 
-This project is dual-licensed under either the [MIT License](LICENSE-MIT) or the [Apache License, Version 2.0](LICENSE-APACHE), at your option.
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
 
 ### Attribution
 
