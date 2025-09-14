@@ -70,7 +70,7 @@ fn main() {
         mpsc::channel();
 
     let cancel_signal = Arc::new(AtomicBool::new(false));
-    let cancel_clone = cancel_signal.clone(); // Clone for the analysis thread
+    let cancel_clone = cancel_signal.clone();
 
     let ctrl_c_signal = cancel_signal.clone();
     if let Err(e) = ctrlc::set_handler(move || {
