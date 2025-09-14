@@ -49,25 +49,24 @@ impl fmt::Display for Type {
     }
 }
 
-impl Default for Database {
+impl Database {
     /// Creates a default instance of the `Database` by parsing an embedded configuration file.
     /// This file (`config/p0f.fp` relative to the crate root) is expected to define the default
     /// signatures and mappings used for analysis.
     ///
-    /// # Panics
-    /// Panic if the embedded default fingerprint file cannot be parsed. This indicates
-    /// a critical issue with the bundled fingerprint data or the parser itself.
-    fn default() -> Self {
+    /// # Errors
+    /// Returns `HuginnNetError::MissConfiguration` if the embedded default fingerprint file
+    /// cannot be parsed. This indicates a critical issue with the bundled fingerprint data
+    /// or the parser itself.
+    pub fn load_default() -> Result<Self, crate::error::HuginnNetError> {
         const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
 
-        match Database::from_str(DEFAULT_FP_CONTENTS) {
-            Ok(db) => db,
-            Err(e) => {
-                panic!(
-                    "CRITICAL: Failed to parse embedded default fingerprint file. This is a bug or a corrupted built-in DB. Error: {e}"
-                );
-            }
-        }
+        Database::from_str(DEFAULT_FP_CONTENTS).map_err(|e| {
+            crate::error::HuginnNetError::MissConfiguration(format!(
+                "Failed to parse embedded default p0f database: {}",
+                e
+            ))
+        })
     }
 }
 
@@ -77,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_default_database() {
-        let db = Database::default();
+        let db = Database::load_default().expect("Failed to create default database");
 
         assert_eq!(db.classes, vec!["win", "unix", "other"]);
 

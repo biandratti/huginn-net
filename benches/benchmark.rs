@@ -46,7 +46,13 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
         let mut http_request_count: u64 = 0;
         let mut http_response_count: u64 = 0;
 
-        let db = Database::default();
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                eprintln!("Failed to load default database: {}", e);
+                return;
+            }
+        };
         let mut huginn_net = match HuginnNet::new(Some(&db), 1000, None) {
             Ok(analyzer) => analyzer,
             Err(e) => {
@@ -97,7 +103,13 @@ fn bench_analyze_tcp_on_pcap(c: &mut Criterion) {
     println!("  HTTP Response: {http_response_count}");
     println!("--------------------");
 
-    let db = Database::default();
+    let db = match Database::load_default() {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("Failed to load default database: {}", e);
+            return;
+        }
+    };
     let mut huginn_net = match HuginnNet::new(Some(&db), 1000, None) {
         Ok(analyzer) => analyzer,
         Err(e) => {
