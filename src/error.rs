@@ -39,6 +39,13 @@ pub enum HuginnNetError {
     #[error("Unsupported ethernet type: {0}")]
     UnsupportedEthernetType(EtherType),
 
+    /// Unacceptable configuration.
+    ///
+    /// This variant is used when the configuration is unacceptable.
+    /// The associated value specifies the unacceptable configuration.
+    #[error("Unacceptable configuration: {0}")]
+    MissConfiguration(String),
+
     /// An unknown error occurred.
     ///
     /// This variant is used as a catch-all for errors that do not fit other categories.

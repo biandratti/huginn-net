@@ -68,7 +68,13 @@ use std::sync::mpsc;
 // Load signature database and create analyzer
 let db = Box::leak(Box::new(Database::default()));
 let (sender, receiver) = mpsc::channel();
-let analyzer = HuginnNet::new(Some(db), 100, None);
+let analyzer = match HuginnNet::new(Some(db), 100, None) {
+    Ok(analyzer) => analyzer,
+    Err(e) => {
+        error!("Failed to create HuginnNet analyzer: {}", e);
+        return;
+    }
+};
 
 // Analyze network traffic (choose one)
 std::thread::spawn(move || {
