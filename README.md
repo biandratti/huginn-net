@@ -1,4 +1,4 @@
-# Huginn Net - Multi-Protocol Passive Fingerprinting <img src="huginn-net.svg" width="150" align="right"/>
+# Huginn Net - Multi-Protocol Passive Fingerprinting <img src="huginn-net.png" width="150" align="right"/>
 [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
 [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE)
