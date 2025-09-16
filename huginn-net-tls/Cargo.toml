@@ -1,0 +1,16 @@
+[package]
+name = "huginn-net-tls"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "TLS fingerprinting and JA4 analysis for Huginn Net"
+license = "MIT OR Apache-2.0"
+authors = ["Maximiliano Biandratti"]
+repository = "https://github.com/biandratti/huginn-net"
+
+[dependencies]
+tls-parser = "0.12.2"
+sha2 = "0.10.9"
+pnet = "0.35.0"
+thiserror = "2.0.14"
+tracing = "0.1.41"
