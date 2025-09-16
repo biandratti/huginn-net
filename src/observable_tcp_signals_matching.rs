@@ -1,6 +1,6 @@
+use crate::observable_signals::ObservableTcp;
 use huginn_net_db::db::TcpIndexKey;
 use huginn_net_db::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
-use crate::observable_signals::ObservableTcp;
 use huginn_net_db::tcp;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, TcpMatchQuality};
 
@@ -50,7 +50,12 @@ impl ObservedFingerprint for ObservableTcp {
     type Key = TcpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        let olayout_parts: Vec<String> = self.p0f.olayout.iter().map(|opt| format!("{opt}")).collect();
+        let olayout_parts: Vec<String> = self
+            .p0f
+            .olayout
+            .iter()
+            .map(|opt| format!("{opt}"))
+            .collect();
         TcpIndexKey {
             ip_version_key: self.p0f.version,
             olayout_key: olayout_parts.join(","),
@@ -62,14 +67,16 @@ impl ObservedFingerprint for ObservableTcp {
 impl DatabaseSignature<ObservableTcp> for tcp::Signature {
     fn calculate_distance(&self, observed: &ObservableTcp) -> Option<u32> {
         let distance = observed
-            .p0f.version
+            .p0f
+            .version
             .distance_ip_version(&self.version)?
             .saturating_add(observed.p0f.ittl.distance_ttl(&self.ittl)?)
             .saturating_add(observed.distance_olen(self)?)
             .saturating_add(observed.distance_mss(self)?)
             .saturating_add(
                 observed
-                    .p0f.wsize
+                    .p0f
+                    .wsize
                     .distance_window_size(&self.wsize, observed.p0f.mss)?,
             )
             .saturating_add(observed.distance_wscale(self)?)

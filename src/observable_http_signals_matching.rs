@@ -1,8 +1,8 @@
+use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use huginn_net_db::db::HttpIndexKey;
 use huginn_net_db::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use huginn_net_db::http;
 use huginn_net_db::http::{Header, HttpMatchQuality, Version};
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 
 trait HttpDistance {
     fn get_version(&self) -> Version;
@@ -160,7 +160,6 @@ trait HttpSignatureHelper {
         HttpMatchQuality::distance_to_score(distance)
     }
 }
-
 
 impl HttpSignatureHelper for http::Signature {
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {

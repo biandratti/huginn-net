@@ -1,7 +1,7 @@
-use huginn_net_db::{Database, Label};
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, tcp};
+use huginn_net_db::{Database, Label};
 
 pub struct SignatureMatcher<'a> {
     database: &'a Database,
@@ -69,7 +69,7 @@ impl<'a> SignatureMatcher<'a> {
         observed: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
         use huginn_net_db::db_matching_trait::DatabaseSignature;
-        
+
         let mut best_match = None;
         let mut best_quality = 0.0;
 
@@ -92,13 +92,13 @@ impl<'a> SignatureMatcher<'a> {
         &self,
         signatures: &'a [(Label, Vec<http::Signature>)],
         observed: &T,
-    ) -> Option<(&'a Label, &'a http::Signature, f32)> 
+    ) -> Option<(&'a Label, &'a http::Signature, f32)>
     where
         T: huginn_net_db::db_matching_trait::ObservedFingerprint,
         http::Signature: huginn_net_db::db_matching_trait::DatabaseSignature<T>,
     {
         use huginn_net_db::db_matching_trait::DatabaseSignature;
-        
+
         let mut best_match = None;
         let mut best_quality = 0.0;
 
@@ -121,10 +121,10 @@ impl<'a> SignatureMatcher<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use huginn_net_db::Type;
     use crate::http::Version as HttpVersion;
     use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
+    use huginn_net_db::Type;
 
     #[test]
     fn matching_linux_by_tcp_request() {

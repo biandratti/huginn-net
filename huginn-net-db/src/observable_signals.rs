@@ -1,5 +1,5 @@
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::http::{Header, Version};
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 
 /// Represents observed TCP characteristics from network traffic.
 #[derive(Clone, Debug, PartialEq)]
@@ -29,7 +29,7 @@ pub struct ObservableTcp {
 pub struct ObservableHttpRequest {
     /// HTTP version
     pub version: Version,
-     /// ordered list of headers that should appear in matching traffic (p0f style).
+    /// ordered list of headers that should appear in matching traffic (p0f style).
     pub horder: Vec<Header>,
     /// list of headers that must *not* appear in matching traffic (p0f style).
     pub habsent: Vec<Header>,

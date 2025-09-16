@@ -3,9 +3,9 @@
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
-pub use huginn_net_db::{Database, Label, db_matching_trait};
-pub use huginn_net_db::{tcp, http};
 use crate::fingerprint_result::{FingerprintResult, MatchQualityType, OSQualityMatched};
+pub use huginn_net_db::{db_matching_trait, Database, Label};
+pub use huginn_net_db::{http, tcp};
 
 // ============================================================================
 // TCP PROTOCOL IMPORTS (base protocol)

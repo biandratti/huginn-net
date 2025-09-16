@@ -1,7 +1,7 @@
 mod tcp {
     use crate::observable_signals::ObservableTcp;
-    use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use core::fmt;
+    use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use std::fmt::Formatter;
 
     trait TcpDisplayFormat {
@@ -90,20 +90,18 @@ mod tcp {
         }
     }
 
-
     impl fmt::Display for ObservableTcp {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             self.format_tcp_display(f)
         }
     }
-
 }
 
 mod http {
-    use huginn_net_db::http::{Header, Version};
     use crate::http_common::HttpHeader;
     use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
     use core::fmt;
+    use huginn_net_db::http::{Header, Version};
     use std::fmt::Formatter;
 
     trait HttpDisplayFormat {
@@ -164,7 +162,6 @@ mod http {
             &self.p0f.expsw
         }
     }
-
 
     impl fmt::Display for ObservableHttpRequest {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

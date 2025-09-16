@@ -1,5 +1,8 @@
 use crate::http_common::{HttpCookie, HttpHeader};
-use huginn_net_db::observable_signals::{ObservableHttpRequest as P0fHttpRequest, ObservableHttpResponse as P0fHttpResponse, ObservableTcp as P0fTcp};
+use huginn_net_db::observable_signals::{
+    ObservableHttpRequest as P0fHttpRequest, ObservableHttpResponse as P0fHttpResponse,
+    ObservableTcp as P0fTcp,
+};
 
 // Observable TCP signals
 #[derive(Debug, Clone)]
