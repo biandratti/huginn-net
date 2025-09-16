@@ -41,12 +41,12 @@ use crate::signature_matcher::SignatureMatcher;
 // ============================================================================
 // OBSERVABLE SIGNALS EXPORTS (conditional in future)
 // ============================================================================
+pub use huginn_net_tls::ObservableTlsClient;
 pub use observable_signals::{
     ObservableHttpRequest,  // HTTP signals
     ObservableHttpResponse, // HTTP signals
     ObservableTcp,          // TCP signals
-    ObservableTlsClient,    // TLS signals
-};
+}; // TLS signals from external crate
 
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
@@ -99,10 +99,9 @@ pub mod http_process;
 mod observable_http_signals_matching;
 
 // ============================================================================
-// TLS PROTOCOL MODULES (depends on TCP)
+// TLS PROTOCOL MODULES (external crate)
 // ============================================================================
-pub mod tls;
-pub mod tls_process;
+pub use huginn_net_tls;
 
 // ============================================================================
 // SHARED PROCESSING MODULES (used by multiple protocols)
