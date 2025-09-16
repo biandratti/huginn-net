@@ -1,13 +1,13 @@
 use crate::error::HuginnNetError;
 use crate::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
+use crate::observable_signals::ObservableMtu;
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::ObservableUptime;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::observable_signals::{ObservableMtu, ObservableTlsClient};
 use crate::tcp_process::ObservableTCPPackage;
-use crate::tls_process::ObservableTlsPackage;
 use crate::uptime::{Connection, SynData};
-use crate::{http_process, tcp_process, tls_process, AnalysisConfig};
+use crate::{http_process, tcp_process, AnalysisConfig};
+use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ethernet::{EtherType, EtherTypes, EthernetPacket},
@@ -193,7 +193,8 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
 
     fn process_tls_with_data(data: &[u8]) -> Result<ObservableTlsPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
-            tls_process::process_tls_ipv4(&packet)
+            huginn_net_tls::process_tls_ipv4(&packet)
+                .map_err(|e| HuginnNetError::Parse(e.to_string()))
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv4 packet data".to_string(),
@@ -250,7 +251,8 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 
     fn process_tls_with_data(data: &[u8]) -> Result<ObservableTlsPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
-            tls_process::process_tls_ipv6(&packet)
+            huginn_net_tls::process_tls_ipv6(&packet)
+                .map_err(|e| HuginnNetError::Parse(e.to_string()))
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv6 packet data".to_string(),
