@@ -58,11 +58,11 @@ impl Database {
     /// Returns `HuginnNetError::MissConfiguration` if the embedded default fingerprint file
     /// cannot be parsed. This indicates a critical issue with the bundled fingerprint data
     /// or the parser itself.
-    pub fn load_default() -> Result<Self, crate::error::HuginnNetError> {
+    pub fn load_default() -> Result<Self, crate::error::DatabaseError> {
         const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
 
         Database::from_str(DEFAULT_FP_CONTENTS).map_err(|e| {
-            crate::error::HuginnNetError::MissConfiguration(format!(
+            crate::error::DatabaseError::InvalidConfiguration(format!(
                 "Failed to parse embedded default p0f database: {e}"
             ))
         })
