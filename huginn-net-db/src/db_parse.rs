@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::db::{Database, FingerprintCollection, Label, Type};
+use crate::db::{Database, Label, Type};
 use crate::error::DatabaseError;
 use crate::{
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
@@ -179,10 +179,10 @@ impl FromStr for Database {
             classes,
             mtu: mtu_entries,
             ua_os: ua_os_entries,
-            tcp_request: FingerprintCollection::new(temp_tcp_request_entries),
-            tcp_response: FingerprintCollection::new(temp_tcp_response_entries),
-            http_request: FingerprintCollection::new(temp_http_request_entries),
-            http_response: FingerprintCollection::new(temp_http_response_entries),
+            tcp_request: temp_tcp_request_entries,
+            tcp_response: temp_tcp_response_entries,
+            http_request: temp_http_request_entries,
+            http_response: temp_http_response_entries,
         })
     }
 }

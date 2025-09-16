@@ -20,6 +20,8 @@ pub mod error;
 pub mod tcp;
 pub mod http;
 
+// Observable signals for matching (types only)
+pub mod observable_signals;
 
 // Display implementations for database types
 pub mod display;
