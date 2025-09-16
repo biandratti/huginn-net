@@ -108,19 +108,19 @@ trait HttpDistance {
 
 impl HttpDistance for ObservableHttpRequest {
     fn get_version(&self) -> Version {
-        self.p0f.version
+        self.matching.version
     }
 
     fn get_horder(&self) -> &[Header] {
-        &self.p0f.horder
+        &self.matching.horder
     }
 
     fn get_habsent(&self) -> &[Header] {
-        &self.p0f.habsent
+        &self.matching.habsent
     }
 
     fn get_expsw(&self) -> &str {
-        &self.p0f.expsw
+        &self.matching.expsw
     }
 }
 
@@ -129,7 +129,7 @@ impl ObservedFingerprint for ObservableHttpRequest {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpIndexKey {
-            http_version_key: self.p0f.version,
+            http_version_key: self.matching.version,
         }
     }
 }
@@ -196,19 +196,19 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
 
 impl HttpDistance for ObservableHttpResponse {
     fn get_version(&self) -> Version {
-        self.p0f.version
+        self.matching.version
     }
 
     fn get_horder(&self) -> &[Header] {
-        &self.p0f.horder
+        &self.matching.horder
     }
 
     fn get_habsent(&self) -> &[Header] {
-        &self.p0f.habsent
+        &self.matching.habsent
     }
 
     fn get_expsw(&self) -> &str {
-        &self.p0f.expsw
+        &self.matching.expsw
     }
 }
 
@@ -217,7 +217,7 @@ impl ObservedFingerprint for ObservableHttpResponse {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpIndexKey {
-            http_version_key: self.p0f.version,
+            http_version_key: self.matching.version,
         }
     }
 }

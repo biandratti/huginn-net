@@ -6,7 +6,7 @@ use huginn_net_db::tcp::{IpVersion, PayloadSize, TcpMatchQuality};
 
 impl ObservableTcp {
     fn distance_olen(&self, other: &tcp::Signature) -> Option<u32> {
-        if self.p0f.olen == other.olen {
+        if self.matching.olen == other.olen {
             Some(TcpMatchQuality::High.as_score())
         } else {
             Some(TcpMatchQuality::Low.as_score())
@@ -14,7 +14,7 @@ impl ObservableTcp {
     }
 
     fn distance_mss(&self, other: &tcp::Signature) -> Option<u32> {
-        if other.mss.is_none() || self.p0f.mss == other.mss {
+        if other.mss.is_none() || self.matching.mss == other.mss {
             Some(TcpMatchQuality::High.as_score())
         } else {
             Some(TcpMatchQuality::Low.as_score())
@@ -22,7 +22,7 @@ impl ObservableTcp {
     }
 
     fn distance_wscale(&self, other: &tcp::Signature) -> Option<u32> {
-        if other.wscale.is_none() || self.p0f.wscale == other.wscale {
+        if other.wscale.is_none() || self.matching.wscale == other.wscale {
             Some(TcpMatchQuality::High.as_score())
         } else {
             Some(TcpMatchQuality::Medium.as_score())
@@ -30,7 +30,7 @@ impl ObservableTcp {
     }
 
     fn distance_olayout(&self, other: &tcp::Signature) -> Option<u32> {
-        if self.p0f.olayout == other.olayout {
+        if self.matching.olayout == other.olayout {
             Some(TcpMatchQuality::High.as_score())
         } else {
             None
@@ -38,7 +38,7 @@ impl ObservableTcp {
     }
 
     fn distance_quirks(&self, other: &tcp::Signature) -> Option<u32> {
-        if self.p0f.quirks == other.quirks {
+        if self.matching.quirks == other.quirks {
             Some(TcpMatchQuality::High.as_score())
         } else {
             None
@@ -51,15 +51,15 @@ impl ObservedFingerprint for ObservableTcp {
 
     fn generate_index_key(&self) -> Self::Key {
         let olayout_parts: Vec<String> = self
-            .p0f
+            .matching
             .olayout
             .iter()
             .map(|opt| format!("{opt}"))
             .collect();
         TcpIndexKey {
-            ip_version_key: self.p0f.version,
+            ip_version_key: self.matching.version,
             olayout_key: olayout_parts.join(","),
-            pclass_key: self.p0f.pclass,
+            pclass_key: self.matching.pclass,
         }
     }
 }
@@ -67,22 +67,27 @@ impl ObservedFingerprint for ObservableTcp {
 impl DatabaseSignature<ObservableTcp> for tcp::Signature {
     fn calculate_distance(&self, observed: &ObservableTcp) -> Option<u32> {
         let distance = observed
-            .p0f
+            .matching
             .version
             .distance_ip_version(&self.version)?
-            .saturating_add(observed.p0f.ittl.distance_ttl(&self.ittl)?)
+            .saturating_add(observed.matching.ittl.distance_ttl(&self.ittl)?)
             .saturating_add(observed.distance_olen(self)?)
             .saturating_add(observed.distance_mss(self)?)
             .saturating_add(
                 observed
-                    .p0f
+                    .matching
                     .wsize
-                    .distance_window_size(&self.wsize, observed.p0f.mss)?,
+                    .distance_window_size(&self.wsize, observed.matching.mss)?,
             )
             .saturating_add(observed.distance_wscale(self)?)
             .saturating_add(observed.distance_olayout(self)?)
             .saturating_add(observed.distance_quirks(self)?)
-            .saturating_add(observed.p0f.pclass.distance_payload_size(&self.pclass)?);
+            .saturating_add(
+                observed
+                    .matching
+                    .pclass
+                    .distance_payload_size(&self.pclass)?,
+            );
         Some(distance)
     }
 

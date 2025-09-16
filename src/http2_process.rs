@@ -105,7 +105,7 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
     let user_agent = headers_map.get("user-agent").map(|s| s.to_string());
 
     ObservableHttpRequest {
-        p0f: huginn_net_db::observable_signals::ObservableHttpRequest {
+        matching: huginn_net_db::observable_signals::ObservableHttpRequest {
             version: req.version,
             horder: headers_in_order,
             habsent: headers_absent,
@@ -128,7 +128,7 @@ fn convert_http2_response_to_observable(
     let headers_absent = build_absent_headers_from_http2(&res.headers, false);
 
     ObservableHttpResponse {
-        p0f: huginn_net_db::observable_signals::ObservableHttpResponse {
+        matching: huginn_net_db::observable_signals::ObservableHttpResponse {
             version: res.version,
             horder: headers_in_order,
             habsent: headers_absent,
@@ -291,7 +291,7 @@ mod tests {
 
         let observable = convert_http2_request_to_observable(req);
 
-        assert_eq!(observable.p0f.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert_eq!(observable.method, Some("GET".to_string()));
         assert_eq!(observable.uri, Some("/test".to_string()));
     }
@@ -319,9 +319,9 @@ mod tests {
 
         let observable = convert_http2_response_to_observable(res);
 
-        assert_eq!(observable.p0f.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert_eq!(observable.status_code, Some(200));
-        assert_eq!(observable.p0f.expsw, "nginx/1.20");
+        assert_eq!(observable.matching.expsw, "nginx/1.20");
     }
 
     #[test]
@@ -766,7 +766,7 @@ mod frame_detection_tests {
 
         assert_eq!(observable.method, Some("POST".to_string()));
         assert_eq!(observable.uri, Some("/api/test".to_string()));
-        assert_eq!(observable.p0f.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert!(!observable.headers.is_empty());
 
         // Test response conversion with all fields
@@ -808,7 +808,7 @@ mod frame_detection_tests {
         let observable = convert_http2_response_to_observable(res);
 
         assert_eq!(observable.status_code, Some(201));
-        assert_eq!(observable.p0f.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert!(!observable.headers.is_empty());
     }
 }

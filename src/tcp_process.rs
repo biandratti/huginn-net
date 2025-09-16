@@ -342,7 +342,7 @@ fn visit_tcp(
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
-        p0f: huginn_net_db::observable_signals::ObservableTcp {
+        matching: huginn_net_db::observable_signals::ObservableTcp {
             version,
             ittl,
             olen,

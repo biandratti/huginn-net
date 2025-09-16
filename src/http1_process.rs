@@ -157,7 +157,7 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
     let headers_absent = build_absent_headers_from_new_parser(&req.headers, true);
 
     ObservableHttpRequest {
-        p0f: huginn_net_db::observable_signals::ObservableHttpRequest {
+        matching: huginn_net_db::observable_signals::ObservableHttpRequest {
             version: req.version,
             horder: headers_in_order,
             habsent: headers_absent,
@@ -180,7 +180,7 @@ fn convert_http1_response_to_observable(
     let headers_absent = build_absent_headers_from_new_parser(&res.headers, false);
 
     ObservableHttpResponse {
-        p0f: huginn_net_db::observable_signals::ObservableHttpResponse {
+        matching: huginn_net_db::observable_signals::ObservableHttpResponse {
             version: res.version,
             horder: headers_in_order,
             habsent: headers_absent,
@@ -344,7 +344,7 @@ mod tests {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
-                assert_eq!(request.p0f.version, http::Version::V11);
+                assert_eq!(request.matching.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Host"),
@@ -357,16 +357,16 @@ mod tests {
                     http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
                     http::Header::new("User-Agent"),
                 ];
-                assert_eq!(request.p0f.horder, expected_horder);
+                assert_eq!(request.matching.horder, expected_horder);
 
                 let expected_habsent = vec![
                     http::Header::new("Accept-Encoding"),
                     http::Header::new("Accept-Charset"),
                     http::Header::new("Keep-Alive"),
                 ];
-                assert_eq!(request.p0f.habsent, expected_habsent);
+                assert_eq!(request.matching.habsent, expected_habsent);
 
-                assert_eq!(request.p0f.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                assert_eq!(request.matching.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {e}"),
@@ -386,8 +386,8 @@ mod tests {
         let parser = http1_parser::Http1Parser::new();
         match parse_http1_response(valid_response, &parser) {
             Ok(Some(response)) => {
-                assert_eq!(response.p0f.expsw, "Apache");
-                assert_eq!(response.p0f.version, http::Version::V11);
+                assert_eq!(response.matching.expsw, "Apache");
+                assert_eq!(response.matching.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Server"),
@@ -395,14 +395,14 @@ mod tests {
                     http::Header::new("Content-Length").optional(),
                     http::Header::new("Connection").with_value("keep-alive"),
                 ];
-                assert_eq!(response.p0f.horder, expected_horder);
+                assert_eq!(response.matching.horder, expected_horder);
 
                 let expected_absent = vec![
                     http::Header::new("Keep-Alive"),
                     http::Header::new("Accept-Ranges"),
                     http::Header::new("Date"),
                 ];
-                assert_eq!(response.p0f.habsent, expected_absent);
+                assert_eq!(response.matching.habsent, expected_absent);
             }
             Ok(None) => panic!("Incomplete HTTP response"),
             Err(e) => panic!("Failed to parse HTTP response: {e}"),

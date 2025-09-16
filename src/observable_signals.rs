@@ -7,16 +7,16 @@ use huginn_net_db::observable_signals::{
 // Observable TCP signals
 #[derive(Debug, Clone)]
 pub struct ObservableTcp {
-    /// Core p0f matching data
-    pub p0f: P0fTcp,
+    /// Core matching data for fingerprinting
+    pub matching: P0fTcp,
     // Additional fields for extended analysis could go here in the future
 }
 
 // Observable HTTP signals
 #[derive(Debug, Clone)]
 pub struct ObservableHttpRequest {
-    /// Core p0f matching data
-    pub p0f: P0fHttpRequest,
+    /// Core matching data for fingerprinting
+    pub matching: P0fHttpRequest,
     /// Additional analysis fields
     pub lang: Option<String>,
     pub user_agent: Option<String>,
@@ -35,8 +35,8 @@ pub struct ObservableHttpRequest {
 // Observable HTTP response signals
 #[derive(Debug, Clone)]
 pub struct ObservableHttpResponse {
-    /// Core p0f matching data
-    pub p0f: P0fHttpResponse,
+    /// Core matching data for fingerprinting
+    pub matching: P0fHttpResponse,
     /// Additional analysis fields
     /// All parsed HTTP headers with original order, position, and source information
     pub headers: Vec<HttpHeader>,

@@ -62,31 +62,31 @@ mod tcp {
 
     impl TcpDisplayFormat for ObservableTcp {
         fn get_version(&self) -> IpVersion {
-            self.p0f.version
+            self.matching.version
         }
         fn get_ittl(&self) -> Ttl {
-            self.p0f.ittl.clone()
+            self.matching.ittl.clone()
         }
         fn get_olen(&self) -> u8 {
-            self.p0f.olen
+            self.matching.olen
         }
         fn get_mss(&self) -> Option<u16> {
-            self.p0f.mss
+            self.matching.mss
         }
         fn get_wsize(&self) -> WindowSize {
-            self.p0f.wsize.clone()
+            self.matching.wsize.clone()
         }
         fn get_wscale(&self) -> Option<u8> {
-            self.p0f.wscale
+            self.matching.wscale
         }
         fn get_olayout(&self) -> &[TcpOption] {
-            &self.p0f.olayout
+            &self.matching.olayout
         }
         fn get_quirks(&self) -> &[Quirk] {
-            &self.p0f.quirks
+            &self.matching.quirks
         }
         fn get_pclass(&self) -> PayloadSize {
-            self.p0f.pclass
+            self.matching.pclass
         }
     }
 
@@ -135,31 +135,31 @@ mod http {
 
     impl HttpDisplayFormat for ObservableHttpRequest {
         fn get_version(&self) -> Version {
-            self.p0f.version
+            self.matching.version
         }
         fn get_horder(&self) -> &[Header] {
-            &self.p0f.horder
+            &self.matching.horder
         }
         fn get_habsent(&self) -> &[Header] {
-            &self.p0f.habsent
+            &self.matching.habsent
         }
         fn get_expsw(&self) -> &str {
-            &self.p0f.expsw
+            &self.matching.expsw
         }
     }
 
     impl HttpDisplayFormat for ObservableHttpResponse {
         fn get_version(&self) -> Version {
-            self.p0f.version
+            self.matching.version
         }
         fn get_horder(&self) -> &[Header] {
-            &self.p0f.horder
+            &self.matching.horder
         }
         fn get_habsent(&self) -> &[Header] {
-            &self.p0f.habsent
+            &self.matching.habsent
         }
         fn get_expsw(&self) -> &str {
-            &self.p0f.expsw
+            &self.matching.expsw
         }
     }
 

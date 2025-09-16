@@ -426,7 +426,7 @@ mod tests {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
-                assert_eq!(request.p0f.version, http::Version::V11);
+                assert_eq!(request.matching.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Host"),
@@ -439,16 +439,16 @@ mod tests {
                     http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
                     http::Header::new("User-Agent"),
                 ];
-                assert_eq!(request.p0f.horder, expected_horder);
+                assert_eq!(request.matching.horder, expected_horder);
 
                 let expected_habsent = vec![
                     http::Header::new("Accept-Encoding"),
                     http::Header::new("Accept-Charset"),
                     http::Header::new("Keep-Alive"),
                 ];
-                assert_eq!(request.p0f.habsent, expected_habsent);
+                assert_eq!(request.matching.habsent, expected_habsent);
 
-                assert_eq!(request.p0f.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                assert_eq!(request.matching.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {e}"),
@@ -467,8 +467,8 @@ mod tests {
 
         match http1_process::Http1Processor::new().process_response(valid_response) {
             Ok(Some(response)) => {
-                assert_eq!(response.p0f.expsw, "Apache");
-                assert_eq!(response.p0f.version, http::Version::V11);
+                assert_eq!(response.matching.expsw, "Apache");
+                assert_eq!(response.matching.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Server"),
@@ -476,14 +476,14 @@ mod tests {
                     http::Header::new("Content-Length").optional(),
                     http::Header::new("Connection").with_value("keep-alive"),
                 ];
-                assert_eq!(response.p0f.horder, expected_horder);
+                assert_eq!(response.matching.horder, expected_horder);
 
                 let expected_absent = vec![
                     http::Header::new("Keep-Alive"),
                     http::Header::new("Accept-Ranges"),
                     http::Header::new("Date"),
                 ];
-                assert_eq!(response.p0f.habsent, expected_absent);
+                assert_eq!(response.matching.habsent, expected_absent);
             }
             Ok(None) => panic!("Incomplete HTTP response"),
             Err(e) => panic!("Failed to parse HTTP response: {e}"),
