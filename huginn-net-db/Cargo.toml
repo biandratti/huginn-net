@@ -1,6 +1,6 @@
 [package]
 name = "huginn-net-db"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 description = "P0f database parser and matching traits for network fingerprinting"
@@ -8,9 +8,9 @@ license = "MIT OR Apache-2.0"
 authors = ["Maximiliano Biandratti"]
 repository = "https://github.com/biandratti/huginn-net"
 keywords = ["p0f", "fingerprinting", "database", "network", "security"]
-categories = ["network-programming", "parsing"]
+categories = ["network-programming"]
 
 [dependencies]
-nom = "8.0.0"
-thiserror = "2.0.14"
-tracing = "0.1.41"
+nom = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

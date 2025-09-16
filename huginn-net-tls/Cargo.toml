@@ -9,8 +9,8 @@ authors = ["Maximiliano Biandratti"]
 repository = "https://github.com/biandratti/huginn-net"
 
 [dependencies]
-tls-parser = "0.12.2"
-sha2 = "0.10.9"
-pnet = "0.35.0"
-thiserror = "2.0.16"
-tracing = "0.1.41"
+tls-parser = { workspace = true }
+sha2 = { workspace = true }
+pnet = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
