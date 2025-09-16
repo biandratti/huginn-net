@@ -1,8 +1,8 @@
-use crate::db::HttpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
-use crate::http;
-use crate::http::{Header, HttpMatchQuality, Version};
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use huginn_net_db::db::HttpIndexKey;
+use huginn_net_db::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
+use huginn_net_db::http;
+use huginn_net_db::http::{Header, HttpMatchQuality, Version};
 
 trait HttpDistance {
     fn get_version(&self) -> Version;
@@ -108,19 +108,19 @@ trait HttpDistance {
 
 impl HttpDistance for ObservableHttpRequest {
     fn get_version(&self) -> Version {
-        self.version
+        self.matching.version
     }
 
     fn get_horder(&self) -> &[Header] {
-        &self.horder
+        &self.matching.horder
     }
 
     fn get_habsent(&self) -> &[Header] {
-        &self.habsent
+        &self.matching.habsent
     }
 
     fn get_expsw(&self) -> &str {
-        &self.expsw
+        &self.matching.expsw
     }
 }
 
@@ -129,7 +129,7 @@ impl ObservedFingerprint for ObservableHttpRequest {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpIndexKey {
-            http_version_key: self.version,
+            http_version_key: self.matching.version,
         }
     }
 }
@@ -158,12 +158,6 @@ trait HttpSignatureHelper {
     /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
     fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
         HttpMatchQuality::distance_to_score(distance)
-    }
-}
-
-impl AsRef<http::Signature> for http::Signature {
-    fn as_ref(&self) -> &http::Signature {
-        self
     }
 }
 
@@ -202,19 +196,19 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
 
 impl HttpDistance for ObservableHttpResponse {
     fn get_version(&self) -> Version {
-        self.version
+        self.matching.version
     }
 
     fn get_horder(&self) -> &[Header] {
-        &self.horder
+        &self.matching.horder
     }
 
     fn get_habsent(&self) -> &[Header] {
-        &self.habsent
+        &self.matching.habsent
     }
 
     fn get_expsw(&self) -> &str {
-        &self.expsw
+        &self.matching.expsw
     }
 }
 
@@ -223,7 +217,7 @@ impl ObservedFingerprint for ObservableHttpResponse {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpIndexKey {
-            http_version_key: self.version,
+            http_version_key: self.matching.version,
         }
     }
 }

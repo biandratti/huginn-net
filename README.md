@@ -196,7 +196,7 @@ for output in receiver {
 - **Network Tools** - wget, curl, various crawlers and bots  
 - **Legacy Systems** - Older Windows versions, Unix variants  
 
-*Based on signatures available in the p0f database. See [config/p0f.fp](config/p0f.fp) for complete signature list.*
+*Based on signatures available in the p0f database. See [huginn-net-db/config/p0f.fp](huginn-net-db/config/p0f.fp) for complete signature list.*
 
 ### Database Coverage
 The current signature database includes patterns for:

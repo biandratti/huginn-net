@@ -1,9 +1,9 @@
-use crate::db::{Label, Type};
 use crate::http::HttpDiagnosis;
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
+use huginn_net_db::{Label, Type};
 use huginn_net_tls::ObservableTlsClient;
 use std::fmt;
 use std::fmt::Formatter;
@@ -116,7 +116,7 @@ impl fmt::Display for SynTCPOutput {
                     os.variant.as_deref().unwrap_or("??")
                 )
             }),
-            match self.sig.ittl {
+            match self.sig.matching.ittl {
                 Ttl::Distance(_, distance) => distance,
                 Ttl::Bad(value) => value,
                 Ttl::Value(value) => value,
@@ -172,7 +172,7 @@ impl fmt::Display for SynAckTCPOutput {
                     os.variant.as_deref().unwrap_or("??")
                 )
             }),
-            match self.sig.ittl {
+            match self.sig.matching.ittl {
                 Ttl::Distance(_, distance) => distance,
                 Ttl::Bad(value) => value,
                 Ttl::Value(value) => value,
