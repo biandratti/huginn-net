@@ -406,6 +406,7 @@ dependencies = [
  "criterion",
  "ctrlc",
  "hpack-patched",
+ "huginn-net-db",
  "huginn-net-tls",
  "lazy_static",
  "nom 8.0.0",
@@ -416,6 +417,15 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "ttl_cache",
+]
+
+[[package]]
+name = "huginn-net-db"
+version = "1.0.0"
+dependencies = [
+ "nom 8.0.0",
+ "thiserror 2.0.16",
+ "tracing",
 ]
 
 [[package]]

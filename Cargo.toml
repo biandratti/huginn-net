@@ -21,6 +21,7 @@ lazy_static = "1.5.0"
 pcap-file = "3.0.0-rc1"
 hpack-patched = "0.3.0"
 huginn-net-tls = { path = "huginn-net-tls" }
+huginn-net-db = { path = "huginn-net-db" }
 
 [dev-dependencies]
 clap = { version = "4.5.47", features = ["derive"] }

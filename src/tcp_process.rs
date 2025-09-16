@@ -342,18 +342,20 @@ fn visit_tcp(
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
-        version,
-        ittl,
-        olen,
-        mss,
-        wsize,
-        wscale,
-        olayout,
-        quirks,
-        pclass: if tcp.payload().is_empty() {
-            PayloadSize::Zero
-        } else {
-            PayloadSize::NonZero
+        p0f: huginn_net_db::observable_signals::ObservableTcp {
+            version,
+            ittl,
+            olen,
+            mss,
+            wsize,
+            wscale,
+            olayout,
+            quirks,
+            pclass: if tcp.payload().is_empty() {
+                PayloadSize::Zero
+            } else {
+                PayloadSize::NonZero
+            },
         },
     };
 

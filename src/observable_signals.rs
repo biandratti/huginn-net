@@ -1,43 +1,22 @@
-use crate::http::{Header, Version};
 use crate::http_common::{HttpCookie, HttpHeader};
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
-use crate::Ttl;
+use huginn_net_db::observable_signals::{ObservableHttpRequest as P0fHttpRequest, ObservableHttpResponse as P0fHttpResponse, ObservableTcp as P0fTcp};
 
 // Observable TCP signals
 #[derive(Debug, Clone)]
 pub struct ObservableTcp {
-    pub version: IpVersion,
-    /// initial TTL used by the OS.
-    pub ittl: Ttl,
-    /// length of IPv4 options or IPv6 extension headers.
-    pub olen: u8,
-    /// maximum segment size, if specified in TCP options.
-    pub mss: Option<u16>,
-    /// window size.
-    pub wsize: WindowSize,
-    /// window scaling factor, if specified in TCP options.
-    pub wscale: Option<u8>,
-    /// layout and ordering of TCP options, if any.
-    pub olayout: Vec<TcpOption>,
-    /// properties and quirks observed in IP or TCP headers.
-    pub quirks: Vec<Quirk>,
-    /// payload size classification
-    pub pclass: PayloadSize,
+    /// Core p0f matching data
+    pub p0f: P0fTcp,
+    // Additional fields for extended analysis could go here in the future
 }
 
 // Observable HTTP signals
 #[derive(Debug, Clone)]
 pub struct ObservableHttpRequest {
+    /// Core p0f matching data
+    pub p0f: P0fHttpRequest,
+    /// Additional analysis fields
     pub lang: Option<String>,
     pub user_agent: Option<String>,
-    /// HTTP version
-    pub version: Version,
-    /// ordered list of headers that should appear in matching traffic (p0f style).
-    pub horder: Vec<Header>,
-    /// list of headers that must *not* appear in matching traffic (p0f style).
-    pub habsent: Vec<Header>,
-    /// expected substring in 'User-Agent' or 'Server'.
-    pub expsw: String,
     /// All parsed HTTP headers with original order, position, and source information
     pub headers: Vec<HttpHeader>,
     /// All parsed HTTP cookies with names, values, and positions
@@ -53,14 +32,9 @@ pub struct ObservableHttpRequest {
 // Observable HTTP response signals
 #[derive(Debug, Clone)]
 pub struct ObservableHttpResponse {
-    /// HTTP version
-    pub version: Version,
-    /// ordered list of headers that should appear in matching traffic (p0f style).
-    pub horder: Vec<Header>,
-    /// list of headers that must *not* appear in matching traffic (p0f style).
-    pub habsent: Vec<Header>,
-    /// expected substring in 'User-Agent' or 'Server'.
-    pub expsw: String,
+    /// Core p0f matching data
+    pub p0f: P0fHttpResponse,
+    /// Additional analysis fields
     /// All parsed HTTP headers with original order, position, and source information
     pub headers: Vec<HttpHeader>,
     /// HTTP status code

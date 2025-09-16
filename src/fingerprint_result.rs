@@ -1,4 +1,4 @@
-use crate::db::{Label, Type};
+use huginn_net_db::{Label, Type};
 use crate::http::HttpDiagnosis;
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
@@ -116,7 +116,7 @@ impl fmt::Display for SynTCPOutput {
                     os.variant.as_deref().unwrap_or("??")
                 )
             }),
-            match self.sig.ittl {
+            match self.sig.p0f.ittl {
                 Ttl::Distance(_, distance) => distance,
                 Ttl::Bad(value) => value,
                 Ttl::Value(value) => value,
@@ -172,7 +172,7 @@ impl fmt::Display for SynAckTCPOutput {
                     os.variant.as_deref().unwrap_or("??")
                 )
             }),
-            match self.sig.ittl {
+            match self.sig.p0f.ittl {
                 Ttl::Distance(_, distance) => distance,
                 Ttl::Bad(value) => value,
                 Ttl::Value(value) => value,

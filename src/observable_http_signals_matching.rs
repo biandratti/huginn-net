@@ -1,7 +1,7 @@
-use crate::db::HttpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
-use crate::http;
-use crate::http::{Header, HttpMatchQuality, Version};
+use huginn_net_db::db::HttpIndexKey;
+use huginn_net_db::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
+use huginn_net_db::http;
+use huginn_net_db::http::{Header, HttpMatchQuality, Version};
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 
 trait HttpDistance {
@@ -108,19 +108,19 @@ trait HttpDistance {
 
 impl HttpDistance for ObservableHttpRequest {
     fn get_version(&self) -> Version {
-        self.version
+        self.p0f.version
     }
 
     fn get_horder(&self) -> &[Header] {
-        &self.horder
+        &self.p0f.horder
     }
 
     fn get_habsent(&self) -> &[Header] {
-        &self.habsent
+        &self.p0f.habsent
     }
 
     fn get_expsw(&self) -> &str {
-        &self.expsw
+        &self.p0f.expsw
     }
 }
 
@@ -129,7 +129,7 @@ impl ObservedFingerprint for ObservableHttpRequest {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpIndexKey {
-            http_version_key: self.version,
+            http_version_key: self.p0f.version,
         }
     }
 }
@@ -161,11 +161,6 @@ trait HttpSignatureHelper {
     }
 }
 
-impl AsRef<http::Signature> for http::Signature {
-    fn as_ref(&self) -> &http::Signature {
-        self
-    }
-}
 
 impl HttpSignatureHelper for http::Signature {
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
@@ -202,19 +197,19 @@ impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
 
 impl HttpDistance for ObservableHttpResponse {
     fn get_version(&self) -> Version {
-        self.version
+        self.p0f.version
     }
 
     fn get_horder(&self) -> &[Header] {
-        &self.horder
+        &self.p0f.horder
     }
 
     fn get_habsent(&self) -> &[Header] {
-        &self.habsent
+        &self.p0f.habsent
     }
 
     fn get_expsw(&self) -> &str {
-        &self.expsw
+        &self.p0f.expsw
     }
 }
 
@@ -223,7 +218,7 @@ impl ObservedFingerprint for ObservableHttpResponse {
 
     fn generate_index_key(&self) -> Self::Key {
         HttpIndexKey {
-            http_version_key: self.version,
+            http_version_key: self.p0f.version,
         }
     }
 }

@@ -157,12 +157,14 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
     let headers_absent = build_absent_headers_from_new_parser(&req.headers, true);
 
     ObservableHttpRequest {
+        p0f: huginn_net_db::observable_signals::ObservableHttpRequest {
+            version: req.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(req.user_agent.as_ref()),
+        },
         lang,
         user_agent: req.user_agent.clone(),
-        version: req.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(req.user_agent),
         headers: req.headers,
         cookies: req.cookies.clone(),
         referer: req.referer.clone(),
@@ -178,10 +180,12 @@ fn convert_http1_response_to_observable(
     let headers_absent = build_absent_headers_from_new_parser(&res.headers, false);
 
     ObservableHttpResponse {
-        version: res.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(res.server),
+        p0f: huginn_net_db::observable_signals::ObservableHttpResponse {
+            version: res.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(res.server.as_ref()),
+        },
         headers: res.headers,
         status_code: Some(res.status_code),
     }
@@ -281,8 +285,8 @@ fn parse_http1_response(
     }
 }
 
-fn extract_traffic_classification(value: Option<String>) -> String {
-    value.unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<&String>) -> String {
+    value.cloned().unwrap_or_else(|| "???".to_string())
 }
 
 /// Check if data looks like HTTP/1.x response
@@ -320,7 +324,7 @@ pub fn looks_like_http1_response(data: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use huginn_net_db as db;
 
     #[test]
     fn test_parse_http1_request() {

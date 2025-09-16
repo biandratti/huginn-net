@@ -1,5 +1,4 @@
-use crate::db::{Database, Label};
-use crate::db_matching_trait::FingerprintDb;
+use huginn_net_db::{Database, Label};
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, tcp};
@@ -17,14 +16,14 @@ impl<'a> SignatureMatcher<'a> {
         &self,
         signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        self.database.tcp_request.find_best_match(signature)
+        self.find_best_tcp_match(&self.database.tcp_request, signature)
     }
 
     pub fn matching_by_tcp_response(
         &self,
         signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        self.database.tcp_response.find_best_match(signature)
+        self.find_best_tcp_match(&self.database.tcp_response, signature)
     }
 
     pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
@@ -42,14 +41,14 @@ impl<'a> SignatureMatcher<'a> {
         &self,
         signature: &ObservableHttpRequest,
     ) -> Option<(&'a Label, &'a http::Signature, f32)> {
-        self.database.http_request.find_best_match(signature)
+        self.find_best_http_match(&self.database.http_request, signature)
     }
 
     pub fn matching_by_http_response(
         &self,
         signature: &ObservableHttpResponse,
     ) -> Option<(&'a Label, &'a http::Signature, f32)> {
-        self.database.http_response.find_best_match(signature)
+        self.find_best_http_match(&self.database.http_response, signature)
     }
 
     pub fn matching_by_user_agent(
@@ -63,12 +62,66 @@ impl<'a> SignatureMatcher<'a> {
         }
         None
     }
+
+    fn find_best_tcp_match(
+        &self,
+        signatures: &'a [(Label, Vec<tcp::Signature>)],
+        observed: &ObservableTcp,
+    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
+        use huginn_net_db::db_matching_trait::DatabaseSignature;
+        
+        let mut best_match = None;
+        let mut best_quality = 0.0;
+
+        for (label, db_signatures) in signatures {
+            for signature in db_signatures {
+                if let Some(distance) = signature.calculate_distance(observed) {
+                    let quality = 1.0 / (1.0 + distance as f32);
+                    if quality > best_quality {
+                        best_quality = quality;
+                        best_match = Some((label, signature, quality));
+                    }
+                }
+            }
+        }
+
+        best_match
+    }
+
+    fn find_best_http_match<T>(
+        &self,
+        signatures: &'a [(Label, Vec<http::Signature>)],
+        observed: &T,
+    ) -> Option<(&'a Label, &'a http::Signature, f32)> 
+    where
+        T: huginn_net_db::db_matching_trait::ObservedFingerprint,
+        http::Signature: huginn_net_db::db_matching_trait::DatabaseSignature<T>,
+    {
+        use huginn_net_db::db_matching_trait::DatabaseSignature;
+        
+        let mut best_match = None;
+        let mut best_quality = 0.0;
+
+        for (label, db_signatures) in signatures {
+            for signature in db_signatures {
+                if let Some(distance) = signature.calculate_distance(observed) {
+                    let quality = 1.0 / (1.0 + distance as f32);
+                    if quality > best_quality {
+                        best_quality = quality;
+                        best_match = Some((label, signature, quality));
+                    }
+                }
+            }
+        }
+
+        best_match
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::Type;
+    use huginn_net_db::Type;
     use crate::http::Version as HttpVersion;
     use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
@@ -84,21 +137,23 @@ mod tests {
 
         //sig: 4:58+6:0:1452:mss*44,7:mss,sok,ts,nop,ws:df,id+:0
         let linux_signature = ObservableTcp {
-            version: IpVersion::V4,
-            ittl: Ttl::Distance(58, 6),
-            olen: 0,
-            mss: Some(1452),
-            wsize: WindowSize::Mss(44),
-            wscale: Some(7),
-            olayout: vec![
-                TcpOption::Mss,
-                TcpOption::Sok,
-                TcpOption::TS,
-                TcpOption::Nop,
-                TcpOption::Ws,
-            ],
-            quirks: vec![Quirk::Df, Quirk::NonZeroID],
-            pclass: PayloadSize::Zero,
+            p0f: huginn_net_db::observable_signals::ObservableTcp {
+                version: IpVersion::V4,
+                ittl: Ttl::Distance(58, 6),
+                olen: 0,
+                mss: Some(1452),
+                wsize: WindowSize::Mss(44),
+                wscale: Some(7),
+                olayout: vec![
+                    TcpOption::Mss,
+                    TcpOption::Sok,
+                    TcpOption::TS,
+                    TcpOption::Nop,
+                    TcpOption::Ws,
+                ],
+                quirks: vec![Quirk::Df, Quirk::NonZeroID],
+                pclass: PayloadSize::Zero,
+            },
         };
 
         let matcher = SignatureMatcher::new(&db);
@@ -127,40 +182,44 @@ mod tests {
 
         //sig: "4:64+0:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature = ObservableTcp {
-            version: IpVersion::V4,
-            ittl: Ttl::Value(64),
-            olen: 0,
-            mss: Some(1460),
-            wsize: WindowSize::Value(65535),
-            wscale: Some(8),
-            olayout: vec![
-                TcpOption::Mss,
-                TcpOption::Sok,
-                TcpOption::TS,
-                TcpOption::Nop,
-                TcpOption::Ws,
-            ],
-            quirks: vec![Quirk::Df, Quirk::NonZeroID],
-            pclass: PayloadSize::Zero,
+            p0f: huginn_net_db::observable_signals::ObservableTcp {
+                version: IpVersion::V4,
+                ittl: Ttl::Value(64),
+                olen: 0,
+                mss: Some(1460),
+                wsize: WindowSize::Value(65535),
+                wscale: Some(8),
+                olayout: vec![
+                    TcpOption::Mss,
+                    TcpOption::Sok,
+                    TcpOption::TS,
+                    TcpOption::Nop,
+                    TcpOption::Ws,
+                ],
+                quirks: vec![Quirk::Df, Quirk::NonZeroID],
+                pclass: PayloadSize::Zero,
+            },
         };
 
         //sig: "4:57+7:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature_with_distance = ObservableTcp {
-            version: IpVersion::V4,
-            ittl: Ttl::Distance(57, 7),
-            olen: 0,
-            mss: Some(1460),
-            wsize: WindowSize::Value(65535),
-            wscale: Some(8),
-            olayout: vec![
-                TcpOption::Mss,
-                TcpOption::Sok,
-                TcpOption::TS,
-                TcpOption::Nop,
-                TcpOption::Ws,
-            ],
-            quirks: vec![Quirk::Df, Quirk::NonZeroID],
-            pclass: PayloadSize::Zero,
+            p0f: huginn_net_db::observable_signals::ObservableTcp {
+                version: IpVersion::V4,
+                ittl: Ttl::Distance(57, 7),
+                olen: 0,
+                mss: Some(1460),
+                wsize: WindowSize::Value(65535),
+                wscale: Some(8),
+                olayout: vec![
+                    TcpOption::Mss,
+                    TcpOption::Sok,
+                    TcpOption::TS,
+                    TcpOption::Nop,
+                    TcpOption::Ws,
+                ],
+                quirks: vec![Quirk::Df, Quirk::NonZeroID],
+                pclass: PayloadSize::Zero,
+            },
         };
 
         let matcher = SignatureMatcher::new(&db);
@@ -200,21 +259,23 @@ mod tests {
         };
 
         let firefox_signature = ObservableHttpRequest {
+            p0f: huginn_net_db::observable_signals::ObservableHttpRequest {
+                version: HttpVersion::V10,
+                horder: vec![
+                    http::Header::new("Host"),
+                    http::Header::new("User-Agent"),
+                    http::Header::new("Accept").with_value(",*/*;q="),
+                    http::Header::new("Accept-Language").optional(),
+                    http::Header::new("Accept-Encoding").with_value("gzip,deflate"),
+                    http::Header::new("Accept-Charset").with_value("utf-8;q=0.7,*;q=0.7"),
+                    http::Header::new("Keep-Alive").with_value("300"),
+                    http::Header::new("Connection").with_value("keep-alive"),
+                ],
+                habsent: vec![],
+                expsw: "Firefox/".to_string(),
+            },
             lang: None,
             user_agent: None,
-            version: HttpVersion::V10,
-            horder: vec![
-                http::Header::new("Host"),
-                http::Header::new("User-Agent"),
-                http::Header::new("Accept").with_value(",*/*;q="),
-                http::Header::new("Accept-Language").optional(),
-                http::Header::new("Accept-Encoding").with_value("gzip,deflate"),
-                http::Header::new("Accept-Charset").with_value("utf-8;q=0.7,*;q=0.7"),
-                http::Header::new("Keep-Alive").with_value("300"),
-                http::Header::new("Connection").with_value("keep-alive"),
-            ],
-            habsent: vec![],
-            expsw: "Firefox/".to_string(),
             headers: vec![],
             cookies: vec![],
             referer: None,
@@ -247,25 +308,27 @@ mod tests {
         };
 
         let apache_signature = ObservableHttpResponse {
-            version: HttpVersion::V11,
-            horder: vec![
-                http::Header::new("Date"),
-                http::Header::new("Server"),
-                http::Header::new("Last-Modified").optional(),
-                http::Header::new("Accept-Ranges")
-                    .optional()
-                    .with_value("bytes"),
-                http::Header::new("Content-Length").optional(),
-                http::Header::new("Content-Range").optional(),
-                http::Header::new("Keep-Alive").with_value("timeout"),
-                http::Header::new("Connection").with_value("Keep-Alive"),
-                http::Header::new("Transfer-Encoding")
-                    .optional()
-                    .with_value("chunked"),
-                http::Header::new("Content-Type"),
-            ],
-            habsent: vec![],
-            expsw: "Apache".to_string(),
+            p0f: huginn_net_db::observable_signals::ObservableHttpResponse {
+                version: HttpVersion::V11,
+                horder: vec![
+                    http::Header::new("Date"),
+                    http::Header::new("Server"),
+                    http::Header::new("Last-Modified").optional(),
+                    http::Header::new("Accept-Ranges")
+                        .optional()
+                        .with_value("bytes"),
+                    http::Header::new("Content-Length").optional(),
+                    http::Header::new("Content-Range").optional(),
+                    http::Header::new("Keep-Alive").with_value("timeout"),
+                    http::Header::new("Connection").with_value("Keep-Alive"),
+                    http::Header::new("Transfer-Encoding")
+                        .optional()
+                        .with_value("chunked"),
+                    http::Header::new("Content-Type"),
+                ],
+                habsent: vec![],
+                expsw: "Apache".to_string(),
+            },
             headers: vec![],
             status_code: Some(200),
         };
@@ -295,23 +358,25 @@ mod tests {
         };
 
         let android_chrome_signature = ObservableHttpRequest {
+            p0f: huginn_net_db::observable_signals::ObservableHttpRequest {
+                version: HttpVersion::V11, // HTTP/1.1
+                horder: vec![
+                    http::Header::new("Host"),
+                    http::Header::new("Connection").with_value("keep-alive"),
+                    http::Header::new("User-Agent"),
+                    http::Header::new("Accept").with_value("image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"),
+                    http::Header::new("Referer").optional(), // ?Referer
+                    http::Header::new("Accept-Encoding").with_value("gzip, deflate"),
+                    http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
+                ],
+                habsent: vec![
+                    http::Header::new("Accept-Charset"),
+                    http::Header::new("Keep-Alive"),
+                ],
+                expsw: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string(),
+            },
             lang: Some("English".to_string()),
             user_agent: Some("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string()),
-            version: HttpVersion::V11, // HTTP/1.1
-            horder: vec![
-                http::Header::new("Host"),
-                http::Header::new("Connection").with_value("keep-alive"),
-                http::Header::new("User-Agent"),
-                http::Header::new("Accept").with_value("image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"),
-                http::Header::new("Referer").optional(), // ?Referer
-                http::Header::new("Accept-Encoding").with_value("gzip, deflate"),
-                http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
-            ],
-            habsent: vec![
-                http::Header::new("Accept-Charset"),
-                http::Header::new("Keep-Alive"),
-            ],
-            expsw: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string(),
             headers: vec![],
             cookies: vec![],
             referer: None,

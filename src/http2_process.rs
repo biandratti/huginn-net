@@ -105,12 +105,14 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
     let user_agent = headers_map.get("user-agent").map(|s| s.to_string());
 
     ObservableHttpRequest {
+        p0f: huginn_net_db::observable_signals::ObservableHttpRequest {
+            version: req.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(user_agent.as_ref()),
+        },
         lang,
         user_agent: user_agent.clone(),
-        version: req.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(user_agent),
         headers: req.headers,
         cookies: req.cookies.clone(),
         referer: req.referer.clone(),
@@ -126,10 +128,12 @@ fn convert_http2_response_to_observable(
     let headers_absent = build_absent_headers_from_http2(&res.headers, false);
 
     ObservableHttpResponse {
-        version: res.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(res.server),
+        p0f: huginn_net_db::observable_signals::ObservableHttpResponse {
+            version: res.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(res.server.as_ref()),
+        },
         headers: res.headers,
         status_code: Some(res.status),
     }
@@ -230,8 +234,8 @@ fn parse_http2_response(
     }
 }
 
-fn extract_traffic_classification(value: Option<String>) -> String {
-    value.unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<&String>) -> String {
+    value.cloned().unwrap_or_else(|| "???".to_string())
 }
 
 /// Check if data looks like HTTP/2 response (frames without preface)
@@ -257,7 +261,7 @@ pub fn looks_like_http2_response(data: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use huginn_net_db as db;
 
     #[test]
     fn test_http2_request_conversion() {
@@ -679,7 +683,7 @@ mod frame_detection_tests {
     fn test_extract_traffic_classification() {
         // Test with Some value
         assert_eq!(
-            extract_traffic_classification(Some("test".to_string())),
+            extract_traffic_classification(Some(&"test".to_string())),
             "test"
         );
 

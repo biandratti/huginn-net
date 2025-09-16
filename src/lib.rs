@@ -3,10 +3,9 @@
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
-pub use crate::db::Label;
+pub use huginn_net_db::{Database, Label, db_matching_trait};
+pub use huginn_net_db::{tcp, http};
 use crate::fingerprint_result::{FingerprintResult, MatchQualityType, OSQualityMatched};
-
-pub use crate::db::Database;
 
 // ============================================================================
 // TCP PROTOCOL IMPORTS (base protocol)
@@ -15,7 +14,7 @@ use crate::fingerprint_result::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
 use crate::uptime::{Connection, SynData};
-pub use tcp::Ttl;
+pub use huginn_net_db::tcp::Ttl;
 
 // ============================================================================
 // HTTP PROTOCOL IMPORTS (depends on TCP)
@@ -67,9 +66,6 @@ pub mod matcher;
 // ============================================================================
 // CORE MODULES (always required - database, matching, errors, results)
 // ============================================================================
-pub mod db;
-pub mod db_matching_trait;
-pub mod db_parse;
 mod display;
 pub mod error;
 pub mod fingerprint_result;
@@ -79,7 +75,6 @@ pub mod fingerprint_result;
 // ============================================================================
 pub mod mtu;
 mod observable_tcp_signals_matching;
-pub mod tcp;
 pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
@@ -88,7 +83,6 @@ pub mod window_size;
 // ============================================================================
 // HTTP PROTOCOL MODULES (depends on TCP)
 // ============================================================================
-pub mod http;
 pub mod http1_parser;
 pub mod http1_process;
 pub mod http2_parser;
