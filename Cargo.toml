@@ -24,7 +24,7 @@ tls-parser = "0.12.2"
 hpack-patched = "0.3.0"
 
 [dev-dependencies]
-clap = { version = "4.5.47", features = ["derive"] }
+clap = { version = "4.5.48", features = ["derive"] }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 criterion = { version = "0.7.0", features = ["html_reports"] }
