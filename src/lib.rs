@@ -89,7 +89,6 @@ pub mod http2_process;
 pub mod http_common;
 pub mod http_languages;
 pub mod http_process;
-mod observable_http_signals_matching;
 
 // ============================================================================
 // TLS PROTOCOL MODULES (external crate)
