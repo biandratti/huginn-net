@@ -324,7 +324,7 @@ pub fn looks_like_http1_response(data: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use huginn_net_db as db;
+    use huginn_net_db;
 
     #[test]
     fn test_parse_http1_request() {
@@ -421,13 +421,13 @@ mod tests {
         let os = "Linux".to_string();
         let browser = Some("Firefox".to_string());
         let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
+        let label = huginn_net_db::Label {
+            ty: huginn_net_db::Type::Specified,
             class: None,
             name: "Linux".to_string(),
             flavor: None,
         };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
+        let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
 
         let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
@@ -439,13 +439,13 @@ mod tests {
         let os = "Windows".to_string();
         let browser = Some("Firefox".to_string());
         let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
+        let label = huginn_net_db::Label {
+            ty: huginn_net_db::Type::Specified,
             class: None,
             name: "Linux".to_string(),
             flavor: None,
         };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
+        let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
 
         let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
