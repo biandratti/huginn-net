@@ -1,4 +1,4 @@
-use crate::observable_signals::ObservableTcp;
+use huginn_net_tcp::observable::ObservableTcp;
 use crate::{http, tcp};
 use huginn_net_db::db_matching_trait::FingerprintDb;
 use huginn_net_db::{Database, Label};

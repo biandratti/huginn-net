@@ -13,7 +13,7 @@ pub use huginn_net_db::{http, tcp};
 use crate::fingerprint_result::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
-use crate::uptime::{Connection, SynData};
+use huginn_net_tcp::uptime::{Connection, SynData};
 pub use huginn_net_db::tcp::Ttl;
 
 // ============================================================================
@@ -40,12 +40,9 @@ use crate::signature_matcher::SignatureMatcher;
 // ============================================================================
 // OBSERVABLE SIGNALS EXPORTS (conditional in future)
 // ============================================================================
-pub use huginn_net_http::observable::{
-    ObservableHttpRequest,  // HTTP signals
-    ObservableHttpResponse, // HTTP signals
-};
+pub use huginn_net_http::observable::{ObservableHttpRequest,ObservableHttpResponse,};
 pub use huginn_net_tls::ObservableTlsClient;
-pub use observable_signals::ObservableTcp; // TCP signals
+pub use huginn_net_tcp::observable::ObservableTcp;
 
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
@@ -66,18 +63,13 @@ pub mod matcher;
 // ============================================================================
 // CORE MODULES (always required - database, matching, errors, results)
 // ============================================================================
-mod display;
 pub mod error;
 pub mod fingerprint_result;
 
 // ============================================================================
-// TCP PROTOCOL MODULES (base protocol - required by HTTP and TLS)
+// TCP PROTOCOL MODULES (external crate)
 // ============================================================================
-pub mod mtu;
-pub mod tcp_process;
-pub mod ttl;
-pub mod uptime;
-pub mod window_size;
+pub use huginn_net_tcp;
 
 // ============================================================================
 // HTTP PROTOCOL MODULES (external crate)
@@ -92,8 +84,6 @@ pub use huginn_net_tls;
 // ============================================================================
 // SHARED PROCESSING MODULES (used by multiple protocols)
 // ============================================================================
-pub mod ip_options;
-pub mod observable_signals;
 pub mod process;
 pub mod signature_matcher;
 

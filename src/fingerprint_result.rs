@@ -1,5 +1,5 @@
 use crate::http::HttpDiagnosis;
-use crate::observable_signals::ObservableTcp;
+use huginn_net_tcp::observable::ObservableTcp;
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use huginn_net_db::{Label, Type};

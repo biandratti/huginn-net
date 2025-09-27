@@ -1,6 +1,5 @@
 use huginn_net_db::observable_signals::TcpObservation;
 
-// Observable TCP signals
 #[derive(Debug, Clone)]
 pub struct ObservableTcp {
     /// Core matching data for fingerprinting

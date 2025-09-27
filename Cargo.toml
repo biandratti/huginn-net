@@ -3,7 +3,8 @@ members = [
     ".",
     "huginn-net-db",
     "huginn-net-tls",
-    "huginn-net-http"
+    "huginn-net-http",
+    "huginn-net-tcp"
 ]
 resolver = "2"
 
@@ -50,6 +51,7 @@ hpack-patched = { workspace = true }
 huginn-net-tls = { path = "huginn-net-tls" }
 huginn-net-db = { path = "huginn-net-db" }
 huginn-net-http = { path = "huginn-net-http" }
+huginn-net-tcp = { path = "huginn-net-tcp" }
 
 [dev-dependencies]
 clap = { version = "4.5.47", features = ["derive"] }
