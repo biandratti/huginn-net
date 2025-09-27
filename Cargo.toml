@@ -2,7 +2,8 @@
 members = [
     ".",
     "huginn-net-db",
-    "huginn-net-tls"
+    "huginn-net-tls",
+    "huginn-net-http"
 ]
 resolver = "2"
 

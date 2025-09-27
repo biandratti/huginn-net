@@ -430,6 +430,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "huginn-net-http"
+version = "0.1.0"
+dependencies = [
+ "huginn-net-db",
+ "nom 8.0.0",
+ "thiserror 2.0.16",
+ "tracing",
+]
+
+[[package]]
 name = "huginn-net-tls"
 version = "0.1.0"
 dependencies = [
