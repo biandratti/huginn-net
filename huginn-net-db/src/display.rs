@@ -242,13 +242,13 @@ mod tcp {
     }
 }
 
-mod http {
+pub mod http {
     use crate::http::{Header, HttpDiagnosis, Signature, Version};
     use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
     use core::fmt;
     use std::fmt::Formatter;
 
-    trait HttpDisplayFormat {
+    pub trait HttpDisplayFormat {
         fn get_version(&self) -> Version;
         fn get_horder(&self) -> &[Header];
         fn get_habsent(&self) -> &[Header];
