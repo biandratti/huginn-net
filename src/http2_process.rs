@@ -109,7 +109,7 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
             version: req.version,
             horder: headers_in_order,
             habsent: headers_absent,
-            expsw: extract_traffic_classification(user_agent.as_ref()),
+            expsw: extract_traffic_classification(user_agent.as_deref()),
         },
         lang,
         user_agent,
@@ -132,7 +132,7 @@ fn convert_http2_response_to_observable(
             version: res.version,
             horder: headers_in_order,
             habsent: headers_absent,
-            expsw: extract_traffic_classification(res.server.as_ref()),
+            expsw: extract_traffic_classification(res.server.as_deref()),
         },
         headers: res.headers,
         status_code: Some(res.status),
@@ -234,8 +234,8 @@ fn parse_http2_response(
     }
 }
 
-fn extract_traffic_classification(value: Option<&String>) -> String {
-    value.cloned().unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<&str>) -> String {
+    value.unwrap_or("???").to_string()
 }
 
 /// Check if data looks like HTTP/2 response (frames without preface)
@@ -682,10 +682,7 @@ mod frame_detection_tests {
     #[test]
     fn test_extract_traffic_classification() {
         // Test with Some value
-        assert_eq!(
-            extract_traffic_classification(Some(&"test".to_string())),
-            "test"
-        );
+        assert_eq!(extract_traffic_classification(Some("test")), "test");
 
         // Test with None
         assert_eq!(extract_traffic_classification(None), "???");

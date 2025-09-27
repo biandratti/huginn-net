@@ -206,9 +206,3 @@ pub fn response_common_headers() -> Vec<&'static str> {
         "Date",
     ]
 }
-
-impl AsRef<Signature> for Signature {
-    fn as_ref(&self) -> &Signature {
-        self
-    }
-}

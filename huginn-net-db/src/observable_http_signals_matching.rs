@@ -38,9 +38,9 @@ pub trait HttpDistance {
     // - Some(score) based on error count converted to quality score
     // - None if too many errors (unmatchable)
     fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
-        let mut obs_idx = 0usize;
-        let mut sig_idx = 0usize;
-        let mut errors: u32 = 0;
+        let mut obs_idx = 0usize; // Index pointer for observed headers
+        let mut sig_idx = 0usize; // Index pointer for signature headers
+        let mut errors: u32 = 0; // Running count of matching errors
 
         while obs_idx < observed.len() && sig_idx < signature.len() {
             let obs_header = &observed[obs_idx];
@@ -76,11 +76,11 @@ pub trait HttpDistance {
         }
 
         match errors {
-            0..=2 => Some(HttpMatchQuality::High.as_score()),
-            3..=5 => Some(HttpMatchQuality::Medium.as_score()),
-            6..=8 => Some(HttpMatchQuality::Low.as_score()),
-            9..=11 => Some(HttpMatchQuality::Bad.as_score()),
-            _ => None,
+            0..=2 => Some(HttpMatchQuality::High.as_score()), // 0-2 errors: High quality match
+            3..=5 => Some(HttpMatchQuality::Medium.as_score()), // 3-5 errors: Medium quality match
+            6..=8 => Some(HttpMatchQuality::Low.as_score()),  // 6-8 errors: Low quality match
+            9..=11 => Some(HttpMatchQuality::Bad.as_score()), // 9-11 errors: Bad quality match
+            _ => None, // 12+ errors: Too many differences, not a viable match
         }
     }
 
@@ -132,11 +132,24 @@ impl HttpDistance for ObservableHttpResponse {
 }
 
 trait HttpSignatureHelper {
-    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32>
-    where
-        Self: AsRef<http::Signature>,
-    {
-        let signature = self.as_ref();
+    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32>;
+
+    fn generate_http_index_keys(&self) -> Vec<HttpIndexKey>;
+
+    /// Returns the quality score based on the distance.
+    ///
+    /// The score is a value between 0.0 and 1.0, where 1.0 is a perfect match.
+    ///
+    /// The score is calculated based on the distance of the observed signal to the database signature.
+    /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
+    fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
+        http::HttpMatchQuality::distance_to_score(distance)
+    }
+}
+
+impl HttpSignatureHelper for http::Signature {
+    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32> {
+        let signature: &http::Signature = self;
         let distance = observed
             .distance_ip_version(signature)?
             .saturating_add(observed.distance_horder(signature)?)
@@ -144,14 +157,6 @@ trait HttpSignatureHelper {
             .saturating_add(observed.distance_expsw(signature)?);
         Some(distance)
     }
-
-    fn generate_http_index_keys(&self) -> Vec<HttpIndexKey>;
-    fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
-        http::HttpMatchQuality::distance_to_score(distance)
-    }
-}
-
-impl HttpSignatureHelper for http::Signature {
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
         let mut keys = Vec::new();
         if self.version == Version::Any {

@@ -161,7 +161,7 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
             version: req.version,
             horder: headers_in_order,
             habsent: headers_absent,
-            expsw: extract_traffic_classification(req.user_agent.as_ref()),
+            expsw: extract_traffic_classification(req.user_agent.as_deref()),
         },
         lang,
         user_agent: req.user_agent.clone(),
@@ -184,7 +184,7 @@ fn convert_http1_response_to_observable(
             version: res.version,
             horder: headers_in_order,
             habsent: headers_absent,
-            expsw: extract_traffic_classification(res.server.as_ref()),
+            expsw: extract_traffic_classification(res.server.as_deref()),
         },
         headers: res.headers,
         status_code: Some(res.status_code),
@@ -285,8 +285,8 @@ fn parse_http1_response(
     }
 }
 
-fn extract_traffic_classification(value: Option<&String>) -> String {
-    value.cloned().unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<&str>) -> String {
+    value.unwrap_or("???").to_string()
 }
 
 /// Check if data looks like HTTP/1.x response
