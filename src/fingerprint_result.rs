@@ -1,9 +1,9 @@
 use crate::http::HttpDiagnosis;
 use crate::observable_signals::ObservableTcp;
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::process::IpPort;
 use crate::tcp::Ttl;
 use huginn_net_db::{Label, Type};
+use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use huginn_net_tls::ObservableTlsClient;
 use std::fmt;
 use std::fmt::Formatter;

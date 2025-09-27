@@ -407,6 +407,7 @@ dependencies = [
  "ctrlc",
  "hpack-patched",
  "huginn-net-db",
+ "huginn-net-http",
  "huginn-net-tls",
  "lazy_static",
  "nom 8.0.0",
@@ -433,10 +434,13 @@ dependencies = [
 name = "huginn-net-http"
 version = "0.1.0"
 dependencies = [
+ "hpack-patched",
  "huginn-net-db",
- "nom 8.0.0",
+ "lazy_static",
+ "pnet",
  "thiserror 2.0.16",
  "tracing",
+ "ttl_cache",
 ]
 
 [[package]]

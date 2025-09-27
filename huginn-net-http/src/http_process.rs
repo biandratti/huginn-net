@@ -1,6 +1,6 @@
 use crate::error::HuginnNetError;
 use crate::http_common::HttpProcessor;
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http1_process, http2_process};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;

@@ -24,7 +24,7 @@ use crate::fingerprint_result::{
     WebServerQualityMatched,
 };
 use crate::http::HttpDiagnosis;
-use crate::http_process::{FlowKey, TcpFlow};
+use huginn_net_http::http_process::{FlowKey, TcpFlow};
 
 // ============================================================================
 // TLS PROTOCOL IMPORTS (depends on TCP)
@@ -40,12 +40,12 @@ use crate::signature_matcher::SignatureMatcher;
 // ============================================================================
 // OBSERVABLE SIGNALS EXPORTS (conditional in future)
 // ============================================================================
-pub use huginn_net_tls::ObservableTlsClient;
-pub use observable_signals::{
+pub use huginn_net_http::observable::{
     ObservableHttpRequest,  // HTTP signals
     ObservableHttpResponse, // HTTP signals
-    ObservableTcp,          // TCP signals
-}; // TLS signals from external crate
+};
+pub use huginn_net_tls::ObservableTlsClient;
+pub use observable_signals::ObservableTcp; // TCP signals
 
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
@@ -80,15 +80,9 @@ pub mod uptime;
 pub mod window_size;
 
 // ============================================================================
-// HTTP PROTOCOL MODULES (depends on TCP)
+// HTTP PROTOCOL MODULES (external crate)
 // ============================================================================
-pub mod http1_parser;
-pub mod http1_process;
-pub mod http2_parser;
-pub mod http2_process;
-pub mod http_common;
-pub mod http_languages;
-pub mod http_process;
+pub use huginn_net_http;
 
 // ============================================================================
 // TLS PROTOCOL MODULES (external crate)
@@ -136,7 +130,7 @@ pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     connection_tracker: TtlCache<Connection, SynData>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
-    http_processors: http_process::HttpProcessors,
+    http_processors: huginn_net_http::http_process::HttpProcessors,
     config: AnalysisConfig,
 }
 
@@ -193,7 +187,7 @@ impl<'a> HuginnNet<'a> {
             matcher,
             connection_tracker: TtlCache::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
-            http_processors: crate::http_process::HttpProcessors::new(),
+            http_processors: huginn_net_http::http_process::HttpProcessors::new(),
             config,
         })
     }
@@ -457,7 +451,7 @@ impl<'a> HuginnNet<'a> {
                                 }
                             );
 
-                            let http_diagnosis = http_common::get_diagnostic(
+                            let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
                                 ua_matcher,
                                 signature_matcher.map(|(label, _signature, _quality)| label),
