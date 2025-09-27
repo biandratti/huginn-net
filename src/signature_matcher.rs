@@ -1,8 +1,8 @@
-use huginn_net_tcp::observable::ObservableTcp;
 use crate::{http, tcp};
 use huginn_net_db::db_matching_trait::FingerprintDb;
 use huginn_net_db::{Database, Label};
 use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+use huginn_net_tcp::observable::ObservableTcp;
 
 pub struct SignatureMatcher<'a> {
     database: &'a Database,

@@ -13,8 +13,8 @@ pub use huginn_net_db::{http, tcp};
 use crate::fingerprint_result::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
-use huginn_net_tcp::uptime::{Connection, SynData};
 pub use huginn_net_db::tcp::Ttl;
+use huginn_net_tcp::uptime::{Connection, SynData};
 
 // ============================================================================
 // HTTP PROTOCOL IMPORTS (depends on TCP)
@@ -40,9 +40,9 @@ use crate::signature_matcher::SignatureMatcher;
 // ============================================================================
 // OBSERVABLE SIGNALS EXPORTS (conditional in future)
 // ============================================================================
-pub use huginn_net_http::observable::{ObservableHttpRequest,ObservableHttpResponse,};
-pub use huginn_net_tls::ObservableTlsClient;
+pub use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
 pub use huginn_net_tcp::observable::ObservableTcp;
+pub use huginn_net_tls::ObservableTlsClient;
 
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
