@@ -5,7 +5,7 @@ use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 
 /// Represents observed TCP characteristics from network traffic.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ObservableTcp {
+pub struct TcpObservation {
     /// IP version
     pub version: IpVersion,
     /// initial TTL used by the OS.
@@ -28,7 +28,7 @@ pub struct ObservableTcp {
 
 /// Represents observed HTTP request characteristics from network traffic.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ObservableHttpRequest {
+pub struct HttpRequestObservation {
     /// HTTP version
     pub version: Version,
     /// ordered list of headers that should appear in matching traffic (p0f style).
@@ -41,7 +41,7 @@ pub struct ObservableHttpRequest {
 
 /// Represents observed HTTP response characteristics from network traffic.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ObservableHttpResponse {
+pub struct HttpResponseObservation {
     /// HTTP version
     pub version: Version,
     /// ordered list of headers that should appear in matching traffic (p0f style).
@@ -55,7 +55,7 @@ pub struct ObservableHttpResponse {
 // ==============================
 // ObservedFingerprint - HTTP
 // ==============================
-impl ObservedFingerprint for ObservableHttpRequest {
+impl ObservedFingerprint for HttpRequestObservation {
     type Key = HttpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
@@ -65,7 +65,7 @@ impl ObservedFingerprint for ObservableHttpRequest {
     }
 }
 
-impl ObservedFingerprint for ObservableHttpResponse {
+impl ObservedFingerprint for HttpResponseObservation {
     type Key = HttpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {

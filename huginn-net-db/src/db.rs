@@ -1,6 +1,6 @@
 use crate::db_matching_trait::{DatabaseSignature, FingerprintDb, IndexKey, ObservedFingerprint};
 use crate::http::{self, Version as HttpVersion};
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse, ObservableTcp};
+use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation, TcpObservation};
 use crate::tcp::{self, IpVersion, PayloadSize};
 use std::collections::HashMap;
 use std::fmt;
@@ -17,10 +17,11 @@ pub struct Database {
     pub classes: Vec<String>,
     pub mtu: Vec<(String, Vec<u16>)>,
     pub ua_os: Vec<(String, Option<String>)>,
-    pub tcp_request: FingerprintCollection<ObservableTcp, tcp::Signature, TcpIndexKey>,
-    pub tcp_response: FingerprintCollection<ObservableTcp, tcp::Signature, TcpIndexKey>,
-    pub http_request: FingerprintCollection<ObservableHttpRequest, http::Signature, HttpIndexKey>,
-    pub http_response: FingerprintCollection<ObservableHttpResponse, http::Signature, HttpIndexKey>,
+    pub tcp_request: FingerprintCollection<TcpObservation, tcp::Signature, TcpIndexKey>,
+    pub tcp_response: FingerprintCollection<TcpObservation, tcp::Signature, TcpIndexKey>,
+    pub http_request: FingerprintCollection<HttpRequestObservation, http::Signature, HttpIndexKey>,
+    pub http_response:
+        FingerprintCollection<HttpResponseObservation, http::Signature, HttpIndexKey>,
 }
 
 /// Represents a label associated with a signature, which provides metadata about

@@ -1,14 +1,13 @@
 use crate::http_common::{HttpCookie, HttpHeader};
 use huginn_net_db::observable_signals::{
-    ObservableHttpRequest as P0fHttpRequest, ObservableHttpResponse as P0fHttpResponse,
-    ObservableTcp as P0fTcp,
+    HttpRequestObservation, HttpResponseObservation, TcpObservation,
 };
 
 // Observable TCP signals
 #[derive(Debug, Clone)]
 pub struct ObservableTcp {
     /// Core matching data for fingerprinting
-    pub matching: P0fTcp,
+    pub matching: TcpObservation,
     // Additional fields for extended analysis could go here in the future
 }
 
@@ -16,7 +15,7 @@ pub struct ObservableTcp {
 #[derive(Debug, Clone)]
 pub struct ObservableHttpRequest {
     /// Core matching data for fingerprinting
-    pub matching: P0fHttpRequest,
+    pub matching: HttpRequestObservation,
     /// Additional analysis fields
     pub lang: Option<String>,
     pub user_agent: Option<String>,
@@ -36,7 +35,7 @@ pub struct ObservableHttpRequest {
 #[derive(Debug, Clone)]
 pub struct ObservableHttpResponse {
     /// Core matching data for fingerprinting
-    pub matching: P0fHttpResponse,
+    pub matching: HttpResponseObservation,
     /// Additional analysis fields
     /// All parsed HTTP headers with original order, position, and source information
     pub headers: Vec<HttpHeader>,

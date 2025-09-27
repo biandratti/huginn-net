@@ -1,9 +1,9 @@
 use crate::db::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
-use crate::observable_signals::ObservableTcp;
+use crate::observable_signals::TcpObservation;
 use crate::tcp::{self, IpVersion, PayloadSize};
 
-impl ObservableTcp {
+impl TcpObservation {
     pub(crate) fn distance_olen(&self, other: &tcp::Signature) -> Option<u32> {
         if self.olen == other.olen {
             Some(tcp::TcpMatchQuality::High.as_score())
@@ -45,7 +45,7 @@ impl ObservableTcp {
     }
 }
 
-impl ObservedFingerprint for ObservableTcp {
+impl ObservedFingerprint for TcpObservation {
     type Key = TcpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
@@ -58,8 +58,8 @@ impl ObservedFingerprint for ObservableTcp {
     }
 }
 
-impl DatabaseSignature<ObservableTcp> for tcp::Signature {
-    fn calculate_distance(&self, observed: &ObservableTcp) -> Option<u32> {
+impl DatabaseSignature<TcpObservation> for tcp::Signature {
+    fn calculate_distance(&self, observed: &TcpObservation) -> Option<u32> {
         let distance = observed
             .version
             .distance_ip_version(&self.version)?

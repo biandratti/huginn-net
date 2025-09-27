@@ -157,7 +157,7 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
     let headers_absent = build_absent_headers_from_new_parser(&req.headers, true);
 
     ObservableHttpRequest {
-        matching: huginn_net_db::observable_signals::ObservableHttpRequest {
+        matching: huginn_net_db::observable_signals::HttpRequestObservation {
             version: req.version,
             horder: headers_in_order,
             habsent: headers_absent,
@@ -180,7 +180,7 @@ fn convert_http1_response_to_observable(
     let headers_absent = build_absent_headers_from_new_parser(&res.headers, false);
 
     ObservableHttpResponse {
-        matching: huginn_net_db::observable_signals::ObservableHttpResponse {
+        matching: huginn_net_db::observable_signals::HttpResponseObservation {
             version: res.version,
             horder: headers_in_order,
             habsent: headers_absent,

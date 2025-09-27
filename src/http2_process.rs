@@ -105,7 +105,7 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
     let user_agent = headers_map.get("user-agent").map(|s| s.to_string());
 
     ObservableHttpRequest {
-        matching: huginn_net_db::observable_signals::ObservableHttpRequest {
+        matching: huginn_net_db::observable_signals::HttpRequestObservation {
             version: req.version,
             horder: headers_in_order,
             habsent: headers_absent,
@@ -128,7 +128,7 @@ fn convert_http2_response_to_observable(
     let headers_absent = build_absent_headers_from_http2(&res.headers, false);
 
     ObservableHttpResponse {
-        matching: huginn_net_db::observable_signals::ObservableHttpResponse {
+        matching: huginn_net_db::observable_signals::HttpResponseObservation {
             version: res.version,
             horder: headers_in_order,
             habsent: headers_absent,

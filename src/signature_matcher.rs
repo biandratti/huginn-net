@@ -79,6 +79,7 @@ mod tests {
     use crate::http::Version as HttpVersion;
     use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
     use crate::Database;
+    use huginn_net_db::observable_signals::TcpObservation;
     use huginn_net_db::Type;
 
     #[test]
@@ -92,7 +93,7 @@ mod tests {
 
         //sig: 4:58+6:0:1452:mss*44,7:mss,sok,ts,nop,ws:df,id+:0
         let linux_signature = ObservableTcp {
-            matching: huginn_net_db::observable_signals::ObservableTcp {
+            matching: TcpObservation {
                 version: IpVersion::V4,
                 ittl: Ttl::Distance(58, 6),
                 olen: 0,
@@ -137,7 +138,7 @@ mod tests {
 
         //sig: "4:64+0:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature = ObservableTcp {
-            matching: huginn_net_db::observable_signals::ObservableTcp {
+            matching: TcpObservation {
                 version: IpVersion::V4,
                 ittl: Ttl::Value(64),
                 olen: 0,
@@ -158,7 +159,7 @@ mod tests {
 
         //sig: "4:57+7:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0"
         let android_signature_with_distance = ObservableTcp {
-            matching: huginn_net_db::observable_signals::ObservableTcp {
+            matching: TcpObservation {
                 version: IpVersion::V4,
                 ittl: Ttl::Distance(57, 7),
                 olen: 0,
@@ -214,7 +215,7 @@ mod tests {
         };
 
         let firefox_signature = ObservableHttpRequest {
-            matching: huginn_net_db::observable_signals::ObservableHttpRequest {
+            matching: huginn_net_db::observable_signals::HttpRequestObservation {
                 version: HttpVersion::V10,
                 horder: vec![
                     http::Header::new("Host"),
@@ -263,7 +264,7 @@ mod tests {
         };
 
         let apache_signature = ObservableHttpResponse {
-            matching: huginn_net_db::observable_signals::ObservableHttpResponse {
+            matching: huginn_net_db::observable_signals::HttpResponseObservation {
                 version: HttpVersion::V11,
                 horder: vec![
                     http::Header::new("Date"),
@@ -313,7 +314,7 @@ mod tests {
         };
 
         let android_chrome_signature = ObservableHttpRequest {
-            matching: huginn_net_db::observable_signals::ObservableHttpRequest {
+            matching: huginn_net_db::observable_signals::HttpRequestObservation {
                 version: HttpVersion::V11, // HTTP/1.1
                 horder: vec![
                     http::Header::new("Host"),
