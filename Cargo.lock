@@ -423,6 +423,7 @@ dependencies = [
 name = "huginn-net-db"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "nom 8.0.0",
  "thiserror 2.0.16",
  "tracing",

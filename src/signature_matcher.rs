@@ -1,6 +1,7 @@
 use crate::observable_signals::ObservableTcp;
 use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, tcp};
+use huginn_net_db::db_matching_trait::FingerprintDb;
 use huginn_net_db::{Database, Label};
 
 pub struct SignatureMatcher<'a> {
@@ -16,14 +17,18 @@ impl<'a> SignatureMatcher<'a> {
         &self,
         signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        self.find_best_tcp_match(&self.database.tcp_request, signature)
+        self.database
+            .tcp_request
+            .find_best_match(&signature.matching)
     }
 
     pub fn matching_by_tcp_response(
         &self,
         signature: &ObservableTcp,
     ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        self.find_best_tcp_match(&self.database.tcp_response, signature)
+        self.database
+            .tcp_response
+            .find_best_match(&signature.matching)
     }
 
     pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
@@ -41,14 +46,18 @@ impl<'a> SignatureMatcher<'a> {
         &self,
         signature: &ObservableHttpRequest,
     ) -> Option<(&'a Label, &'a http::Signature, f32)> {
-        self.find_best_http_match(&self.database.http_request, signature)
+        self.database
+            .http_request
+            .find_best_match(&signature.matching)
     }
 
     pub fn matching_by_http_response(
         &self,
         signature: &ObservableHttpResponse,
     ) -> Option<(&'a Label, &'a http::Signature, f32)> {
-        self.find_best_http_match(&self.database.http_response, signature)
+        self.database
+            .http_response
+            .find_best_match(&signature.matching)
     }
 
     pub fn matching_by_user_agent(
@@ -61,60 +70,6 @@ impl<'a> SignatureMatcher<'a> {
             }
         }
         None
-    }
-
-    fn find_best_tcp_match(
-        &self,
-        signatures: &'a [(Label, Vec<tcp::Signature>)],
-        observed: &ObservableTcp,
-    ) -> Option<(&'a Label, &'a tcp::Signature, f32)> {
-        use huginn_net_db::db_matching_trait::DatabaseSignature;
-
-        let mut best_match = None;
-        let mut best_quality = 0.0;
-
-        for (label, db_signatures) in signatures {
-            for signature in db_signatures {
-                if let Some(distance) = signature.calculate_distance(observed) {
-                    let quality = 1.0 / (1.0 + distance as f32);
-                    if quality > best_quality {
-                        best_quality = quality;
-                        best_match = Some((label, signature, quality));
-                    }
-                }
-            }
-        }
-
-        best_match
-    }
-
-    fn find_best_http_match<T>(
-        &self,
-        signatures: &'a [(Label, Vec<http::Signature>)],
-        observed: &T,
-    ) -> Option<(&'a Label, &'a http::Signature, f32)>
-    where
-        T: huginn_net_db::db_matching_trait::ObservedFingerprint,
-        http::Signature: huginn_net_db::db_matching_trait::DatabaseSignature<T>,
-    {
-        use huginn_net_db::db_matching_trait::DatabaseSignature;
-
-        let mut best_match = None;
-        let mut best_quality = 0.0;
-
-        for (label, db_signatures) in signatures {
-            for signature in db_signatures {
-                if let Some(distance) = signature.calculate_distance(observed) {
-                    let quality = 1.0 / (1.0 + distance as f32);
-                    if quality > best_quality {
-                        best_quality = quality;
-                        best_match = Some((label, signature, quality));
-                    }
-                }
-            }
-        }
-
-        best_match
     }
 }
 

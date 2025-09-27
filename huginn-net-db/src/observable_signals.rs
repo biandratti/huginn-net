@@ -1,3 +1,5 @@
+use crate::db::HttpIndexKey;
+use crate::db_matching_trait::ObservedFingerprint;
 use crate::http::{Header, Version};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 
@@ -48,4 +50,27 @@ pub struct ObservableHttpResponse {
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
+}
+
+// ==============================
+// ObservedFingerprint - HTTP
+// ==============================
+impl ObservedFingerprint for ObservableHttpRequest {
+    type Key = HttpIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpIndexKey {
+            http_version_key: self.version,
+        }
+    }
+}
+
+impl ObservedFingerprint for ObservableHttpResponse {
+    type Key = HttpIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpIndexKey {
+            http_version_key: self.version,
+        }
+    }
 }

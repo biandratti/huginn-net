@@ -74,7 +74,6 @@ pub mod fingerprint_result;
 // TCP PROTOCOL MODULES (base protocol - required by HTTP and TLS)
 // ============================================================================
 pub mod mtu;
-mod observable_tcp_signals_matching;
 pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
