@@ -1,7 +1,7 @@
 use crate::error::HuginnNetError;
 use crate::http::Header;
 use crate::http_common::HttpProcessor;
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http1_parser, http2_parser, http2_process, http_common, http_languages};
 use tracing::debug;
 

@@ -1,4 +1,4 @@
-use crate::observable_signals::ObservableUptime;
+use crate::observable::ObservableUptime;
 use std::net::IpAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::debug;

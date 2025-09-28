@@ -1,4 +1,4 @@
-use crate::observable_signals::ObservableMtu;
+use crate::observable::ObservableMtu;
 use pnet::packet::tcp::TcpFlags::SYN;
 use pnet::packet::tcp::TcpPacket;
 use tracing::debug;

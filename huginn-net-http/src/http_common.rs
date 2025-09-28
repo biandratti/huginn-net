@@ -83,7 +83,7 @@ impl Default for ParsingMetadata {
     }
 }
 
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 
 /// Common trait for all HTTP parsers across different versions
 pub trait HttpParser {

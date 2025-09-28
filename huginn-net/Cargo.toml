@@ -1,0 +1,40 @@
+[package]
+name = "huginn-net"
+version = "1.4.6"
+edition = "2021"
+rust-version = "1.80"
+description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"
+license = "MIT OR Apache-2.0"
+authors = ["Maximiliano Biandratti"]
+repository = "https://github.com/biandratti/huginn-net"
+readme = "README.md"
+keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
+categories = ["network-programming"]
+
+[dependencies]
+huginn-net-db = { path = "../huginn-net-db" }
+huginn-net-tls = { path = "../huginn-net-tls" }
+huginn-net-http = { path = "../huginn-net-http" }
+huginn-net-tcp = { path = "../huginn-net-tcp" }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+pnet = { workspace = true }
+ttl_cache = { workspace = true }
+lazy_static = { workspace = true }
+pcap-file = { workspace = true }
+
+[dev-dependencies]
+clap = { version = "4.5.47", features = ["derive"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-appender = "0.2.3"
+criterion = { version = "0.7.0", features = ["html_reports"] }
+ctrlc = "3.5.0"
+
+[[example]]
+name = "capture"
+path = "../examples/capture.rs"
+
+[[bench]]
+name = "benchmark"
+path = "../benches/benchmark.rs"
+harness = false
