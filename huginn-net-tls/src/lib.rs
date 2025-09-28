@@ -62,12 +62,12 @@ impl HuginnNetTls {
         let interface = datalink::interfaces()
             .into_iter()
             .find(|iface| iface.name == interface_name)
-            .ok_or_else(|| TlsError::Parse(format!("Interface {} not found", interface_name)))?;
+            .ok_or_else(|| TlsError::Parse(format!("Interface {interface_name} not found")))?;
 
         let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => return Err(TlsError::Parse("Unsupported channel type".to_string())),
-            Err(e) => return Err(TlsError::Parse(format!("Failed to create channel: {}", e))),
+            Err(e) => return Err(TlsError::Parse(format!("Failed to create channel: {e}"))),
         };
 
         loop {
@@ -94,7 +94,7 @@ impl HuginnNetTls {
                     }
                 }
                 Err(e) => {
-                    return Err(TlsError::Parse(format!("Error receiving packet: {}", e)));
+                    return Err(TlsError::Parse(format!("Error receiving packet: {e}")));
                 }
             }
         }

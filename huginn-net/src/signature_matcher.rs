@@ -13,6 +13,7 @@ impl<'a> SignatureMatcher<'a> {
         Self { database }
     }
 
+    //TODO: reuse methods!!!! and move to tcp and http
     pub fn matching_by_tcp_request(
         &self,
         signature: &ObservableTcp,

@@ -446,10 +446,14 @@ dependencies = [
 name = "huginn-net-tcp"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "ctrlc",
  "huginn-net-db",
  "pnet",
  "thiserror 2.0.16",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "ttl_cache",
 ]
 

@@ -29,6 +29,19 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l <TL
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live -i eth0
 ```
 
+#### TCP-Only Analysis
+```
+# Build TCP example
+cargo build --release --examples -p huginn-net-tcp
+
+# Live TCP capture (focuses only on TCP fingerprinting)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l <TCP_LOG_FILE.LOG> live -i <INTERFACE>
+
+# Example with specific interface
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live -i eth0
+```
+
 #### Differences between examples:
 - **`capture`**: Full analysis (TCP fingerprinting, HTTP analysis, TLS JA4, database matching)
 - **`capture-tls`**: TLS-only analysis (JA4 fingerprinting)
+- **`capture-tcp`**: TCP-only analysis (OS fingerprinting, MTU detection, uptime calculation, requires database)

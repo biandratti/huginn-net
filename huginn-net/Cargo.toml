@@ -37,6 +37,7 @@ ctrlc = { workspace = true }
 name = "capture"
 path = "../examples/capture.rs"
 
+
 [[bench]]
 name = "benchmark"
 path = "../benches/benchmark.rs"
