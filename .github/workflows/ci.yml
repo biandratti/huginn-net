@@ -27,8 +27,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.rust_stable }}
-      - name: Build
-        run: cargo build --verbose
+      - name: Build workspace
+        run: cargo build --verbose --workspace
   format:
     runs-on: ubuntu-latest
     steps:
@@ -39,7 +39,7 @@ jobs:
           toolchain: ${{ env.rust_stable }}
           components: rustfmt
       - name: Check code formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +51,7 @@ jobs:
           components: clippy
       - name: Check lint
         run: |
-          cargo clippy --all-features --all-targets -- \
+          cargo clippy --workspace --all-features --all-targets -- \
             -D warnings \
             -D clippy::expect_used \
             -D clippy::unreachable \
@@ -63,6 +63,23 @@ jobs:
             -D clippy::missing_panics_doc \
             -D clippy::redundant_field_names
 
+  test-individual-crates:
+    name: Test individual crates
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [huginn-net-db, huginn-net-tls, huginn-net-tcp, huginn-net-http, huginn-net]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+      - name: Test ${{ matrix.crate }}
+        run: cargo test -p ${{ matrix.crate }} --all-features
+      - name: Check ${{ matrix.crate }}
+        run: cargo check -p ${{ matrix.crate }} --all-features
+
   minrust:
     name: minrust
     runs-on: ubuntu-latest
@@ -73,7 +90,21 @@ jobs:
         with:
           toolchain: ${{ env.rust_min }}
       - name: Check MSRV
-        run: cargo check --all-features
+        run: cargo check --workspace --all-features
+
+  examples-and-benchmarks:
+    name: Examples and benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+      - name: Check examples
+        run: cargo check --examples -p huginn-net
+      - name: Check benchmarks
+        run: cargo check --benches -p huginn-net
 
   test:
     runs-on: ubuntu-latest
@@ -87,7 +118,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --all-features --timeout 120 --out xml --output-dir .
+          cargo +nightly tarpaulin --workspace --verbose --all-features --timeout 120 --out xml --output-dir .
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
