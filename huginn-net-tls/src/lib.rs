@@ -41,7 +41,7 @@ impl HuginnNetTls {
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 
     /// Analyzes network traffic from a live network interface for TLS packets.
