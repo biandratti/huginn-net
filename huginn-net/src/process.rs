@@ -1,12 +1,10 @@
 use crate::error::HuginnNetError;
-use crate::observable_signals::ObservableMtu;
-use crate::observable_signals::ObservableTcp;
-use crate::observable_signals::ObservableUptime;
-use crate::tcp_process::ObservableTCPPackage;
-use crate::uptime::{Connection, SynData};
-use crate::{tcp_process, AnalysisConfig};
+use crate::AnalysisConfig;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+use huginn_net_tcp::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
+use huginn_net_tcp::tcp_process::ObservableTCPPackage;
+use huginn_net_tcp::uptime::{Connection, SynData};
 use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
@@ -191,7 +189,20 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         connection_tracker: &mut TtlCache<Connection, SynData>,
     ) -> Result<ObservableTCPPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
-            tcp_process::process_tcp_ipv4(&packet, connection_tracker)
+            huginn_net_tcp::tcp_process::process_tcp_ipv4(&packet, connection_tracker).map_err(
+                |e| match e {
+                    huginn_net_tcp::error::HuginnNetError::Parse(msg) => HuginnNetError::Parse(msg),
+                    huginn_net_tcp::error::HuginnNetError::UnsupportedProtocol(msg) => {
+                        HuginnNetError::UnsupportedProtocol(msg)
+                    }
+                    huginn_net_tcp::error::HuginnNetError::InvalidTcpFlags(flags) => {
+                        HuginnNetError::InvalidTcpFlags(flags)
+                    }
+                    huginn_net_tcp::error::HuginnNetError::UnexpectedPackage(msg) => {
+                        HuginnNetError::UnexpectedPackage(msg)
+                    }
+                },
+            )
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv4 packet data".to_string(),
@@ -264,7 +275,20 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         connection_tracker: &mut TtlCache<Connection, SynData>,
     ) -> Result<ObservableTCPPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
-            tcp_process::process_tcp_ipv6(&packet, connection_tracker)
+            huginn_net_tcp::tcp_process::process_tcp_ipv6(&packet, connection_tracker).map_err(
+                |e| match e {
+                    huginn_net_tcp::error::HuginnNetError::Parse(msg) => HuginnNetError::Parse(msg),
+                    huginn_net_tcp::error::HuginnNetError::UnsupportedProtocol(msg) => {
+                        HuginnNetError::UnsupportedProtocol(msg)
+                    }
+                    huginn_net_tcp::error::HuginnNetError::InvalidTcpFlags(flags) => {
+                        HuginnNetError::InvalidTcpFlags(flags)
+                    }
+                    huginn_net_tcp::error::HuginnNetError::UnexpectedPackage(msg) => {
+                        HuginnNetError::UnexpectedPackage(msg)
+                    }
+                },
+            )
         } else {
             Err(HuginnNetError::UnexpectedPackage(
                 "Invalid IPv6 packet data".to_string(),

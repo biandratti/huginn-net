@@ -27,7 +27,9 @@ pub mod observable_tcp_signals_matching;
 
 // Display implementations for database types
 pub mod display;
+pub mod utils;
 
 // Re-export main types for convenience
 pub use db::{Database, Label, Type};
 pub use error::DatabaseError;
+pub use utils::MatchQualityType;

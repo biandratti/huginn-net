@@ -1,8 +1,6 @@
 use crate::error::HuginnNetError;
 use crate::ip_options::IpOptions;
-use crate::observable_signals::ObservableMtu;
-use crate::observable_signals::ObservableTcp;
-use crate::observable_signals::ObservableUptime;
+use crate::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::check_ts_tcp;
 use crate::uptime::{Connection, SynData};

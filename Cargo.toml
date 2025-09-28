@@ -3,7 +3,9 @@ members = [
     ".",
     "huginn-net-db",
     "huginn-net-tls",
-    "huginn-net-http"
+    "huginn-net-http",
+    "huginn-net-tcp",
+    "huginn-net"
 ]
 resolver = "2"
 
@@ -23,46 +25,3 @@ ttl_cache = "0.5.1"
 lazy_static = "1.5.0"
 pcap-file = "3.0.0-rc1"
 hpack-patched = "0.3.0"
-
-
-[package]
-name = "huginn-net"
-version = "1.4.6"
-edition = "2021"
-rust-version = "1.80"
-description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"
-license = "MIT OR Apache-2.0"
-authors = ["Maximiliano Biandratti"]
-repository = "https://github.com/biandratti/huginn-net"
-readme = "README.md"
-keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
-categories = ["network-programming"]
-
-[dependencies]
-nom = { workspace = true }
-pnet = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-ttl_cache = { workspace = true }
-lazy_static = { workspace = true }
-pcap-file = { workspace = true }
-hpack-patched = { workspace = true }
-huginn-net-tls = { path = "huginn-net-tls" }
-huginn-net-db = { path = "huginn-net-db" }
-huginn-net-http = { path = "huginn-net-http" }
-
-[dev-dependencies]
-clap = { version = "4.5.47", features = ["derive"] }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-tracing-appender = "0.2.3"
-criterion = { version = "0.7.0", features = ["html_reports"] }
-pcap-file = "3.0.0-rc1"
-ctrlc = "3.5.0"
-
-[[example]]
-name = "capture"
-path = "examples/capture.rs"
-
-[[bench]]
-name = "benchmark"
-harness = false
