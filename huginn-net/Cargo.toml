@@ -7,9 +7,12 @@ description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-styl
 license = "MIT OR Apache-2.0"
 authors = ["Maximiliano Biandratti"]
 repository = "https://github.com/biandratti/huginn-net"
-readme = "README.md"
+homepage = "https://github.com/biandratti/huginn-net"
+documentation = "https://docs.rs/huginn-net"
+readme = "../README.md"
 keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
-categories = ["network-programming"]
+categories = ["network-programming", "cryptography", "development-tools"]
+exclude = ["target/", "Cargo.lock"]
 
 [dependencies]
 huginn-net-db = { path = "../huginn-net-db" }

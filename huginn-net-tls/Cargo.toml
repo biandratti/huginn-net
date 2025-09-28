@@ -7,6 +7,12 @@ description = "TLS fingerprinting and JA4 analysis for Huginn Net"
 license = "MIT OR Apache-2.0"
 authors = ["Maximiliano Biandratti"]
 repository = "https://github.com/biandratti/huginn-net"
+homepage = "https://github.com/biandratti/huginn-net"
+documentation = "https://docs.rs/huginn-net-tls"
+readme = "README.md"
+keywords = ["tls", "JA4", "fingerprinting", "network", "security"]
+categories = ["network-programming", "cryptography"]
+exclude = ["target/", "Cargo.lock"]
 
 [dependencies]
 tls-parser = { workspace = true }
