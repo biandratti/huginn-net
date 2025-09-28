@@ -37,7 +37,7 @@ pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, Tls
     }
 }
 
-fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, TlsError> {
+pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, TlsError> {
     let payload = tcp.payload();
 
     if !is_tls_traffic(payload) {

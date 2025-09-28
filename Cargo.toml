@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    ".",
     "huginn-net-db",
     "huginn-net-tls",
     "huginn-net-http",
@@ -25,3 +24,10 @@ ttl_cache = "0.5.1"
 lazy_static = "1.5.0"
 pcap-file = "3.0.0-rc1"
 hpack-patched = "0.3.0"
+
+# Examples and dev dependencies
+clap = { version = "4.5.48", features = ["derive"] }
+ctrlc = "3.5.0"
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+criterion = { version = "0.7.0", features = ["html_reports"] }

@@ -24,11 +24,11 @@ lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 
 [dev-dependencies]
-clap = { version = "4.5.47", features = ["derive"] }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-tracing-appender = "0.2.3"
-criterion = { version = "0.7.0", features = ["html_reports"] }
-ctrlc = "3.5.0"
+clap = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+criterion = { workspace = true }
+ctrlc = { workspace = true }
 
 [[example]]
 name = "capture"
