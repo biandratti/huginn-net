@@ -1,5 +1,6 @@
 pub mod error;
 pub mod observable;
+pub mod output;
 pub mod tls;
 pub mod tls_process;
 

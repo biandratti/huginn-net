@@ -83,7 +83,7 @@ impl Default for ParsingMetadata {
     }
 }
 
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 
 /// Common trait for all HTTP parsers across different versions
 pub trait HttpParser {
@@ -153,7 +153,7 @@ pub trait HttpProcessor {
 pub fn get_diagnostic(
     user_agent: Option<String>,
     ua_matcher: Option<(&String, &Option<String>)>,
-    signature_os_matcher: Option<&crate::db::Label>,
+    signature_os_matcher: Option<&huginn_net_db::Label>,
 ) -> http::HttpDiagnosis {
     match user_agent {
         None => http::HttpDiagnosis::Anonymous,

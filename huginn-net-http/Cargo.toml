@@ -1,0 +1,20 @@
+[package]
+name = "huginn-net-http"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "HTTP fingerprinting (p0f-style) analysis for Huginn Net"
+license = "MIT OR Apache-2.0"
+authors = ["Maximiliano Biandratti"]
+repository = "https://github.com/biandratti/huginn-net"
+
+[dependencies]
+huginn-net-db = { path = "../huginn-net-db" }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+pnet = { workspace = true }
+ttl_cache = { workspace = true }
+hpack-patched = { workspace = true }
+lazy_static = { workspace = true }
+
+

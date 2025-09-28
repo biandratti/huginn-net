@@ -1,7 +1,7 @@
 use crate::error::HuginnNetError;
 use crate::http::Header;
 use crate::http_common::HttpProcessor;
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http2_parser, http_common, http_languages};
 use tracing::debug;
 
@@ -105,12 +105,14 @@ fn convert_http2_request_to_observable(req: http2_parser::Http2Request) -> Obser
     let user_agent = headers_map.get("user-agent").map(|s| s.to_string());
 
     ObservableHttpRequest {
+        matching: huginn_net_db::observable_signals::HttpRequestObservation {
+            version: req.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(user_agent.as_deref()),
+        },
         lang,
-        user_agent: user_agent.clone(),
-        version: req.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(user_agent),
+        user_agent,
         headers: req.headers,
         cookies: req.cookies.clone(),
         referer: req.referer.clone(),
@@ -126,10 +128,12 @@ fn convert_http2_response_to_observable(
     let headers_absent = build_absent_headers_from_http2(&res.headers, false);
 
     ObservableHttpResponse {
-        version: res.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(res.server),
+        matching: huginn_net_db::observable_signals::HttpResponseObservation {
+            version: res.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(res.server.as_deref()),
+        },
         headers: res.headers,
         status_code: Some(res.status),
     }
@@ -230,8 +234,8 @@ fn parse_http2_response(
     }
 }
 
-fn extract_traffic_classification(value: Option<String>) -> String {
-    value.unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<&str>) -> String {
+    value.unwrap_or("???").to_string()
 }
 
 /// Check if data looks like HTTP/2 response (frames without preface)
@@ -257,7 +261,7 @@ pub fn looks_like_http2_response(data: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use huginn_net_db;
 
     #[test]
     fn test_http2_request_conversion() {
@@ -287,7 +291,7 @@ mod tests {
 
         let observable = convert_http2_request_to_observable(req);
 
-        assert_eq!(observable.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert_eq!(observable.method, Some("GET".to_string()));
         assert_eq!(observable.uri, Some("/test".to_string()));
     }
@@ -315,9 +319,9 @@ mod tests {
 
         let observable = convert_http2_response_to_observable(res);
 
-        assert_eq!(observable.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert_eq!(observable.status_code, Some(200));
-        assert_eq!(observable.expsw, "nginx/1.20");
+        assert_eq!(observable.matching.expsw, "nginx/1.20");
     }
 
     #[test]
@@ -332,13 +336,13 @@ mod tests {
         let os = "Linux".to_string();
         let browser = Some("Firefox".to_string());
         let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
+        let label = huginn_net_db::Label {
+            ty: huginn_net_db::Type::Specified,
             class: None,
             name: "Linux".to_string(),
             flavor: None,
         };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
+        let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
 
         let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
@@ -678,10 +682,7 @@ mod frame_detection_tests {
     #[test]
     fn test_extract_traffic_classification() {
         // Test with Some value
-        assert_eq!(
-            extract_traffic_classification(Some("test".to_string())),
-            "test"
-        );
+        assert_eq!(extract_traffic_classification(Some("test")), "test");
 
         // Test with None
         assert_eq!(extract_traffic_classification(None), "???");
@@ -762,7 +763,7 @@ mod frame_detection_tests {
 
         assert_eq!(observable.method, Some("POST".to_string()));
         assert_eq!(observable.uri, Some("/api/test".to_string()));
-        assert_eq!(observable.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert!(!observable.headers.is_empty());
 
         // Test response conversion with all fields
@@ -804,7 +805,7 @@ mod frame_detection_tests {
         let observable = convert_http2_response_to_observable(res);
 
         assert_eq!(observable.status_code, Some(201));
-        assert_eq!(observable.version, http::Version::V20);
+        assert_eq!(observable.matching.version, http::Version::V20);
         assert!(!observable.headers.is_empty());
     }
 }

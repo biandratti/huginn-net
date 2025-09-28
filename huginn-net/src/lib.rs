@@ -3,34 +3,35 @@
 // ============================================================================
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
-pub use crate::db::Label;
-use crate::fingerprint_result::{FingerprintResult, MatchQualityType, OSQualityMatched};
-
-pub use crate::db::Database;
+use crate::output::FingerprintResult;
+use huginn_net_db::MatchQualityType;
+pub use huginn_net_db::{db_matching_trait, Database, Label};
+pub use huginn_net_db::{http, tcp};
+use huginn_net_tcp::output::OSQualityMatched;
 
 // ============================================================================
 // TCP PROTOCOL IMPORTS (base protocol)
 // ============================================================================
-use crate::fingerprint_result::{
+pub use huginn_net_db::tcp::Ttl;
+use huginn_net_tcp::output::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
 };
-use crate::uptime::{Connection, SynData};
-pub use tcp::Ttl;
+use huginn_net_tcp::uptime::{Connection, SynData};
 
 // ============================================================================
 // HTTP PROTOCOL IMPORTS (depends on TCP)
 // ============================================================================
-use crate::fingerprint_result::{
+use huginn_net_db::http::HttpDiagnosis;
+use huginn_net_http::http_process::{FlowKey, TcpFlow};
+use huginn_net_http::output::{
     Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, WebServer,
     WebServerQualityMatched,
 };
-use crate::http::HttpDiagnosis;
-use crate::http_process::{FlowKey, TcpFlow};
 
 // ============================================================================
 // TLS PROTOCOL IMPORTS (depends on TCP)
 // ============================================================================
-use crate::fingerprint_result::TlsClientOutput;
+use huginn_net_tls::output::TlsClientOutput;
 
 // ============================================================================
 // SHARED PROCESSING IMPORTS (used across protocols)
@@ -41,12 +42,9 @@ use crate::signature_matcher::SignatureMatcher;
 // ============================================================================
 // OBSERVABLE SIGNALS EXPORTS (conditional in future)
 // ============================================================================
+pub use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+pub use huginn_net_tcp::observable::ObservableTcp;
 pub use huginn_net_tls::ObservableTlsClient;
-pub use observable_signals::{
-    ObservableHttpRequest,  // HTTP signals
-    ObservableHttpResponse, // HTTP signals
-    ObservableTcp,          // TCP signals
-}; // TLS signals from external crate
 
 // ============================================================================
 // EXTERNAL CRATE IMPORTS
@@ -67,36 +65,18 @@ pub mod matcher;
 // ============================================================================
 // CORE MODULES (always required - database, matching, errors, results)
 // ============================================================================
-pub mod db;
-pub mod db_matching_trait;
-pub mod db_parse;
-mod display;
 pub mod error;
-pub mod fingerprint_result;
+pub mod output;
 
 // ============================================================================
-// TCP PROTOCOL MODULES (base protocol - required by HTTP and TLS)
+// TCP PROTOCOL MODULES (external crate)
 // ============================================================================
-pub mod mtu;
-mod observable_tcp_signals_matching;
-pub mod tcp;
-pub mod tcp_process;
-pub mod ttl;
-pub mod uptime;
-pub mod window_size;
+pub use huginn_net_tcp;
 
 // ============================================================================
-// HTTP PROTOCOL MODULES (depends on TCP)
+// HTTP PROTOCOL MODULES (external crate)
 // ============================================================================
-pub mod http;
-pub mod http1_parser;
-pub mod http1_process;
-pub mod http2_parser;
-pub mod http2_process;
-pub mod http_common;
-pub mod http_languages;
-pub mod http_process;
-mod observable_http_signals_matching;
+pub use huginn_net_http;
 
 // ============================================================================
 // TLS PROTOCOL MODULES (external crate)
@@ -106,8 +86,6 @@ pub use huginn_net_tls;
 // ============================================================================
 // SHARED PROCESSING MODULES (used by multiple protocols)
 // ============================================================================
-pub mod ip_options;
-pub mod observable_signals;
 pub mod process;
 pub mod signature_matcher;
 
@@ -144,7 +122,7 @@ pub struct HuginnNet<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
     connection_tracker: TtlCache<Connection, SynData>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
-    http_processors: http_process::HttpProcessors,
+    http_processors: huginn_net_http::http_process::HttpProcessors,
     config: AnalysisConfig,
 }
 
@@ -201,7 +179,7 @@ impl<'a> HuginnNet<'a> {
             matcher,
             connection_tracker: TtlCache::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
-            http_processors: crate::http_process::HttpProcessors::new(),
+            http_processors: huginn_net_http::http_process::HttpProcessors::new(),
             config,
         })
     }
@@ -351,8 +329,14 @@ impl<'a> HuginnNet<'a> {
                         );
 
                         MTUOutput {
-                            source: observable_package.source.clone(),
-                            destination: observable_package.destination.clone(),
+                            source: huginn_net_tcp::output::IpPort::new(
+                                observable_package.source.ip,
+                                observable_package.source.port,
+                            ),
+                            destination: huginn_net_tcp::output::IpPort::new(
+                                observable_package.destination.ip,
+                                observable_package.destination.port,
+                            ),
                             link: link_quality,
                             mtu: observable_mtu.value,
                         }
@@ -379,8 +363,14 @@ impl<'a> HuginnNet<'a> {
                             );
 
                             SynTCPOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
+                                source: huginn_net_tcp::output::IpPort::new(
+                                    observable_package.source.ip,
+                                    observable_package.source.port,
+                                ),
+                                destination: huginn_net_tcp::output::IpPort::new(
+                                    observable_package.destination.ip,
+                                    observable_package.destination.port,
+                                ),
                                 os_matched: os_quality,
                                 sig: observable_tcp,
                             }
@@ -407,8 +397,14 @@ impl<'a> HuginnNet<'a> {
                             );
 
                             SynAckTCPOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
+                                source: huginn_net_tcp::output::IpPort::new(
+                                    observable_package.source.ip,
+                                    observable_package.source.port,
+                                ),
+                                destination: huginn_net_tcp::output::IpPort::new(
+                                    observable_package.destination.ip,
+                                    observable_package.destination.port,
+                                ),
                                 os_matched: os_quality,
                                 sig: observable_tcp,
                             }
@@ -416,8 +412,14 @@ impl<'a> HuginnNet<'a> {
 
                     let uptime: Option<UptimeOutput> =
                         observable_package.uptime.map(|update| UptimeOutput {
-                            source: observable_package.source.clone(),
-                            destination: observable_package.destination.clone(),
+                            source: huginn_net_tcp::output::IpPort::new(
+                                observable_package.source.ip,
+                                observable_package.source.port,
+                            ),
+                            destination: huginn_net_tcp::output::IpPort::new(
+                                observable_package.destination.ip,
+                                observable_package.destination.port,
+                            ),
                             days: update.days,
                             hours: update.hours,
                             min: update.min,
@@ -465,15 +467,21 @@ impl<'a> HuginnNet<'a> {
                                 }
                             );
 
-                            let http_diagnosis = http_common::get_diagnostic(
+                            let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
                                 ua_matcher,
                                 signature_matcher.map(|(label, _signature, _quality)| label),
                             );
 
                             HttpRequestOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
+                                source: huginn_net_http::output::IpPort::new(
+                                    observable_package.source.ip,
+                                    observable_package.source.port,
+                                ),
+                                destination: huginn_net_http::output::IpPort::new(
+                                    observable_package.destination.ip,
+                                    observable_package.destination.port,
+                                ),
                                 lang: observable_http_request.lang.clone(),
                                 browser_matched: browser_quality,
                                 diagnosis: http_diagnosis,
@@ -503,8 +511,14 @@ impl<'a> HuginnNet<'a> {
                             );
 
                             HttpResponseOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
+                                source: huginn_net_http::output::IpPort::new(
+                                    observable_package.source.ip,
+                                    observable_package.source.port,
+                                ),
+                                destination: huginn_net_http::output::IpPort::new(
+                                    observable_package.destination.ip,
+                                    observable_package.destination.port,
+                                ),
                                 web_server_matched: web_server_quality,
                                 diagnosis: HttpDiagnosis::None,
                                 sig: observable_http_response,
@@ -515,8 +529,14 @@ impl<'a> HuginnNet<'a> {
                         observable_package
                             .tls_client
                             .map(|observable_tls| TlsClientOutput {
-                                source: observable_package.source.clone(),
-                                destination: observable_package.destination.clone(),
+                                source: huginn_net_tls::output::IpPort::new(
+                                    observable_package.source.ip,
+                                    observable_package.source.port,
+                                ),
+                                destination: huginn_net_tls::output::IpPort::new(
+                                    observable_package.destination.ip,
+                                    observable_package.destination.port,
+                                ),
                                 sig: observable_tls,
                             });
 

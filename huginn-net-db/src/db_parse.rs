@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::db::{Database, FingerprintCollection, Label, Type};
-use crate::error::HuginnNetError;
+use crate::error::DatabaseError;
 use crate::{
     http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion},
     tcp::{IpVersion, PayloadSize, Quirk, Signature as TcpSignature, TcpOption, Ttl, WindowSize},
@@ -23,7 +23,7 @@ use nom::{
 use tracing::{trace, warn};
 
 impl FromStr for Database {
-    type Err = HuginnNetError;
+    type Err = DatabaseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut classes = vec![];
@@ -48,7 +48,7 @@ impl FromStr for Database {
                 classes.append(
                     &mut parse_classes(line)
                         .map_err(|err| {
-                            HuginnNetError::Parse(format!("fail to parse `classes`: {line}, {err}"))
+                            DatabaseError::Parse(format!("fail to parse `classes`: {line}, {err}"))
                         })?
                         .1,
                 );
@@ -56,7 +56,7 @@ impl FromStr for Database {
                 ua_os_entries.append(
                     &mut parse_ua_os(line)
                         .map_err(|err| {
-                            HuginnNetError::Parse(format!("fail to parse `ua_os`: {line}, {err}"))
+                            DatabaseError::Parse(format!("fail to parse `ua_os`: {line}, {err}"))
                         })?
                         .1,
                 );
@@ -64,13 +64,13 @@ impl FromStr for Database {
                 cur_mod = Some(
                     parse_module(line)
                         .map_err(|err| {
-                            HuginnNetError::Parse(format!("fail to parse `module`: {line}, {err}"))
+                            DatabaseError::Parse(format!("fail to parse `module`: {line}, {err}"))
                         })?
                         .1,
                 );
             } else if let Some((module, direction)) = cur_mod.as_ref() {
                 let (_, (name, value)) = parse_named_value(line).map_err(|err| {
-                    HuginnNetError::Parse(format!("fail to parse named value: {line}, {err}"))
+                    DatabaseError::Parse(format!("fail to parse named value: {line}, {err}"))
                 })?;
 
                 match name {
@@ -80,20 +80,20 @@ impl FromStr for Database {
                     "sig" if module == "mtu" => {
                         if let Some((_label, values)) = mtu_entries.last_mut() {
                             let sig = value.parse::<u16>().map_err(|err| {
-                                HuginnNetError::Parse(format!(
+                                DatabaseError::Parse(format!(
                                     "fail to parse `mtu` value: {value}, {err}"
                                 ))
                             })?;
                             values.push(sig);
                         } else {
-                            return Err(HuginnNetError::Parse(format!(
+                            return Err(DatabaseError::Parse(format!(
                                 "`mtu` value without `label`: {value}"
                             )));
                         }
                     }
                     "label" => {
                         let (_, label) = parse_label(value).map_err(|err| {
-                            HuginnNetError::Parse(format!("fail to parse `label`: {value}, {err}"))
+                            DatabaseError::Parse(format!("fail to parse `label`: {value}, {err}"))
                         })?;
 
                         match (module.as_str(), direction.as_ref().map(|s| s.as_ref())) {
@@ -121,7 +121,7 @@ impl FromStr for Database {
                                 trace!("sig for `{}` tcp request: {}", label, sig);
                                 values.push(sig);
                             } else {
-                                return Err(HuginnNetError::Parse(format!(
+                                return Err(DatabaseError::Parse(format!(
                                     "tcp signature without `label`: {value}"
                                 )));
                             }
@@ -132,7 +132,7 @@ impl FromStr for Database {
                                 trace!("sig for `{}` tcp response: {}", label, sig);
                                 values.push(sig);
                             } else {
-                                return Err(HuginnNetError::Parse(format!(
+                                return Err(DatabaseError::Parse(format!(
                                     "tcp signature without `label`: {value}"
                                 )));
                             }
@@ -143,7 +143,7 @@ impl FromStr for Database {
                                 trace!("sig for `{}` http request: {}", label, sig);
                                 values.push(sig);
                             } else {
-                                return Err(HuginnNetError::Parse(format!(
+                                return Err(DatabaseError::Parse(format!(
                                     "http signature without `label`: {value}"
                                 )));
                             }
@@ -154,7 +154,7 @@ impl FromStr for Database {
                                 trace!("sig for `{}` http response: {}", label, sig);
                                 values.push(sig);
                             } else {
-                                return Err(HuginnNetError::Parse(format!(
+                                return Err(DatabaseError::Parse(format!(
                                     "http signature without `label`: {value}"
                                 )));
                             }
@@ -169,7 +169,7 @@ impl FromStr for Database {
                     }
                 }
             } else {
-                return Err(HuginnNetError::Parse(format!(
+                return Err(DatabaseError::Parse(format!(
                     "unexpected line outside the module: {line}"
                 )));
             }
@@ -190,11 +190,11 @@ impl FromStr for Database {
 macro_rules! impl_from_str {
     ($ty:ty, $parse:ident) => {
         impl FromStr for $ty {
-            type Err = HuginnNetError;
+            type Err = DatabaseError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 let (remaining, res) = $parse(s).map_err(|err| {
-                    HuginnNetError::Parse(format!(
+                    DatabaseError::Parse(format!(
                         "parse {} failed: {}, {}",
                         stringify!($ty),
                         s,
@@ -203,7 +203,7 @@ macro_rules! impl_from_str {
                 })?;
 
                 if !remaining.is_empty() {
-                    Err(HuginnNetError::Parse(format!(
+                    Err(DatabaseError::Parse(format!(
                         "parse {} failed, remaining: {}",
                         stringify!($ty),
                         remaining

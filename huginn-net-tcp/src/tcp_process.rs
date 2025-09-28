@@ -1,8 +1,6 @@
 use crate::error::HuginnNetError;
 use crate::ip_options::IpOptions;
-use crate::observable_signals::ObservableMtu;
-use crate::observable_signals::ObservableTcp;
-use crate::observable_signals::ObservableUptime;
+use crate::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::check_ts_tcp;
 use crate::uptime::{Connection, SynData};
@@ -342,18 +340,20 @@ fn visit_tcp(
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
-        version,
-        ittl,
-        olen,
-        mss,
-        wsize,
-        wscale,
-        olayout,
-        quirks,
-        pclass: if tcp.payload().is_empty() {
-            PayloadSize::Zero
-        } else {
-            PayloadSize::NonZero
+        matching: huginn_net_db::observable_signals::TcpObservation {
+            version,
+            ittl,
+            olen,
+            mss,
+            wsize,
+            wscale,
+            olayout,
+            quirks,
+            pclass: if tcp.payload().is_empty() {
+                PayloadSize::Zero
+            } else {
+                PayloadSize::NonZero
+            },
         },
     };
 

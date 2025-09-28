@@ -21,6 +21,9 @@ jobs:
   cargo-geiger:
     name: Unsafe Code Analysis
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [huginn-net-db, huginn-net-tls, huginn-net-tcp, huginn-net-http, huginn-net]
     steps:
       - uses: actions/checkout@v5
       
@@ -45,8 +48,12 @@ jobs:
             echo "cargo-geiger already installed"
           fi
       
-      - name: Run unsafe code analysis
-        run: cargo geiger --package ${{ github.event.repository.name }} --forbid-only
+      - name: Run unsafe code analysis for ${{ matrix.crate }}
+        run: cargo geiger --package ${{ matrix.crate }} --forbid-only
+      
+      - name: Run workspace unsafe code analysis
+        if: matrix.crate == 'huginn-net'
+        run: cargo geiger --workspace --forbid-only
  # Disabled because the license is not valid in ctrlc crate
   # dependency-review:
   #   name: Dependency Review

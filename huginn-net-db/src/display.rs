@@ -16,7 +16,7 @@ impl fmt::Display for Label {
 }
 
 mod tcp {
-    use crate::observable_signals::ObservableTcp;
+    use crate::observable_signals::TcpObservation;
     use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
     use core::fmt;
     use std::fmt::Formatter;
@@ -77,7 +77,7 @@ mod tcp {
         }
     }
 
-    impl TcpDisplayFormat for ObservableTcp {
+    impl TcpDisplayFormat for TcpObservation {
         fn get_version(&self) -> IpVersion {
             self.version
         }
@@ -137,7 +137,7 @@ mod tcp {
         }
     }
 
-    impl fmt::Display for ObservableTcp {
+    impl fmt::Display for TcpObservation {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             self.format_tcp_display(f)
         }
@@ -242,14 +242,13 @@ mod tcp {
     }
 }
 
-mod http {
+pub mod http {
     use crate::http::{Header, HttpDiagnosis, Signature, Version};
-    use crate::http_common::HttpHeader;
-    use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+    use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
     use core::fmt;
     use std::fmt::Formatter;
 
-    trait HttpDisplayFormat {
+    pub trait HttpDisplayFormat {
         fn get_version(&self) -> Version;
         fn get_horder(&self) -> &[Header];
         fn get_habsent(&self) -> &[Header];
@@ -278,7 +277,7 @@ mod http {
         }
     }
 
-    impl HttpDisplayFormat for ObservableHttpRequest {
+    impl HttpDisplayFormat for HttpRequestObservation {
         fn get_version(&self) -> Version {
             self.version
         }
@@ -293,7 +292,7 @@ mod http {
         }
     }
 
-    impl HttpDisplayFormat for ObservableHttpResponse {
+    impl HttpDisplayFormat for HttpResponseObservation {
         fn get_version(&self) -> Version {
             self.version
         }
@@ -323,13 +322,13 @@ mod http {
         }
     }
 
-    impl fmt::Display for ObservableHttpRequest {
+    impl fmt::Display for HttpRequestObservation {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             self.format_http_display(f)
         }
     }
 
-    impl fmt::Display for ObservableHttpResponse {
+    impl fmt::Display for HttpResponseObservation {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             self.format_http_display(f)
         }
@@ -378,15 +377,6 @@ mod http {
                 Generic => "generic",
                 None => "none",
             })
-        }
-    }
-    impl fmt::Display for HttpHeader {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            if let Some(ref value) = self.value {
-                write!(f, "{}={}", self.name, value)
-            } else {
-                write!(f, "{}", self.name)
-            }
         }
     }
 }

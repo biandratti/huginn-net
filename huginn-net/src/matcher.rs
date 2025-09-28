@@ -5,12 +5,21 @@
 /// # Usage
 ///
 /// ```rust
+/// use huginn_net::quality_match;
+/// # use huginn_net_tcp::output::{OperativeSystem, OSQualityMatched};
+/// # use huginn_net_db::{MatchQualityType, Label};
+/// # struct Config { matcher_enabled: bool }
+/// # struct Matcher;
+/// # struct ObservableTcp;
+/// # let config = Config { matcher_enabled: true };
+/// # let matcher: Option<Matcher> = None;
+/// # let observable_tcp = ObservableTcp;
 /// let quality = quality_match!(
-///     enabled: self.config.matcher_enabled,
-///     matcher: self.matcher,
-///     call: matcher => matcher.matching_by_tcp_request(&observable_tcp),
+///     enabled: config.matcher_enabled,
+///     matcher: matcher,
+///     call: matcher => None::<(Label, String, f32)>,
 ///     matched: (label, _signature, quality) => OSQualityMatched {
-///         os: Some(OperativeSystem::from(label)),
+///         os: Some(OperativeSystem::from(&label)),
 ///         quality: MatchQualityType::Matched(quality),
 ///     },
 ///     not_matched: OSQualityMatched {
@@ -53,9 +62,21 @@ macro_rules! quality_match {
 /// # Usage
 ///
 /// ```rust
+/// use huginn_net::{simple_quality_match, quality_match};
+/// # use huginn_net_tcp::output::MTUQualityMatched;
+/// # use huginn_net_db::MatchQualityType;
+/// # struct Config { matcher_enabled: bool }
+/// # struct Matcher;
+/// # impl Matcher {
+/// #     fn matching_by_mtu(&self, _value: &u16) -> Option<(String, String)> { None }
+/// # }
+/// # struct ObservableMtu { value: u16 }
+/// # let config = Config { matcher_enabled: true };
+/// # let matcher: Option<Matcher> = None;
+/// # let observable_mtu = ObservableMtu { value: 1500 };
 /// let quality = simple_quality_match!(
-///     enabled: self.config.matcher_enabled,
-///     matcher: self.matcher,
+///     enabled: config.matcher_enabled,
+///     matcher: matcher,
 ///     method: matching_by_mtu(&observable_mtu.value),
 ///     success: (link, _) => MTUQualityMatched {
 ///         link: Some(link.clone()),

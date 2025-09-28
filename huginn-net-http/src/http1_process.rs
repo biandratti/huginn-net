@@ -1,7 +1,7 @@
 use crate::error::HuginnNetError;
 use crate::http::Header;
 use crate::http_common::HttpProcessor;
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http, http1_parser, http2_parser, http2_process, http_common, http_languages};
 use tracing::debug;
 
@@ -157,12 +157,14 @@ fn convert_http1_request_to_observable(req: http1_parser::Http1Request) -> Obser
     let headers_absent = build_absent_headers_from_new_parser(&req.headers, true);
 
     ObservableHttpRequest {
+        matching: huginn_net_db::observable_signals::HttpRequestObservation {
+            version: req.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(req.user_agent.as_deref()),
+        },
         lang,
         user_agent: req.user_agent.clone(),
-        version: req.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(req.user_agent),
         headers: req.headers,
         cookies: req.cookies.clone(),
         referer: req.referer.clone(),
@@ -178,10 +180,12 @@ fn convert_http1_response_to_observable(
     let headers_absent = build_absent_headers_from_new_parser(&res.headers, false);
 
     ObservableHttpResponse {
-        version: res.version,
-        horder: headers_in_order,
-        habsent: headers_absent,
-        expsw: extract_traffic_classification(res.server),
+        matching: huginn_net_db::observable_signals::HttpResponseObservation {
+            version: res.version,
+            horder: headers_in_order,
+            habsent: headers_absent,
+            expsw: extract_traffic_classification(res.server.as_deref()),
+        },
         headers: res.headers,
         status_code: Some(res.status_code),
     }
@@ -281,8 +285,8 @@ fn parse_http1_response(
     }
 }
 
-fn extract_traffic_classification(value: Option<String>) -> String {
-    value.unwrap_or_else(|| "???".to_string())
+fn extract_traffic_classification(value: Option<&str>) -> String {
+    value.unwrap_or("???").to_string()
 }
 
 /// Check if data looks like HTTP/1.x response
@@ -320,7 +324,7 @@ pub fn looks_like_http1_response(data: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use huginn_net_db;
 
     #[test]
     fn test_parse_http1_request() {
@@ -340,7 +344,7 @@ mod tests {
             Ok(Some(request)) => {
                 assert_eq!(request.lang, Some("English".to_string()));
                 assert_eq!(request.user_agent, Some("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()));
-                assert_eq!(request.version, http::Version::V11);
+                assert_eq!(request.matching.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Host"),
@@ -353,16 +357,16 @@ mod tests {
                     http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
                     http::Header::new("User-Agent"),
                 ];
-                assert_eq!(request.horder, expected_horder);
+                assert_eq!(request.matching.horder, expected_horder);
 
                 let expected_habsent = vec![
                     http::Header::new("Accept-Encoding"),
                     http::Header::new("Accept-Charset"),
                     http::Header::new("Keep-Alive"),
                 ];
-                assert_eq!(request.habsent, expected_habsent);
+                assert_eq!(request.matching.habsent, expected_habsent);
 
-                assert_eq!(request.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                assert_eq!(request.matching.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             }
             Ok(None) => panic!("Incomplete HTTP request"),
             Err(e) => panic!("Failed to parse HTTP request: {e}"),
@@ -382,8 +386,8 @@ mod tests {
         let parser = http1_parser::Http1Parser::new();
         match parse_http1_response(valid_response, &parser) {
             Ok(Some(response)) => {
-                assert_eq!(response.expsw, "Apache");
-                assert_eq!(response.version, http::Version::V11);
+                assert_eq!(response.matching.expsw, "Apache");
+                assert_eq!(response.matching.version, http::Version::V11);
 
                 let expected_horder = vec![
                     http::Header::new("Server"),
@@ -391,14 +395,14 @@ mod tests {
                     http::Header::new("Content-Length").optional(),
                     http::Header::new("Connection").with_value("keep-alive"),
                 ];
-                assert_eq!(response.horder, expected_horder);
+                assert_eq!(response.matching.horder, expected_horder);
 
                 let expected_absent = vec![
                     http::Header::new("Keep-Alive"),
                     http::Header::new("Accept-Ranges"),
                     http::Header::new("Date"),
                 ];
-                assert_eq!(response.habsent, expected_absent);
+                assert_eq!(response.matching.habsent, expected_absent);
             }
             Ok(None) => panic!("Incomplete HTTP response"),
             Err(e) => panic!("Failed to parse HTTP response: {e}"),
@@ -417,13 +421,13 @@ mod tests {
         let os = "Linux".to_string();
         let browser = Some("Firefox".to_string());
         let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
+        let label = huginn_net_db::Label {
+            ty: huginn_net_db::Type::Specified,
             class: None,
             name: "Linux".to_string(),
             flavor: None,
         };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
+        let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
 
         let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
@@ -435,13 +439,13 @@ mod tests {
         let os = "Windows".to_string();
         let browser = Some("Firefox".to_string());
         let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
-        let label = db::Label {
-            ty: db::Type::Specified,
+        let label = huginn_net_db::Label {
+            ty: huginn_net_db::Type::Specified,
             class: None,
             name: "Linux".to_string(),
             flavor: None,
         };
-        let signature_os_matcher: Option<&db::Label> = Some(&label);
+        let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
 
         let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
         assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);

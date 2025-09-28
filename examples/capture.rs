@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use huginn_net::db::Database;
-use huginn_net::fingerprint_result::FingerprintResult;
+use huginn_net::output::FingerprintResult;
+use huginn_net::Database;
 use huginn_net::HuginnNet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;

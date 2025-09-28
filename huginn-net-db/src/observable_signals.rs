@@ -1,11 +1,12 @@
+use crate::db::HttpIndexKey;
+use crate::db_matching_trait::ObservedFingerprint;
 use crate::http::{Header, Version};
-use crate::http_common::{HttpCookie, HttpHeader};
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, WindowSize};
-use crate::Ttl;
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 
-// Observable TCP signals
-#[derive(Debug, Clone)]
-pub struct ObservableTcp {
+/// Represents observed TCP characteristics from network traffic.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TcpObservation {
+    /// IP version
     pub version: IpVersion,
     /// initial TTL used by the OS.
     pub ittl: Ttl,
@@ -25,11 +26,9 @@ pub struct ObservableTcp {
     pub pclass: PayloadSize,
 }
 
-// Observable HTTP signals
-#[derive(Debug, Clone)]
-pub struct ObservableHttpRequest {
-    pub lang: Option<String>,
-    pub user_agent: Option<String>,
+/// Represents observed HTTP request characteristics from network traffic.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpRequestObservation {
     /// HTTP version
     pub version: Version,
     /// ordered list of headers that should appear in matching traffic (p0f style).
@@ -38,21 +37,11 @@ pub struct ObservableHttpRequest {
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
-    /// All parsed HTTP headers with original order, position, and source information
-    pub headers: Vec<HttpHeader>,
-    /// All parsed HTTP cookies with names, values, and positions
-    pub cookies: Vec<HttpCookie>,
-    /// Referer header value
-    pub referer: Option<String>,
-    /// HTTP method (GET, POST, PUT, etc.)
-    pub method: Option<String>,
-    /// Request URI/path
-    pub uri: Option<String>,
 }
 
-// Observable HTTP response signals
-#[derive(Debug, Clone)]
-pub struct ObservableHttpResponse {
+/// Represents observed HTTP response characteristics from network traffic.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpResponseObservation {
     /// HTTP version
     pub version: Version,
     /// ordered list of headers that should appear in matching traffic (p0f style).
@@ -61,22 +50,27 @@ pub struct ObservableHttpResponse {
     pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
-    /// All parsed HTTP headers with original order, position, and source information
-    pub headers: Vec<HttpHeader>,
-    /// HTTP status code
-    pub status_code: Option<u16>,
 }
 
-// Observable MTU signals
-pub struct ObservableMtu {
-    pub value: u16,
+// ==============================
+// ObservedFingerprint - HTTP
+// ==============================
+impl ObservedFingerprint for HttpRequestObservation {
+    type Key = HttpIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpIndexKey {
+            http_version_key: self.version,
+        }
+    }
 }
 
-// Observable Uptime signals
-pub struct ObservableUptime {
-    pub days: u32,
-    pub hours: u32,
-    pub min: u32,
-    pub up_mod_days: u32,
-    pub freq: f64,
+impl ObservedFingerprint for HttpResponseObservation {
+    type Key = HttpIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpIndexKey {
+            http_version_key: self.version,
+        }
+    }
 }

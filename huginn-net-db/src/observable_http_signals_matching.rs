@@ -1,10 +1,9 @@
 use crate::db::HttpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
-use crate::http;
-use crate::http::{Header, HttpMatchQuality, Version};
-use crate::observable_signals::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::db_matching_trait::{DatabaseSignature, MatchQuality};
+use crate::http::{self, Header, HttpMatchQuality, Version};
+use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
 
-trait HttpDistance {
+pub trait HttpDistance {
     fn get_version(&self) -> Version;
     fn get_horder(&self) -> &[Header];
     fn get_habsent(&self) -> &[Header];
@@ -39,17 +38,15 @@ trait HttpDistance {
     // - Some(score) based on error count converted to quality score
     // - None if too many errors (unmatchable)
     fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
-        let mut obs_idx = 0; // Index pointer for observed headers
-        let mut sig_idx = 0; // Index pointer for signature headers
+        let mut obs_idx = 0usize; // Index pointer for observed headers
+        let mut sig_idx = 0usize; // Index pointer for signature headers
         let mut errors: u32 = 0; // Running count of matching errors
 
         while obs_idx < observed.len() && sig_idx < signature.len() {
             let obs_header = &observed[obs_idx];
             let sig_header = &signature[sig_idx];
 
-            // Check if headers match (name and value)
             if obs_header.name == sig_header.name && obs_header.value == sig_header.value {
-                // Perfect match - advance both pointers
                 obs_idx = obs_idx.saturating_add(1);
                 sig_idx = sig_idx.saturating_add(1);
             } else if obs_header.name == sig_header.name {
@@ -78,13 +75,11 @@ trait HttpDistance {
             sig_idx = sig_idx.saturating_add(1);
         }
 
-        // Convert error count to quality score using predefined ranges
-        // Lower error counts indicate better matches
         match errors {
             0..=2 => Some(HttpMatchQuality::High.as_score()), // 0-2 errors: High quality match
             3..=5 => Some(HttpMatchQuality::Medium.as_score()), // 3-5 errors: Medium quality match
             6..=8 => Some(HttpMatchQuality::Low.as_score()),  // 6-8 errors: Low quality match
-            9..=11 => Some(HttpMatchQuality::Bad.as_score()), // 9-11 errors: Bad but still usable match
+            9..=11 => Some(HttpMatchQuality::Bad.as_score()), // 9-11 errors: Bad quality match
             _ => None, // 12+ errors: Too many differences, not a viable match
         }
     }
@@ -106,47 +101,38 @@ trait HttpDistance {
     }
 }
 
-impl HttpDistance for ObservableHttpRequest {
+impl HttpDistance for HttpRequestObservation {
     fn get_version(&self) -> Version {
         self.version
     }
-
     fn get_horder(&self) -> &[Header] {
         &self.horder
     }
-
     fn get_habsent(&self) -> &[Header] {
         &self.habsent
     }
-
     fn get_expsw(&self) -> &str {
         &self.expsw
     }
 }
 
-impl ObservedFingerprint for ObservableHttpRequest {
-    type Key = HttpIndexKey;
-
-    fn generate_index_key(&self) -> Self::Key {
-        HttpIndexKey {
-            http_version_key: self.version,
-        }
+impl HttpDistance for HttpResponseObservation {
+    fn get_version(&self) -> Version {
+        self.version
+    }
+    fn get_horder(&self) -> &[Header] {
+        &self.horder
+    }
+    fn get_habsent(&self) -> &[Header] {
+        &self.habsent
+    }
+    fn get_expsw(&self) -> &str {
+        &self.expsw
     }
 }
 
 trait HttpSignatureHelper {
-    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32>
-    where
-        Self: AsRef<http::Signature>,
-    {
-        let signature = self.as_ref();
-        let distance = observed
-            .distance_ip_version(signature)?
-            .saturating_add(observed.distance_horder(signature)?)
-            .saturating_add(observed.distance_habsent(signature)?)
-            .saturating_add(observed.distance_expsw(signature)?);
-        Some(distance)
-    }
+    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32>;
 
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey>;
 
@@ -157,17 +143,20 @@ trait HttpSignatureHelper {
     /// The score is calculated based on the distance of the observed signal to the database signature.
     /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
     fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
-        HttpMatchQuality::distance_to_score(distance)
-    }
-}
-
-impl AsRef<http::Signature> for http::Signature {
-    fn as_ref(&self) -> &http::Signature {
-        self
+        http::HttpMatchQuality::distance_to_score(distance)
     }
 }
 
 impl HttpSignatureHelper for http::Signature {
+    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32> {
+        let signature: &http::Signature = self;
+        let distance = observed
+            .distance_ip_version(signature)?
+            .saturating_add(observed.distance_horder(signature)?)
+            .saturating_add(observed.distance_habsent(signature)?)
+            .saturating_add(observed.distance_expsw(signature)?);
+        Some(distance)
+    }
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
         let mut keys = Vec::new();
         if self.version == Version::Any {
@@ -186,57 +175,25 @@ impl HttpSignatureHelper for http::Signature {
     }
 }
 
-impl DatabaseSignature<ObservableHttpRequest> for http::Signature {
-    fn calculate_distance(&self, observed: &ObservableHttpRequest) -> Option<u32> {
+impl DatabaseSignature<HttpRequestObservation> for http::Signature {
+    fn calculate_distance(&self, observed: &HttpRequestObservation) -> Option<u32> {
         self.calculate_http_distance(observed)
     }
-
     fn get_quality_score(&self, distance: u32) -> f32 {
         self.get_quality_score_by_distance(distance)
     }
-
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
         self.generate_http_index_keys()
     }
 }
 
-impl HttpDistance for ObservableHttpResponse {
-    fn get_version(&self) -> Version {
-        self.version
-    }
-
-    fn get_horder(&self) -> &[Header] {
-        &self.horder
-    }
-
-    fn get_habsent(&self) -> &[Header] {
-        &self.habsent
-    }
-
-    fn get_expsw(&self) -> &str {
-        &self.expsw
-    }
-}
-
-impl ObservedFingerprint for ObservableHttpResponse {
-    type Key = HttpIndexKey;
-
-    fn generate_index_key(&self) -> Self::Key {
-        HttpIndexKey {
-            http_version_key: self.version,
-        }
-    }
-}
-
-impl DatabaseSignature<ObservableHttpResponse> for http::Signature {
-    fn calculate_distance(&self, observed: &ObservableHttpResponse) -> Option<u32> {
+impl DatabaseSignature<HttpResponseObservation> for http::Signature {
+    fn calculate_distance(&self, observed: &HttpResponseObservation) -> Option<u32> {
         self.calculate_http_distance(observed)
     }
-
     fn get_quality_score(&self, distance: u32) -> f32 {
         self.get_quality_score_by_distance(distance)
     }
-
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
         self.generate_http_index_keys()
     }
@@ -282,7 +239,7 @@ mod tests {
         assert!(!b[6].optional);
         assert_ne!(a[6], b[6]);
 
-        let result = <ObservableHttpResponse as HttpDistance>::distance_header(&a, &b);
+        let result = <HttpResponseObservation as HttpDistance>::distance_header(&a, &b);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -308,7 +265,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -333,7 +290,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -356,7 +313,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()), // 1 error falls in High range (0-2 errors)
@@ -386,7 +343,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -410,7 +367,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -428,7 +385,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()), // 1 error out of many
@@ -450,7 +407,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()), // 1 error for extra header
@@ -474,7 +431,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -492,7 +449,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -519,7 +476,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -540,7 +497,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
@@ -574,7 +531,7 @@ mod tests {
         ];
 
         let result =
-            <ObservableHttpRequest as HttpDistance>::distance_header(&observed, &signature);
+            <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
         assert_eq!(
             result,
             Some(HttpMatchQuality::High.as_score()),
