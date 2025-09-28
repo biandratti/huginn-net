@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    branches: [ "master" ]
   schedule:
     - cron: '0 2 * * 6'
 
@@ -49,11 +48,9 @@ jobs:
           fi
       
       - name: Run unsafe code analysis for ${{ matrix.crate }}
-        run: cargo geiger --package ${{ matrix.crate }} --forbid-only
-      
-      - name: Run workspace unsafe code analysis
-        if: matrix.crate == 'huginn-net'
-        run: cargo geiger --workspace --forbid-only
+        run: |
+          echo "Analyzing ${{ matrix.crate }}..."
+          cd ${{ matrix.crate }} && cargo geiger --forbid-only
  # Disabled because the license is not valid in ctrlc crate
   # dependency-review:
   #   name: Dependency Review
