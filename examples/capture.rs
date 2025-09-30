@@ -91,12 +91,16 @@ fn main() {
             }
         };
 
-        let mut analyzer = match HuginnNet::new(Some(&db), 100, Some(AnalysisConfig {
-            http_enabled: false,
-            tcp_enabled: true,
-            tls_enabled: false,
-            matcher_enabled: true,
-        }) ) {
+        let mut analyzer = match HuginnNet::new(
+            Some(&db),
+            100,
+            Some(AnalysisConfig {
+                http_enabled: false,
+                tcp_enabled: true,
+                tls_enabled: false,
+                matcher_enabled: true,
+            }),
+        ) {
             Ok(analyzer) => analyzer,
             Err(e) => {
                 error!("Failed to create HuginnNet analyzer: {}", e);
@@ -121,10 +125,7 @@ fn main() {
     });
 
     // List of IPs to filter
-    let ip_filter_list: HashSet<&str> = [
-        "192.168.2.1",
-        "192.168.2.2",
-    ].into_iter().collect();
+    let ip_filter_list: HashSet<&str> = ["192.168.2.1", "192.168.2.2"].into_iter().collect();
 
     for output in receiver {
         if cancel_signal.load(Ordering::Relaxed) {
