@@ -1,13 +1,14 @@
 use clap::{Parser, Subcommand};
 use huginn_net::db::Database;
 use huginn_net::fingerprint_result::FingerprintResult;
-use huginn_net::HuginnNet;
+use huginn_net::{AnalysisConfig, HuginnNet};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -89,9 +90,13 @@ fn main() {
                 return;
             }
         };
-        debug!("Loaded database: {:?}", db);
 
-        let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
+        let mut analyzer = match HuginnNet::new(Some(&db), 100, Some(AnalysisConfig {
+            http_enabled: false,
+            tcp_enabled: true,
+            tls_enabled: false,
+            matcher_enabled: true,
+        }) ) {
             Ok(analyzer) => analyzer,
             Err(e) => {
                 error!("Failed to create HuginnNet analyzer: {}", e);
@@ -115,32 +120,23 @@ fn main() {
         }
     });
 
+    // List of IPs to filter
+    let ip_filter_list: HashSet<&str> = [
+        "192.168.2.1",
+        "192.168.2.2",
+    ].into_iter().collect();
+
     for output in receiver {
         if cancel_signal.load(Ordering::Relaxed) {
             info!("Shutdown signal received, stopping result processing");
             break;
         }
 
-        if let Some(syn) = output.syn {
-            info!("{}", syn);
-        }
-        if let Some(syn_ack) = output.syn_ack {
-            info!("{}", syn_ack);
-        }
         if let Some(mtu) = output.mtu {
-            info!("{}", mtu);
-        }
-        if let Some(uptime) = output.uptime {
-            info!("{}", uptime);
-        }
-        if let Some(http_request) = output.http_request {
-            info!("{}", http_request);
-        }
-        if let Some(http_response) = output.http_response {
-            info!("{}", http_response);
-        }
-        if let Some(tls_client) = output.tls_client {
-            info!("{}", tls_client);
+            let ip_str = mtu.source.ip.to_string();
+            if ip_filter_list.contains(ip_str.as_str()) {
+                info!("{}", mtu);
+            }
         }
     }
 
