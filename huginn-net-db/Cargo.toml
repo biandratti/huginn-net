@@ -6,6 +6,12 @@ rust-version = "1.80"
 description = "P0f database parser and matching traits for network fingerprinting"
 license = "MIT OR Apache-2.0"
 authors = ["Maximiliano Biandratti"]
+readme = "README.md"
+repository = "https://github.com/biandratti/huginn-net"
+homepage = "https://github.com/biandratti/huginn-net"
+keywords = ["p0f", "database", "parser", "fingerprinting", "network"]
+categories = ["parser-implementations", "network-programming"]
+exclude = ["target/", "Cargo.lock"]
 publish = false
 
 [dependencies]
@@ -14,4 +20,4 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-lazy_static = "1.5.0"
+lazy_static = { workspace = true }

@@ -17,4 +17,12 @@ ttl_cache = { workspace = true }
 hpack-patched = { workspace = true }
 lazy_static = { workspace = true }
 
+[[example]]
+name = "capture-http"
+path = "../examples/capture-http.rs"
 
+[dev-dependencies]
+clap = { workspace = true }
+ctrlc = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -433,12 +433,16 @@ dependencies = [
 name = "huginn-net-http"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "ctrlc",
  "hpack-patched",
  "huginn-net-db",
  "lazy_static",
  "pnet",
  "thiserror 2.0.16",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "ttl_cache",
 ]
 
@@ -446,10 +450,14 @@ dependencies = [
 name = "huginn-net-tcp"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "ctrlc",
  "huginn-net-db",
  "pnet",
  "thiserror 2.0.16",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "ttl_cache",
 ]
 
@@ -457,11 +465,15 @@ dependencies = [
 name = "huginn-net-tls"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "ctrlc",
  "pnet",
  "sha2",
  "thiserror 2.0.16",
  "tls-parser",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]

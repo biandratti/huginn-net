@@ -4,6 +4,25 @@ use huginn_net_db::{Label, MatchQualityType, Type};
 use std::fmt;
 use std::fmt::Formatter;
 
+/// Represents the output from TCP analysis.
+///
+/// This struct contains various optional outputs that can be derived
+/// from analyzing TCP packets.
+#[derive(Debug)]
+pub struct TcpAnalysisResult {
+    /// Information derived from SYN packets.
+    pub syn: Option<SynTCPOutput>,
+
+    /// Information derived from SYN-ACK packets.
+    pub syn_ack: Option<SynAckTCPOutput>,
+
+    /// Information about the Maximum Transmission Unit (MTU).
+    pub mtu: Option<MTUOutput>,
+
+    /// Information about the system uptime.
+    pub uptime: Option<UptimeOutput>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IpPort {
     pub ip: std::net::IpAddr,
@@ -23,6 +42,7 @@ impl IpPort {
 /// - name: "Linux", family: "unix", variant: "2.2.x-3.x", kind: Type::Specified
 /// - name: "Windows", family: "win", variant: "NT kernel 6.x", kind: Type::Specified
 /// - name: "iOS", family: "unix", variant: "iPhone or iPad", kind: Type::Specified
+#[derive(Debug)]
 pub struct OperativeSystem {
     pub name: String,
     pub family: Option<String>,
@@ -42,6 +62,7 @@ impl From<&Label> for OperativeSystem {
 }
 
 /// The operative system with the highest quality that matches the packet. Quality is a value between 0.0 and 1.0. 1.0 is a perfect match.
+#[derive(Debug)]
 pub struct OSQualityMatched {
     pub os: Option<OperativeSystem>,
     pub quality: MatchQualityType,
@@ -51,6 +72,7 @@ pub struct OSQualityMatched {
 ///
 /// This structure contains details about the client system based on its SYN packet,
 /// including the identified OS/application label and the raw TCP signature.
+#[derive(Debug)]
 pub struct SynTCPOutput {
     /// The source IP address and port of the client sending the SYN.
     pub source: IpPort,
@@ -107,6 +129,7 @@ impl fmt::Display for SynTCPOutput {
 ///
 /// This structure contains details about the server system based on its SYN+ACK packet,
 /// including the identified OS/application label and the raw TCP signature.
+#[derive(Debug)]
 pub struct SynAckTCPOutput {
     /// The source IP address and port of the server sending the SYN+ACK.
     pub source: IpPort,
@@ -159,6 +182,7 @@ impl fmt::Display for SynAckTCPOutput {
     }
 }
 
+#[derive(Debug)]
 pub struct MTUQualityMatched {
     pub link: Option<String>,
     pub quality: MatchQualityType,
@@ -168,6 +192,7 @@ pub struct MTUQualityMatched {
 ///
 /// This structure contains the source and destination addresses, an estimation
 /// of the link type based on common MTU values, and the calculated raw MTU value.
+#[derive(Debug)]
 pub struct MTUOutput {
     /// The source IP address and port (usually the client).
     pub source: IpPort,
@@ -210,6 +235,7 @@ impl fmt::Display for MTUOutput {
 /// the timestamp clock's wraparound period (`up_mod_days`), and the calculated
 /// clock frequency (`freq`). Note that the days/hours/minutes calculation based
 /// on the timestamp value might be approximate.
+#[derive(Debug)]
 pub struct UptimeOutput {
     /// The source IP address and port of the connection.
     pub source: IpPort,

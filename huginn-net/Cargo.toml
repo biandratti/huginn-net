@@ -7,9 +7,12 @@ description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-styl
 license = "MIT OR Apache-2.0"
 authors = ["Maximiliano Biandratti"]
 repository = "https://github.com/biandratti/huginn-net"
-readme = "README.md"
+homepage = "https://github.com/biandratti/huginn-net"
+documentation = "https://docs.rs/huginn-net"
+readme = "../README.md"
 keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
-categories = ["network-programming"]
+categories = ["network-programming", "cryptography", "development-tools"]
+exclude = ["target/", "Cargo.lock"]
 
 [dependencies]
 huginn-net-db = { path = "../huginn-net-db" }
@@ -24,15 +27,16 @@ lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 
 [dev-dependencies]
-clap = { version = "4.5.47", features = ["derive"] }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-tracing-appender = "0.2.3"
-criterion = { version = "0.7.0", features = ["html_reports"] }
-ctrlc = "3.5.0"
+clap = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+criterion = { workspace = true }
+ctrlc = { workspace = true }
 
 [[example]]
 name = "capture"
 path = "../examples/capture.rs"
+
 
 [[bench]]
 name = "benchmark"

@@ -17,3 +17,13 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 pnet = { workspace = true }
 ttl_cache = { workspace = true }
+
+[[example]]
+name = "capture-tcp"
+path = "../examples/capture-tcp.rs"
+
+[dev-dependencies]
+clap = { workspace = true }
+ctrlc = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
