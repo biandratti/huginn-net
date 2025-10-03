@@ -15,3 +15,4 @@ pub mod display;
 pub mod error;
 pub mod observable;
 pub mod output;
+mod signature_matcher;
