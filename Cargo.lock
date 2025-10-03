@@ -433,12 +433,16 @@ dependencies = [
 name = "huginn-net-http"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "ctrlc",
  "hpack-patched",
  "huginn-net-db",
  "lazy_static",
  "pnet",
  "thiserror 2.0.16",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "ttl_cache",
 ]
 
