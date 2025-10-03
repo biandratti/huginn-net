@@ -16,6 +16,7 @@ impl IpPort {
 use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use huginn_net_db::http::HttpDiagnosis;
 
+#[derive(Debug)]
 pub struct BrowserQualityMatched {
     pub browser: Option<Browser>,
     pub quality: MatchQualityType,
@@ -27,6 +28,7 @@ pub struct BrowserQualityMatched {
 /// Examples:
 /// - name: "", family: "chrome", variant: "11.x to 26.x", kind: Type::Specified
 /// - name: "", family: "firefox", variant: "3.x", kind: Type::Specified
+#[derive(Debug)]
 pub struct Browser {
     pub name: String,
     pub family: Option<String>,
@@ -50,6 +52,7 @@ impl From<&Label> for Browser {
 /// This structure contains details about the client, the detected application
 /// (if any), the preferred language, diagnostic parameters related to HTTP behavior,
 /// and the raw HTTP signature.
+#[derive(Debug)]
 pub struct HttpRequestOutput {
     /// The source IP address and port of the client making the request.
     pub source: IpPort,
@@ -101,6 +104,7 @@ impl fmt::Display for HttpRequestOutput {
     }
 }
 
+#[derive(Debug)]
 pub struct WebServerQualityMatched {
     pub web_server: Option<WebServer>,
     pub quality: MatchQualityType,
@@ -112,6 +116,7 @@ pub struct WebServerQualityMatched {
 /// Examples:
 /// - name: "", family: "apache", variant: "2.x", kind: Type::Specified
 /// - name: "", family: "nginx", variant: "1.x", kind: Type::Specified
+#[derive(Debug)]
 pub struct WebServer {
     pub name: String,
     pub family: Option<String>,
@@ -134,6 +139,7 @@ impl From<&Label> for WebServer {
 ///
 /// This structure contains details about the server, the detected application
 /// (if any), diagnostic parameters related to HTTP behavior, and the raw HTTP signature.
+#[derive(Debug)]
 pub struct HttpResponseOutput {
     /// The source IP address and port of the server sending the response.
     pub source: IpPort,
