@@ -1,18 +1,24 @@
 [workspace]
 members = [
     "huginn-net-db",
-    "huginn-net-tls",
+    "huginn-net-tls", 
     "huginn-net-http",
     "huginn-net-tcp",
     "huginn-net"
 ]
 resolver = "2"
 
-[workspace.dependencies]
-# Internal crates (not published)
-huginn-net-db = { path = "huginn-net-db", version = "1.4.6" }
+[workspace.package]
+version = "1.4.6"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+authors = ["Maximiliano Biandratti"]
+repository = "https://github.com/biandratti/huginn-net"
+homepage = "https://github.com/biandratti/huginn-net"
 
-# Published crates
+[workspace.dependencies]
+huginn-net-db = { path = "huginn-net-db", version = "1.4.6" }
 huginn-net-tcp = { path = "huginn-net-tcp", version = "1.4.6" }
 huginn-net-http = { path = "huginn-net-http", version = "1.4.6" }
 huginn-net-tls = { path = "huginn-net-tls", version = "1.4.6" }
