@@ -10,24 +10,19 @@ resolver = "2"
 
 [workspace.dependencies]
 # Internal crates (not published)
-huginn-net-db = { path = "huginn-net-db", version = "1.5.0" }
+huginn-net-db = { path = "huginn-net-db", version = "1.4.6" }
 
 # Published crates
-huginn-net-tcp = { path = "huginn-net-tcp", version = "1.5.0" }
-huginn-net-http = { path = "huginn-net-http", version = "1.5.0" }
-huginn-net-tls = { path = "huginn-net-tls", version = "1.5.0" }
+huginn-net-tcp = { path = "huginn-net-tcp", version = "1.4.6" }
+huginn-net-http = { path = "huginn-net-http", version = "1.4.6" }
+huginn-net-tls = { path = "huginn-net-tls", version = "1.4.6" }
 
-# Shared across multiple crates
 nom = "8.0.0"
 pnet = "0.35.0"
 thiserror = "2.0.16"
 tracing = "0.1.41"
-
-# Specific to TLS module
 tls-parser = "0.12.2"
 sha2 = "0.10.9"
-
-# Specific to main crate
 ttl_cache = "0.5.1"
 lazy_static = "1.5.0"
 pcap-file = "3.0.0-rc1"

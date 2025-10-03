@@ -1,55 +1,28 @@
-# Huginn Net DB
+# huginn-net-db
 
-Internal database parser and matching engine for Huginn Net.
+P0f database parser and matching engine for Huginn Net (internal crate).
 
 ## Overview
 
-`huginn-net-db` is an internal crate that provides p0f signature database parsing and matching functionality for the Huginn Net ecosystem. This crate is not published separately and is only used as a dependency by other Huginn Net components.
+This internal crate provides p0f database parsing and signature matching capabilities. It handles parsing of p0f signature databases and provides efficient matching algorithms for TCP and HTTP fingerprinting.
+
+**Note**: This is an internal crate and is not published to crates.io.
 
 ## Features
 
-- **P0f Database Parser** - Parses p0f signature files (`p0f.fp`)
-- **Signature Matching** - Provides traits and utilities for fingerprint matching
-- **Quality Scoring** - Implements quality-based matching algorithms
-- **Display Formatting** - Common display traits for network analysis output
-
-## Components
-
-### Database Parsing
-- Parses p0f signature database format
-- Supports TCP, HTTP, and MTU signatures
-- Handles signature labels, types, and matching rules
-
-### Matching Engine
-- Quality-based matching with distance calculations
-- Configurable matching thresholds
-- Support for multiple signature types
-
-### Utilities
-- Common types like `MatchQualityType`
-- Display formatting traits
-- Error handling for database operations
+- **P0f Database Parsing** - Complete parser for p0f signature format
+- **TCP & HTTP Matching** - Efficient signature matching algorithms  
+- **Quality Scoring** - Distance-based quality metrics for matches
+- **Extensible Design** - Easy to add new signature types
 
 ## Usage
 
-This crate is designed for internal use within the Huginn Net workspace:
+This crate is used internally by other huginn-net crates and is not intended for direct use.
 
-```rust
-use huginn_net_db::{Database, MatchQualityType};
+## Documentation
 
-// Load p0f database
-let db = Database::load_default()?;
-
-// Use matching functionality
-let quality = MatchQualityType::Matched(0.95);
-```
-
-## Dependencies
-
-- **nom** - Parser combinator library for p0f file parsing
-- **thiserror** - Error handling
-- **tracing** - Logging and diagnostics
+For complete documentation and usage examples, see the main [huginn-net README](https://github.com/biandratti/huginn-net#readme).
 
 ## License
 
-Dual-licensed under [MIT](../LICENSE-MIT) or [Apache 2.0](../LICENSE-APACHE).
+Dual-licensed under [MIT](https://github.com/biandratti/huginn-net/blob/master/LICENSE-MIT) or [Apache 2.0](https://github.com/biandratti/huginn-net/blob/master/LICENSE-APACHE).

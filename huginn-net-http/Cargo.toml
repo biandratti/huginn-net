@@ -1,6 +1,6 @@
 [package]
 name = "huginn-net-http"
-version = "1.5.0"
+version = "1.4.6"
 edition = "2021"
 rust-version = "1.80"
 description = "HTTP fingerprinting (p0f-style) analysis for Huginn Net"
