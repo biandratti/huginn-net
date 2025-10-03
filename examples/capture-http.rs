@@ -66,9 +66,9 @@ fn main() {
         mpsc::channel();
 
     let cancel_signal = Arc::new(AtomicBool::new(false));
-    let cancel_clone = cancel_signal.clone();
-
     let ctrl_c_signal = cancel_signal.clone();
+    let thread_cancel_signal = cancel_signal.clone();
+
     if let Err(e) = ctrlc::set_handler(move || {
         info!("Received signal, initiating graceful shutdown...");
         ctrl_c_signal.store(true, Ordering::Relaxed);
@@ -98,7 +98,7 @@ fn main() {
         let result = match args.command {
             Commands::Live { interface } => {
                 info!("Starting HTTP live capture on interface: {}", interface);
-                analyzer.analyze_network(&interface, sender, Some(cancel_clone))
+                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };
 

@@ -1,15 +1,20 @@
 [package]
 name = "huginn-net-http"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.80"
-description = "HTTP fingerprinting (p0f-style) analysis for Huginn Net"
-license = "MIT OR Apache-2.0"
-authors = ["Maximiliano Biandratti"]
-repository = "https://github.com/biandratti/huginn-net"
+description = "HTTP fingerprinting (p0f-style) analysis for huginn-net"
+readme = "README.md"
+exclude = ["target/"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["http", "fingerprinting", "browser", "p0f", "security"]
+categories = ["network-programming", "web-programming"]
 
 [dependencies]
-huginn-net-db = { path = "../huginn-net-db" }
+huginn-net-db = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 pnet = { workspace = true }

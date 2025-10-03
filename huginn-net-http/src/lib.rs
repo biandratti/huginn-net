@@ -92,7 +92,7 @@ impl<'a> HuginnNetHttp<'a> {
             })?;
 
         let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
-            Ok(Channel::Ethernet(tx, rx)) => (tx, rx), // tx is unused, but required by pnet
+            Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
                 return Err(HuginnNetError::Parse(
                     "Unsupported channel type".to_string(),

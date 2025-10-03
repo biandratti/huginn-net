@@ -19,9 +19,9 @@ checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
 name = "anstream"
-version = "0.6.20"
+version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ae563653d1938f79b1ab1b5e668c87c76a9930414574a6583a7b7e11a8e6192"
+checksum = "43d5b281e737544384e969a5ccad3f1cdd24b48086a0fc1b2a5262a26b8f4f4a"
 dependencies = [
  "anstyle",
  "anstyle-parse",
@@ -34,9 +34,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle"
-version = "1.0.11"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "862ed96ca487e809f1c8e5a8447f6ee2cf102f846893800b20cebdf541fc6bbd"
+checksum = "5192cca8006f1fd4f7237516f40fa183bb07f8fbdfedaa0036de5ea9b0b45e78"
 
 [[package]]
 name = "anstyle-parse"
@@ -412,7 +412,7 @@ dependencies = [
  "lazy_static",
  "pcap-file",
  "pnet",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
@@ -421,17 +421,17 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-db"
-version = "0.1.0"
+version = "1.4.6"
 dependencies = [
  "lazy_static",
  "nom 8.0.0",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "tracing",
 ]
 
 [[package]]
 name = "huginn-net-http"
-version = "0.1.0"
+version = "1.4.6"
 dependencies = [
  "clap",
  "ctrlc",
@@ -439,7 +439,7 @@ dependencies = [
  "huginn-net-db",
  "lazy_static",
  "pnet",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
@@ -448,13 +448,13 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-tcp"
-version = "0.1.0"
+version = "1.4.6"
 dependencies = [
  "clap",
  "ctrlc",
  "huginn-net-db",
  "pnet",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
@@ -463,13 +463,13 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-tls"
-version = "0.1.0"
+version = "1.4.6"
 dependencies = [
  "clap",
  "ctrlc",
  "pnet",
  "sha2",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "tls-parser",
  "tracing",
  "tracing-appender",
@@ -904,9 +904,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.40"
+version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
+checksum = "ce25767e7b499d1b604768e7cde645d14cc8584231ea6b295e9c9eb22c02e1d1"
 dependencies = [
  "proc-macro2",
 ]
@@ -1119,11 +1119,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.16"
+version = "2.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3467d614147380f2e4e374161426ff399c91084acd2363eaf549172b3d5e60c0"
+checksum = "f63587ca0f12b72a0600bcba1d40081f830876000bb46dd2337a3051618f4fc8"
 dependencies = [
- "thiserror-impl 2.0.16",
+ "thiserror-impl 2.0.17",
 ]
 
 [[package]]
@@ -1139,9 +1139,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.16"
+version = "2.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c5e1be1c48b9172ee610da68fd9cd2770e7a4056cb3fc98710ee6906f0c7960"
+checksum = "3ff15c8ecd7de3849db632e14d18d2571fa09dfc5ed93479bc4485c7a517c913"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1326,9 +1326,9 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
+checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 
 [[package]]
 name = "unicode-ident"

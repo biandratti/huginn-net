@@ -1,31 +1,38 @@
 [workspace]
 members = [
     "huginn-net-db",
-    "huginn-net-tls",
+    "huginn-net-tls", 
     "huginn-net-http",
     "huginn-net-tcp",
     "huginn-net"
 ]
 resolver = "2"
 
+[workspace.package]
+version = "1.4.6"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+authors = ["Maximiliano Biandratti"]
+repository = "https://github.com/biandratti/huginn-net"
+homepage = "https://github.com/biandratti/huginn-net"
+
 [workspace.dependencies]
-# Shared across multiple crates
+huginn-net-db = { path = "huginn-net-db" }
+huginn-net-tcp = { path = "huginn-net-tcp" }
+huginn-net-http = { path = "huginn-net-http" }
+huginn-net-tls = { path = "huginn-net-tls" }
+
 nom = "8.0.0"
 pnet = "0.35.0"
-thiserror = "2.0.16"
+thiserror = "2.0.17"
 tracing = "0.1.41"
-
-# Specific to TLS module
 tls-parser = "0.12.2"
 sha2 = "0.10.9"
-
-# Specific to main crate
 ttl_cache = "0.5.1"
 lazy_static = "1.5.0"
 pcap-file = "3.0.0-rc1"
 hpack-patched = "0.3.0"
-
-# Examples and dev dependencies
 clap = { version = "4.5.48", features = ["derive"] }
 ctrlc = "3.5.0"
 tracing-appender = "0.2.3"

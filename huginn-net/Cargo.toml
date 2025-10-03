@@ -1,24 +1,24 @@
 [package]
 name = "huginn-net"
-version = "1.4.6"
-edition = "2021"
-rust-version = "1.80"
 description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"
-license = "MIT OR Apache-2.0"
-authors = ["Maximiliano Biandratti"]
-repository = "https://github.com/biandratti/huginn-net"
-homepage = "https://github.com/biandratti/huginn-net"
 documentation = "https://docs.rs/huginn-net"
 readme = "../README.md"
+exclude = ["target/"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
 keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography", "development-tools"]
-exclude = ["target/", "Cargo.lock"]
 
 [dependencies]
-huginn-net-db = { path = "../huginn-net-db" }
-huginn-net-tls = { path = "../huginn-net-tls" }
-huginn-net-http = { path = "../huginn-net-http" }
-huginn-net-tcp = { path = "../huginn-net-tcp" }
+huginn-net-db = { workspace = true }
+huginn-net-tls = { workspace = true }
+huginn-net-http = { workspace = true }
+huginn-net-tcp = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 pnet = { workspace = true }

@@ -49,17 +49,21 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 ## 🚀 Quick Start
 
 ### Installation
+
+Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net = "1.4.6"
 ```
 
-###  Examples & Tutorials:
-[Complete usage guide with](examples/README.md):
-  - Live network capture
-  - PCAP file analysis
+### Examples & Tutorials
 
-### Code Integration
+**[Complete Usage Guide](examples/README.md)** - Detailed examples with:
+- **Live network capture** - Real-time analysis
+- **PCAP file analysis** - Offline traffic analysis  
+- **Protocol-specific examples** - TCP, HTTP, TLS focused analysis
+
+### Basic Usage
 
 ```rust
 use huginn_net::{Database, HuginnNet};
@@ -116,6 +120,11 @@ for output in receiver {
     }
 }
 ```
+
+**Need more control?** Use individual crates:
+- `huginn-net-tcp` - TCP/OS fingerprinting only
+- `huginn-net-http` - HTTP/browser detection only  
+- `huginn-net-tls` - TLS/JA4 fingerprinting only
 ### Package Analysis Output
 ```text
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
