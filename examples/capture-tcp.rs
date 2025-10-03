@@ -85,7 +85,7 @@ fn main() {
         };
         debug!("Loaded database: {:?}", db);
 
-        let mut analyzer = match HuginnNetTcp::new(Some(&db)) {
+        let mut analyzer = match HuginnNetTcp::new(Some(&db), 1000) {
             Ok(analyzer) => analyzer,
             Err(e) => {
                 error!("Failed to create HuginnNetTcp analyzer: {}", e);

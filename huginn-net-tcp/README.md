@@ -19,7 +19,7 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 use huginn_net_tcp::{HuginnNetTcp, Database};
 
 let db = Database::load_default()?;
-let mut analyzer = HuginnNetTcp::new(Some(&db))?;
+let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
 
 // Analyze network interface
 analyzer.analyze_network("eth0", sender, None)?;

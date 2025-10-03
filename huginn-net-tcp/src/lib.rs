@@ -43,6 +43,7 @@ use ttl_cache::TtlCache;
 /// MTU detection, and uptime calculation using p0f-style methodologies.
 pub struct HuginnNetTcp<'a> {
     pub matcher: Option<SignatureMatcher<'a>>,
+    max_connections: usize,
 }
 
 impl<'a> HuginnNetTcp<'a> {
@@ -50,13 +51,20 @@ impl<'a> HuginnNetTcp<'a> {
     ///
     /// # Parameters
     /// - `database`: Optional signature database for OS matching
+    /// - `max_connections`: Maximum number of connections to track in the connection tracker
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance ready for TCP analysis.
-    pub fn new(database: Option<&'a db::Database>) -> Result<Self, HuginnNetError> {
+    pub fn new(
+        database: Option<&'a db::Database>,
+        max_connections: usize,
+    ) -> Result<Self, HuginnNetError> {
         let matcher = database.map(SignatureMatcher::new);
 
-        Ok(Self { matcher })
+        Ok(Self {
+            matcher,
+            max_connections,
+        })
     }
 
     /// Analyzes network traffic from a live network interface for TCP packets.
@@ -82,7 +90,7 @@ impl<'a> HuginnNetTcp<'a> {
             })?;
 
         let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
-            Ok(Channel::Ethernet(tx, rx)) => (tx, rx), // tx is unused, but required by pnet
+            Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
                 return Err(HuginnNetError::Parse(
                     "Unsupported channel type".to_string(),
@@ -96,7 +104,7 @@ impl<'a> HuginnNetTcp<'a> {
         };
 
         // Connection tracker for TCP analysis
-        let mut connection_tracker = TtlCache::new(1000);
+        let mut connection_tracker = TtlCache::new(self.max_connections);
 
         loop {
             if let Some(ref signal) = cancel_signal {
