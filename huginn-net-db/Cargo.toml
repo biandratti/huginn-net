@@ -1,6 +1,6 @@
 [package]
 name = "huginn-net-db"
-version = "0.1.0"
+version = "1.5.0"
 edition = "2021"
 rust-version = "1.80"
 description = "P0f database parser and matching traits for network fingerprinting"

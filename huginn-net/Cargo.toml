@@ -1,6 +1,6 @@
 [package]
 name = "huginn-net"
-version = "1.4.6"
+version = "1.5.0"
 edition = "2021"
 rust-version = "1.80"
 description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"
@@ -15,10 +15,10 @@ categories = ["network-programming", "cryptography", "development-tools"]
 exclude = ["target/", "Cargo.lock"]
 
 [dependencies]
-huginn-net-db = { path = "../huginn-net-db" }
-huginn-net-tls = { path = "../huginn-net-tls" }
-huginn-net-http = { path = "../huginn-net-http" }
-huginn-net-tcp = { path = "../huginn-net-tcp" }
+huginn-net-db = { workspace = true }
+huginn-net-tls = { workspace = true }
+huginn-net-http = { workspace = true }
+huginn-net-tcp = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 pnet = { workspace = true }

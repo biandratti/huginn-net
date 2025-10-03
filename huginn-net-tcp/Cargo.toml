@@ -1,6 +1,6 @@
 [package]
 name = "huginn-net-tcp"
-version = "0.1.0"
+version = "1.5.0"
 edition = "2021"
 rust-version = "1.80"
 description = "TCP fingerprinting and analysis for Huginn Net"
@@ -12,7 +12,7 @@ categories = ["network-programming"]
 publish = true
 
 [dependencies]
-huginn-net-db = { path = "../huginn-net-db" }
+huginn-net-db = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 pnet = { workspace = true }
