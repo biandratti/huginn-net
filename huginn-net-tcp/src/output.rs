@@ -4,6 +4,25 @@ use huginn_net_db::{Label, MatchQualityType, Type};
 use std::fmt;
 use std::fmt::Formatter;
 
+/// Represents the output from TCP analysis.
+///
+/// This struct contains various optional outputs that can be derived
+/// from analyzing TCP packets.
+#[derive(Debug)]
+pub struct TcpAnalysisResult {
+    /// Information derived from SYN packets.
+    pub syn: Option<SynTCPOutput>,
+
+    /// Information derived from SYN-ACK packets.
+    pub syn_ack: Option<SynAckTCPOutput>,
+
+    /// Information about the Maximum Transmission Unit (MTU).
+    pub mtu: Option<MTUOutput>,
+
+    /// Information about the system uptime.
+    pub uptime: Option<UptimeOutput>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IpPort {
     pub ip: std::net::IpAddr,

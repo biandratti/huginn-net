@@ -2,6 +2,19 @@ use huginn_net_db::{Label, MatchQualityType, Type};
 use std::fmt;
 use std::fmt::Formatter;
 
+/// Represents the output from HTTP analysis.
+///
+/// This struct contains various optional outputs that can be derived
+/// from analyzing HTTP packets.
+#[derive(Debug)]
+pub struct HttpAnalysisResult {
+    /// Information derived from HTTP request packets.
+    pub http_request: Option<HttpRequestOutput>,
+
+    /// Information derived from HTTP response packets.
+    pub http_response: Option<HttpResponseOutput>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IpPort {
     pub ip: std::net::IpAddr,

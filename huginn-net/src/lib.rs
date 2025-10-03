@@ -37,7 +37,6 @@ use huginn_net_tls::output::TlsClientOutput;
 // SHARED PROCESSING IMPORTS (used across protocols)
 // ============================================================================
 use crate::process::ObservablePackage;
-use crate::signature_matcher::SignatureMatcher;
 
 // ============================================================================
 // OBSERVABLE SIGNALS EXPORTS (conditional in future)
@@ -87,7 +86,6 @@ pub use huginn_net_tls;
 // SHARED PROCESSING MODULES (used by multiple protocols)
 // ============================================================================
 pub mod process;
-pub mod signature_matcher;
 
 /// Configuration for protocol analysis
 #[derive(Debug, Clone)]
@@ -119,7 +117,8 @@ impl Default for AnalysisConfig {
 /// analysis and matching signatures using a database of known fingerprints, plus JA4 TLS
 /// client analysis following the official FoxIO specification.
 pub struct HuginnNet<'a> {
-    pub matcher: Option<SignatureMatcher<'a>>,
+    pub tcp_matcher: Option<huginn_net_tcp::SignatureMatcher<'a>>,
+    pub http_matcher: Option<huginn_net_http::SignatureMatcher<'a>>,
     connection_tracker: TtlCache<Connection, SynData>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: huginn_net_http::http_process::HttpProcessors,
@@ -158,8 +157,14 @@ impl<'a> HuginnNet<'a> {
             ));
         }
 
-        let matcher = if config.matcher_enabled && (config.tcp_enabled || config.http_enabled) {
-            database.map(SignatureMatcher::new)
+        let tcp_matcher = if config.matcher_enabled && config.tcp_enabled {
+            database.map(huginn_net_tcp::SignatureMatcher::new)
+        } else {
+            None
+        };
+
+        let http_matcher = if config.matcher_enabled && config.http_enabled {
+            database.map(huginn_net_http::SignatureMatcher::new)
         } else {
             None
         };
@@ -176,7 +181,8 @@ impl<'a> HuginnNet<'a> {
         };
 
         Ok(Self {
-            matcher,
+            tcp_matcher,
+            http_matcher,
             connection_tracker: TtlCache::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
             http_processors: huginn_net_http::http_process::HttpProcessors::new(),
@@ -312,7 +318,7 @@ impl<'a> HuginnNet<'a> {
                     let mtu: Option<MTUOutput> = observable_package.mtu.map(|observable_mtu| {
                         let link_quality = simple_quality_match!(
                             enabled: self.config.matcher_enabled,
-                            matcher: self.matcher,
+                            matcher: self.tcp_matcher,
                             method: matching_by_mtu(&observable_mtu.value),
                             success: (link, _) => MTUQualityMatched {
                                 link: Some(link.clone()),
@@ -346,7 +352,7 @@ impl<'a> HuginnNet<'a> {
                         observable_package.tcp_request.map(|observable_tcp| {
                             let os_quality = simple_quality_match!(
                                 enabled: self.config.matcher_enabled,
-                                matcher: self.matcher,
+                                matcher: self.tcp_matcher,
                                 method: matching_by_tcp_request(&observable_tcp),
                                 success: (label, _signature, quality) => OSQualityMatched {
                                     os: Some(OperativeSystem::from(label)),
@@ -380,7 +386,7 @@ impl<'a> HuginnNet<'a> {
                         observable_package.tcp_response.map(|observable_tcp| {
                             let os_quality = simple_quality_match!(
                                 enabled: self.config.matcher_enabled,
-                                matcher: self.matcher,
+                                matcher: self.tcp_matcher,
                                 method: matching_by_tcp_response(&observable_tcp),
                                 success: (label, _signature, quality) => OSQualityMatched {
                                     os: Some(OperativeSystem::from(label)),
@@ -432,7 +438,7 @@ impl<'a> HuginnNet<'a> {
                         .map(|observable_http_request| {
                             let (signature_matcher, ua_matcher, browser_quality) = quality_match!(
                                 enabled: self.config.matcher_enabled,
-                                matcher: self.matcher,
+                                matcher: self.http_matcher,
                                 call: matcher => {
                                     let sig_match = matcher.matching_by_http_request(&observable_http_request);
                                     let ua_match = observable_http_request.user_agent.clone()
@@ -494,7 +500,7 @@ impl<'a> HuginnNet<'a> {
                         .map(|observable_http_response| {
                             let web_server_quality = simple_quality_match!(
                                 enabled: self.config.matcher_enabled,
-                                matcher: self.matcher,
+                                matcher: self.http_matcher,
                                 method: matching_by_http_response(&observable_http_response),
                                 success: (label, _signature, quality) => WebServerQualityMatched {
                                     web_server: Some(WebServer::from(label)),
