@@ -1,4 +1,4 @@
-use crate::error::TlsError;
+use crate::error::HuginnNetTlsError;
 use crate::output::{IpPort, TlsClientOutput};
 use crate::ObservableTlsClient;
 use pnet::packet::ipv4::Ipv4Packet;
@@ -16,7 +16,7 @@ pub struct ObservablePackage {
 
 pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
-) -> std::result::Result<Option<TlsClientOutput>, TlsError> {
+) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     let observable_package = create_observable_package_ipv4(ipv4)?;
 
     let tls_output = observable_package
@@ -35,9 +35,9 @@ pub fn process_ipv4_packet(
 
 fn create_observable_package_ipv4(
     ipv4: &Ipv4Packet,
-) -> std::result::Result<ObservablePackage, TlsError> {
+) -> std::result::Result<ObservablePackage, HuginnNetTlsError> {
     let tcp = TcpPacket::new(ipv4.payload())
-        .ok_or_else(|| TlsError::Parse("Invalid TCP packet".to_string()))?;
+        .ok_or_else(|| HuginnNetTlsError::Parse("Invalid TCP packet".to_string()))?;
 
     let source = IpPort {
         ip: IpAddr::V4(ipv4.get_source()),
@@ -59,7 +59,7 @@ fn create_observable_package_ipv4(
 
 pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
-) -> std::result::Result<Option<TlsClientOutput>, TlsError> {
+) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     let observable_package = create_observable_package_ipv6(ipv6)?;
 
     let tls_output = observable_package
@@ -78,9 +78,9 @@ pub fn process_ipv6_packet(
 
 fn create_observable_package_ipv6(
     ipv6: &Ipv6Packet,
-) -> std::result::Result<ObservablePackage, TlsError> {
+) -> std::result::Result<ObservablePackage, HuginnNetTlsError> {
     let tcp = TcpPacket::new(ipv6.payload())
-        .ok_or_else(|| TlsError::Parse("Invalid TCP packet".to_string()))?;
+        .ok_or_else(|| HuginnNetTlsError::Parse("Invalid TCP packet".to_string()))?;
 
     let source = IpPort {
         ip: IpAddr::V6(ipv6.get_source()),

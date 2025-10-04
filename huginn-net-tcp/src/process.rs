@@ -1,4 +1,4 @@
-use crate::error::HuginnNetError;
+use crate::error::HuginnNetTcpError;
 use crate::output::{
     IpPort, MTUOutput, MTUQualityMatched, OSQualityMatched, OperativeSystem, SynAckTCPOutput,
     SynTCPOutput, UptimeOutput,
@@ -22,7 +22,7 @@ pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
     connection_tracker: &mut TtlCache<Connection, SynData>,
     matcher: Option<&SignatureMatcher>,
-) -> Result<TcpAnalysisResult, HuginnNetError> {
+) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
     let observable_package = create_observable_package_ipv4(ipv4, connection_tracker, matcher)?;
     Ok(observable_package.tcp_result)
 }
@@ -31,9 +31,9 @@ fn create_observable_package_ipv4(
     ipv4: &Ipv4Packet,
     connection_tracker: &mut TtlCache<Connection, SynData>,
     matcher: Option<&SignatureMatcher>,
-) -> Result<ObservablePackage, HuginnNetError> {
+) -> Result<ObservablePackage, HuginnNetTcpError> {
     let tcp = TcpPacket::new(ipv4.payload())
-        .ok_or_else(|| HuginnNetError::Parse("Invalid TCP packet".to_string()))?;
+        .ok_or_else(|| HuginnNetTcpError::Parse("Invalid TCP packet".to_string()))?;
 
     let source = IpPort {
         ip: IpAddr::V4(ipv4.get_source()),
@@ -181,7 +181,7 @@ pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
     connection_tracker: &mut TtlCache<Connection, SynData>,
     matcher: Option<&SignatureMatcher>,
-) -> Result<TcpAnalysisResult, HuginnNetError> {
+) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
     let observable_package = create_observable_package_ipv6(ipv6, connection_tracker, matcher)?;
     Ok(observable_package.tcp_result)
 }
@@ -190,10 +190,10 @@ fn create_observable_package_ipv6(
     ipv6: &Ipv6Packet,
     connection_tracker: &mut TtlCache<Connection, SynData>,
     matcher: Option<&SignatureMatcher>,
-) -> Result<ObservablePackage, HuginnNetError> {
+) -> Result<ObservablePackage, HuginnNetTcpError> {
     // Extract TCP info for source/destination ports
     let tcp = TcpPacket::new(ipv6.payload())
-        .ok_or_else(|| HuginnNetError::Parse("Invalid TCP packet".to_string()))?;
+        .ok_or_else(|| HuginnNetTcpError::Parse("Invalid TCP packet".to_string()))?;
 
     let source = IpPort {
         ip: IpAddr::V6(ipv6.get_source()),

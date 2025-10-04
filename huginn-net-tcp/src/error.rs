@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum HuginnNetError {
+pub enum HuginnNetTcpError {
     #[error("Parse error: {0}")]
     Parse(String),
 

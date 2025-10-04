@@ -2,7 +2,7 @@ use thiserror::Error;
 
 /// TLS-specific error handling
 #[derive(Error, Debug)]
-pub enum TlsError {
+pub enum HuginnNetTlsError {
     /// An error occurred while parsing TLS data.
     #[error("Parse error: {0}")]
     Parse(String),
@@ -15,6 +15,3 @@ pub enum TlsError {
     #[error("Unknown error")]
     Unknown,
 }
-
-/// Convenience Result type for TLS operations
-pub type Result<T> = std::result::Result<T, TlsError>;

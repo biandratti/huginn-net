@@ -120,13 +120,13 @@ pub trait HttpProcessor {
     fn process_request(
         &self,
         data: &[u8],
-    ) -> Result<Option<ObservableHttpRequest>, crate::error::HuginnNetError>;
+    ) -> Result<Option<ObservableHttpRequest>, crate::error::HuginnNetHttpError>;
 
     /// Process HTTP response data and return observable response  
     fn process_response(
         &self,
         data: &[u8],
-    ) -> Result<Option<ObservableHttpResponse>, crate::error::HuginnNetError>;
+    ) -> Result<Option<ObservableHttpResponse>, crate::error::HuginnNetHttpError>;
 
     /// Get the HTTP version this processor handles
     fn supported_version(&self) -> http::Version;
