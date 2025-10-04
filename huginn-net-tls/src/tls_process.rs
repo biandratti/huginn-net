@@ -1,4 +1,4 @@
-use crate::error::TlsError;
+use crate::error::HuginnNetTlsError;
 use crate::observable::ObservableTlsClient;
 use crate::observable::ObservableTlsPackage;
 use crate::tls::{Signature, TlsVersion, TLS_GREASE_VALUES};
@@ -13,9 +13,9 @@ use tls_parser::{
 };
 use tracing::debug;
 
-pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, TlsError> {
+pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        return Err(TlsError::UnsupportedProtocol("IPv4".to_string()));
+        return Err(HuginnNetTlsError::UnsupportedProtocol("IPv4".to_string()));
     }
 
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
@@ -25,9 +25,9 @@ pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, Tls
     }
 }
 
-pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, TlsError> {
+pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        return Err(TlsError::UnsupportedProtocol("IPv6".to_string()));
+        return Err(HuginnNetTlsError::UnsupportedProtocol("IPv6".to_string()));
     }
 
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
@@ -37,7 +37,7 @@ pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, Tls
     }
 }
 
-pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, TlsError> {
+pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     let payload = tcp.payload();
 
     if !is_tls_traffic(payload) {
@@ -80,7 +80,7 @@ fn is_tls_traffic(payload: &[u8]) -> bool {
     }
 }
 
-pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, TlsError> {
+pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsError> {
     match parse_tls_plaintext(data) {
         Ok((_remaining, tls_record)) => {
             for message in tls_record.msg.iter() {
@@ -90,17 +90,19 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, TlsError> {
                     return extract_tls_signature_from_client_hello(client_hello);
                 }
             }
-            Err(TlsError::Parse(
+            Err(HuginnNetTlsError::Parse(
                 "No ClientHello found in TLS record".to_string(),
             ))
         }
-        Err(e) => Err(TlsError::Parse(format!("TLS parsing failed: {e:?}"))),
+        Err(e) => Err(HuginnNetTlsError::Parse(format!(
+            "TLS parsing failed: {e:?}"
+        ))),
     }
 }
 
 fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
-) -> Result<Signature, TlsError> {
+) -> Result<Signature, HuginnNetTlsError> {
     // Extract cipher suites (filter GREASE)
     let cipher_suites: Vec<u16> = client_hello
         .ciphers

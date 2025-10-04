@@ -58,16 +58,26 @@ impl HuginnNetTls {
         interface_name: &str,
         sender: Sender<TlsClientOutput>,
         cancel_signal: Option<Arc<AtomicBool>>,
-    ) -> std::result::Result<(), TlsError> {
+    ) -> std::result::Result<(), HuginnNetTlsError> {
         let interface = datalink::interfaces()
             .into_iter()
             .find(|iface| iface.name == interface_name)
-            .ok_or_else(|| TlsError::Parse(format!("Interface {interface_name} not found")))?;
+            .ok_or_else(|| {
+                HuginnNetTlsError::Parse(format!("Interface {interface_name} not found"))
+            })?;
 
         let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
-            Ok(_) => return Err(TlsError::Parse("Unsupported channel type".to_string())),
-            Err(e) => return Err(TlsError::Parse(format!("Failed to create channel: {e}"))),
+            Ok(_) => {
+                return Err(HuginnNetTlsError::Parse(
+                    "Unsupported channel type".to_string(),
+                ))
+            }
+            Err(e) => {
+                return Err(HuginnNetTlsError::Parse(format!(
+                    "Failed to create channel: {e}"
+                )))
+            }
         };
 
         loop {
@@ -94,7 +104,9 @@ impl HuginnNetTls {
                     }
                 }
                 Err(e) => {
-                    return Err(TlsError::Parse(format!("Error receiving packet: {e}")));
+                    return Err(HuginnNetTlsError::Parse(format!(
+                        "Error receiving packet: {e}"
+                    )));
                 }
             }
         }
@@ -112,9 +124,9 @@ impl HuginnNetTls {
     fn process_packet(
         &mut self,
         packet: &[u8],
-    ) -> std::result::Result<Option<TlsClientOutput>, TlsError> {
+    ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         let ethernet = EthernetPacket::new(packet)
-            .ok_or_else(|| TlsError::Parse("Invalid Ethernet packet".to_string()))?;
+            .ok_or_else(|| HuginnNetTlsError::Parse("Invalid Ethernet packet".to_string()))?;
 
         match ethernet.get_ethertype() {
             EtherTypes::Ipv4 => {
