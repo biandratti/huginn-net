@@ -88,7 +88,7 @@ fn create_observable_package_ipv4(
         };
 
         let diagnosis = crate::http_common::get_diagnostic(
-            user_agent, ua_matcher, None, // Simplificamos por ahora, se puede mejorar después
+            user_agent, ua_matcher, None, // TODO
         );
 
         let request_output = HttpRequestOutput {
@@ -219,7 +219,7 @@ fn create_observable_package_ipv6(
         };
 
         let diagnosis = crate::http_common::get_diagnostic(
-            user_agent, ua_matcher, None, // Simplificamos por ahora, se puede mejorar después
+            user_agent, ua_matcher, None, // TODO
         );
 
         let request_output = HttpRequestOutput {
