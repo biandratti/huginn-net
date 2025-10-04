@@ -1,4 +1,4 @@
-use crate::error::HuginnNetError;
+use crate::error::HuginnNetHttpError;
 use crate::output::{
     Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, IpPort, WebServer,
     WebServerQualityMatched,
@@ -24,7 +24,7 @@ pub fn process_ipv4_packet(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&SignatureMatcher>,
-) -> Result<HttpAnalysisResult, HuginnNetError> {
+) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
     let observable_package =
         create_observable_package_ipv4(ipv4, http_flows, http_processors, matcher)?;
     Ok(observable_package.http_result)
@@ -35,9 +35,9 @@ fn create_observable_package_ipv4(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&SignatureMatcher>,
-) -> Result<ObservablePackage, HuginnNetError> {
+) -> Result<ObservablePackage, HuginnNetHttpError> {
     let tcp = TcpPacket::new(ipv4.payload())
-        .ok_or_else(|| HuginnNetError::Parse("Invalid TCP packet".to_string()))?;
+        .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
 
     let source = IpPort {
         ip: IpAddr::V4(ipv4.get_source()),
@@ -153,7 +153,7 @@ pub fn process_ipv6_packet(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&SignatureMatcher>,
-) -> Result<HttpAnalysisResult, HuginnNetError> {
+) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
     let observable_package =
         create_observable_package_ipv6(ipv6, http_flows, http_processors, matcher)?;
     Ok(observable_package.http_result)
@@ -164,10 +164,10 @@ fn create_observable_package_ipv6(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&SignatureMatcher>,
-) -> Result<ObservablePackage, HuginnNetError> {
+) -> Result<ObservablePackage, HuginnNetHttpError> {
     // Extract TCP info for source/destination ports
     let tcp = TcpPacket::new(ipv6.payload())
-        .ok_or_else(|| HuginnNetError::Parse("Invalid TCP packet".to_string()))?;
+        .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
 
     let source = IpPort {
         ip: IpAddr::V6(ipv6.get_source()),
@@ -219,7 +219,7 @@ fn create_observable_package_ipv6(
         };
 
         let diagnosis = crate::http_common::get_diagnostic(
-            user_agent, ua_matcher, None, // TODO
+            user_agent, ua_matcher, None, //             user_agent, ua_matcher, None, // TODO
         );
 
         let request_output = HttpRequestOutput {

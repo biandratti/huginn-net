@@ -1,4 +1,4 @@
-use crate::error::HuginnNetError;
+use crate::error::HuginnNetHttpError;
 use crate::http::Header;
 use crate::http_common::HttpProcessor;
 use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
@@ -64,14 +64,14 @@ impl HttpProcessor for Http2Processor {
     fn process_request(
         &self,
         data: &[u8],
-    ) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+    ) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {
         parse_http2_request(data, &self.parser)
     }
 
     fn process_response(
         &self,
         data: &[u8],
-    ) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+    ) -> Result<Option<ObservableHttpResponse>, HuginnNetHttpError> {
         parse_http2_response(data, &self.parser)
     }
 
@@ -193,7 +193,7 @@ fn build_absent_headers_from_http2(
 fn parse_http2_request(
     data: &[u8],
     parser: &http2_parser::Http2Parser,
-) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {
     match parser.parse_request(data) {
         Ok(Some(req)) => {
             let observable = convert_http2_request_to_observable(req);
@@ -205,7 +205,7 @@ fn parse_http2_request(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/2 request: {}", e);
-            Err(HuginnNetError::Parse(format!(
+            Err(HuginnNetHttpError::Parse(format!(
                 "Failed to parse HTTP/2 request: {e}"
             )))
         }
@@ -215,7 +215,7 @@ fn parse_http2_request(
 fn parse_http2_response(
     data: &[u8],
     parser: &http2_parser::Http2Parser,
-) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+) -> Result<Option<ObservableHttpResponse>, HuginnNetHttpError> {
     match parser.parse_response(data) {
         Ok(Some(res)) => {
             let observable = convert_http2_response_to_observable(res);
@@ -227,7 +227,7 @@ fn parse_http2_response(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/2 response: {}", e);
-            Err(HuginnNetError::Parse(format!(
+            Err(HuginnNetHttpError::Parse(format!(
                 "Failed to parse HTTP/2 response: {e}"
             )))
         }

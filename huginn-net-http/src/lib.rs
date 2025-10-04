@@ -59,7 +59,7 @@ impl<'a> HuginnNetHttp<'a> {
     pub fn new(
         database: Option<&'a db::Database>,
         max_connections: usize,
-    ) -> Result<Self, HuginnNetError> {
+    ) -> Result<Self, HuginnNetHttpError> {
         let matcher = database.map(SignatureMatcher::new);
 
         Ok(Self {
@@ -83,23 +83,23 @@ impl<'a> HuginnNetHttp<'a> {
         interface_name: &str,
         sender: Sender<HttpAnalysisResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
-    ) -> Result<(), HuginnNetError> {
+    ) -> Result<(), HuginnNetHttpError> {
         let interface = datalink::interfaces()
             .into_iter()
             .find(|iface| iface.name == interface_name)
             .ok_or_else(|| {
-                HuginnNetError::Parse(format!("Interface {interface_name} not found"))
+                HuginnNetHttpError::Parse(format!("Interface {interface_name} not found"))
             })?;
 
         let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
-                return Err(HuginnNetError::Parse(
+                return Err(HuginnNetHttpError::Parse(
                     "Unsupported channel type".to_string(),
                 ))
             }
             Err(e) => {
-                return Err(HuginnNetError::Parse(format!(
+                return Err(HuginnNetHttpError::Parse(format!(
                     "Failed to create channel: {e}"
                 )))
             }
@@ -127,7 +127,7 @@ impl<'a> HuginnNetHttp<'a> {
                     }
                 }
                 Err(e) => {
-                    return Err(HuginnNetError::Parse(format!(
+                    return Err(HuginnNetHttpError::Parse(format!(
                         "Error receiving packet: {e}"
                     )));
                 }
@@ -144,9 +144,9 @@ impl<'a> HuginnNetHttp<'a> {
     ///
     /// # Returns
     /// A `Result` containing an `HttpAnalysisResult` or an error.
-    fn process_packet(&mut self, packet: &[u8]) -> Result<HttpAnalysisResult, HuginnNetError> {
+    fn process_packet(&mut self, packet: &[u8]) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
         let ethernet = EthernetPacket::new(packet)
-            .ok_or_else(|| HuginnNetError::Parse("Invalid Ethernet packet".to_string()))?;
+            .ok_or_else(|| HuginnNetHttpError::Parse("Invalid Ethernet packet".to_string()))?;
 
         match ethernet.get_ethertype() {
             EtherTypes::Ipv4 => {

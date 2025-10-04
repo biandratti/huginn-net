@@ -1,4 +1,4 @@
-use crate::error::HuginnNetError;
+use crate::error::HuginnNetHttpError;
 use crate::http::Header;
 use crate::http_common::HttpProcessor;
 use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
@@ -108,14 +108,14 @@ impl HttpProcessor for Http1Processor {
     fn process_request(
         &self,
         data: &[u8],
-    ) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+    ) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {
         parse_http1_request(data, &self.parser)
     }
 
     fn process_response(
         &self,
         data: &[u8],
-    ) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+    ) -> Result<Option<ObservableHttpResponse>, HuginnNetHttpError> {
         parse_http1_response(data, &self.parser)
     }
 
@@ -244,7 +244,7 @@ fn build_absent_headers_from_new_parser(
 fn parse_http1_request(
     data: &[u8],
     parser: &http1_parser::Http1Parser,
-) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {
     match parser.parse_request(data) {
         Ok(Some(req)) => {
             let observable = convert_http1_request_to_observable(req);
@@ -256,7 +256,7 @@ fn parse_http1_request(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/1.x request: {}", e);
-            Err(HuginnNetError::Parse(format!(
+            Err(HuginnNetHttpError::Parse(format!(
                 "Failed to parse HTTP/1.x request: {e}"
             )))
         }
@@ -266,7 +266,7 @@ fn parse_http1_request(
 fn parse_http1_response(
     data: &[u8],
     parser: &http1_parser::Http1Parser,
-) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+) -> Result<Option<ObservableHttpResponse>, HuginnNetHttpError> {
     match parser.parse_response(data) {
         Ok(Some(res)) => {
             let observable = convert_http1_response_to_observable(res);
@@ -278,7 +278,7 @@ fn parse_http1_response(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/1.x response: {}", e);
-            Err(HuginnNetError::Parse(format!(
+            Err(HuginnNetHttpError::Parse(format!(
                 "Failed to parse HTTP/1.x response: {e}"
             )))
         }

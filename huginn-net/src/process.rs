@@ -170,10 +170,10 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_http::http_process::process_http_ipv4(&packet, http_flows, http_processors)
                 .map_err(|e| match e {
-                    huginn_net_http::error::HuginnNetError::Parse(msg) => {
+                    huginn_net_http::error::HuginnNetHttpError::Parse(msg) => {
                         HuginnNetError::Parse(msg)
                     }
-                    huginn_net_http::error::HuginnNetError::UnsupportedProtocol(msg) => {
+                    huginn_net_http::error::HuginnNetHttpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
                 })
@@ -258,10 +258,10 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_http::http_process::process_http_ipv6(&packet, http_flows, http_processors)
                 .map_err(|e| match e {
-                    huginn_net_http::error::HuginnNetError::Parse(msg) => {
+                    huginn_net_http::error::HuginnNetHttpError::Parse(msg) => {
                         HuginnNetError::Parse(msg)
                     }
-                    huginn_net_http::error::HuginnNetError::UnsupportedProtocol(msg) => {
+                    huginn_net_http::error::HuginnNetHttpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
                 })

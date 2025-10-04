@@ -1,4 +1,4 @@
-use crate::error::HuginnNetError;
+use crate::error::HuginnNetHttpError;
 use crate::http_common::HttpProcessor;
 use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::{http1_process, http2_process};
@@ -220,9 +220,9 @@ pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
-) -> Result<ObservableHttpPackage, HuginnNetError> {
+) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
-        return Err(HuginnNetError::UnsupportedProtocol("IPv4".to_string()));
+        return Err(HuginnNetHttpError::UnsupportedProtocol("IPv4".to_string()));
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
@@ -244,9 +244,9 @@ pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
-) -> Result<ObservableHttpPackage, HuginnNetError> {
+) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
-        return Err(HuginnNetError::UnsupportedProtocol("IPv6".to_string()));
+        return Err(HuginnNetHttpError::UnsupportedProtocol("IPv6".to_string()));
     }
     if let Some(tcp) = TcpPacket::new(packet.payload()) {
         process_tcp_packet(
@@ -270,7 +270,7 @@ fn process_tcp_packet(
     src_ip: IpAddr,
     dst_ip: IpAddr,
     processors: &HttpProcessors,
-) -> Result<ObservableHttpPackage, HuginnNetError> {
+) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
     let mut observable_http_package = ObservableHttpPackage {
@@ -374,7 +374,7 @@ fn process_tcp_packet(
 fn parse_http_request(
     data: &[u8],
     processors: &HttpProcessors,
-) -> Result<Option<ObservableHttpRequest>, HuginnNetError> {
+) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {
     match processors.parse_request(data) {
         Some(request) => {
             debug!("Successfully parsed HTTP request using polymorphic parser");
@@ -390,7 +390,7 @@ fn parse_http_request(
 fn parse_http_response(
     data: &[u8],
     processors: &HttpProcessors,
-) -> Result<Option<ObservableHttpResponse>, HuginnNetError> {
+) -> Result<Option<ObservableHttpResponse>, HuginnNetHttpError> {
     match processors.parse_response(data) {
         Some(response) => {
             debug!("Successfully parsed HTTP response using polymorphic parser");
