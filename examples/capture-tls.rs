@@ -1,13 +1,11 @@
 use clap::{Parser, Subcommand};
-use huginn_net::output::FingerprintResult;
-use huginn_net::Database;
-use huginn_net::HuginnNet;
+use huginn_net_tls::{HuginnNetTls, TlsClientOutput};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -31,11 +29,6 @@ enum Commands {
         #[arg(short = 'i', long)]
         interface: String,
     },
-    Pcap {
-        /// Path to PCAP file
-        #[arg(short = 'f', long)]
-        file: String,
-    },
 }
 
 fn initialize_logging(log_file: Option<String>) {
@@ -45,7 +38,7 @@ fn initialize_logging(log_file: Option<String>) {
         RollingFileAppender::new(Rotation::NEVER, ".", log_file)
             .with_max_level(tracing::Level::INFO)
     } else {
-        RollingFileAppender::new(Rotation::NEVER, ".", "default.log")
+        RollingFileAppender::new(Rotation::NEVER, ".", "tls-capture.log")
             .with_max_level(tracing::Level::INFO)
     };
 
@@ -64,10 +57,11 @@ fn initialize_logging(log_file: Option<String>) {
 
 fn main() {
     let args = Args::parse();
-    initialize_logging(args.log_file);
+    initialize_logging(args.log_file.clone());
 
-    let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
-        mpsc::channel();
+    info!("Starting TLS-only capture example");
+
+    let (sender, receiver): (Sender<TlsClientOutput>, Receiver<TlsClientOutput>) = mpsc::channel();
 
     let cancel_signal = Arc::new(AtomicBool::new(false));
     let ctrl_c_signal = cancel_signal.clone();
@@ -82,36 +76,17 @@ fn main() {
     }
 
     thread::spawn(move || {
-        let db = match Database::load_default() {
-            Ok(db) => db,
-            Err(e) => {
-                error!("Failed to load default database: {}", e);
-                return;
-            }
-        };
-        debug!("Loaded database: {:?}", db);
-
-        let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
-            Ok(analyzer) => analyzer,
-            Err(e) => {
-                error!("Failed to create HuginnNet analyzer: {}", e);
-                return;
-            }
-        };
+        let mut analyzer = HuginnNetTls::new();
 
         let result = match args.command {
             Commands::Live { interface } => {
-                info!("Starting live capture on interface: {}", interface);
-                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal.clone()))
-            }
-            Commands::Pcap { file } => {
-                info!("Analyzing PCAP file: {}", file);
-                analyzer.analyze_pcap(&file, sender, Some(thread_cancel_signal))
+                info!("Starting TLS live capture on interface: {}", interface);
+                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };
 
         if let Err(e) = result {
-            eprintln!("Analysis failed: {e}");
+            error!("TLS analysis failed: {e}");
         }
     });
 
@@ -121,27 +96,7 @@ fn main() {
             break;
         }
 
-        if let Some(syn) = output.syn {
-            info!("{}", syn);
-        }
-        if let Some(syn_ack) = output.syn_ack {
-            info!("{}", syn_ack);
-        }
-        if let Some(mtu) = output.mtu {
-            info!("{}", mtu);
-        }
-        if let Some(uptime) = output.uptime {
-            info!("{}", uptime);
-        }
-        if let Some(http_request) = output.http_request {
-            info!("{}", http_request);
-        }
-        if let Some(http_response) = output.http_response {
-            info!("{}", http_response);
-        }
-        if let Some(tls_client) = output.tls_client {
-            info!("{}", tls_client);
-        }
+        info!("{}", output);
     }
 
     info!("Analysis shutdown completed");

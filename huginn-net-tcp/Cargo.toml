@@ -1,0 +1,31 @@
+[package]
+name = "huginn-net-tcp"
+description = "TCP fingerprinting and analysis for huginn-net"
+readme = "README.md"
+exclude = ["target/"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["tcp", "fingerprinting", "network", "security"]
+categories = ["network-programming"]
+
+[dependencies]
+huginn-net-db = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+pnet = { workspace = true }
+ttl_cache = { workspace = true }
+
+[[example]]
+name = "capture-tcp"
+path = "../examples/capture-tcp.rs"
+
+[dev-dependencies]
+clap = { workspace = true }
+ctrlc = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
-use huginn_net::output::FingerprintResult;
-use huginn_net::Database;
-use huginn_net::HuginnNet;
+use huginn_net_db::Database;
+use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -30,11 +29,6 @@ enum Commands {
         /// Network interface name
         #[arg(short = 'i', long)]
         interface: String,
-    },
-    Pcap {
-        /// Path to PCAP file
-        #[arg(short = 'f', long)]
-        file: String,
     },
 }
 
@@ -66,7 +60,7 @@ fn main() {
     let args = Args::parse();
     initialize_logging(args.log_file);
 
-    let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
+    let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
 
     let cancel_signal = Arc::new(AtomicBool::new(false));
@@ -91,10 +85,10 @@ fn main() {
         };
         debug!("Loaded database: {:?}", db);
 
-        let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
+        let mut analyzer = match HuginnNetTcp::new(Some(&db), 1000) {
             Ok(analyzer) => analyzer,
             Err(e) => {
-                error!("Failed to create HuginnNet analyzer: {}", e);
+                error!("Failed to create HuginnNetTcp analyzer: {}", e);
                 return;
             }
         };
@@ -102,11 +96,7 @@ fn main() {
         let result = match args.command {
             Commands::Live { interface } => {
                 info!("Starting live capture on interface: {}", interface);
-                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal.clone()))
-            }
-            Commands::Pcap { file } => {
-                info!("Analyzing PCAP file: {}", file);
-                analyzer.analyze_pcap(&file, sender, Some(thread_cancel_signal))
+                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };
 
@@ -132,15 +122,6 @@ fn main() {
         }
         if let Some(uptime) = output.uptime {
             info!("{}", uptime);
-        }
-        if let Some(http_request) = output.http_request {
-            info!("{}", http_request);
-        }
-        if let Some(http_response) = output.http_response {
-            info!("{}", http_response);
-        }
-        if let Some(tls_client) = output.tls_client {
-            info!("{}", tls_client);
         }
     }
 

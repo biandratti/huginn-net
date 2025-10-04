@@ -1,0 +1,23 @@
+[package]
+name = "huginn-net-db"
+description = "P0f database parser and matching traits for huginn-net"
+readme = "README.md"
+exclude = ["target/"]
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["p0f", "database", "parser", "fingerprinting", "network"]
+categories = ["network-programming"]
+
+[dependencies]
+nom = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+lazy_static = { workspace = true }

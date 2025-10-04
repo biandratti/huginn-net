@@ -1,0 +1,33 @@
+[package]
+name = "huginn-net-http"
+description = "HTTP fingerprinting (p0f-style) analysis for huginn-net"
+readme = "README.md"
+exclude = ["target/"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["http", "fingerprinting", "browser", "p0f", "security"]
+categories = ["network-programming", "web-programming"]
+
+[dependencies]
+huginn-net-db = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+pnet = { workspace = true }
+ttl_cache = { workspace = true }
+hpack-patched = { workspace = true }
+lazy_static = { workspace = true }
+
+[[example]]
+name = "capture-http"
+path = "../examples/capture-http.rs"
+
+[dev-dependencies]
+clap = { workspace = true }
+ctrlc = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
