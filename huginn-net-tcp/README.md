@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.svg" alt="Huginn Net Logo" width="150"/>
+  <img src="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.png" alt="Huginn Net Logo" width="150"/>
   
   # huginn-net-tcp
 

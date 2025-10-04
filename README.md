@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="huginn-net.svg" alt="Huginn Net Logo" width="200"/>
+  <img src="huginn-net.png" alt="Huginn Net Logo" width="200"/>
   
   # Huginn Net - Multi-Protocol Passive Fingerprinting
 
