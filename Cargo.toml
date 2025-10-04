@@ -18,10 +18,10 @@ repository = "https://github.com/biandratti/huginn-net"
 homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
-huginn-net-db = { path = "huginn-net-db" }
-huginn-net-tcp = { path = "huginn-net-tcp" }
-huginn-net-http = { path = "huginn-net-http" }
-huginn-net-tls = { path = "huginn-net-tls" }
+huginn-net-db = { path = "huginn-net-db", version = "1.4.6" }
+huginn-net-tcp = { path = "huginn-net-tcp", version = "1.4.6" }
+huginn-net-http = { path = "huginn-net-http", version = "1.4.6" }
+huginn-net-tls = { path = "huginn-net-tls", version = "1.4.6" }
 
 nom = "8.0.0"
 pnet = "0.35.0"

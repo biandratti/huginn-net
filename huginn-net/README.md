@@ -1,9 +1,14 @@
-# huginn-net
+<div align="center">
+  <img src="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.svg" alt="Huginn Net Logo" width="200"/>
+  
+  # huginn-net
 
-[![Crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
-[![Documentation](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
+  [![Crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
+  [![Documentation](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
+  [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
 
-Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.
+  **Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.**
+</div>
 
 This is the main orchestrator crate that combines all protocol analyzers into a unified interface.
 
