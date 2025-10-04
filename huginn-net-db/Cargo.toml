@@ -3,7 +3,6 @@ name = "huginn-net-db"
 description = "P0f database parser and matching traits for huginn-net"
 readme = "README.md"
 exclude = ["target/"]
-publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
