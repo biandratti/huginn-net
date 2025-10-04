@@ -2,7 +2,7 @@
 name = "huginn-net"
 description = "Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis"
 documentation = "https://docs.rs/huginn-net"
-readme = "../README.md"
+readme = "README.md"
 exclude = ["target/"]
 version.workspace = true
 edition.workspace = true

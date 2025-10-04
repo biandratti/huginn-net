@@ -4,7 +4,6 @@ use huginn_net_db::observable_signals::TcpObservation;
 pub struct ObservableTcp {
     /// Core matching data for fingerprinting
     pub matching: TcpObservation,
-    // Additional fields for extended analysis could go here in the future
 }
 
 // Observable MTU signals
