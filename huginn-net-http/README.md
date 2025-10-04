@@ -22,16 +22,69 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **HTTP/1.x & HTTP/2** - Support for both major HTTP versions
 - **Quality Scoring** - Confidence metrics for all matches
 
-## Usage
+## Quick Start
+
+### Installation
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+huginn-net-http = "1.4.6"
+```
+
+### Basic Usage
 
 ```rust
-use huginn_net_http::{HuginnNetHttp, Database};
+use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult};
+use huginn_net_db::Database;
+use std::sync::mpsc;
+use std::thread;
 
-let db = Database::load_default()?;
-let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let db = Database::load_default()?;
+    
+    let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)?;
+    
+    let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
+    
+    let handle = thread::spawn(move || {
+        analyzer.analyze_network("eth0", sender, None)
+    });
+    
+    for result in receiver {
+        if let Some(http_request) = result.http_request {
+            println!("{}", http_request);
+        }
+        if let Some(http_response) = result.http_response {
+            println!("{}", http_response);
+        }
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+```
 
-// Analyze network interface
-analyzer.analyze_network("eth0", sender, None)?;
+### Example Output
+
+```text
+.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]-
+|
+| client   = 1.2.3.4/1524
+| app      = Firefox:10.x or newer
+| lang     = English
+| params   = none
+| raw_sig  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
+`----
+
+.-[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]-
+|
+| server   = 91.189.91.21/80
+| app      = nginx/1.14.0 (Ubuntu)
+| params   = anonymous
+| raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
+`----
 ```
 
 ## Documentation
