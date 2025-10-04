@@ -77,18 +77,21 @@ fn create_observable_package_ipv4(
             }
         };
 
-        // Get user agent for diagnosis
         let user_agent = http_request.user_agent.clone();
-        let ua_matcher = if let Some(matcher) = matcher {
-            user_agent
+        let (signature_matcher, ua_matcher) = if let Some(matcher) = matcher {
+            let sig_match = matcher.matching_by_http_request(&http_request);
+            let ua_match = user_agent
                 .as_ref()
-                .and_then(|ua| matcher.matching_by_user_agent(ua.clone()))
+                .and_then(|ua| matcher.matching_by_user_agent(ua.clone()));
+            (sig_match, ua_match)
         } else {
-            None
+            (None, None)
         };
 
         let diagnosis = crate::http_common::get_diagnostic(
-            user_agent, ua_matcher, None, // TODO
+            user_agent,
+            ua_matcher,
+            signature_matcher.map(|(label, _signature, _quality)| label),
         );
 
         let request_output = HttpRequestOutput {
@@ -208,18 +211,21 @@ fn create_observable_package_ipv6(
             }
         };
 
-        // Get user agent for diagnosis
         let user_agent = http_request.user_agent.clone();
-        let ua_matcher = if let Some(matcher) = matcher {
-            user_agent
+        let (signature_matcher, ua_matcher) = if let Some(matcher) = matcher {
+            let sig_match = matcher.matching_by_http_request(&http_request);
+            let ua_match = user_agent
                 .as_ref()
-                .and_then(|ua| matcher.matching_by_user_agent(ua.clone()))
+                .and_then(|ua| matcher.matching_by_user_agent(ua.clone()));
+            (sig_match, ua_match)
         } else {
-            None
+            (None, None)
         };
 
         let diagnosis = crate::http_common::get_diagnostic(
-            user_agent, ua_matcher, None, //             user_agent, ua_matcher, None, // TODO
+            user_agent,
+            ua_matcher,
+            signature_matcher.map(|(label, _signature, _quality)| label),
         );
 
         let request_output = HttpRequestOutput {
