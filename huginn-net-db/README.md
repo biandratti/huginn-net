@@ -1,12 +1,20 @@
-# huginn-net-db
+<div align="center">
+  <img src="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.png" alt="Huginn Net Logo" width="150"/>
+  
+  # huginn-net-db
 
-P0f database parser and matching engine for Huginn Net (internal crate).
+  [![Crates.io](https://img.shields.io/crates/v/huginn-net-db.svg)](https://crates.io/crates/huginn-net-db)
+  [![Documentation](https://docs.rs/huginn-net-db/badge.svg)](https://docs.rs/huginn-net-db)
+  [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
+
+  **P0f database parser and matching engine for Huginn Net.**
+</div>
 
 ## Overview
 
-This internal crate provides p0f database parsing and signature matching capabilities. It handles parsing of p0f signature databases and provides efficient matching algorithms for TCP and HTTP fingerprinting.
+This crate provides p0f database parsing and signature matching capabilities. It handles parsing of p0f signature databases and provides efficient matching algorithms for TCP and HTTP fingerprinting.
 
-**Note**: This is an internal crate and is not published to crates.io.
+**Note**: This crate is automatically included when using `huginn-net-tcp` or `huginn-net-http`. Most users don't need to use it directly.
 
 ## Features
 
