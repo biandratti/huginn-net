@@ -1,6 +1,14 @@
-# huginn-net-http
+<div align="center">
+  <img src="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.png" alt="Huginn Net Logo" width="150"/>
+  
+  # huginn-net-http
 
-HTTP fingerprinting and browser detection for Huginn Net.
+  [![Crates.io](https://img.shields.io/crates/v/huginn-net-http.svg)](https://crates.io/crates/huginn-net-http)
+  [![Documentation](https://docs.rs/huginn-net-http/badge.svg)](https://docs.rs/huginn-net-http)
+  [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
+
+  **HTTP fingerprinting and browser detection for Huginn Net.**
+</div>
 
 ## Overview
 

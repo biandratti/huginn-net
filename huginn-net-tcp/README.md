@@ -1,6 +1,14 @@
-# huginn-net-tcp
+<div align="center">
+  <img src="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.png" alt="Huginn Net Logo" width="150"/>
+  
+  # huginn-net-tcp
 
-TCP fingerprinting and OS detection for Huginn Net.
+  [![Crates.io](https://img.shields.io/crates/v/huginn-net-tcp.svg)](https://crates.io/crates/huginn-net-tcp)
+  [![Documentation](https://docs.rs/huginn-net-tcp/badge.svg)](https://docs.rs/huginn-net-tcp)
+  [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
+
+  **TCP fingerprinting and OS detection for Huginn Net.**
+</div>
 
 ## Overview
 
