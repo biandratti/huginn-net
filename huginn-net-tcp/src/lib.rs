@@ -58,7 +58,7 @@ impl<'a> HuginnNetTcp<'a> {
     pub fn new(
         database: Option<&'a db::Database>,
         max_connections: usize,
-    ) -> Result<Self, HuginnNetError> {
+    ) -> Result<Self, HuginnNetTcpError> {
         let matcher = database.map(SignatureMatcher::new);
 
         Ok(Self {
@@ -81,23 +81,23 @@ impl<'a> HuginnNetTcp<'a> {
         interface_name: &str,
         sender: Sender<TcpAnalysisResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
-    ) -> Result<(), HuginnNetError> {
+    ) -> Result<(), HuginnNetTcpError> {
         let interface = datalink::interfaces()
             .into_iter()
             .find(|iface| iface.name == interface_name)
             .ok_or_else(|| {
-                HuginnNetError::Parse(format!("Interface {interface_name} not found"))
+                HuginnNetTcpError::Parse(format!("Interface {interface_name} not found"))
             })?;
 
         let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
-                return Err(HuginnNetError::Parse(
+                return Err(HuginnNetTcpError::Parse(
                     "Unsupported channel type".to_string(),
                 ))
             }
             Err(e) => {
-                return Err(HuginnNetError::Parse(format!(
+                return Err(HuginnNetTcpError::Parse(format!(
                     "Failed to create channel: {e}"
                 )))
             }
@@ -128,7 +128,7 @@ impl<'a> HuginnNetTcp<'a> {
                     }
                 }
                 Err(e) => {
-                    return Err(HuginnNetError::Parse(format!(
+                    return Err(HuginnNetTcpError::Parse(format!(
                         "Error receiving packet: {e}"
                     )));
                 }
@@ -150,9 +150,9 @@ impl<'a> HuginnNetTcp<'a> {
         &self,
         packet: &[u8],
         connection_tracker: &mut TtlCache<Connection, SynData>,
-    ) -> Result<TcpAnalysisResult, HuginnNetError> {
+    ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
         let ethernet = EthernetPacket::new(packet)
-            .ok_or_else(|| HuginnNetError::Parse("Invalid Ethernet packet".to_string()))?;
+            .ok_or_else(|| HuginnNetTcpError::Parse("Invalid Ethernet packet".to_string()))?;
 
         match ethernet.get_ethertype() {
             EtherTypes::Ipv4 => {

@@ -191,14 +191,16 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv4(&packet, connection_tracker).map_err(
                 |e| match e {
-                    huginn_net_tcp::error::HuginnNetError::Parse(msg) => HuginnNetError::Parse(msg),
-                    huginn_net_tcp::error::HuginnNetError::UnsupportedProtocol(msg) => {
+                    huginn_net_tcp::error::HuginnNetTcpError::Parse(msg) => {
+                        HuginnNetError::Parse(msg)
+                    }
+                    huginn_net_tcp::error::HuginnNetTcpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
-                    huginn_net_tcp::error::HuginnNetError::InvalidTcpFlags(flags) => {
+                    huginn_net_tcp::error::HuginnNetTcpError::InvalidTcpFlags(flags) => {
                         HuginnNetError::InvalidTcpFlags(flags)
                     }
-                    huginn_net_tcp::error::HuginnNetError::UnexpectedPackage(msg) => {
+                    huginn_net_tcp::error::HuginnNetTcpError::UnexpectedPackage(msg) => {
                         HuginnNetError::UnexpectedPackage(msg)
                     }
                 },
@@ -277,14 +279,16 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv6(&packet, connection_tracker).map_err(
                 |e| match e {
-                    huginn_net_tcp::error::HuginnNetError::Parse(msg) => HuginnNetError::Parse(msg),
-                    huginn_net_tcp::error::HuginnNetError::UnsupportedProtocol(msg) => {
+                    huginn_net_tcp::error::HuginnNetTcpError::Parse(msg) => {
+                        HuginnNetError::Parse(msg)
+                    }
+                    huginn_net_tcp::error::HuginnNetTcpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
-                    huginn_net_tcp::error::HuginnNetError::InvalidTcpFlags(flags) => {
+                    huginn_net_tcp::error::HuginnNetTcpError::InvalidTcpFlags(flags) => {
                         HuginnNetError::InvalidTcpFlags(flags)
                     }
-                    huginn_net_tcp::error::HuginnNetError::UnexpectedPackage(msg) => {
+                    huginn_net_tcp::error::HuginnNetTcpError::UnexpectedPackage(msg) => {
                         HuginnNetError::UnexpectedPackage(msg)
                     }
                 },
