@@ -9,7 +9,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "1.4.6"
+version = "1.5.0"
 edition = "2021"
 rust-version = "1.80"
 license = "MIT OR Apache-2.0"
@@ -18,10 +18,10 @@ repository = "https://github.com/biandratti/huginn-net"
 homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
-huginn-net-db = { path = "huginn-net-db", version = "1.4.6" }
-huginn-net-tcp = { path = "huginn-net-tcp", version = "1.4.6" }
-huginn-net-http = { path = "huginn-net-http", version = "1.4.6" }
-huginn-net-tls = { path = "huginn-net-tls", version = "1.4.6" }
+huginn-net-db = { path = "huginn-net-db", version = "1.5.0" }
+huginn-net-tcp = { path = "huginn-net-tcp", version = "1.5.0" }
+huginn-net-http = { path = "huginn-net-http", version = "1.5.0" }
+huginn-net-tls = { path = "huginn-net-tls", version = "1.5.0" }
 
 nom = "8.0.0"
 pnet = "0.35.0"

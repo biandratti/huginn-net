@@ -30,7 +30,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-http = "1.4.6"
+huginn-net-http = "1.5.0"
 ```
 
 ### Basic Usage
