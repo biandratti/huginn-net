@@ -1,4 +1,3 @@
-
 use huginn_net_http::http_languages::get_highest_quality_language;
 
 #[test]
