@@ -32,17 +32,17 @@ pub struct ObservableTCPPackage {
     pub uptime: Option<ObservableUptime>,
 }
 
-fn from_client(tcp_flags: u8) -> bool {
+pub fn from_client(tcp_flags: u8) -> bool {
     use TcpFlags::*;
     tcp_flags & SYN != 0 && tcp_flags & ACK == 0
 }
 
-fn from_server(tcp_flags: u8) -> bool {
+pub fn from_server(tcp_flags: u8) -> bool {
     use TcpFlags::*;
     tcp_flags & SYN != 0 && tcp_flags & ACK != 0
 }
 
-fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
+pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
     use TcpFlags::*;
 
     !(((tcp_flags & SYN) == SYN && (tcp_flags & (FIN | RST)) != 0)
@@ -371,36 +371,4 @@ fn visit_tcp(
         mtu: if from_client { mtu } else { None },
         uptime: if !from_client { uptime } else { None },
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_from_client() {
-        assert!(from_client(TcpFlags::SYN));
-        assert!(!from_client(TcpFlags::SYN | TcpFlags::ACK));
-        assert!(!from_client(TcpFlags::ACK));
-    }
-
-    #[test]
-    fn test_from_server() {
-        assert!(from_server(TcpFlags::SYN | TcpFlags::ACK));
-        assert!(!from_server(TcpFlags::SYN));
-        assert!(!from_server(TcpFlags::ACK));
-        assert!(!from_server(TcpFlags::RST));
-    }
-
-    #[test]
-    fn test_is_valid() {
-        assert!(is_valid(TcpFlags::SYN, TcpFlags::SYN));
-        assert!(!is_valid(TcpFlags::SYN | TcpFlags::FIN, TcpFlags::SYN));
-        assert!(!is_valid(TcpFlags::SYN | TcpFlags::RST, TcpFlags::SYN));
-        assert!(!is_valid(
-            TcpFlags::FIN | TcpFlags::RST,
-            TcpFlags::FIN | TcpFlags::RST
-        ));
-        assert!(!is_valid(TcpFlags::SYN, 0));
-    }
 }
