@@ -59,6 +59,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ### Example Output
+
+```text
 .-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls client) ]-
 |
 | client   = 192.168.1.10/45234
@@ -69,15 +71,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | sni      = www.google.com
 | version  = 1.3
 `----
-```
-
-## JA4 Output Example
-
-```text
-JA4: t13d1516h2_8daaf6152771_b0da82dd1658
-SNI: www.google.com
-ALPN: h2
-Version: TLS 1.3
 ```
 
 ## Documentation
