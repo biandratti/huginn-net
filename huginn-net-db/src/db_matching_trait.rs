@@ -2,7 +2,7 @@ use crate::db::Label;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-/// An observed fingerprint from live network traffic or a test case.
+/// An observed fingerprint from live network traffic.
 pub trait ObservedFingerprint: Clone + Debug {
     /// The type of key used to index database signatures compatible with this observed fingerprint.
     type Key: IndexKey;

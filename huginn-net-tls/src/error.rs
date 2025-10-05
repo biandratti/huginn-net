@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-/// TLS-specific error handling
 #[derive(Error, Debug)]
 pub enum HuginnNetTlsError {
     /// An error occurred while parsing TLS data.
