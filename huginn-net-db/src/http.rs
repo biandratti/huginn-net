@@ -113,11 +113,6 @@ pub enum HttpDiagnosis {
     None,
 }
 
-#[cfg(test)]
-pub fn header<S: AsRef<str>>(name: S) -> Header {
-    Header::new(name)
-}
-
 impl Header {
     pub fn new<S: AsRef<str>>(name: S) -> Self {
         Header {
