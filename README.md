@@ -51,6 +51,24 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 - **Research & Forensics** - Analyze traffic patterns, TLS usage, and improve security posture
 - **Compliance Monitoring** - Track device types, OS versions, and TLS configurations
 
+## 📚 Huginn Net Libraries
+
+| Crate | Description | Use Case |
+|-------|-------------|----------|
+| **huginn-net** | **Main orchestrator** - Complete multi-protocol network fingerprinting | Full network analysis, production deployments |
+| **huginn-net-tcp** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime calculation | TCP-only analysis, OS detection, network diagnostics |
+| **huginn-net-http** | **HTTP Analysis** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting | Web traffic analysis, browser identification |
+| **huginn-net-tls** | **TLS Analysis** - JA4 fingerprinting, TLS version detection | TLS security analysis, client identification |
+
+
+### **Which library should I use?**
+
+- **Full scanning**: Use `huginn-net` for complete network analysis
+- **TCP only**: Use `huginn-net-tcp` for OS detection and TCP analysis  
+- **HTTP only**: Use `huginn-net-http` for browser and web server detection
+- **TLS only**: Use `huginn-net-tls` for JA4 fingerprinting and TLS analysis
+- **Advanced**: Use `huginn-net-db` directly for custom signature parsing
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -126,10 +144,6 @@ for output in receiver {
 }
 ```
 
-**Need more control?** Use individual crates:
-- `huginn-net-tcp` - TCP/OS fingerprinting only
-- `huginn-net-http` - HTTP/browser detection only  
-- `huginn-net-tls` - TLS/JA4 fingerprinting only
 ### Package Analysis Output
 ```text
 .-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
