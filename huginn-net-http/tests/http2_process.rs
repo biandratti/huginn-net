@@ -1,4 +1,3 @@
-use huginn_net_db;
 use huginn_net_db::http;
 use huginn_net_http::http2_parser::HTTP2_CONNECTION_PREFACE;
 use huginn_net_http::http2_process::{

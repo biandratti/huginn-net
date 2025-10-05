@@ -1,4 +1,3 @@
-use huginn_net_db;
 use huginn_net_db::http;
 use huginn_net_db::http::Header;
 use huginn_net_http::http1_process::{
