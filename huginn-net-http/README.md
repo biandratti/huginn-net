@@ -4,8 +4,10 @@
   # huginn-net-http
 
   [![Crates.io](https://img.shields.io/crates/v/huginn-net-http.svg)](https://crates.io/crates/huginn-net-http)
+  [![Downloads](https://img.shields.io/crates/d/huginn-net-http.svg)](https://crates.io/crates/huginn-net-http)
   [![Documentation](https://docs.rs/huginn-net-http/badge.svg)](https://docs.rs/huginn-net-http)
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
+  [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
 
   **HTTP fingerprinting and browser detection for Huginn Net.**
 </div>

@@ -4,8 +4,10 @@
   # huginn-net-tls
 
   [![Crates.io](https://img.shields.io/crates/v/huginn-net-tls.svg)](https://crates.io/crates/huginn-net-tls)
+  [![Downloads](https://img.shields.io/crates/d/huginn-net-tls.svg)](https://crates.io/crates/huginn-net-tls)
   [![Documentation](https://docs.rs/huginn-net-tls/badge.svg)](https://docs.rs/huginn-net-tls)
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
+  [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
 
   **JA4 TLS client fingerprinting for Huginn Net.**
 </div>

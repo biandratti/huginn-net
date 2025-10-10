@@ -5,8 +5,7 @@
 
   [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
   [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
-  [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE)
-  [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE-MIT)
+  [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
   [![Dependency Status](https://deps.rs/repo/github/biandratti/huginn-net/status.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
@@ -53,17 +52,17 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 
 ## 📚 Huginn Net Libraries
 
-| Crate | Description | Use Case |
-|-------|-------------|----------|
-| **huginn-net** | **Main orchestrator** - Complete multi-protocol network fingerprinting | Full network analysis, production deployments |
-| **huginn-net-tcp** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime calculation | TCP-only analysis, OS detection, network diagnostics |
-| **huginn-net-http** | **HTTP Analysis** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting | Web traffic analysis, browser identification |
-| **huginn-net-tls** | **TLS Analysis** - JA4 fingerprinting, TLS version detection | TLS security analysis, client identification |
+| Crate | Description                                                                    |
+|-------|--------------------------------------------------------------------------------|
+| **huginn-net** | **TCP-HTTP-TLS Analysis** - Complete multi-protocol network fingerprinting     |
+| **huginn-net-tcp** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime calculation    |
+| **huginn-net-http** | **HTTP Analysis** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting   |
+| **huginn-net-tls** | **TLS Client Analysis** - JA4 fingerprinting, TLS version detection        |
 
 
 ### **Which library should I use?**
 
-- **Full scanning**: Use `huginn-net` for complete network analysis
+- **Multi protocol scanning**: Use `huginn-net` for complete network analysis
 - **TCP only**: Use `huginn-net-tcp` for OS detection and TCP analysis  
 - **HTTP only**: Use `huginn-net-http` for browser and web server detection
 - **TLS only**: Use `huginn-net-tls` for JA4 fingerprinting and TLS analysis
@@ -266,8 +265,6 @@ This implementation follows the official [JA4 specification by FoxIO, LLC](https
 For visual analysis and experimentation, use our companion web application:
 
 **[huginn-net-profiler: Passive Network Profile Analyzer](https://github.com/biandratti/huginn-net-profiler)**
-
-**[Live Demo: https://huginn-net.duckdns.org/](https://huginn-net.duckdns.org/)**
 
 Features:
 - Real-time fingerprint visualization
