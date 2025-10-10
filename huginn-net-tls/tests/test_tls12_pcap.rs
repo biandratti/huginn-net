@@ -9,8 +9,7 @@ fn test_tls12_pcap() {
 
     assert!(
         Path::new(pcap_path).exists(),
-        "PCAP file must exist: {}",
-        pcap_path
+        "PCAP file must exist: {pcap_path}"
     );
 
     let mut analyzer = HuginnNetTls::new();
@@ -24,10 +23,15 @@ fn test_tls12_pcap() {
         results.push(tls_output);
     }
 
-    handle
-        .join()
-        .unwrap()
-        .expect("PCAP analysis should succeed");
+    match handle.join() {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            panic!("PCAP analysis failed: {e}");
+        }
+        Err(e) => {
+            panic!("Thread join failed: {e:?}");
+        }
+    }
 
     assert_eq!(
         results.len(),
@@ -71,12 +75,14 @@ fn test_tls12_pcap() {
         "Destination port must match expected"
     );
 
-    assert!(connection.sig.sni.is_some(), "SNI must be present");
-    assert_eq!(
-        connection.sig.sni.as_ref().unwrap(),
-        "contile.services.mozilla.com",
-        "SNI must match expected value"
-    );
+    if let Some(ref sni) = connection.sig.sni {
+        assert_eq!(
+            sni, "contile.services.mozilla.com",
+            "SNI must match expected value"
+        );
+    } else {
+        panic!("SNI must be present");
+    }
 
     let ja4 = connection.sig.ja4.full.to_string();
     let expected_ja4 = "t13d1715h2_5b57614c22b0_3d5424432f57";
