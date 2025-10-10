@@ -37,18 +37,45 @@ huginn-net-tls = "1.5.0"
 
 ### Basic Usage
 
+#### Live Network Analysis
+
 ```rust
-use huginn_net_tls::{HuginnNetTls, TlsAnalysisResult};
+use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
 use std::sync::mpsc;
 use std::thread;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), HuginnNetTlsError> {
     let mut analyzer = HuginnNetTls::new();
     
-    let (sender, receiver) = mpsc::channel::<TlsAnalysisResult>();
+    let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
     
     let handle = thread::spawn(move || {
         analyzer.analyze_network("eth0", sender, None)
+    });
+    
+    for tls in receiver {
+        println!("{}", tls);
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+```
+
+#### PCAP File Analysis
+
+```rust
+use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
+use std::sync::mpsc;
+use std::thread;
+
+fn main() -> Result<(), HuginnNetTlsError> {
+    let mut analyzer = HuginnNetTls::new();
+    
+    let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
+    
+    let handle = thread::spawn(move || {
+        analyzer.analyze_pcap("capture.pcap", sender, None)
     });
     
     for tls in receiver {

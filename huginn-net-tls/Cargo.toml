@@ -20,6 +20,7 @@ sha2 = { workspace = true }
 pnet = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+pcap-file = { workspace = true }
 
 [[example]]
 name = "capture-tls"
