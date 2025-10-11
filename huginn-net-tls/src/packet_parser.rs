@@ -47,7 +47,7 @@ pub enum DatalinkFormat {
 ///
 /// # Returns
 /// * `IpPacket` - The parsed IP packet or None if no valid format found
-pub fn parse_packet(packet: &[u8]) -> IpPacket {
+pub fn parse_packet(packet: &[u8]) -> IpPacket<'_> {
     // Strategy 1: Try Ethernet first (most common)
     if let Some(parsed) = try_ethernet_format(packet) {
         return parsed;
@@ -67,7 +67,7 @@ pub fn parse_packet(packet: &[u8]) -> IpPacket {
 }
 
 /// Try parsing as Ethernet frame
-fn try_ethernet_format(packet: &[u8]) -> Option<IpPacket> {
+fn try_ethernet_format(packet: &[u8]) -> Option<IpPacket<'_>> {
     // Ethernet header is 14 bytes: [6B dst][6B src][2B ethertype]
     if packet.len() < 14 {
         return None;
@@ -96,7 +96,7 @@ fn try_ethernet_format(packet: &[u8]) -> Option<IpPacket> {
 }
 
 /// Try parsing as Raw IP (no datalink header)
-fn try_raw_ip_format(packet: &[u8]) -> Option<IpPacket> {
+fn try_raw_ip_format(packet: &[u8]) -> Option<IpPacket<'_>> {
     if packet.len() < 20 {
         return None;
     }
@@ -123,7 +123,7 @@ fn try_raw_ip_format(packet: &[u8]) -> Option<IpPacket> {
 }
 
 /// Try parsing as NULL datalink format (4-byte header)
-fn try_null_datalink_format(packet: &[u8]) -> Option<IpPacket> {
+fn try_null_datalink_format(packet: &[u8]) -> Option<IpPacket<'_>> {
     // Check for NULL datalink signature and minimum size
     if packet.len() < 24 || packet[0] != 0x1e || packet[1] != 0x00 {
         return None;
