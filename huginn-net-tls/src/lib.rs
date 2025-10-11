@@ -1,7 +1,7 @@
-pub mod datalink_parser;
 pub mod error;
 pub mod observable;
 pub mod output;
+pub mod packet_parser;
 pub mod process;
 pub mod tls;
 pub mod tls_process;
@@ -14,7 +14,7 @@ pub use process::*;
 pub use tls::*;
 pub use tls_process::*;
 
-use crate::datalink_parser::{parse_packet, ParsedPacket};
+use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
@@ -191,21 +191,21 @@ impl HuginnNetTls {
         packet: &[u8],
     ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         match parse_packet(packet) {
-            ParsedPacket::Ipv4(ip_data) => {
+            IpPacket::Ipv4(ip_data) => {
                 if let Some(ipv4) = pnet::packet::ipv4::Ipv4Packet::new(ip_data) {
                     process_ipv4_packet(&ipv4)
                 } else {
                     Ok(None)
                 }
             }
-            ParsedPacket::Ipv6(ip_data) => {
+            IpPacket::Ipv6(ip_data) => {
                 if let Some(ipv6) = pnet::packet::ipv6::Ipv6Packet::new(ip_data) {
                     process_ipv6_packet(&ipv6)
                 } else {
                     Ok(None)
                 }
             }
-            ParsedPacket::None => Ok(None),
+            IpPacket::None => Ok(None),
         }
     }
 }

@@ -1,18 +1,19 @@
-/// Datalink layer parsing utilities for different PCAP formats
+/// Packet parsing utilities for different network packet formats
 ///
-/// This module provides unified parsing for various datalink layer formats:
-/// - Ethernet (most common)
-/// - Raw IP (no datalink header)
-/// - NULL datalink (4-byte header)
-/// - Future formats can be added here
+/// This module provides unified parsing for various network packet formats
+/// from both live network capture and PCAP files:
+/// - Ethernet frames (most common in network interfaces)
+/// - Raw IP packets (tunnels, loopback interfaces)
+/// - NULL datalink packets (specialized capture tools)
+/// - Future packet formats can be added here
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use tracing::debug;
 
-/// Represents the result of datalink parsing
+/// Represents the result of IP packet parsing
 #[derive(Debug)]
-pub enum ParsedPacket<'a> {
+pub enum IpPacket<'a> {
     /// IPv4 packet data (slice of original packet)
     Ipv4(&'a [u8]),
     /// IPv6 packet data (slice of original packet)
@@ -32,19 +33,21 @@ pub enum DatalinkFormat {
     Null,
 }
 
-/// Parse a packet using multiple datalink format strategies
+/// Parse a network packet using multiple format strategies
 ///
 /// Tries different parsing strategies in order of likelihood:
-/// 1. Ethernet (most common)
-/// 2. Raw IP (tunnels, loopback)
-/// 3. NULL datalink (specialized tools)
+/// 1. Ethernet (most common in network interfaces and PCAPs)
+/// 2. Raw IP (tunnels, loopback interfaces, some PCAPs)
+/// 3. NULL datalink (specialized capture tools)
+///
+/// Works with packets from both live network capture and PCAP files.
 ///
 /// # Arguments
-/// * `packet` - Raw packet bytes to parse
+/// * `packet` - Raw packet bytes from network interface or PCAP file
 ///
 /// # Returns
-/// * `ParsedPacket` - The parsed IP packet or None if no valid format found
-pub fn parse_packet(packet: &[u8]) -> ParsedPacket {
+/// * `IpPacket` - The parsed IP packet or None if no valid format found
+pub fn parse_packet(packet: &[u8]) -> IpPacket {
     // Strategy 1: Try Ethernet first (most common)
     if let Some(parsed) = try_ethernet_format(packet) {
         return parsed;
@@ -60,11 +63,11 @@ pub fn parse_packet(packet: &[u8]) -> ParsedPacket {
         return parsed;
     }
 
-    ParsedPacket::None
+    IpPacket::None
 }
 
 /// Try parsing as Ethernet frame
-fn try_ethernet_format(packet: &[u8]) -> Option<ParsedPacket> {
+fn try_ethernet_format(packet: &[u8]) -> Option<IpPacket> {
     // Ethernet header is 14 bytes: [6B dst][6B src][2B ethertype]
     if packet.len() < 14 {
         return None;
@@ -77,13 +80,13 @@ fn try_ethernet_format(packet: &[u8]) -> Option<ParsedPacket> {
         EtherTypes::Ipv4 => {
             if Ipv4Packet::new(ip_data).is_some() {
                 debug!("Parsed Ethernet IPv4 packet");
-                return Some(ParsedPacket::Ipv4(ip_data));
+                return Some(IpPacket::Ipv4(ip_data));
             }
         }
         EtherTypes::Ipv6 => {
             if Ipv6Packet::new(ip_data).is_some() {
                 debug!("Parsed Ethernet IPv6 packet");
-                return Some(ParsedPacket::Ipv6(ip_data));
+                return Some(IpPacket::Ipv6(ip_data));
             }
         }
         _ => {}
@@ -93,7 +96,7 @@ fn try_ethernet_format(packet: &[u8]) -> Option<ParsedPacket> {
 }
 
 /// Try parsing as Raw IP (no datalink header)
-fn try_raw_ip_format(packet: &[u8]) -> Option<ParsedPacket> {
+fn try_raw_ip_format(packet: &[u8]) -> Option<IpPacket> {
     if packet.len() < 20 {
         return None;
     }
@@ -104,13 +107,13 @@ fn try_raw_ip_format(packet: &[u8]) -> Option<ParsedPacket> {
         4 => {
             if Ipv4Packet::new(packet).is_some() {
                 debug!("Parsed Raw IPv4 packet");
-                return Some(ParsedPacket::Ipv4(packet));
+                return Some(IpPacket::Ipv4(packet));
             }
         }
         6 => {
             if Ipv6Packet::new(packet).is_some() {
                 debug!("Parsed Raw IPv6 packet");
-                return Some(ParsedPacket::Ipv6(packet));
+                return Some(IpPacket::Ipv6(packet));
             }
         }
         _ => {}
@@ -120,7 +123,7 @@ fn try_raw_ip_format(packet: &[u8]) -> Option<ParsedPacket> {
 }
 
 /// Try parsing as NULL datalink format (4-byte header)
-fn try_null_datalink_format(packet: &[u8]) -> Option<ParsedPacket> {
+fn try_null_datalink_format(packet: &[u8]) -> Option<IpPacket> {
     // Check for NULL datalink signature and minimum size
     if packet.len() < 24 || packet[0] != 0x1e || packet[1] != 0x00 {
         return None;
@@ -133,13 +136,13 @@ fn try_null_datalink_format(packet: &[u8]) -> Option<ParsedPacket> {
         4 => {
             if Ipv4Packet::new(ip_data).is_some() {
                 debug!("Parsed NULL datalink IPv4 packet");
-                return Some(ParsedPacket::Ipv4(ip_data));
+                return Some(IpPacket::Ipv4(ip_data));
             }
         }
         6 => {
             if Ipv6Packet::new(ip_data).is_some() {
                 debug!("Parsed NULL datalink IPv6 packet");
-                return Some(ParsedPacket::Ipv6(ip_data));
+                return Some(IpPacket::Ipv6(ip_data));
             }
         }
         _ => {}
