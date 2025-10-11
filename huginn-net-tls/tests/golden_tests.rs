@@ -49,12 +49,12 @@ struct Ja4Snapshot {
 }
 
 fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
-    let snapshot_path = format!("tests/snapshots/{}.json", pcap_file);
+    let snapshot_path = format!("tests/snapshots/{pcap_file}.json");
     let snapshot_content = fs::read_to_string(&snapshot_path)
-        .unwrap_or_else(|_| panic!("Failed to read snapshot file: {}", snapshot_path));
+        .unwrap_or_else(|_| panic!("Failed to read snapshot file: {snapshot_path}"));
 
     serde_json::from_str(&snapshot_content)
-        .unwrap_or_else(|e| panic!("Failed to parse snapshot JSON: {}", e))
+        .unwrap_or_else(|e| panic!("Failed to parse snapshot JSON: {e}"))
 }
 
 fn analyze_pcap_file(pcap_path: &str) -> Vec<TlsClientOutput> {
@@ -95,26 +95,22 @@ fn assert_connection_matches_snapshot(
     assert_eq!(
         actual.source.ip.to_string(),
         expected.source.ip,
-        "Connection {}: Source IP mismatch",
-        connection_index
+        "Connection {connection_index}: Source IP mismatch"
     );
     assert_eq!(
         actual.source.port, expected.source.port,
-        "Connection {}: Source port mismatch",
-        connection_index
+        "Connection {connection_index}: Source port mismatch"
     );
 
     assert_eq!(
         actual.destination.ip.to_string(),
         expected.destination.ip,
-        "Connection {}: Destination IP mismatch",
-        connection_index
+        "Connection {connection_index}: Destination IP mismatch"
     );
 
     assert_eq!(
         actual.destination.port, expected.destination.port,
-        "Connection {}: Destination port mismatch",
-        connection_index
+        "Connection {connection_index}: Destination port mismatch"
     );
 
     let expected_version = match expected.tls.version.as_str() {
@@ -127,115 +123,98 @@ fn assert_connection_matches_snapshot(
 
     assert_eq!(
         actual.sig.version, expected_version,
-        "Connection {}: TLS version mismatch",
-        connection_index
+        "Connection {connection_index}: TLS version mismatch"
     );
 
     assert_eq!(
         actual.sig.sni,
         Some(expected.tls.sni.clone()),
-        "Connection {}: SNI mismatch",
-        connection_index
+        "Connection {connection_index}: SNI mismatch"
     );
 
     assert_eq!(
         actual.sig.alpn,
         Some(expected.tls.alpn.clone()),
-        "Connection {}: ALPN mismatch",
-        connection_index
+        "Connection {connection_index}: ALPN mismatch"
     );
 
     assert_eq!(
         actual.sig.cipher_suites.len(),
         expected.tls.cipher_suites_count,
-        "Connection {}: Cipher suites count mismatch",
-        connection_index
+        "Connection {connection_index}: Cipher suites count mismatch"
     );
 
     assert_eq!(
         actual.sig.extensions.len(),
         expected.tls.extensions_count,
-        "Connection {}: Extensions count mismatch",
-        connection_index
+        "Connection {connection_index}: Extensions count mismatch"
     );
 
     assert_eq!(
         !actual.sig.signature_algorithms.is_empty(),
         expected.tls.has_signature_algorithms,
-        "Connection {}: Signature algorithms presence mismatch",
-        connection_index
+        "Connection {connection_index}: Signature algorithms presence mismatch"
     );
 
     // Elliptic curves presence
     assert_eq!(
         !actual.sig.elliptic_curves.is_empty(),
         expected.tls.has_elliptic_curves,
-        "Connection {}: Elliptic curves presence mismatch",
-        connection_index
+        "Connection {connection_index}: Elliptic curves presence mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4.full.to_string(),
         expected.tls.ja4.full,
-        "Connection {}: JA4 full fingerprint mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 full fingerprint mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4.ja4_a, expected.tls.ja4.ja4_a,
-        "Connection {}: JA4_a mismatch",
-        connection_index
+        "Connection {connection_index}: JA4_a mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4.ja4_b, expected.tls.ja4.ja4_b,
-        "Connection {}: JA4_b mismatch",
-        connection_index
+        "Connection {connection_index}: JA4_b mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4.ja4_c, expected.tls.ja4.ja4_c,
-        "Connection {}: JA4_c mismatch",
-        connection_index
+        "Connection {connection_index}: JA4_c mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4.raw.to_string(),
         expected.tls.ja4.raw,
-        "Connection {}: JA4 raw mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 raw mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4_original.full.to_string(),
         expected.tls.ja4_original.full,
-        "Connection {}: JA4 original full fingerprint mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 original full fingerprint mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4_original.ja4_a, expected.tls.ja4_original.ja4_a,
-        "Connection {}: JA4 original ja4_a mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 original ja4_a mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4_original.ja4_b, expected.tls.ja4_original.ja4_b,
-        "Connection {}: JA4 original ja4_b mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 original ja4_b mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4_original.ja4_c, expected.tls.ja4_original.ja4_c,
-        "Connection {}: JA4 original ja4_c mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 original ja4_c mismatch"
     );
 
     assert_eq!(
         actual.sig.ja4_original.raw.to_string(),
         expected.tls.ja4_original.raw,
-        "Connection {}: JA4 original raw mismatch",
-        connection_index
+        "Connection {connection_index}: JA4 original raw mismatch"
     );
 }
 
@@ -259,19 +238,10 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
 }
 
 #[test]
-fn test_tls12_pcap_snapshot() {
-    test_pcap_with_snapshot("tls12.pcap");
-}
-
-#[test]
 fn test_golden_pcap_snapshots() {
     let golden_test_cases = [
         "tls12.pcap",
-        // Add more PCAP files here as golden tests:
-        // "tls-alpn-h2.pcap",
-        // "tls-sni.pcapng",
-        // "chrome-tls13.pcap",
-        // "firefox-tls12.pcap",
+        "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
     ];
 
     for pcap_file in golden_test_cases {

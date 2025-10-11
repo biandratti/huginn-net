@@ -1,3 +1,4 @@
+pub mod datalink_parser;
 pub mod error;
 pub mod observable;
 pub mod output;
@@ -13,12 +14,9 @@ pub use process::*;
 pub use tls::*;
 pub use tls_process::*;
 
+use crate::datalink_parser::{parse_packet, ParsedPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
-use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
-use pnet::packet::Packet;
 use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -192,25 +190,22 @@ impl HuginnNetTls {
         &mut self,
         packet: &[u8],
     ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
-        let ethernet = EthernetPacket::new(packet)
-            .ok_or_else(|| HuginnNetTlsError::Parse("Invalid Ethernet packet".to_string()))?;
-
-        match ethernet.get_ethertype() {
-            EtherTypes::Ipv4 => {
-                if let Some(ipv4) = Ipv4Packet::new(ethernet.payload()) {
+        match parse_packet(packet) {
+            ParsedPacket::Ipv4(ip_data) => {
+                if let Some(ipv4) = pnet::packet::ipv4::Ipv4Packet::new(ip_data) {
                     process_ipv4_packet(&ipv4)
                 } else {
                     Ok(None)
                 }
             }
-            EtherTypes::Ipv6 => {
-                if let Some(ipv6) = Ipv6Packet::new(ethernet.payload()) {
+            ParsedPacket::Ipv6(ip_data) => {
+                if let Some(ipv6) = pnet::packet::ipv6::Ipv6Packet::new(ip_data) {
                     process_ipv6_packet(&ipv6)
                 } else {
                     Ok(None)
                 }
             }
-            _ => Ok(None),
+            ParsedPacket::None => Ok(None),
         }
     }
 }
