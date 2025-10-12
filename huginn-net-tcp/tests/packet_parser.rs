@@ -151,7 +151,7 @@ fn test_parse_null_datalink_ipv6() {
     match parse_packet(&null_ipv6) {
         IpPacket::Ipv6(ip_data) => {
             assert_eq!(ip_data[0], 0x60); // Version=6
-            assert_eq!(ip_data.len(), 36); // IPv6 header + addresses
+            assert_eq!(ip_data.len(), 40); // IPv6 header (40 bytes total)
         }
         _ => panic!("Expected NULL datalink IPv6 packet"),
     }
