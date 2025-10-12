@@ -456,6 +456,8 @@ dependencies = [
  "huginn-net-db",
  "pcap-file",
  "pnet",
+ "serde",
+ "serde_json",
  "thiserror 2.0.17",
  "tracing",
  "tracing-appender",
