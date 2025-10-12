@@ -37,15 +37,16 @@ huginn-net-http = "1.5.0"
 
 ### Basic Usage
 
+#### Live Network Analysis
+
 ```rust
-use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult};
+use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult, HuginnNetHttpError};
 use huginn_net_db::Database;
 use std::sync::mpsc;
 use std::thread;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), HuginnNetHttpError> {
     let db = Database::load_default()?;
-    
     let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)?;
     
     let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
@@ -67,6 +68,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+#### PCAP File Analysis
+
+```rust
+use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult, HuginnNetHttpError};
+use huginn_net_db::Database;
+use std::sync::mpsc;
+use std::thread;
+
+fn main() -> Result<(), HuginnNetHttpError> {
+    let db = Database::load_default()?;
+    let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)?;
+    
+    let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
+    
+    let handle = thread::spawn(move || {
+        analyzer.analyze_pcap("capture.pcap", sender, None)
+    });
+    
+    for result in receiver {
+        if let Some(http_request) = result.http_request {
+            println!("{}", http_request);
+        }
+        if let Some(http_response) = result.http_response {
+            println!("{}", http_response);
+        }
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+```
+
+For a complete working example, see [`examples/capture-http.rs`](../examples/capture-http.rs).
 
 ### Example Output
 

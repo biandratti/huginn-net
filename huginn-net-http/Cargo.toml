@@ -21,6 +21,7 @@ pnet = { workspace = true }
 ttl_cache = { workspace = true }
 hpack-patched = { workspace = true }
 lazy_static = { workspace = true }
+pcap-file = { workspace = true }
 
 [[example]]
 name = "capture-http"
@@ -31,3 +32,5 @@ clap = { workspace = true }
 ctrlc = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
