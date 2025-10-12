@@ -36,19 +36,18 @@ huginn-net-tcp = "1.5.0"
 
 ### Basic Usage
 
+#### Live Network Analysis
+
 ```rust
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult};
+use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
 use huginn_net_db::Database;
 use std::sync::mpsc;
 use std::thread;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-
+fn main() -> Result<(), HuginnNetTcpError> {
     let db = Database::load_default()?;
-    
     let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
     
-
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
     
     let handle = thread::spawn(move || {
@@ -74,6 +73,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+#### PCAP File Analysis
+
+```rust
+use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
+use huginn_net_db::Database;
+use std::sync::mpsc;
+use std::thread;
+
+fn main() -> Result<(), HuginnNetTcpError> {
+    let db = Database::load_default()?;
+    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
+    
+    let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
+    
+    let handle = thread::spawn(move || {
+        analyzer.analyze_pcap("capture.pcap", sender, None)
+    });
+    
+    for result in receiver {
+        if let Some(syn) = result.syn {
+            println!("{}", syn);
+        }
+        if let Some(syn_ack) = result.syn_ack {
+            println!("{}", syn_ack);
+        }
+        if let Some(mtu) = result.mtu {
+            println!("{}", mtu);
+        }
+        if let Some(uptime) = result.uptime {
+            println!("{}", uptime);
+        }
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+```
+
+For a complete working example, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
 
 ### Example Output
 
