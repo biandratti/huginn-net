@@ -87,6 +87,8 @@ fn main() -> Result<(), HuginnNetTlsError> {
 }
 ```
 
+For a complete working example, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+
 ### Example Output
 
 ```text
