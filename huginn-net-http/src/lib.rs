@@ -10,6 +10,7 @@ pub mod http2_process;
 pub mod http_common;
 pub mod http_languages;
 pub mod http_process;
+pub mod packet_parser;
 
 pub mod display;
 pub mod error;
@@ -26,15 +27,14 @@ pub use output::*;
 pub use process::*;
 pub use signature_matcher::*;
 
-use pnet::datalink::{self, Channel};
-use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
-use pnet::packet::Packet;
+use crate::packet_parser::{parse_packet, IpPacket};
+use pcap_file::pcap::PcapReader;
+use pnet::datalink::{self, Channel, Config};
+use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
 /// An HTTP-focused passive fingerprinting analyzer.
@@ -69,6 +69,43 @@ impl<'a> HuginnNetHttp<'a> {
         })
     }
 
+    fn process_with<F>(
+        &mut self,
+        mut packet_fn: F,
+        sender: Sender<HttpAnalysisResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetHttpError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetHttpError>>,
+    {
+        while let Some(packet_result) = packet_fn() {
+            if let Some(ref cancel) = cancel_signal {
+                if cancel.load(Ordering::Relaxed) {
+                    debug!("Cancellation signal received, stopping packet processing");
+                    break;
+                }
+            }
+
+            match packet_result {
+                Ok(packet) => match self.process_packet(&packet) {
+                    Ok(result) => {
+                        if sender.send(result).is_err() {
+                            error!("Receiver dropped, stopping packet processing");
+                            break;
+                        }
+                    }
+                    Err(http_error) => {
+                        debug!("Error processing packet: {}", http_error);
+                    }
+                },
+                Err(e) => {
+                    error!("Failed to read packet: {}", e);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Analyzes network traffic from a live network interface for HTTP packets.
     ///
     /// # Parameters
@@ -84,57 +121,80 @@ impl<'a> HuginnNetHttp<'a> {
         sender: Sender<HttpAnalysisResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
     ) -> Result<(), HuginnNetHttpError> {
-        let interface = datalink::interfaces()
+        let interfaces = datalink::interfaces();
+        let interface = interfaces
             .into_iter()
             .find(|iface| iface.name == interface_name)
             .ok_or_else(|| {
-                HuginnNetHttpError::Parse(format!("Interface {interface_name} not found"))
+                HuginnNetHttpError::Parse(format!(
+                    "Could not find network interface: {interface_name}"
+                ))
             })?;
 
-        let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
+        debug!("Using network interface: {}", interface.name);
+
+        let config = Config {
+            promiscuous: true,
+            ..Config::default()
+        };
+
+        let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
                 return Err(HuginnNetHttpError::Parse(
-                    "Unsupported channel type".to_string(),
+                    "Unhandled channel type".to_string(),
                 ))
             }
             Err(e) => {
                 return Err(HuginnNetHttpError::Parse(format!(
-                    "Failed to create channel: {e}"
+                    "Unable to create channel: {e}"
                 )))
             }
         };
 
-        loop {
-            if let Some(ref signal) = cancel_signal {
-                if signal.load(Ordering::Relaxed) {
-                    break;
-                }
-            }
+        self.process_with(
+            move || match rx.next() {
+                Ok(packet) => Some(Ok(packet.to_vec())),
+                Err(e) => Some(Err(HuginnNetHttpError::Parse(format!(
+                    "Error receiving packet: {e}"
+                )))),
+            },
+            sender,
+            cancel_signal,
+        )
+    }
 
-            match rx.next() {
-                Ok(packet) => {
-                    // Process packet and handle errors gracefully
-                    match self.process_packet(packet) {
-                        Ok(result) => {
-                            if sender.send(result).is_err() {
-                                break;
-                            }
-                        }
-                        Err(huginn_error) => {
-                            debug!("Error processing packet: {}", huginn_error);
-                        }
-                    }
-                }
-                Err(e) => {
-                    return Err(HuginnNetHttpError::Parse(format!(
-                        "Error receiving packet: {e}"
-                    )));
-                }
-            }
-        }
+    /// Analyzes HTTP packets from a PCAP file.
+    ///
+    /// # Parameters
+    /// - `pcap_path`: Path to the PCAP file to analyze.
+    /// - `sender`: A channel sender to send analysis results.
+    /// - `cancel_signal`: Optional atomic boolean to signal cancellation.
+    ///
+    /// # Returns
+    /// A `Result` indicating success or failure.
+    pub fn analyze_pcap(
+        &mut self,
+        pcap_path: &str,
+        sender: Sender<HttpAnalysisResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetHttpError> {
+        let file = File::open(pcap_path)
+            .map_err(|e| HuginnNetHttpError::Parse(format!("Failed to open PCAP file: {e}")))?;
+        let mut pcap_reader = PcapReader::new(file)
+            .map_err(|e| HuginnNetHttpError::Parse(format!("Failed to create PCAP reader: {e}")))?;
 
-        Ok(())
+        self.process_with(
+            move || match pcap_reader.next_packet() {
+                Some(Ok(packet)) => Some(Ok(packet.data.to_vec())),
+                Some(Err(e)) => Some(Err(HuginnNetHttpError::Parse(format!(
+                    "Error reading PCAP packet: {e}"
+                )))),
+                None => None,
+            },
+            sender,
+            cancel_signal,
+        )
     }
 
     /// Processes a single packet and extracts HTTP information if present.
@@ -145,12 +205,12 @@ impl<'a> HuginnNetHttp<'a> {
     /// # Returns
     /// A `Result` containing an `HttpAnalysisResult` or an error.
     fn process_packet(&mut self, packet: &[u8]) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
-        let ethernet = EthernetPacket::new(packet)
-            .ok_or_else(|| HuginnNetHttpError::Parse("Invalid Ethernet packet".to_string()))?;
+        use pnet::packet::ipv4::Ipv4Packet;
+        use pnet::packet::ipv6::Ipv6Packet;
 
-        match ethernet.get_ethertype() {
-            EtherTypes::Ipv4 => {
-                if let Some(ipv4) = Ipv4Packet::new(ethernet.payload()) {
+        match parse_packet(packet) {
+            IpPacket::Ipv4(ip_data) => {
+                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
                     process::process_ipv4_packet(
                         &ipv4,
                         &mut self.http_flows,
@@ -164,8 +224,8 @@ impl<'a> HuginnNetHttp<'a> {
                     })
                 }
             }
-            EtherTypes::Ipv6 => {
-                if let Some(ipv6) = Ipv6Packet::new(ethernet.payload()) {
+            IpPacket::Ipv6(ip_data) => {
+                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
                     process::process_ipv6_packet(
                         &ipv6,
                         &mut self.http_flows,
@@ -179,7 +239,7 @@ impl<'a> HuginnNetHttp<'a> {
                     })
                 }
             }
-            _ => Ok(HttpAnalysisResult {
+            IpPacket::None => Ok(HttpAnalysisResult {
                 http_request: None,
                 http_response: None,
             }),

@@ -87,61 +87,107 @@ huginn-net = "1.5.0"
 
 ### Basic Usage
 
+#### Live Network Analysis
+
 ```rust
 use huginn_net::{Database, HuginnNet};
+use huginn_net::error::HuginnNetError;
 use std::sync::mpsc;
+use std::thread;
 
-// Load signature database and create analyzer
-let db = match Database::load_default() {
-    Ok(db) => db,
-    Err(e) => {
-        error!("Failed to load default database: {}", e);
-        return;
-    }
-};
-let (sender, receiver) = mpsc::channel();
-let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
-    Ok(analyzer) => analyzer,
-    Err(e) => {
-        error!("Failed to create HuginnNet analyzer: {}", e);
-        return;
-    }
-};
-
-// Analyze network traffic (choose one)
-std::thread::spawn(move || {
-    // Live network capture
-    analyzer.analyze_network("eth0", sender, None);
+fn main() -> Result<(), HuginnNetError> {
+    // Load signature database and create analyzer
+    let db = Database::load_default()?;
+    let mut analyzer = HuginnNet::new(Some(&db), 1000, None)?;
     
-    // OR PCAP file analysis
-    // analyzer.analyze_pcap("traffic.pcap", sender, None);
-});
-
-// Process results
-for output in receiver {
-    if let Some(syn) = output.syn {
-        info!("{}", syn);
+    let (sender, receiver) = mpsc::channel();
+    
+    // Spawn analysis thread
+    let handle = thread::spawn(move || {
+        analyzer.analyze_network("eth0", sender, None)
+    });
+    
+    // Process results
+    for result in receiver {
+        if let Some(syn) = result.syn {
+            println!("{}", syn);
+        }
+        if let Some(syn_ack) = result.syn_ack {
+            println!("{}", syn_ack);
+        }
+        if let Some(mtu) = result.mtu {
+            println!("{}", mtu);
+        }
+        if let Some(uptime) = result.uptime {
+            println!("{}", uptime);
+        }
+        if let Some(http_request) = result.http_request {
+            println!("{}", http_request);
+        }
+        if let Some(http_response) = result.http_response {
+            println!("{}", http_response);
+        }
+        if let Some(tls_client) = result.tls_client {
+            println!("{}", tls_client);
+        }
     }
-    if let Some(syn_ack) = output.syn_ack {
-        info!("{}", syn_ack);
-    }
-    if let Some(mtu) = output.mtu {
-        info!("{}", mtu);
-    }
-    if let Some(uptime) = output.uptime {
-        info!("{}", uptime);
-    }
-    if let Some(http_request) = output.http_request {
-        info!("{}", http_request);
-    }
-    if let Some(http_response) = output.http_response {
-        info!("{}", http_response);
-    }
-    if let Some(tls_client) = output.tls_client {
-        info!("{}", tls_client);
-    }
+    
+    handle.join().unwrap()?;
+    Ok(())
 }
 ```
+
+#### PCAP File Analysis
+
+```rust
+use huginn_net::{Database, HuginnNet};
+use huginn_net::error::HuginnNetError;
+use std::sync::mpsc;
+use std::thread;
+
+fn main() -> Result<(), HuginnNetError> {
+    // Load signature database and create analyzer
+    let db = Database::load_default()?;
+    let mut analyzer = HuginnNet::new(Some(&db), 1000, None)?;
+    
+    let (sender, receiver) = mpsc::channel();
+    
+    // Spawn PCAP analysis thread
+    let handle = thread::spawn(move || {
+        analyzer.analyze_pcap("traffic.pcap", sender, None)
+    });
+    
+    // Process results
+    for result in receiver {
+        if let Some(syn) = result.syn {
+            println!("{}", syn);
+        }
+        if let Some(syn_ack) = result.syn_ack {
+            println!("{}", syn_ack);
+        }
+        if let Some(mtu) = result.mtu {
+            println!("{}", mtu);
+        }
+        if let Some(uptime) = result.uptime {
+            println!("{}", uptime);
+        }
+        if let Some(http_request) = result.http_request {
+            println!("{}", http_request);
+        }
+        if let Some(http_response) = result.http_response {
+            println!("{}", http_response);
+        }
+        if let Some(tls_client) = result.tls_client {
+            println!("{}", tls_client);
+        }
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+```
+
+For complete working examples, see [`examples/capture.rs`](examples/capture.rs).
 
 ### Package Analysis Output
 ```text

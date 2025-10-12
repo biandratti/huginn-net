@@ -51,7 +51,6 @@ pub use huginn_net_tls::ObservableTlsClient;
 use pcap_file::pcap::PcapReader;
 use pnet::datalink;
 use pnet::datalink::Config;
-use std::error::Error;
 use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -60,6 +59,7 @@ use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
 pub mod matcher;
+pub mod packet_parser;
 
 // ============================================================================
 // CORE MODULES (always required - database, matching, errors, results)
@@ -80,6 +80,7 @@ pub use huginn_net_http;
 // ============================================================================
 // TLS PROTOCOL MODULES (external crate)
 // ============================================================================
+use crate::error::HuginnNetError;
 pub use huginn_net_tls;
 
 // ============================================================================
@@ -145,14 +146,14 @@ impl<'a> HuginnNet<'a> {
         database: Option<&'a Database>,
         max_connections: usize,
         config: Option<AnalysisConfig>,
-    ) -> Result<Self, crate::error::HuginnNetError> {
+    ) -> Result<Self, error::HuginnNetError> {
         let config = config.unwrap_or_default();
 
         if config.matcher_enabled
             && (config.tcp_enabled || config.http_enabled)
             && database.is_none()
         {
-            return Err(crate::error::HuginnNetError::MissConfiguration(
+            return Err(error::HuginnNetError::MissConfiguration(
                 "Database is required when matcher is enabled".to_string(),
             ));
         }
@@ -195,9 +196,9 @@ impl<'a> HuginnNet<'a> {
         mut packet_fn: F,
         sender: Sender<FingerprintResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
-    ) -> Result<(), Box<dyn Error>>
+    ) -> Result<(), HuginnNetError>
     where
-        F: FnMut() -> Option<Result<Vec<u8>, Box<dyn Error>>>,
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetError>>,
     {
         while let Some(packet_result) = packet_fn() {
             if let Some(ref cancel) = cancel_signal {
@@ -239,12 +240,16 @@ impl<'a> HuginnNet<'a> {
         interface_name: &str,
         sender: Sender<FingerprintResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), HuginnNetError> {
         let interfaces = datalink::interfaces();
         let interface = interfaces
             .into_iter()
             .find(|iface| iface.name == interface_name)
-            .ok_or_else(|| format!("Could not find network interface: {interface_name}"))?;
+            .ok_or_else(|| {
+                HuginnNetError::MissConfiguration(format!(
+                    "Could not find network interface: {interface_name}"
+                ))
+            })?;
 
         debug!("Using network interface: {}", interface.name);
 
@@ -255,14 +260,24 @@ impl<'a> HuginnNet<'a> {
 
         let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
-            Ok(_) => return Err("Unhandled channel type".into()),
-            Err(e) => return Err(format!("Unable to create channel: {e}").into()),
+            Ok(_) => {
+                return Err(HuginnNetError::MissConfiguration(
+                    "Unhandled channel type".to_string(),
+                ))
+            }
+            Err(e) => {
+                return Err(HuginnNetError::MissConfiguration(format!(
+                    "Unable to create channel: {e}"
+                )))
+            }
         };
 
         self.process_with(
             move || match rx.next() {
                 Ok(packet) => Some(Ok(packet.to_vec())),
-                Err(e) => Some(Err(e.into())),
+                Err(e) => Some(Err(HuginnNetError::MissConfiguration(format!(
+                    "Error receiving packet: {e}"
+                )))),
             },
             sender,
             cancel_signal,
@@ -283,14 +298,20 @@ impl<'a> HuginnNet<'a> {
         pcap_path: &str,
         sender: Sender<FingerprintResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
-    ) -> Result<(), Box<dyn Error>> {
-        let file = File::open(pcap_path)?;
-        let mut pcap_reader = PcapReader::new(file)?;
+    ) -> Result<(), HuginnNetError> {
+        let file = File::open(pcap_path).map_err(|e| {
+            HuginnNetError::MissConfiguration(format!("Failed to open PCAP file: {e}"))
+        })?;
+        let mut pcap_reader = PcapReader::new(file).map_err(|e| {
+            HuginnNetError::MissConfiguration(format!("Failed to create PCAP reader: {e}"))
+        })?;
 
         self.process_with(
             move || match pcap_reader.next_packet() {
                 Some(Ok(packet)) => Some(Ok(packet.data.to_vec())),
-                Some(Err(e)) => Some(Err(e.into())),
+                Some(Err(e)) => Some(Err(HuginnNetError::MissConfiguration(format!(
+                    "Error reading PCAP packet: {e}"
+                )))),
                 None => None,
             },
             sender,
