@@ -38,3 +38,5 @@ ctrlc = "3.5.0"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 criterion = { version = "0.7.0", features = ["html_reports"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
