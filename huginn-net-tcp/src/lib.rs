@@ -5,6 +5,7 @@ pub use huginn_net_db::tcp;
 
 pub mod ip_options;
 pub mod mtu;
+pub mod packet_parser;
 pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
@@ -26,15 +27,14 @@ pub use signature_matcher::*;
 pub use tcp_process::*;
 pub use uptime::{Connection, SynData};
 
-use pnet::datalink::{self, Channel};
-use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
-use pnet::packet::Packet;
+use crate::packet_parser::{parse_packet, IpPacket};
+use pcap_file::pcap::PcapReader;
+use pnet::datalink::{self, Channel, Config};
+use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
 /// A TCP-focused passive fingerprinting analyzer.
@@ -67,6 +67,46 @@ impl<'a> HuginnNetTcp<'a> {
         })
     }
 
+    fn process_with<F>(
+        &mut self,
+        mut packet_fn: F,
+        sender: Sender<TcpAnalysisResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTcpError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTcpError>>,
+    {
+        // Connection tracker for TCP analysis
+        let mut connection_tracker = TtlCache::new(self.max_connections);
+
+        while let Some(packet_result) = packet_fn() {
+            if let Some(ref cancel) = cancel_signal {
+                if cancel.load(Ordering::Relaxed) {
+                    debug!("Cancellation signal received, stopping packet processing");
+                    break;
+                }
+            }
+
+            match packet_result {
+                Ok(packet) => match self.process_packet(&packet, &mut connection_tracker) {
+                    Ok(result) => {
+                        if sender.send(result).is_err() {
+                            error!("Receiver dropped, stopping packet processing");
+                            break;
+                        }
+                    }
+                    Err(tcp_error) => {
+                        debug!("Error processing packet: {}", tcp_error);
+                    }
+                },
+                Err(e) => {
+                    error!("Failed to read packet: {}", e);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Analyzes network traffic from a live network interface for TCP packets.
     ///
     /// # Parameters
@@ -82,60 +122,80 @@ impl<'a> HuginnNetTcp<'a> {
         sender: Sender<TcpAnalysisResult>,
         cancel_signal: Option<Arc<AtomicBool>>,
     ) -> Result<(), HuginnNetTcpError> {
-        let interface = datalink::interfaces()
+        let interfaces = datalink::interfaces();
+        let interface = interfaces
             .into_iter()
             .find(|iface| iface.name == interface_name)
             .ok_or_else(|| {
-                HuginnNetTcpError::Parse(format!("Interface {interface_name} not found"))
+                HuginnNetTcpError::Parse(format!(
+                    "Could not find network interface: {interface_name}"
+                ))
             })?;
 
-        let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
+        debug!("Using network interface: {}", interface.name);
+
+        let config = Config {
+            promiscuous: true,
+            ..Config::default()
+        };
+
+        let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
                 return Err(HuginnNetTcpError::Parse(
-                    "Unsupported channel type".to_string(),
+                    "Unhandled channel type".to_string(),
                 ))
             }
             Err(e) => {
                 return Err(HuginnNetTcpError::Parse(format!(
-                    "Failed to create channel: {e}"
+                    "Unable to create channel: {e}"
                 )))
             }
         };
 
-        // Connection tracker for TCP analysis
-        let mut connection_tracker = TtlCache::new(self.max_connections);
+        self.process_with(
+            move || match rx.next() {
+                Ok(packet) => Some(Ok(packet.to_vec())),
+                Err(e) => Some(Err(HuginnNetTcpError::Parse(format!(
+                    "Error receiving packet: {e}"
+                )))),
+            },
+            sender,
+            cancel_signal,
+        )
+    }
 
-        loop {
-            if let Some(ref signal) = cancel_signal {
-                if signal.load(Ordering::Relaxed) {
-                    break;
-                }
-            }
+    /// Analyzes TCP packets from a PCAP file.
+    ///
+    /// # Parameters
+    /// - `pcap_path`: Path to the PCAP file to analyze.
+    /// - `sender`: A channel sender to send analysis results.
+    /// - `cancel_signal`: Optional atomic boolean to signal cancellation.
+    ///
+    /// # Returns
+    /// A `Result` indicating success or failure.
+    pub fn analyze_pcap(
+        &mut self,
+        pcap_path: &str,
+        sender: Sender<TcpAnalysisResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTcpError> {
+        let file = File::open(pcap_path)
+            .map_err(|e| HuginnNetTcpError::Parse(format!("Failed to open PCAP file: {e}")))?;
+        let mut pcap_reader = PcapReader::new(file)
+            .map_err(|e| HuginnNetTcpError::Parse(format!("Failed to create PCAP reader: {e}")))?;
 
-            match rx.next() {
-                Ok(packet) => {
-                    // Process packet and handle errors gracefully
-                    match self.process_packet(packet, &mut connection_tracker) {
-                        Ok(result) => {
-                            if sender.send(result).is_err() {
-                                break;
-                            }
-                        }
-                        Err(huginn_error) => {
-                            debug!("Error processing packet: {}", huginn_error);
-                        }
-                    }
-                }
-                Err(e) => {
-                    return Err(HuginnNetTcpError::Parse(format!(
-                        "Error receiving packet: {e}"
-                    )));
-                }
-            }
-        }
-
-        Ok(())
+        self.process_with(
+            move || match pcap_reader.next_packet() {
+                Some(Ok(packet)) => Some(Ok(packet.data.to_vec())),
+                Some(Err(e)) => Some(Err(HuginnNetTcpError::Parse(format!(
+                    "Error reading PCAP packet: {e}"
+                )))),
+                None => None,
+            },
+            sender,
+            cancel_signal,
+        )
     }
 
     /// Processes a single packet and extracts TCP information if present.
@@ -151,13 +211,13 @@ impl<'a> HuginnNetTcp<'a> {
         packet: &[u8],
         connection_tracker: &mut TtlCache<Connection, SynData>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
-        let ethernet = EthernetPacket::new(packet)
-            .ok_or_else(|| HuginnNetTcpError::Parse("Invalid Ethernet packet".to_string()))?;
+        use pnet::packet::ipv4::Ipv4Packet;
+        use pnet::packet::ipv6::Ipv6Packet;
 
-        match ethernet.get_ethertype() {
-            EtherTypes::Ipv4 => {
-                if let Some(ipv4) = Ipv4Packet::new(ethernet.payload()) {
-                    process::process_ipv4_packet(&ipv4, connection_tracker, self.matcher.as_ref())
+        match parse_packet(packet) {
+            IpPacket::Ipv4(ip_data) => {
+                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
+                    process_ipv4_packet(&ipv4, connection_tracker, self.matcher.as_ref())
                 } else {
                     Ok(TcpAnalysisResult {
                         syn: None,
@@ -167,9 +227,9 @@ impl<'a> HuginnNetTcp<'a> {
                     })
                 }
             }
-            EtherTypes::Ipv6 => {
-                if let Some(ipv6) = Ipv6Packet::new(ethernet.payload()) {
-                    process::process_ipv6_packet(&ipv6, connection_tracker, self.matcher.as_ref())
+            IpPacket::Ipv6(ip_data) => {
+                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
+                    process_ipv6_packet(&ipv6, connection_tracker, self.matcher.as_ref())
                 } else {
                     Ok(TcpAnalysisResult {
                         syn: None,
@@ -179,7 +239,7 @@ impl<'a> HuginnNetTcp<'a> {
                     })
                 }
             }
-            _ => Ok(TcpAnalysisResult {
+            IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,
                 syn_ack: None,
                 mtu: None,

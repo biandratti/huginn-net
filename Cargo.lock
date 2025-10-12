@@ -454,6 +454,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "huginn-net-db",
+ "pcap-file",
  "pnet",
  "thiserror 2.0.17",
  "tracing",
