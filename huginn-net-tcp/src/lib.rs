@@ -30,6 +30,8 @@ pub use uptime::{Connection, SynData};
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
+use pnet::packet::ipv4::Ipv4Packet;
+use pnet::packet::ipv6::Ipv6Packet;
 use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -211,9 +213,6 @@ impl<'a> HuginnNetTcp<'a> {
         packet: &[u8],
         connection_tracker: &mut TtlCache<Connection, SynData>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
-        use pnet::packet::ipv4::Ipv4Packet;
-        use pnet::packet::ipv6::Ipv6Packet;
-
         match parse_packet(packet) {
             IpPacket::Ipv4(ip_data) => {
                 if let Some(ipv4) = Ipv4Packet::new(ip_data) {
