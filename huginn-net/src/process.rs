@@ -1,4 +1,5 @@
 use crate::error::HuginnNetError;
+use crate::packet_parser::{parse_packet, IpPacket};
 use crate::AnalysisConfig;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
@@ -7,14 +8,7 @@ use huginn_net_tcp::tcp_process::ObservableTCPPackage;
 use huginn_net_tcp::uptime::{Connection, SynData};
 use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
-use pnet::packet::{
-    ethernet::{EtherType, EtherTypes, EthernetPacket},
-    ipv4::Ipv4Packet,
-    ipv6::Ipv6Packet,
-    tcp::TcpPacket,
-    vlan::VlanPacket,
-    Packet,
-};
+use pnet::packet::{ipv4::Ipv4Packet, ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
@@ -44,87 +38,42 @@ impl ObservablePackage {
         http_processors: &HttpProcessors,
         config: &AnalysisConfig,
     ) -> Result<Self, HuginnNetError> {
-        EthernetPacket::new(packet)
-            .ok_or_else(|| {
-                HuginnNetError::UnexpectedPackage("ethernet packet too short".to_string())
-            })
-            .and_then(|packet| {
-                visit_ethernet(
-                    packet.get_ethertype(),
-                    connection_tracker,
-                    http_flows,
-                    http_processors,
-                    packet.payload(),
-                    config,
-                )
-            })
+        match parse_packet(packet) {
+            IpPacket::Ipv4(ip_data) => {
+                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
+                    process_ipv4(
+                        connection_tracker,
+                        http_flows,
+                        http_processors,
+                        ipv4,
+                        config,
+                    )
+                } else {
+                    Err(HuginnNetError::UnexpectedPackage(
+                        "Invalid IPv4 packet".to_string(),
+                    ))
+                }
+            }
+            IpPacket::Ipv6(ip_data) => {
+                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
+                    process_ipv6(
+                        connection_tracker,
+                        http_flows,
+                        http_processors,
+                        ipv6,
+                        config,
+                    )
+                } else {
+                    Err(HuginnNetError::UnexpectedPackage(
+                        "Invalid IPv6 packet".to_string(),
+                    ))
+                }
+            }
+            IpPacket::None => Err(HuginnNetError::UnexpectedPackage(
+                "No valid IP packet found".to_string(),
+            )),
+        }
     }
-}
-
-fn visit_ethernet(
-    ether_type: EtherType,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
-    http_processors: &HttpProcessors,
-    payload: &[u8],
-    config: &AnalysisConfig,
-) -> Result<ObservablePackage, HuginnNetError> {
-    match ether_type {
-        EtherTypes::Vlan => VlanPacket::new(payload)
-            .ok_or_else(|| HuginnNetError::UnexpectedPackage("vlan packet too short".to_string()))
-            .and_then(|packet| {
-                visit_vlan(
-                    connection_tracker,
-                    http_flows,
-                    http_processors,
-                    packet,
-                    config,
-                )
-            }),
-
-        EtherTypes::Ipv4 => Ipv4Packet::new(payload)
-            .ok_or_else(|| HuginnNetError::UnexpectedPackage("ipv4 packet too short".to_string()))
-            .and_then(|packet| {
-                process_ipv4(
-                    connection_tracker,
-                    http_flows,
-                    http_processors,
-                    packet,
-                    config,
-                )
-            }),
-
-        EtherTypes::Ipv6 => Ipv6Packet::new(payload)
-            .ok_or_else(|| HuginnNetError::UnexpectedPackage("ipv6 packet too short".to_string()))
-            .and_then(|packet| {
-                process_ipv6(
-                    connection_tracker,
-                    http_flows,
-                    http_processors,
-                    packet,
-                    config,
-                )
-            }),
-
-        ty => Err(HuginnNetError::UnsupportedEthernetType(ty)),
-    }
-}
-
-fn visit_vlan(
-    connection_tracker: &mut TtlCache<Connection, SynData>,
-    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
-    http_processors: &HttpProcessors,
-    packet: VlanPacket,
-    config: &AnalysisConfig,
-) -> Result<ObservablePackage, HuginnNetError> {
-    visit_ethernet(
-        packet.get_ethertype(),
-        connection_tracker,
-        http_flows,
-        http_processors,
-        packet.payload(),
-        config,
-    )
 }
 
 trait IpPacketProcessor: Packet {

@@ -52,3 +52,9 @@ pub enum HuginnNetError {
     #[error("Unknown error")]
     Unknown,
 }
+
+impl From<huginn_net_db::error::DatabaseError> for HuginnNetError {
+    fn from(err: huginn_net_db::error::DatabaseError) -> Self {
+        HuginnNetError::MissConfiguration(format!("Database error: {err}"))
+    }
+}
