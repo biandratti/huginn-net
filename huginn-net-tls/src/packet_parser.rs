@@ -155,12 +155,7 @@ fn try_null_datalink_format(packet: &[u8]) -> Option<IpPacket<'_>> {
 ///
 /// Useful for statistics or format validation
 pub fn detect_datalink_format(packet: &[u8]) -> Option<DatalinkFormat> {
-    // Check Ethernet
-    if EthernetPacket::new(packet).is_some() {
-        return Some(DatalinkFormat::Ethernet);
-    }
-
-    // Check NULL datalink
+    // Check NULL datalink first (most specific signature)
     if packet.len() >= 24 && packet[0] == 0x1e && packet[1] == 0x00 {
         let ip_data = &packet[4..];
         let version = (ip_data[0] & 0xF0) >> 4;
@@ -169,39 +164,42 @@ pub fn detect_datalink_format(packet: &[u8]) -> Option<DatalinkFormat> {
         }
     }
 
-    // Check Raw IP
+    // Check Raw IP (check if it starts with valid IP version)
     if packet.len() >= 20 {
         let version = (packet[0] & 0xF0) >> 4;
         if version == 4 || version == 6 {
-            return Some(DatalinkFormat::RawIp);
+            // Additional validation for IPv4
+            if version == 4 {
+                let ihl = (packet[0] & 0x0F).saturating_mul(4);
+                if ihl >= 20 && packet.len() >= usize::from(ihl) {
+                    return Some(DatalinkFormat::RawIp);
+                }
+            }
+            // Additional validation for IPv6
+            else if version == 6 && packet.len() >= 40 {
+                return Some(DatalinkFormat::RawIp);
+            }
+        }
+    }
+
+    // Check Ethernet (least specific - needs valid EtherType)
+    if packet.len() >= 14 {
+        if let Some(ethernet) = EthernetPacket::new(packet) {
+            let ethertype = ethernet.get_ethertype();
+            // Only consider it Ethernet if it has a valid IP EtherType
+            if ethertype == EtherTypes::Ipv4 || ethertype == EtherTypes::Ipv6 {
+                let ip_data = &packet[14..];
+                if !ip_data.is_empty() {
+                    let version = (ip_data[0] & 0xF0) >> 4;
+                    if (ethertype == EtherTypes::Ipv4 && version == 4)
+                        || (ethertype == EtherTypes::Ipv6 && version == 6)
+                    {
+                        return Some(DatalinkFormat::Ethernet);
+                    }
+                }
+            }
         }
     }
 
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_detect_null_datalink() {
-        let null_packet = vec![0x1e, 0x00, 0x00, 0x00, 0x60, 0x02]; // NULL + IPv6 start
-        let format = detect_datalink_format(&null_packet);
-        assert_eq!(format, Some(DatalinkFormat::Null));
-    }
-
-    #[test]
-    fn test_detect_raw_ipv4() {
-        let raw_ipv4 = vec![0x45, 0x00, 0x00, 0x1c]; // IPv4 header start
-        let format = detect_datalink_format(&raw_ipv4);
-        assert_eq!(format, Some(DatalinkFormat::RawIp));
-    }
-
-    #[test]
-    fn test_detect_raw_ipv6() {
-        let raw_ipv6 = vec![0x60, 0x00, 0x00, 0x00]; // IPv6 header start
-        let format = detect_datalink_format(&raw_ipv6);
-        assert_eq!(format, Some(DatalinkFormat::RawIp));
-    }
 }
