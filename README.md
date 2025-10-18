@@ -5,10 +5,11 @@
 
   [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
   [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
+  [![Downloads](https://img.shields.io/crates/d/huginn-net.svg)](https://crates.io/crates/huginn-net)
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
-  [![Dependency Status](https://deps.rs/repo/github/biandratti/huginn-net/status.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
   [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
 </div>
 
@@ -16,7 +17,7 @@
 
 #### Why choose Huginn Net?
 
-- **Zero external dependencies** - No tshark, wireshark, or third-party libraries required
+- **No system dependencies** - No tshark, wireshark, or external tools required
 - **Same accuracy as p0f** - Validated against extensive device testing  
 - **Modern Rust implementation** - Memory safety and zero-cost abstractions  
 - **Production performance** - Processes packets in ~3.1ms with comparable speed to original p0f  
