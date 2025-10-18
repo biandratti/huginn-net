@@ -16,7 +16,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   rust_stable: stable
-  rust_min: '1.80'
+  rust_min: '1.82'
 
 jobs:
   build:
