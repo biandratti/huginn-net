@@ -33,7 +33,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tcp = "1.5.0"
+huginn-net-tcp = "1.5.1"
 ```
 
 ### Basic Usage
