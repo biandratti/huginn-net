@@ -3,11 +3,13 @@
   
   # huginn-net-db
 
-  [![Crates.io](https://img.shields.io/crates/v/huginn-net-db.svg)](https://crates.io/crates/huginn-net-db)
+  [![docs](https://docs.rs/huginn-net-db/badge.svg)](https://docs.rs/huginn-net-db)
+  [![crates.io](https://img.shields.io/crates/v/huginn-net-db.svg)](https://crates.io/crates/huginn-net-db)
   [![Downloads](https://img.shields.io/crates/d/huginn-net-db.svg)](https://crates.io/crates/huginn-net-db)
-  [![Documentation](https://docs.rs/huginn-net-db/badge.svg)](https://docs.rs/huginn-net-db)
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
+  [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
+  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
 
   **P0f database parser and matching engine for Huginn Net.**
 </div>
