@@ -30,25 +30,8 @@ pcap-file = { workspace = true }
 clap = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
-criterion = { workspace = true }
 ctrlc = { workspace = true }
 
 [[example]]
 name = "capture"
 path = "../examples/capture.rs"
-
-
-[[bench]]
-name = "benchmark"
-path = "../benches/benchmark.rs"
-harness = false
-
-[[bench]]
-name = "bench_tls"
-path = "../benches/bench_tls.rs"
-harness = false
-
-[[bench]]
-name = "bench_tcp"
-path = "../benches/bench_tcp.rs"
-harness = false

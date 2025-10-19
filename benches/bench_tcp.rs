@@ -84,32 +84,32 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
 
     // Count TCP analysis results
     let mut connection_tracker = TtlCache::new(1000);
-    let mut syn_count = 0;
-    let mut syn_ack_count = 0;
-    let mut mtu_count = 0;
-    let mut uptime_count = 0;
+    let mut syn_count: u32 = 0;
+    let mut syn_ack_count: u32 = 0;
+    let mut mtu_count: u32 = 0;
+    let mut uptime_count: u32 = 0;
 
     for packet in &packets {
         if let Some(result) = process_tcp_packet(packet, &mut connection_tracker, Some(&matcher)) {
             if result.syn.is_some() {
-                syn_count += 1;
+                syn_count = syn_count.saturating_add(1);
             }
             if result.syn_ack.is_some() {
-                syn_ack_count += 1;
+                syn_ack_count = syn_ack_count.saturating_add(1);
             }
             if result.mtu.is_some() {
-                mtu_count += 1;
+                mtu_count = mtu_count.saturating_add(1);
             }
             if result.uptime.is_some() {
-                uptime_count += 1;
+                uptime_count = uptime_count.saturating_add(1);
             }
         }
     }
 
-    println!("  SYN packets: {}", syn_count);
-    println!("  SYN-ACK packets: {}", syn_ack_count);
-    println!("  MTU detections: {}", mtu_count);
-    println!("  Uptime calculations: {}", uptime_count);
+    println!("  SYN packets: {syn_count}");
+    println!("  SYN-ACK packets: {syn_ack_count}");
+    println!("  MTU detections: {mtu_count}");
+    println!("  Uptime calculations: {uptime_count}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TCP_OS_Fingerprinting");
@@ -176,17 +176,17 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     // Count MTU detections
     let matcher = SignatureMatcher::new(&db);
     let mut connection_tracker = TtlCache::new(1000);
-    let mut mtu_detections = 0;
+    let mut mtu_detections: u32 = 0;
 
     for packet in &packets {
         if let Some(result) = process_tcp_packet(packet, &mut connection_tracker, Some(&matcher)) {
             if result.mtu.is_some() {
-                mtu_detections += 1;
+                mtu_detections = mtu_detections.saturating_add(1);
             }
         }
     }
 
-    println!("  MTU detections: {}", mtu_detections);
+    println!("  MTU detections: {mtu_detections}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TCP_MTU_Detection");
@@ -246,17 +246,17 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
     // Count uptime calculations
     let mut connection_tracker = TtlCache::new(1000);
-    let mut uptime_calculations = 0;
+    let mut uptime_calculations: u32 = 0;
 
     for packet in &packets {
         if let Some(result) = process_tcp_packet(packet, &mut connection_tracker, None) {
             if result.uptime.is_some() {
-                uptime_calculations += 1;
+                uptime_calculations = uptime_calculations.saturating_add(1);
             }
         }
     }
 
-    println!("  Uptime calculations: {}", uptime_calculations);
+    println!("  Uptime calculations: {uptime_calculations}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TCP_Uptime_Calculation");

@@ -65,15 +65,15 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
     println!("  Total packets: {}", packets.len());
 
     // Count TLS packets for analysis
-    let mut tls_packet_count = 0;
+    let mut tls_packet_count: u32 = 0;
 
     for packet in &packets {
         if process_tls_packet(packet).is_some() {
-            tls_packet_count += 1;
+            tls_packet_count = tls_packet_count.saturating_add(1);
         }
     }
 
-    println!("  TLS packets found: {}", tls_packet_count);
+    println!("  TLS packets found: {tls_packet_count}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_JA4_TLS12");
@@ -119,15 +119,15 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
     println!("  Total packets: {}", packets.len());
 
     // Count TLS packets for analysis
-    let mut tls_packet_count = 0;
+    let mut tls_packet_count: u32 = 0;
 
     for packet in &packets {
         if process_tls_packet(packet).is_some() {
-            tls_packet_count += 1;
+            tls_packet_count = tls_packet_count.saturating_add(1);
         }
     }
 
-    println!("  TLS packets found: {}", tls_packet_count);
+    println!("  TLS packets found: {tls_packet_count}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_JA4_ALPN_H2");
@@ -176,15 +176,15 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
     println!("  Total packets: {}", packets.len());
 
     // Count TLS packets for analysis
-    let mut tls_packet_count = 0;
+    let mut tls_packet_count: u32 = 0;
 
     for packet in &packets {
         if process_tls_packet(packet).is_some() {
-            tls_packet_count += 1;
+            tls_packet_count = tls_packet_count.saturating_add(1);
         }
     }
 
-    println!("  TLS packets found: {}", tls_packet_count);
+    println!("  TLS packets found: {tls_packet_count}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_Packet_Parsing");
@@ -243,19 +243,19 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     println!("  Total packets: {}", packets.len());
 
     // Count TLS packets for analysis
-    let mut tls_packet_count = 0;
-    let mut ja4_count = 0;
+    let mut tls_packet_count: u32 = 0;
+    let mut ja4_count: u32 = 0;
 
     for packet in &packets {
         if let Some(_result) = process_tls_packet(packet) {
-            tls_packet_count += 1;
+            tls_packet_count = tls_packet_count.saturating_add(1);
             // JA4 is always generated if we have a TLS result
-            ja4_count += 1;
+            ja4_count = ja4_count.saturating_add(1);
         }
     }
 
-    println!("  TLS packets found: {}", tls_packet_count);
-    println!("  JA4 fingerprints generated: {}", ja4_count);
+    println!("  TLS packets found: {tls_packet_count}");
+    println!("  JA4 fingerprints generated: {ja4_count}");
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_JA4_Overhead");
