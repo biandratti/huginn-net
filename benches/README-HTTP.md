@@ -23,29 +23,29 @@ The benchmark uses an HTTP simple GET PCAP file containing real HTTP traffic:
 
 | Operation | Time (microseconds) | Notes |
 |-----------|-------------------|-------|
-| Minimal packet parsing | 0.046 | Structure validation only |
-| HTTP without browser matching | 35.0 | Basic HTTP analysis |
-| HTTP with browser matching | 35.0 | Full browser fingerprinting |
-| Server without matching | 31.6 | Basic server analysis |
-| Server with matching | 39.4 | Full server identification |
-| Full analysis with collection | 38.6 | Complete result processing |
+| Minimal packet parsing | 0.042 | Structure validation only |
+| HTTP without browser matching | 32.0 | Basic HTTP analysis |
+| HTTP with browser matching | 37.4 | Full browser fingerprinting |
+| Server without matching | 33.1 | Basic server analysis |
+| Server with matching | 37.3 | Full server identification |
+| Full analysis with collection | 38.2 | Complete result processing |
 
 ### Processing Overhead Analysis
 
 | Comparison | Baseline | Target | Overhead | Impact |
 |------------|----------|--------|----------|---------|
-| Parsing vs Full Analysis | 46 ns | 37.2 μs | 809x | Expected for comprehensive HTTP analysis |
-| No Browser vs Browser Matching | 35.0 μs | 35.0 μs | 0% | Browser matching has minimal overhead |
-| No Server vs Server Matching | 31.6 μs | 39.4 μs | 25% | Server database lookup overhead |
-| Analysis vs Collection | 37.2 μs | 38.6 μs | 4% | Result extraction overhead |
+| Parsing vs Full Analysis | 42 ns | 37.8 μs | 900x | Expected for comprehensive HTTP analysis |
+| No Browser vs Browser Matching | 32.0 μs | 37.4 μs | 17% | Browser database lookup overhead |
+| No Server vs Server Matching | 33.1 μs | 37.3 μs | 13% | Server database lookup overhead |
+| Analysis vs Collection | 37.8 μs | 38.2 μs | 1% | Minimal result extraction overhead |
 
 ### Cache Size Impact Analysis
 
 | Cache Size | Processing Time | Use Case |
 |------------|----------------|----------|
-| Small (100 flows) | 31.0 μs | Memory-constrained environments |
-| Standard (1000 flows) | 31.2 μs | Typical HTTP monitoring |
-| Large (10000 flows) | 30.9 μs | High-throughput analysis |
+| Small (100 flows) | 31.3 μs | Memory-constrained environments |
+| Standard (1000 flows) | 31.6 μs | Typical HTTP monitoring |
+| Large (10000 flows) | 30.8 μs | High-throughput analysis |
 
 **Finding**: Flow cache size has minimal impact on performance (~1% variation), indicating efficient cache management.
 
@@ -55,10 +55,10 @@ Based on single-core performance:
 
 | Scenario | Packets/Second | Use Case |
 |----------|----------------|----------|
-| Minimal parsing only | ~21,900,000 | High-speed packet filtering |
-| Basic HTTP analysis | ~31,600 | HTTP flow analysis |
-| Full browser detection | ~28,600 | Browser fingerprinting |
-| Full server detection | ~25,400 | Web server identification |
+| Minimal parsing only | ~23,700,000 | High-speed packet filtering |
+| Basic HTTP analysis | ~31,300 | HTTP flow analysis |
+| Full browser detection | ~26,700 | Browser fingerprinting |
+| Full server detection | ~26,800 | Web server identification |
 
 ## Benchmark Categories
 
@@ -125,8 +125,8 @@ cargo bench --bench bench_http
 - Browser and server identification supports security and analytics use cases
 
 ### For Capacity Planning
-- Single-core throughput: 25,400+ HTTP packets per second (full server detection)
-- Browser detection throughput: 28,600+ packets per second
+- Single-core throughput: 26,800+ HTTP packets per second (full server detection)
+- Browser detection throughput: 26,700+ packets per second
 - Memory usage: Scales efficiently with flow cache size (100-10,000 flows)
 - CPU utilization: Primarily bound by header parsing and database matching
 

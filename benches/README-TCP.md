@@ -22,29 +22,29 @@ The benchmark uses a macOS TCP flags PCAP file containing real TCP traffic:
 
 | Operation | Time (microseconds) | Notes |
 |-----------|-------------------|-------|
-| Minimal packet parsing | 0.127 | Structure validation only |
+| Minimal packet parsing | 0.163 | Structure validation only |
 | TCP without OS matching | 5.0 | Basic TCP analysis |
 | TCP with OS matching | 6.0 | Full p0f-style fingerprinting |
-| MTU without link matching | 5.0 | Raw MTU calculation |
-| MTU with link matching | 6.1 | MTU + link type detection |
-| Full analysis with collection | 7.0 | Complete result processing |
+| MTU without link matching | 5.1 | Raw MTU calculation |
+| MTU with link matching | 6.2 | MTU + link type detection |
+| Full analysis with collection | 7.5 | Complete result processing |
 
 ### Processing Overhead Analysis
 
 | Comparison | Baseline | Target | Overhead | Impact |
 |------------|----------|--------|----------|---------|
-| Parsing vs Full Analysis | 127 ns | 6.2 μs | 49x | Expected for comprehensive analysis |
+| Parsing vs Full Analysis | 163 ns | 6.4 μs | 39x | Expected for comprehensive analysis |
 | No OS vs OS Matching | 5.0 μs | 6.0 μs | 20% | Database lookup overhead |
-| No Link vs Link Matching | 5.0 μs | 6.1 μs | 22% | MTU database matching |
-| Analysis vs Collection | 6.2 μs | 7.0 μs | 13% | Result extraction overhead |
+| No Link vs Link Matching | 5.1 μs | 6.2 μs | 22% | MTU database matching |
+| Analysis vs Collection | 6.4 μs | 7.5 μs | 17% | Result extraction overhead |
 
 ### Cache Size Impact Analysis
 
 | Cache Size | Processing Time | Use Case |
 |------------|----------------|----------|
-| Small (100 connections) | 5.3 μs | Memory-constrained environments |
+| Small (100 connections) | 5.0 μs | Memory-constrained environments |
 | Standard (1000 connections) | 5.1 μs | Typical network monitoring |
-| Large (10000 connections) | 4.9 μs | High-throughput analysis |
+| Large (10000 connections) | 5.1 μs | High-throughput analysis |
 
 **Finding**: Larger caches provide better performance due to reduced cache misses during connection tracking.
 
@@ -54,10 +54,10 @@ Based on single-core performance:
 
 | Scenario | Packets/Second | Use Case |
 |----------|----------------|----------|
-| Minimal parsing only | ~7,800,000 | High-speed packet filtering |
+| Minimal parsing only | ~6,100,000 | High-speed packet filtering |
 | Basic TCP analysis | ~200,000 | TCP flow analysis |
 | Full OS fingerprinting | ~167,000 | Complete security analysis |
-| MTU detection | ~164,000 | Network infrastructure analysis |
+| MTU detection | ~161,000 | Network infrastructure analysis |
 
 ## Benchmark Categories
 

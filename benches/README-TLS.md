@@ -18,17 +18,17 @@ The benchmarks use two PCAP files containing real TLS traffic:
 | Operation | Time (microseconds) | Notes |
 |-----------|-------------------|-------|
 | Raw packet parsing | 0.003 | Structure validation only |
-| Full TLS processing | 12.3 | Complete JA4 fingerprinting |
-| TLS 1.2 processing | 10.9 | Standard TLS handshake |
-| TLS ALPN H2 processing | 17.7 | With HTTP/2 extensions |
+| Full TLS processing | 11.6 | Complete JA4 fingerprinting |
+| TLS 1.2 processing | 11.4 | Standard TLS handshake |
+| TLS ALPN H2 processing | 17.8 | With HTTP/2 extensions |
 
 ### Processing Overhead Analysis
 
 | Comparison | Baseline | Target | Overhead | Impact |
 |------------|----------|--------|----------|---------|
-| Parsing vs Full Processing | 3.1 ns | 12.3 μs | 4,000x | Expected for cryptographic operations |
-| TLS 1.2 vs ALPN H2 | 10.9 μs | 17.7 μs | 63% | Additional extension processing |
-| Basic vs JA4 Access | 18.3 μs | 17.4 μs | -5% | JA4 pre-calculated during processing |
+| Parsing vs Full Processing | 3.2 ns | 11.6 μs | 3,625x | Expected for cryptographic operations |
+| TLS 1.2 vs ALPN H2 | 11.4 μs | 17.8 μs | 56% | Additional extension processing |
+| Basic vs JA4 Access | 16.6 μs | 17.0 μs | 2% | JA4 pre-calculated during processing |
 
 ### Throughput Estimates
 
@@ -36,9 +36,9 @@ Based on single-core performance:
 
 | Scenario | Packets/Second | Use Case |
 |----------|----------------|----------|
-| TLS 1.2 packets | ~91,700 | Standard TLS traffic |
-| TLS ALPN H2 packets | ~56,500 | Modern HTTP/2 over TLS |
-| Mixed TLS traffic | ~70,000 | Real-world average |
+| TLS 1.2 packets | ~87,700 | Standard TLS traffic |
+| TLS ALPN H2 packets | ~56,200 | Modern HTTP/2 over TLS |
+| Mixed TLS traffic | ~72,000 | Real-world average |
 
 ## Benchmark Categories
 
@@ -94,7 +94,7 @@ cargo bench --bench bench_tls
 - JA4 calculation overhead is front-loaded during initial processing
 
 ### For Capacity Planning
-- Single-core throughput: 70,000+ TLS packets per second
+- Single-core throughput: 72,000+ TLS packets per second
 - Memory usage: Minimal overhead for result storage
 - CPU utilization: Primarily bound by cryptographic operations
 
