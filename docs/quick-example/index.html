@@ -143,14 +143,17 @@
                     <article>
                         <div>
     <span>
-        <p>This is a quick example showing how to use <b>Huginn Net</b> for passive fingerprinting and analysis of TCP, HTTP, and TLS traffic.</p>
+        <p>This page shows quick examples for using <b>Huginn Net</b> ecosystem crates for passive fingerprinting and analysis.</p>
+        <p>Choose the approach that best fits your needs:</p>
         <ul>
-            <li>Initialize the database and Huginn Net engine required for TCP and HTTP analysis (Original p0f database).</li>
-            <li>Use subcommands to choose between live network capture or PCAP file analysis.</li>
-            <li>Process and log various TCP, HTTP, and TLS characteristics detected with quality scores.</li>
-            <li>TLS analysis requires a database with JA4 client signatures (JA4 database is not included in this repository).</li>
-            <li>To disable any analysis you don't need, pass false to the corresponding field in the <code>AnalysisConfig</code> struct.</li>
+            <li><strong>Complete Analysis</strong> - Use <code>huginn-net</code> for multi-protocol analysis</li>
+            <li><strong>TCP Only</strong> - Use <code>huginn-net-tcp</code> for OS detection and TCP analysis</li>
+            <li><strong>HTTP Only</strong> - Use <code>huginn-net-http</code> for browser and server detection</li>
+            <li><strong>TLS Only</strong> - Use <code>huginn-net-tls</code> for JA4 fingerprinting</li>
         </ul>
+
+        <h2 id="complete-multi-protocol">Complete Multi-Protocol Analysis</h2>
+        <p>Use <code>huginn-net</code> when you need comprehensive analysis across all protocols:</p>
         <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> clap::{Parser, Subcommand};
 <span class="hljs-keyword">use</span> huginn_net::db::Database;
 <span class="hljs-keyword">use</span> huginn_net::fingerprint_result::FingerprintResult;
@@ -239,18 +242,136 @@
 <span class="hljs-comment">// Live capture: cargo run -- live -i eth0</span>
 <span class="hljs-comment">// PCAP analysis: cargo run -- pcap -f traffic.pcap</span>
 </code></pre>
+
+        <h2 id="tcp-only">TCP-Only Analysis (huginn-net-tcp)</h2>
+        <p>Use <code>huginn-net-tcp</code> for OS detection, MTU calculation, and uptime estimation:</p>
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
+<span class="hljs-keyword">use</span> huginn_net_db::Database;
+<span class="hljs-keyword">use</span> std::sync::mpsc;
+<span class="hljs-keyword">use</span> std::thread;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() -&gt; Result&lt;(), HuginnNetTcpError&gt; {
+    <span class="hljs-keyword">let</span> db = Database::load_default()?;
+    <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNetTcp::new(Some(&amp;db), <span class="hljs-number">1000</span>)?;
+    
+    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel::&lt;TcpAnalysisResult&gt;();
+    
+    <span class="hljs-keyword">let</span> handle = thread::spawn(<span class="hljs-keyword">move</span> || {
+        analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None)
+    });
+    
+    <span class="hljs-keyword">for</span> result <span class="hljs-keyword">in</span> receiver {
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(syn) = result.syn {
+            println!(<span class="hljs-string">"{}"</span>, syn);
+        }
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(syn_ack) = result.syn_ack {
+            println!(<span class="hljs-string">"{}"</span>, syn_ack);
+        }
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(mtu) = result.mtu {
+            println!(<span class="hljs-string">"{}"</span>, mtu);
+        }
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(uptime) = result.uptime {
+            println!(<span class="hljs-string">"{}"</span>, uptime);
+        }
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+</code></pre>
+
+        <h2 id="http-only">HTTP-Only Analysis (huginn-net-http)</h2>
+        <p>Use <code>huginn-net-http</code> for browser detection and web server identification:</p>
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_http::{HuginnNetHttp, HttpAnalysisResult, HuginnNetHttpError};
+<span class="hljs-keyword">use</span> huginn_net_db::Database;
+<span class="hljs-keyword">use</span> std::sync::mpsc;
+<span class="hljs-keyword">use</span> std::thread;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() -&gt; Result&lt;(), HuginnNetHttpError&gt; {
+    <span class="hljs-keyword">let</span> db = Database::load_default()?;
+    <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNetHttp::new(Some(&amp;db), <span class="hljs-number">1000</span>)?;
+    
+    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel::&lt;HttpAnalysisResult&gt;();
+    
+    <span class="hljs-keyword">let</span> handle = thread::spawn(<span class="hljs-keyword">move</span> || {
+        analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None)
+    });
+    
+    <span class="hljs-keyword">for</span> result <span class="hljs-keyword">in</span> receiver {
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(http_request) = result.http_request {
+            println!(<span class="hljs-string">"{}"</span>, http_request);
+        }
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Some(http_response) = result.http_response {
+            println!(<span class="hljs-string">"{}"</span>, http_response);
+        }
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+</code></pre>
+
+        <h2 id="tls-only">TLS-Only Analysis (huginn-net-tls)</h2>
+        <p>Use <code>huginn-net-tls</code> for JA4 fingerprinting and TLS client identification:</p>
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
+<span class="hljs-keyword">use</span> std::sync::mpsc;
+<span class="hljs-keyword">use</span> std::thread;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() -&gt; Result&lt;(), HuginnNetTlsError&gt; {
+    <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNetTls::new();
+    
+    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel::&lt;TlsClientOutput&gt;();
+    
+    <span class="hljs-keyword">let</span> handle = thread::spawn(<span class="hljs-keyword">move</span> || {
+        analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None)
+    });
+    
+    <span class="hljs-keyword">for</span> tls <span class="hljs-keyword">in</span> receiver {
+        println!(<span class="hljs-string">"{}"</span>, tls);
+    }
+    
+    handle.join().unwrap()?;
+    Ok(())
+}
+</code></pre>
+
+        <h2 id="pcap-analysis">PCAP File Analysis</h2>
+        <p>All crates support PCAP file analysis. Simply replace <code>analyze_network</code> with <code>analyze_pcap</code>:</p>
+        <pre><code class="hljs css language-rust"><span class="hljs-comment">// For any of the above examples, replace:</span>
+analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None)
+
+<span class="hljs-comment">// With:</span>
+analyzer.analyze_pcap(<span class="hljs-string">"capture.pcap"</span>, sender, None)
+</code></pre>
+
+        <h2 id="key-differences">Key Differences</h2>
+        <ul>
+            <li><strong>huginn-net-tcp</strong> and <strong>huginn-net-http</strong> require a database for signature matching</li>
+            <li><strong>huginn-net-tls</strong> works without a database (JA4 is computed algorithmically)</li>
+            <li><strong>huginn-net</strong> combines all protocols and provides unified results</li>
+            <li>Protocol-specific crates offer better performance for targeted analysis</li>
+        </ul>
     </span>
                         </div>
 
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-prev button" href="/huginn-net/docs/overview"><span class="arrow-prev">← </span><span>Overview</span></a>
+                    <a class="docs-prev button" href="/huginn-net/docs/ecosystem"><span class="arrow-prev">← </span><span>Ecosystem</span></a>
                     <a class="docs-next button" href="/huginn-net/docs/syn-ack-packet"><span>SYN and SYN+ACK Packets</span><span class="arrow-next"> →</span></a>
                 </div>
             </div>
         </div>
-        <nav class="onPageNav"></nav>
+        <nav class="onPageNav">
+            <ul class="toc-headings">
+                <li><a href="#complete-multi-protocol">Complete Multi-Protocol Analysis</a></li>
+                <li><a href="#tcp-only">TCP-Only Analysis</a></li>
+                <li><a href="#http-only">HTTP-Only Analysis</a></li>
+                <li><a href="#tls-only">TLS-Only Analysis</a></li>
+                <li><a href="#pcap-analysis">PCAP File Analysis</a></li>
+                <li><a href="#key-differences">Key Differences</a></li>
+            </ul>
+        </nav>
     </div>
     <footer class="nav-footer" id="footer">
         <hr class="separator" />
