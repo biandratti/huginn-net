@@ -19,7 +19,10 @@
     <link rel="stylesheet" href="/huginn-net/css/main.css" />
     <script src="/huginn-net/js/codetabs.js"></script>
     <script>
-        // Fetch latest version from crates.io API
+        // Fetch latest versions from crates.io API for all huginn-net crates
+        const crates = ['huginn-net', 'huginn-net-tcp', 'huginn-net-http', 'huginn-net-tls'];
+        
+        // Fetch huginn-net version for the main version element
         fetch('https://crates.io/api/v1/crates/huginn-net')
             .then(response => response.json())
             .then(data => {
@@ -31,6 +34,23 @@
             .catch(error => {
                 console.log('Could not fetch version from crates.io:', error);
             });
+        
+        // Fetch versions for protocol-specific crates
+        crates.forEach(crateName => {
+            fetch(`https://crates.io/api/v1/crates/${crateName}`)
+                .then(response => response.json())
+                .then(data => {
+                    const versionElements = document.querySelectorAll(`.${crateName.replace(/-/g, '_')}_version`);
+                    versionElements.forEach(element => {
+                        if (data.crate && data.crate.max_version) {
+                            element.textContent = data.crate.max_version;
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.log(`Could not fetch version for ${crateName}:`, error);
+                });
+        });
     </script>
 </head>
 <body class="sideNavVisible separateOnPageNav">
@@ -74,6 +94,7 @@
                                 <h3 class="navGroupCategoryTitle">Documentation</h3>
                                 <ul class="">
                                     <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/overview">Overview</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/ecosystem">Ecosystem</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/quick-example">Quick Example</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/syn-ack-packet">SYN and SYN+ACK Packets</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
@@ -158,11 +179,11 @@
                         <div>
                             <span>
                                 <p>
-                                    <b>Huginn Net</b> is a Rust library for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
+                                    <b>Huginn Net</b> is a <b>modular ecosystem of Rust libraries</b> for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
                                     Inspired by p0f and JA4, Huginn Net extends passive OS fingerprinting and TLS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
+                                    The ecosystem consists of <b>5 specialized crates</b> that can be used independently or together, providing maximum flexibility for your network analysis needs.<br />
                                     It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/pcap-file">pcap-file</a>, and <a href="https://crates.io/crates/tls-parser">tls-parser</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
-                                    Specifically, Huginn Net does not require any client-side software installation and can be used to analyze traffic on any network interface or via pcap files.<br />
-                                    This library is under active development. Feedback and contributions welcome.
+                                    This ecosystem is under active development. Feedback and contributions welcome.
                                 </p>
                                 <h3>Network Stack (OSI Model)</h3>
                                 <table style="min-width:350px;max-width:600px;text-align:center;margin:1em auto;border-collapse:collapse;">
@@ -210,8 +231,35 @@
                                 <p>
                                     Passive fingerprinting is a technique that allows you to infer information about a remote host's operating system, network stack, and browser without sending any probes. By analyzing characteristics of incoming TCP packets (such as window size, TTL, and TCP options), HTTP requests and responses, and TLS handshake packets.
                                 </p>
-                                <p>To get started with cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
+                                <h2>
+                                    <a class="anchor" aria-hidden="true" id="ecosystem-overview"></a>
+                                    <a href="#ecosystem-overview" aria-hidden="true" class="hash-link">
+                                        <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                            <path
+                                                    fill-rule="evenodd"
+                                                    d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                            ></path>
+                                        </svg>
+                                    </a>
+                                    Huginn Net Ecosystem
+                                </h2>
+                                <p>The Huginn Net ecosystem consists of 5 specialized crates:</p>
+                                <ul>
+                                    <li><strong><a href="https://crates.io/crates/huginn-net">huginn-net</a></strong> - Complete multi-protocol analysis suite</li>
+                                    <li><strong><a href="https://crates.io/crates/huginn-net-tcp">huginn-net-tcp</a></strong> - TCP fingerprinting & OS detection</li>
+                                    <li><strong><a href="https://crates.io/crates/huginn-net-http">huginn-net-http</a></strong> - HTTP analysis & browser detection</li>
+                                    <li><strong><a href="https://crates.io/crates/huginn-net-tls">huginn-net-tls</a></strong> - JA4 TLS client fingerprinting</li>
+                                    <li><strong><a href="https://crates.io/crates/huginn-net-db">huginn-net-db</a></strong> - P0f database parser & matching engine</li>
+                                </ul>
+                                <p>For detailed information about each crate, see the <a href="/huginn-net/docs/ecosystem">Ecosystem documentation</a>.</p>
+
+                                <p>To get started with cargo, choose your approach:</p>
+                                
+                                <h4>Multi-Protocol Analysis</h4>
                                 <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "<span id="version"></span>"</code></pre>
+                                
+                                <h4>Protocol-Specific Analysis</h4>
+                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net-tcp = "<span class="huginn_net_tcp_version"></span>"   # TCP/OS fingerprinting only<br />huginn-net-http = "<span class="huginn_net_http_version"></span>"  # HTTP analysis only<br />huginn-net-tls = "<span class="huginn_net_tls_version"></span>"   # TLS/JA4 analysis only</code></pre>
 
                                 <h3>
                                     <a class="anchor" aria-hidden="true" id="features"></a>
@@ -287,7 +335,7 @@
                     </article>
                 </div>
                 <div class="docs-prevnext">
-                    <a class="docs-next button" href="/huginn-net/docs/quick-example"><span>Quick Example</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-next button" href="/huginn-net/docs/ecosystem"><span>Ecosystem</span><span class="arrow-next"> →</span></a>
                 </div>
             </div>
         </div>
@@ -295,8 +343,11 @@
             <ul class="toc-headings">
                 <li>
                     <a href="#getting-started">Passive Fingerprinting introduction</a>
+                </li>
+                <li><a href="#ecosystem-overview">Huginn Net Ecosystem</a></li>
+                <li>
+                    <a href="#features">Features</a>
                     <ul class="toc-headings">
-                        <li><a href="#features">Features</a></li>
                         <li><a href="#use_cases">Use cases</a></li>
                     </ul>
                 </li>
