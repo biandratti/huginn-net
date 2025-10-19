@@ -42,8 +42,6 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 | 7     | HTTP                      | HTTP/1 & HTTP/2 - Headers, User-Agent, Lang |
 | 4     | TCP                       | OS Fingerprinting (p0f-style)               |
 
-
-
 #### Real-world applications:
 - **Network Security Analysis** - Identify devices, applications, and TLS clients without active scanning
 - **Asset Discovery** - Map network infrastructure and application stack passively and safely  
@@ -99,13 +97,33 @@ For detailed usage examples, installation guides, and complete code samples:
 - **PCAP file analysis** - Offline traffic analysis  
 - **Protocol-specific examples** - TCP, HTTP, TLS focused analysis
 
-## 📊 Performance & Accuracy
+## 📊 Performance & Benchmarks
 
-### Benchmark Results
-- **Processing Speed**: ~3.1ms per packet on real-world datasets
-- **Accuracy**: **Matches original p0f precision** across tested device categories
+### Multi-Protocol Performance Summary
 
-*See [benches/README.md](benches/README.md) for detailed performance analysis.*
+| Protocol | Parsing Speed | Analysis Speed | Primary Use Case |
+|----------|---------------|----------------|------------------|
+| **TCP** | 6.1M packets/sec | 167K packets/sec | OS fingerprinting, MTU detection |
+| **TLS** | 316M packets/sec | 72K packets/sec | JA4 fingerprinting, TLS analysis |
+| **HTTP** | 23.7M packets/sec | 26K packets/sec | Browser/server detection |
+
+### Key Performance Highlights
+- **Ultra-fast parsing**: TLS leads with 316M packets/sec for pre-filtering
+- **Robust analysis**: TCP provides 167K packets/sec for complete OS fingerprinting
+- **Comprehensive coverage**: All protocols optimized for real-time network monitoring
+
+### Accuracy & Compatibility
+- **TCP**: Matches original p0f precision across tested device categories
+- **TLS**: JA4 methodology for modern TLS fingerprinting
+- **HTTP**: Browser and server detection with comprehensive signature database
+
+### Performance Optimization
+For maximum performance, use protocol-specific libraries:
+- `huginn-net-tcp` for TCP-only analysis
+- `huginn-net-tls` for TLS-only analysis  
+- `huginn-net-http` for HTTP-only analysis
+
+*See [benches/README.md](benches/README.md) for comprehensive benchmark analysis and capacity planning guidelines.*
 
 ### Validated Device Categories
 - **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
