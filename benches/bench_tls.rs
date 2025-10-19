@@ -66,18 +66,18 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
 
     // Count TLS packets for analysis
     let mut tls_packet_count = 0;
-    
+
     for packet in &packets {
         if process_tls_packet(packet).is_some() {
             tls_packet_count += 1;
         }
     }
-    
+
     println!("  TLS packets found: {}", tls_packet_count);
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_JA4_TLS12");
-    
+
     // Benchmark TLS processing
     group.bench_function("tls_processing", |b| {
         b.iter(|| {
@@ -120,18 +120,18 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
 
     // Count TLS packets for analysis
     let mut tls_packet_count = 0;
-    
+
     for packet in &packets {
         if process_tls_packet(packet).is_some() {
             tls_packet_count += 1;
         }
     }
-    
+
     println!("  TLS packets found: {}", tls_packet_count);
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_JA4_ALPN_H2");
-    
+
     // Benchmark TLS processing
     group.bench_function("tls_processing", |b| {
         b.iter(|| {
@@ -177,18 +177,18 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
 
     // Count TLS packets for analysis
     let mut tls_packet_count = 0;
-    
+
     for packet in &packets {
         if process_tls_packet(packet).is_some() {
             tls_packet_count += 1;
         }
     }
-    
+
     println!("  TLS packets found: {}", tls_packet_count);
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_Packet_Parsing");
-    
+
     // Benchmark raw packet parsing (just structure, no fingerprinting)
     group.bench_function("raw_packet_parsing", |b| {
         b.iter(|| {
@@ -245,7 +245,7 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     // Count TLS packets for analysis
     let mut tls_packet_count = 0;
     let mut ja4_count = 0;
-    
+
     for packet in &packets {
         if let Some(_result) = process_tls_packet(packet) {
             tls_packet_count += 1;
@@ -253,13 +253,13 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
             ja4_count += 1;
         }
     }
-    
+
     println!("  TLS packets found: {}", tls_packet_count);
     println!("  JA4 fingerprints generated: {}", ja4_count);
     println!("--------------------");
 
     let mut group = c.benchmark_group("TLS_JA4_Overhead");
-    
+
     // Benchmark basic TLS processing
     group.bench_function("basic_tls_processing", |b| {
         b.iter(|| {
@@ -286,7 +286,7 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     group.bench_function("full_result_analysis", |b| {
         b.iter(|| {
             let mut results = Vec::new();
-            
+
             for packet in packets.iter() {
                 if let Some(result) = process_tls_packet(packet) {
                     // Collect all TLS information
@@ -299,7 +299,7 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
                     ));
                 }
             }
-            
+
             // Process results to simulate real-world usage
             let _ = results.len();
         })

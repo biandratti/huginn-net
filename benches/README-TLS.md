@@ -82,11 +82,6 @@ Based on single-core performance:
 cargo bench --bench bench_tls
 ```
 
-3. View detailed results with HTML reports:
-```bash
-cargo bench --bench bench_tls -- --output-format html
-```
-
 ## Interpretation Guidelines
 
 ### For Network Security Applications
