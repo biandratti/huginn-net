@@ -18,7 +18,8 @@
     <link rel="stylesheet" href="/huginn-net/css/main.css" />
     <script src="/huginn-net/js/codetabs.js"></script>
     <script>
-        // Fetch latest version from crates.io API
+        const crates = ['huginn-net', 'huginn-net-tcp', 'huginn-net-http', 'huginn-net-tls'];
+        
         fetch('https://crates.io/api/v1/crates/huginn-net')
             .then(response => response.json())
             .then(data => {
@@ -30,6 +31,22 @@
             .catch(error => {
                 console.log('Could not fetch version from crates.io:', error);
             });
+        
+        crates.forEach(crateName => {
+            fetch(`https://crates.io/api/v1/crates/${crateName}`)
+                .then(response => response.json())
+                .then(data => {
+                    const versionElements = document.querySelectorAll(`.${crateName.replace(/-/g, '_')}_version`);
+                    versionElements.forEach(element => {
+                        if (data.crate && data.crate.max_version) {
+                            element.textContent = data.crate.max_version;
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.log(`Could not fetch version for ${crateName}:`, error);
+                });
+        });
     </script>
 </head>
 <body>
@@ -59,7 +76,7 @@
                     <div class="inner">
                         <h2 class="projectTitle">
                             <span>Huginn Net: Multi-Protocol Passive Fingerprinting</span><br />
-                            <img class="projectTitleLogo" src="img/huginn-black.svg" style="display:block;margin:0 auto 1em auto;width:90px;max-width:30vw;" alt="Huginn Net" />
+                            <img class="projectTitleLogo" src="img/huginn-net-icon.png" style="display:block;margin:0 auto 1em auto;width:90px;max-width:30vw;" alt="Huginn Net" />
                             <small>A Rust library for passive analysis of TCP, HTTP, and TLS traffic</small>
                         </h2>
                         <div class="section promoSection">
@@ -82,21 +99,60 @@
                                     <a href="https://crates.io/crates/huginn-net"><img src="https://img.shields.io/crates/v/huginn-net.svg" alt="Version" /></a>
                                 </p>
                                 <p>
-                                    <b>Huginn Net</b> is a Rust library for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
+                                    <b>Huginn Net</b> is a <b>modular ecosystem of Rust libraries</b> for <b>passive fingerprinting and analysis of multiple network protocols</b>, including <b>TCP</b>, <b>HTTP</b>, and <b>TLS</b>.<br />
                                     Inspired by p0f and JA4, Huginn Net extends passive OS fingerprinting and TLS fingerprinting to support modern detection standards and multi-protocol analysis.<br />
+                                    The ecosystem consists of <b>5 specialized crates</b> that can be used independently or together, providing maximum flexibility for your network analysis needs.<br />
                                     It leverages <a href="https://crates.io/crates/pnet">pnet</a>, <a href="https://crates.io/crates/pcap-file">pcap-file</a>, and <a href="https://crates.io/crates/tls-parser">tls-parser</a> to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.<br />
-                                    Specifically, Huginn Net does not require any client-side software installation and can be used to analyze traffic on any network interface or via pcap files.<br />
-                                    This library is under active development. Feedback and contributions welcome.
+                                    This ecosystem is under active development. Feedback and contributions welcome.
                                 </p>
                                 
                                 <h3>Key Features</h3>
                                 <ul style="max-width: 600px; margin: 1.5em auto; text-align: left;">
+                                    <li><strong>Modular Architecture:</strong> 5 specialized crates for maximum flexibility and performance</li>
                                     <li><strong>Passive Analysis:</strong> Monitor network traffic without sending probes or installing client software</li>
-                                    <li><strong>Multi-Protocol Support:</strong> TCP, HTTP/1.x, HTTP/2, and TLS fingerprinting in one library</li>
+                                    <li><strong>Multi-Protocol Support:</strong> TCP, HTTP/1.x, HTTP/2, and TLS fingerprinting</li>
                                     <li><strong>Modern Standards:</strong> Implements JA4 for TLS and p0f-style TCP OS fingerprinting</li>
                                     <li><strong>Rust Performance:</strong> Memory-safe, concurrent processing of high-volume traffic</li>
                                     <li><strong>Flexible Input:</strong> Analyze live network interfaces or pcap files</li>
                                 </ul>
+                                
+                                <h3>Huginn Net Ecosystem</h3>
+                                <table style="min-width:700px;max-width:900px;text-align:left;margin:1em auto;border-collapse:collapse;border:1px solid #ddd;">
+                                  <thead>
+                                    <tr style="background-color:#f8f9fa;">
+                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;">Crate</th>
+                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;">Purpose</th>
+                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;">Use When</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net">huginn-net</a></strong></td>
+                                      <td style="border:1px solid #ddd;padding:12px;">Complete multi-protocol analysis suite</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">You need TCP + HTTP + TLS analysis</td>
+                                    </tr>
+                                    <tr style="background-color:#f8f9fa;">
+                                      <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-tcp">huginn-net-tcp</a></strong></td>
+                                      <td style="border:1px solid #ddd;padding:12px;">TCP fingerprinting & OS detection</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">You only need TCP/OS analysis</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-http">huginn-net-http</a></strong></td>
+                                      <td style="border:1px solid #ddd;padding:12px;">HTTP analysis & browser detection</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">You only need HTTP analysis</td>
+                                    </tr>
+                                    <tr style="background-color:#f8f9fa;">
+                                      <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-tls">huginn-net-tls</a></strong></td>
+                                      <td style="border:1px solid #ddd;padding:12px;">JA4 TLS client fingerprinting</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">You only need TLS/JA4 analysis</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-db">huginn-net-db</a></strong></td>
+                                      <td style="border:1px solid #ddd;padding:12px;">P0f database parser & matching engine</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">Advanced custom signature parsing</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
                                 
                                 <h3>Network Stack (OSI Model)</h3>
                                 <table style="min-width:350px;max-width:600px;text-align:center;margin:1em auto;border-collapse:collapse;">
@@ -141,9 +197,18 @@
                                     </a>
                                     Getting Started
                                 </h3>
-                                <p>To get started with Cargo, simply add the following line to your <code>Cargo.toml</code> file.</p>
+                                <p><strong>Choose your approach:</strong> Use the complete suite or individual protocol crates.</p>
+                                
+                                <h4>Multi-Protocol Analysis</h4>
+                                <p>For complete network analysis (TCP + HTTP + TLS):</p>
                                 <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net = "<span id="version"></span>"
                                 </code></pre>
+                                
+                                <h4>Protocol-Specific Analysis</h4>
+                                <p>For targeted analysis with better performance:</p>
+                                <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net-tcp = "<span class="huginn_net_tcp_version"></span>"   # TCP/OS fingerprinting only<br />huginn-net-http = "<span class="huginn_net_http_version"></span>"  # HTTP analysis only<br />huginn-net-tls = "<span class="huginn_net_tls_version"></span>"   # TLS/JA4 analysis only
+                                </code></pre>
+                                
                                 <p>For changes, refer to the <a href="https://github.com/biandratti/huginn-net/releases">release notes</a>.</p>
                             </span>
                 </div>
