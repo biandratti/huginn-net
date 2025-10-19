@@ -32,7 +32,6 @@
                 console.log('Could not fetch version from crates.io:', error);
             });
         
-        // Fetch versions for protocol-specific crates
         crates.forEach(crateName => {
             fetch(`https://crates.io/api/v1/crates/${crateName}`)
                 .then(response => response.json())

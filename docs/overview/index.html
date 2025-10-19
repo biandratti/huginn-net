@@ -19,10 +19,8 @@
     <link rel="stylesheet" href="/huginn-net/css/main.css" />
     <script src="/huginn-net/js/codetabs.js"></script>
     <script>
-        // Fetch latest versions from crates.io API for all huginn-net crates
         const crates = ['huginn-net', 'huginn-net-tcp', 'huginn-net-http', 'huginn-net-tls'];
         
-        // Fetch huginn-net version for the main version element
         fetch('https://crates.io/api/v1/crates/huginn-net')
             .then(response => response.json())
             .then(data => {
@@ -35,7 +33,6 @@
                 console.log('Could not fetch version from crates.io:', error);
             });
         
-        // Fetch versions for protocol-specific crates
         crates.forEach(crateName => {
             fetch(`https://crates.io/api/v1/crates/${crateName}`)
                 .then(response => response.json())
