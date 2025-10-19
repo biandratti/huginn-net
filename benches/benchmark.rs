@@ -1,3 +1,5 @@
+mod bench_tls;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use huginn_net::{Database, HuginnNet};
 use pcap_file::pcap::PcapReader;

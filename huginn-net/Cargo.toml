@@ -42,3 +42,8 @@ path = "../examples/capture.rs"
 name = "benchmark"
 path = "../benches/benchmark.rs"
 harness = false
+
+[[bench]]
+name = "bench_tls"
+path = "../benches/bench_tls.rs"
+harness = false
