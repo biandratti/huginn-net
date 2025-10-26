@@ -15,6 +15,9 @@ const GUESS_HZ_1K: f64 = 1000.0; // Common frequency guess: 1000 Hz
 const GUESS_HZ_100: f64 = 100.0; // Common frequency guess: 100 Hz
 const GUESS_TOLERANCE: f64 = 0.10; // Tolerance for frequency guessing
 
+// Connection tracking cache TTL
+const CONNECTION_CACHE_TTL_SECS: u64 = 30; // Time-to-live for cached connection data (seconds)
+
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct Connection {
     pub src_ip: IpAddr,
@@ -434,7 +437,7 @@ pub fn check_ts_tcp(
                     connection_tracker.insert(
                         tracking_key.clone(),
                         TcpTimestamp::bad_frequency_marker(),
-                        Duration::new(60, 0),
+                        Duration::new(CONNECTION_CACHE_TTL_SECS, 0),
                     );
                 }
             }
@@ -448,7 +451,11 @@ pub fn check_ts_tcp(
                 connection.dst_port,
                 ts_val
             );
-            connection_tracker.insert(tracking_key, current_ts, Duration::new(60, 0));
+            connection_tracker.insert(
+                tracking_key,
+                current_ts,
+                Duration::new(CONNECTION_CACHE_TTL_SECS, 0),
+            );
         }
     } else {
         // This is a server packet (SYN+ACK or ACK)
@@ -508,7 +515,7 @@ pub fn check_ts_tcp(
                     connection_tracker.insert(
                         tracking_key.clone(),
                         TcpTimestamp::bad_frequency_marker(),
-                        Duration::new(60, 0),
+                        Duration::new(CONNECTION_CACHE_TTL_SECS, 0),
                     );
                 }
             }
@@ -522,7 +529,11 @@ pub fn check_ts_tcp(
                 connection.dst_port,
                 ts_val
             );
-            connection_tracker.insert(tracking_key, current_ts, Duration::new(60, 0));
+            connection_tracker.insert(
+                tracking_key,
+                current_ts,
+                Duration::new(CONNECTION_CACHE_TTL_SECS, 0),
+            );
         }
     }
 

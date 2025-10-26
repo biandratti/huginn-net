@@ -201,36 +201,95 @@ fn test_normal_forward_progression() {
 #[test]
 fn test_wraparound_calculation_logic() {
     // Test the mathematical logic for wraparound detection
+    // p0f uses: is_backward = (ts_diff > !ts_diff)
+    // This happens when ts_diff is in the upper half of u32 range (> u32::MAX/2)
 
-    // Test case 1: Normal forward progression
-    let ts_current = 1000u32;
-    let ts_ref = 500u32;
-    let ts_diff = ts_current.wrapping_sub(ts_ref);
-    let inverted_diff = !ts_diff;
+    println!("=== Testing Wraparound Detection Logic ===");
 
-    // For forward progression: ts_diff should be < !ts_diff
+    let threshold = u32::MAX / 2;
+    println!("Threshold (u32::MAX/2): {threshold}\n");
+
+    // Case 1: Normal forward progression
+    let ts_ref1 = 1000u32;
+    let ts_cur1 = 2000u32;
+    let diff1 = ts_cur1.wrapping_sub(ts_ref1);
+    let inv1 = !diff1;
+    let is_backward1 = diff1 > inv1;
+
+    println!("Case 1 - Forward progression:");
+    println!(
+        "  ref={ts_ref1}, cur={ts_cur1}, diff={diff1}, !diff={inv1}, is_backward={is_backward1}"
+    );
     assert!(
-        ts_diff < inverted_diff,
-        "Forward progression: ts_diff ({ts_diff}) should be < inverted_diff ({inverted_diff})"
+        !is_backward1,
+        "Forward progression should NOT be detected as backward"
+    );
+    assert!(
+        diff1 <= threshold,
+        "Forward progression: diff should be <= threshold"
     );
 
-    // Test case 2: Actual wraparound scenario (large backward jump)
-    // This simulates a timestamp that went significantly backward
-    let ts_current_wrap = 1000u32;
-    let ts_ref_wrap = 2000u32; // Reference is higher than current (backward)
-    let ts_diff_wrap = ts_current_wrap.wrapping_sub(ts_ref_wrap);
-    let inverted_diff_wrap = !ts_diff_wrap;
+    // Case 2: Small backward movement
+    let ts_ref2 = 2000u32;
+    let ts_cur2 = 1000u32;
+    let diff2 = ts_cur2.wrapping_sub(ts_ref2);
+    let inv2 = !diff2;
+    let is_backward2 = diff2 > inv2;
 
-    // For large backward movement: ts_diff should be > !ts_diff
-    // ts_diff = 1000 - 2000 = wrapping to very large number
-    // !ts_diff = bitwise NOT of that large number = small number
+    println!("Case 2 - Small backward movement:");
+    println!(
+        "  ref={ts_ref2}, cur={ts_cur2}, diff={diff2}, !diff={inv2}, is_backward={is_backward2}"
+    );
     assert!(
-        ts_diff_wrap > inverted_diff_wrap,
-        "Large backward movement: ts_diff ({ts_diff_wrap}) should be > inverted_diff ({inverted_diff_wrap})"
+        is_backward2,
+        "Small backward movement SHOULD be detected as backward"
+    );
+    assert!(
+        diff2 > threshold,
+        "Small backward: diff should be > threshold"
     );
 
-    println!("Forward case: ts_diff={ts_diff}, inverted_diff={inverted_diff}");
-    println!("Wraparound case: ts_diff={ts_diff_wrap}, inverted_diff={inverted_diff_wrap}");
+    // Case 3: Large backward movement (what p0f calls "wraparound")
+    let ts_ref3 = 100u32;
+    let ts_cur3 = u32::MAX - 100; // Very large number
+    let diff3 = ts_cur3.wrapping_sub(ts_ref3);
+    let inv3 = !diff3;
+    let is_backward3 = diff3 > inv3;
+
+    println!("Case 3 - Large backward movement:");
+    println!(
+        "  ref={ts_ref3}, cur={ts_cur3}, diff={diff3}, !diff={inv3}, is_backward={is_backward3}"
+    );
+    assert!(
+        is_backward3,
+        "Large backward movement SHOULD be detected as backward"
+    );
+    assert!(
+        diff3 > threshold,
+        "Large backward: diff should be > threshold"
+    );
+
+    // Case 4: True overflow scenario (timestamp counter wrapped around)
+    let ts_ref4 = u32::MAX - 100;
+    let ts_cur4 = 100u32;
+    let diff4 = ts_cur4.wrapping_sub(ts_ref4);
+    let inv4 = !diff4;
+    let is_backward4 = diff4 > inv4;
+
+    println!("Case 4 - True overflow (legitimate wraparound):");
+    println!(
+        "  ref={ts_ref4}, cur={ts_cur4}, diff={diff4}, !diff={inv4}, is_backward={is_backward4}"
+    );
+    assert!(
+        !is_backward4,
+        "True overflow should NOT be detected as backward (small positive result)"
+    );
+    assert!(
+        diff4 <= threshold,
+        "True overflow: diff should be <= threshold"
+    );
+
+    println!("\n✓ All wraparound detection cases validated correctly");
 }
 
 #[test]
@@ -274,66 +333,4 @@ fn test_frequency_calculation_with_wraparound() {
         println!("  ts_diff: {ts_diff}");
         println!("  inverted_diff: {inverted_diff}");
     }
-}
-
-#[test]
-fn test_understand_wraparound_logic() {
-    // Let's understand when ts_diff > !ts_diff actually happens
-
-    println!("=== Understanding Wraparound Detection Logic ===");
-
-    // Case 1: Normal forward progression
-    let ts_ref1 = 1000u32;
-    let ts_cur1 = 2000u32;
-    let diff1 = ts_cur1.wrapping_sub(ts_ref1);
-    let inv1 = !diff1;
-    let is_forward1 = diff1 > inv1;
-    println!(
-        "Forward: ref={ts_ref1}, cur={ts_cur1}, diff={diff1}, !diff={inv1}, diff>!diff={is_forward1}",
-    );
-
-    // Case 2: Small backward movement
-    let ts_ref2 = 2000u32;
-    let ts_cur2 = 1000u32;
-    let diff2 = ts_cur2.wrapping_sub(ts_ref2);
-    let inv2 = !diff2;
-    let is_forward2 = diff2 > inv2;
-    println!(
-        "Small backward: ref={ts_ref2}, cur={ts_cur2}, diff={diff2}, !diff={inv2}, diff>!diff={is_forward2}",
-    );
-
-    // Case 3: Large backward movement (what p0f considers "wraparound")
-    let ts_ref3 = 100u32;
-    let ts_cur3 = u32::MAX - 100; // Very large number
-    let diff3 = ts_cur3.wrapping_sub(ts_ref3);
-    let inv3 = !diff3;
-    let is_forward3 = diff3 > inv3;
-    println!(
-        "Large backward: ref={ts_ref3}, cur={ts_cur3}, diff={diff3}, !diff={inv3}, diff>!diff={is_forward3}",
-    );
-
-    // Case 4: True overflow scenario
-    let ts_ref4 = u32::MAX - 100;
-    let ts_cur4 = 100u32;
-    let diff4 = ts_cur4.wrapping_sub(ts_ref4);
-    let inv4 = !diff4;
-    let is_forward4 = diff4 > inv4;
-    println!(
-        "True overflow: ref={ts_ref4}, cur={ts_cur4}, diff={diff4}, !diff={inv4}, diff>!diff={is_forward4}",
-    );
-
-    // The key insight: ts_diff > !ts_diff happens when the result of wrapping_sub
-    // is in the upper half of u32 range (> u32::MAX/2)
-    let threshold = u32::MAX / 2;
-    println!("Threshold (u32::MAX/2): {threshold}");
-
-    assert!(
-        diff1 <= threshold,
-        "Forward progression should be <= threshold"
-    );
-    assert!(diff2 > threshold, "Small backward should be > threshold");
-    assert!(
-        diff4 <= threshold,
-        "True overflow should be <= threshold (small positive result)"
-    );
 }
