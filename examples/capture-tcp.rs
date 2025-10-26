@@ -79,7 +79,7 @@ fn main() {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                error!("Failed to load default database: {}", e);
+                error!("Failed to load default database: {e}");
                 return;
             }
         };
@@ -88,14 +88,14 @@ fn main() {
         let mut analyzer = match HuginnNetTcp::new(Some(&db), 1000) {
             Ok(analyzer) => analyzer,
             Err(e) => {
-                error!("Failed to create HuginnNetTcp analyzer: {}", e);
+                error!("Failed to create HuginnNetTcp analyzer: {e}");
                 return;
             }
         };
 
         let result = match args.command {
             Commands::Live { interface } => {
-                info!("Starting live capture on interface: {}", interface);
+                info!("Starting live capture on interface: {interface}");
                 analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };

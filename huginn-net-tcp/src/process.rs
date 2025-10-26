@@ -145,7 +145,7 @@ fn create_observable_package_ipv4(
         let mtu_output = MTUOutput {
             source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
             destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
+                IpAddr::V4(ipv4.get_destination()),
                 tcp.get_destination(),
             ),
             link: link_quality,
@@ -154,12 +154,11 @@ fn create_observable_package_ipv4(
         tcp_result.mtu = Some(mtu_output);
     }
 
-    // Process client uptime
     if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
             destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
+                IpAddr::V4(ipv4.get_destination()),
                 tcp.get_destination(),
             ),
             days: uptime.days,
@@ -171,12 +170,11 @@ fn create_observable_package_ipv4(
         tcp_result.client_uptime = Some(uptime_output);
     }
 
-    // Process server uptime
     if let Some(uptime) = tcp_package.server_uptime {
         let uptime_output = UptimeOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
             destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
+                IpAddr::V4(ipv4.get_destination()),
                 tcp.get_destination(),
             ),
             days: uptime.days,
