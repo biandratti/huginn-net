@@ -1,13 +1,7 @@
 //! Tests for p0f-style intelligent frequency rounding
 
-// Note: We can't directly test the private round_frequency_p0f_style function,
-// but we can test the behavior through the public API and document expected behavior
-
 #[test]
 fn test_p0f_rounding_algorithm_behavior() {
-    // Test cases based on p0f's rounding algorithm
-    // These document the expected behavior of the rounding function
-
     // Range 0: Special case
     // 0 Hz -> 1 Hz
 
@@ -94,9 +88,6 @@ fn test_p0f_rounding_algorithm_behavior() {
 
 #[test]
 fn test_common_os_frequencies() {
-    // Test that common OS frequencies are handled correctly
-    // These are the frequencies we expect to see in real systems
-
     let common_frequencies = [
         // Linux frequencies
         (100.0, "Linux 2.4 default"),
@@ -131,8 +122,6 @@ fn test_common_os_frequencies() {
 
 #[test]
 fn test_edge_cases() {
-    // Test edge cases for the rounding algorithm
-
     // Boundary values for each range
     let boundary_tests = [
         // Range boundaries
@@ -157,8 +146,6 @@ fn test_edge_cases() {
 
 #[test]
 fn test_rounding_precision() {
-    // Test that rounding improves frequency precision by normalizing to standard values
-
     // Simulate network jitter affecting frequency calculation
     let base_frequencies = [100.0, 250.0, 1000.0];
     let jitter_percentages = [0.02, 0.05, 0.08]; // 2%, 5%, 8% jitter
@@ -185,8 +172,6 @@ fn test_rounding_precision() {
 
 #[test]
 fn test_frequency_families() {
-    // Test that the frequency guessing works for common families
-
     // 1000 Hz family (with 10% tolerance)
     let hz_1000_family = [
         900.0,  // 10% below

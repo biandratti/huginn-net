@@ -123,20 +123,67 @@ fn test_valid_timestamp_difference() {
         dst_port: connection.src_port,
     };
 
-    // Wait a bit to ensure we don't hit MIN_TWAIT validation
+    // Wait enough time to ensure we don't hit MIN_TWAIT validation (25ms)
     std::thread::sleep(Duration::from_millis(30));
 
-    // Test with exactly MIN_TS_DIFF (5 ticks) - should be accepted
-    let _result = check_ts_tcp(&mut connection_tracker, &server_connection, false, 10005);
-    // Note: This might still return None due to other validations (like frequency calculation)
-    // but it should pass the MIN_TS_DIFF validation
+    // Test with exactly MIN_TS_DIFF (5 ticks) - should pass MIN_TS_DIFF validation
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &server_connection, false, 10005);
+    // Note: Result might still be None due to frequency being too low/high for the time interval
+    // but it should NOT fail on MIN_TS_DIFF validation
+    println!(
+        "MIN_TS_DIFF test (5 ticks): client={:?}, server={:?}",
+        client_uptime.is_some(),
+        server_uptime.is_some()
+    );
 
-    // Test with larger timestamp difference - should definitely be processed
+    // Test with realistic timestamp difference for 250 Hz system
+    // Using 250 Hz is more reliable as it gives us more tolerance for timing variations
     connection_tracker.clear();
-    let _ = check_ts_tcp(&mut connection_tracker, &connection, true, 10000);
-    std::thread::sleep(Duration::from_millis(100)); // Wait longer
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &connection, true, 1_000_000);
+    assert!(
+        client_uptime.is_none() && server_uptime.is_none(),
+        "SYN should not calculate uptime"
+    );
 
-    let _result = check_ts_tcp(&mut connection_tracker, &server_connection, false, 10100);
-    // 100 ticks difference
-    // This should pass MIN_TS_DIFF validation (though may fail other validations)
+    // Wait long enough for a realistic frequency calculation (100ms)
+    std::thread::sleep(Duration::from_millis(100));
+
+    // With 25 ticks over ~100ms, frequency should be ~250 Hz (valid range)
+    // This is more tolerant to timing variations:
+    // - If sleep is 90ms:  25/0.09  = 277 Hz ✓
+    // - If sleep is 100ms: 25/0.10  = 250 Hz ✓
+    // - If sleep is 110ms: 25/0.11  = 227 Hz ✓
+    let (client_uptime, server_uptime) = check_ts_tcp(
+        &mut connection_tracker,
+        &server_connection,
+        false,
+        1_000_025,
+    );
+
+    // This should pass:
+    // - MIN_TS_DIFF: 25 ticks >> 5 ticks ✓
+    // - MIN_TWAIT: ~100ms > 25ms ✓
+    // - Frequency: ~250 Hz is in valid range (100-1500 Hz) ✓
+
+    // The calculation might fail due to timing variations, so we don't assert success
+    // but we do verify that if it succeeds, the frequency is reasonable
+    if let Some(uptime) = client_uptime.or(server_uptime) {
+        println!(
+            "Successfully calculated uptime: freq={:.2} Hz, days={}, hrs={}, min={}",
+            uptime.freq, uptime.days, uptime.hours, uptime.min
+        );
+        // Verify frequency is in valid range (should be rounded to 250 Hz)
+        assert!(
+            uptime.freq >= 100.0 && uptime.freq <= 500.0,
+            "Calculated frequency should be in range 100-500 Hz (expected ~250 Hz), got {} Hz",
+            uptime.freq
+        );
+    } else {
+        println!(
+            "Note: Uptime calculation may fail due to system timing variations. \
+             This is expected in timing-sensitive tests."
+        );
+    }
 }

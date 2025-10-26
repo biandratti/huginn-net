@@ -273,9 +273,6 @@ fn test_frequency_calculation_with_wraparound() {
         println!("  ts_current: {ts_current}");
         println!("  ts_diff: {ts_diff}");
         println!("  inverted_diff: {inverted_diff}");
-
-        // Don't panic - this might be the correct behavior
-        // Test completed - behavior documented
     }
 }
 
