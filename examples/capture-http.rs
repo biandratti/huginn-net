@@ -81,7 +81,7 @@ fn main() {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                error!("Failed to load default database: {}", e);
+                error!("Failed to load default database: {e}");
                 return;
             }
         };
@@ -90,14 +90,14 @@ fn main() {
         let mut analyzer = match HuginnNetHttp::new(Some(&db), 1000) {
             Ok(analyzer) => analyzer,
             Err(e) => {
-                error!("Failed to create HuginnNetHttp analyzer: {}", e);
+                error!("Failed to create HuginnNetHttp analyzer: {e}");
                 return;
             }
         };
 
         let result = match args.command {
             Commands::Live { interface } => {
-                info!("Starting HTTP live capture on interface: {}", interface);
+                info!("Starting HTTP live capture on interface: {interface}");
                 analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };
@@ -114,10 +114,10 @@ fn main() {
         }
 
         if let Some(http_request) = output.http_request {
-            info!("{}", http_request);
+            info!("{http_request}");
         }
         if let Some(http_response) = output.http_response {
-            info!("{}", http_response);
+            info!("{http_response}");
         }
     }
 

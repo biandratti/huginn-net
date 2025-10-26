@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use huginn_net_db::Database;
 use huginn_net_tcp::{
-    process_ipv4_packet, process_ipv6_packet, Connection, SignatureMatcher, SynData,
+    process_ipv4_packet, process_ipv6_packet, ConnectionKey, SignatureMatcher, TcpTimestamp,
 };
 use pcap_file::pcap::PcapReader;
 use pnet::packet::ipv4::Ipv4Packet;
@@ -32,7 +32,7 @@ fn load_packets_from_pcap(pcap_path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error
 /// Process a packet using the public TCP API
 fn process_tcp_packet(
     packet: &[u8],
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     matcher: Option<&SignatureMatcher>,
 ) -> Option<huginn_net_tcp::TcpAnalysisResult> {
     match huginn_net_tcp::packet_parser::parse_packet(packet) {
@@ -100,7 +100,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
             if result.mtu.is_some() {
                 mtu_count = mtu_count.saturating_add(1);
             }
-            if result.uptime.is_some() {
+            if result.client_uptime.is_some() || result.server_uptime.is_some() {
                 uptime_count = uptime_count.saturating_add(1);
             }
         }
@@ -250,7 +250,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
     for packet in &packets {
         if let Some(result) = process_tcp_packet(packet, &mut connection_tracker, None) {
-            if result.uptime.is_some() {
+            if result.client_uptime.is_some() || result.server_uptime.is_some() {
                 uptime_calculations = uptime_calculations.saturating_add(1);
             }
         }
@@ -267,8 +267,13 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, None) {
-                    if let Some(uptime_output) = result.uptime {
-                        // Access uptime information to ensure full processing
+                    if let Some(uptime_output) = result.client_uptime {
+                        let _ = uptime_output.days;
+                        let _ = uptime_output.hours;
+                        let _ = uptime_output.min;
+                        let _ = uptime_output.freq;
+                    }
+                    if let Some(uptime_output) = result.server_uptime {
                         let _ = uptime_output.days;
                         let _ = uptime_output.hours;
                         let _ = uptime_output.min;
@@ -364,7 +369,10 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
                         result.syn.is_some(),
                         result.syn_ack.is_some(),
                         result.mtu.map(|m| m.mtu),
-                        result.uptime.map(|u| u.days),
+                        result
+                            .client_uptime
+                            .map(|u| u.days)
+                            .or_else(|| result.server_uptime.map(|u| u.days)),
                     ));
                 }
             }

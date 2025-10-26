@@ -5,7 +5,7 @@ use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPacka
 use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use huginn_net_tcp::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
 use huginn_net_tcp::tcp_process::ObservableTCPPackage;
-use huginn_net_tcp::uptime::{Connection, SynData};
+use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
 use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{ipv4::Ipv4Packet, ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
@@ -24,7 +24,8 @@ pub struct ObservablePackage {
     pub tcp_request: Option<ObservableTcp>,
     pub tcp_response: Option<ObservableTcp>,
     pub mtu: Option<ObservableMtu>,
-    pub uptime: Option<ObservableUptime>,
+    pub client_uptime: Option<ObservableUptime>,
+    pub server_uptime: Option<ObservableUptime>,
     pub http_request: Option<ObservableHttpRequest>,
     pub http_response: Option<ObservableHttpResponse>,
     pub tls_client: Option<ObservableTlsClient>,
@@ -33,7 +34,7 @@ pub struct ObservablePackage {
 impl ObservablePackage {
     pub fn extract(
         packet: &[u8],
-        connection_tracker: &mut TtlCache<Connection, SynData>,
+        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
         config: &AnalysisConfig,
@@ -87,7 +88,7 @@ trait IpPacketProcessor: Packet {
     ) -> Result<ObservableHttpPackage, HuginnNetError>;
     fn process_tcp_with_data(
         data: &[u8],
-        connection_tracker: &mut TtlCache<Connection, SynData>,
+        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<ObservableTCPPackage, HuginnNetError>;
     fn process_tls_with_data(data: &[u8]) -> Result<ObservableTlsPackage, HuginnNetError>;
 }
@@ -135,7 +136,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
 
     fn process_tcp_with_data(
         data: &[u8],
-        connection_tracker: &mut TtlCache<Connection, SynData>,
+        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<ObservableTCPPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv4(&packet, connection_tracker).map_err(
@@ -223,7 +224,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 
     fn process_tcp_with_data(
         data: &[u8],
-        connection_tracker: &mut TtlCache<Connection, SynData>,
+        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<ObservableTCPPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv6(&packet, connection_tracker).map_err(
@@ -270,7 +271,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 
 fn execute_analysis<P: IpPacketProcessor>(
     packet_data: &[u8],
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     config: &AnalysisConfig,
@@ -293,7 +294,8 @@ fn execute_analysis<P: IpPacketProcessor>(
             tcp_request: None,
             tcp_response: None,
             mtu: None,
-            uptime: None,
+            client_uptime: None,
+            server_uptime: None,
         }
     };
 
@@ -313,7 +315,7 @@ fn execute_analysis<P: IpPacketProcessor>(
 }
 
 fn process_ip<P: IpPacketProcessor>(
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: P,
@@ -352,7 +354,7 @@ fn process_ip<P: IpPacketProcessor>(
 }
 
 pub fn process_ipv4(
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: Ipv4Packet,
@@ -368,7 +370,7 @@ pub fn process_ipv4(
 }
 
 pub fn process_ipv6(
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: Ipv6Packet,
@@ -397,7 +399,8 @@ fn handle_http_tcp_tlc(
             tcp_request: tcp_package.tcp_request,
             tcp_response: tcp_package.tcp_response,
             mtu: tcp_package.mtu,
-            uptime: tcp_package.uptime,
+            client_uptime: tcp_package.client_uptime,
+            server_uptime: tcp_package.server_uptime,
             http_request: http_package.http_request,
             http_response: http_package.http_response,
             tls_client: tls_package.tls_client,

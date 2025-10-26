@@ -59,10 +59,10 @@ fn main() -> Result<(), HuginnNetHttpError> {
     
     for result in receiver {
         if let Some(http_request) = result.http_request {
-            println!("{}", http_request);
+            println!("{http_request}");
         }
         if let Some(http_response) = result.http_response {
-            println!("{}", http_response);
+            println!("{http_response}");
         }
     }
     
@@ -91,10 +91,10 @@ fn main() -> Result<(), HuginnNetHttpError> {
     
     for result in receiver {
         if let Some(http_request) = result.http_request {
-            println!("{}", http_request);
+            println!("{http_request}");
         }
         if let Some(http_response) = result.http_response {
-            println!("{}", http_response);
+            println!("{http_response}");
         }
     }
     

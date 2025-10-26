@@ -3,7 +3,9 @@ use crate::output::{
     IpPort, MTUOutput, MTUQualityMatched, OSQualityMatched, OperativeSystem, SynAckTCPOutput,
     SynTCPOutput, UptimeOutput,
 };
-use crate::{tcp_process, Connection, SignatureMatcher, SynData, TcpAnalysisResult};
+use crate::{
+    tcp_process, ConnectionKey, SignatureMatcher, TcpAnalysisResult, TcpTimestamp, UptimeRole,
+};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
@@ -20,7 +22,7 @@ pub struct ObservablePackage {
 /// Processes an IPv4 packet for TCP content.
 pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     matcher: Option<&SignatureMatcher>,
 ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
     let observable_package = create_observable_package_ipv4(ipv4, connection_tracker, matcher)?;
@@ -29,7 +31,7 @@ pub fn process_ipv4_packet(
 
 fn create_observable_package_ipv4(
     ipv4: &Ipv4Packet,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     matcher: Option<&SignatureMatcher>,
 ) -> Result<ObservablePackage, HuginnNetTcpError> {
     let tcp = TcpPacket::new(ipv4.payload())
@@ -50,7 +52,8 @@ fn create_observable_package_ipv4(
         syn: None,
         syn_ack: None,
         mtu: None,
-        uptime: None,
+        client_uptime: None,
+        server_uptime: None,
     };
 
     if let Some(tcp_request) = tcp_package.tcp_request {
@@ -143,30 +146,39 @@ fn create_observable_package_ipv4(
 
         let mtu_output = MTUOutput {
             source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             link: link_quality,
             mtu: mtu.value,
         };
         tcp_result.mtu = Some(mtu_output);
     }
 
-    if let Some(uptime) = tcp_package.uptime {
+    if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
+            role: UptimeRole::Client,
             days: uptime.days,
             hours: uptime.hours,
             min: uptime.min,
             up_mod_days: uptime.up_mod_days,
             freq: uptime.freq,
         };
-        tcp_result.uptime = Some(uptime_output);
+        tcp_result.client_uptime = Some(uptime_output);
+    }
+
+    if let Some(uptime) = tcp_package.server_uptime {
+        let uptime_output = UptimeOutput {
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
+            role: UptimeRole::Server,
+            days: uptime.days,
+            hours: uptime.hours,
+            min: uptime.min,
+            up_mod_days: uptime.up_mod_days,
+            freq: uptime.freq,
+        };
+        tcp_result.server_uptime = Some(uptime_output);
     }
 
     Ok(ObservablePackage {
@@ -179,7 +191,7 @@ fn create_observable_package_ipv4(
 /// Processes an IPv6 packet for TCP content.
 pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     matcher: Option<&SignatureMatcher>,
 ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
     let observable_package = create_observable_package_ipv6(ipv6, connection_tracker, matcher)?;
@@ -188,7 +200,7 @@ pub fn process_ipv6_packet(
 
 fn create_observable_package_ipv6(
     ipv6: &Ipv6Packet,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     matcher: Option<&SignatureMatcher>,
 ) -> Result<ObservablePackage, HuginnNetTcpError> {
     // Extract TCP info for source/destination ports
@@ -210,7 +222,8 @@ fn create_observable_package_ipv6(
         syn: None,
         syn_ack: None,
         mtu: None,
-        uptime: None,
+        client_uptime: None,
+        server_uptime: None,
     };
 
     // Process TCP request (SYN)
@@ -316,20 +329,40 @@ fn create_observable_package_ipv6(
         tcp_result.mtu = Some(mtu_output);
     }
 
-    if let Some(uptime) = tcp_package.uptime {
+    // Process client uptime
+    if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
             destination: IpPort::new(
                 std::net::IpAddr::V6(ipv6.get_destination()),
                 tcp.get_destination(),
             ),
+            role: UptimeRole::Client,
             days: uptime.days,
             hours: uptime.hours,
             min: uptime.min,
             up_mod_days: uptime.up_mod_days,
             freq: uptime.freq,
         };
-        tcp_result.uptime = Some(uptime_output);
+        tcp_result.client_uptime = Some(uptime_output);
+    }
+
+    // Process server uptime
+    if let Some(uptime) = tcp_package.server_uptime {
+        let uptime_output = UptimeOutput {
+            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(
+                std::net::IpAddr::V6(ipv6.get_destination()),
+                tcp.get_destination(),
+            ),
+            role: UptimeRole::Server,
+            days: uptime.days,
+            hours: uptime.hours,
+            min: uptime.min,
+            up_mod_days: uptime.up_mod_days,
+            freq: uptime.freq,
+        };
+        tcp_result.server_uptime = Some(uptime_output);
     }
 
     Ok(ObservablePackage {

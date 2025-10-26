@@ -80,7 +80,7 @@ fn main() {
 
         let result = match args.command {
             Commands::Live { interface } => {
-                info!("Starting TLS live capture on interface: {}", interface);
+                info!("Starting TLS live capture on interface: {interface}");
                 analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };
@@ -96,7 +96,7 @@ fn main() {
             break;
         }
 
-        info!("{}", output);
+        info!("{output}");
     }
 
     info!("Analysis shutdown completed");

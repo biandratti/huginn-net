@@ -15,8 +15,9 @@ use huginn_net_tcp::output::OSQualityMatched;
 pub use huginn_net_db::tcp::Ttl;
 use huginn_net_tcp::output::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+    UptimeRole,
 };
-use huginn_net_tcp::uptime::{Connection, SynData};
+use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
 
 // ============================================================================
 // HTTP PROTOCOL IMPORTS (depends on TCP)
@@ -120,7 +121,7 @@ impl Default for AnalysisConfig {
 pub struct HuginnNet<'a> {
     pub tcp_matcher: Option<huginn_net_tcp::SignatureMatcher<'a>>,
     pub http_matcher: Option<huginn_net_http::SignatureMatcher<'a>>,
-    connection_tracker: TtlCache<Connection, SynData>,
+    connection_tracker: TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: huginn_net_http::http_process::HttpProcessors,
     config: AnalysisConfig,
@@ -335,7 +336,16 @@ impl<'a> HuginnNet<'a> {
             &self.config,
         ) {
             Ok(observable_package) => {
-                let (syn, syn_ack, mtu, uptime, http_request, http_response, tls_client) = {
+                let (
+                    syn,
+                    syn_ack,
+                    mtu,
+                    client_uptime,
+                    server_uptime,
+                    http_request,
+                    http_response,
+                    tls_client,
+                ) = {
                     let mtu: Option<MTUOutput> = observable_package.mtu.map(|observable_mtu| {
                         let link_quality = simple_quality_match!(
                             enabled: self.config.matcher_enabled,
@@ -437,8 +447,8 @@ impl<'a> HuginnNet<'a> {
                             }
                         });
 
-                    let uptime: Option<UptimeOutput> =
-                        observable_package.uptime.map(|update| UptimeOutput {
+                    let client_uptime: Option<UptimeOutput> =
+                        observable_package.client_uptime.map(|update| UptimeOutput {
                             source: huginn_net_tcp::output::IpPort::new(
                                 observable_package.source.ip,
                                 observable_package.source.port,
@@ -447,6 +457,25 @@ impl<'a> HuginnNet<'a> {
                                 observable_package.destination.ip,
                                 observable_package.destination.port,
                             ),
+                            role: UptimeRole::Client,
+                            days: update.days,
+                            hours: update.hours,
+                            min: update.min,
+                            up_mod_days: update.up_mod_days,
+                            freq: update.freq,
+                        });
+
+                    let server_uptime: Option<UptimeOutput> =
+                        observable_package.server_uptime.map(|update| UptimeOutput {
+                            source: huginn_net_tcp::output::IpPort::new(
+                                observable_package.source.ip,
+                                observable_package.source.port,
+                            ),
+                            destination: huginn_net_tcp::output::IpPort::new(
+                                observable_package.destination.ip,
+                                observable_package.destination.port,
+                            ),
+                            role: UptimeRole::Server,
                             days: update.days,
                             hours: update.hours,
                             min: update.min,
@@ -571,7 +600,8 @@ impl<'a> HuginnNet<'a> {
                         syn,
                         syn_ack,
                         mtu,
-                        uptime,
+                        client_uptime,
+                        server_uptime,
                         http_request,
                         http_response,
                         tls_client,
@@ -582,7 +612,8 @@ impl<'a> HuginnNet<'a> {
                     syn,
                     syn_ack,
                     mtu,
-                    uptime,
+                    client_uptime,
+                    server_uptime,
                     http_request,
                     http_response,
                     tls_client,
@@ -594,7 +625,8 @@ impl<'a> HuginnNet<'a> {
                     syn: None,
                     syn_ack: None,
                     mtu: None,
-                    uptime: None,
+                    client_uptime: None,
+                    server_uptime: None,
                     http_request: None,
                     http_response: None,
                     tls_client: None,

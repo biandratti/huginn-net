@@ -16,8 +16,11 @@ pub struct FingerprintResult {
     /// Information about the Maximum Transmission Unit (MTU).
     pub mtu: Option<MTUOutput>,
 
-    /// Information about the system uptime.
-    pub uptime: Option<UptimeOutput>,
+    /// Information about the client system uptime.
+    pub client_uptime: Option<UptimeOutput>,
+
+    /// Information about the server system uptime.
+    pub server_uptime: Option<UptimeOutput>,
 
     /// Information derived from HTTP request headers.
     pub http_request: Option<HttpRequestOutput>,

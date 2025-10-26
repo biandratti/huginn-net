@@ -85,7 +85,7 @@ fn main() {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                error!("Failed to load default database: {}", e);
+                error!("Failed to load default database: {e}");
                 return;
             }
         };
@@ -94,18 +94,18 @@ fn main() {
         let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
             Ok(analyzer) => analyzer,
             Err(e) => {
-                error!("Failed to create HuginnNet analyzer: {}", e);
+                error!("Failed to create HuginnNet analyzer: {e}");
                 return;
             }
         };
 
         let result = match args.command {
             Commands::Live { interface } => {
-                info!("Starting live capture on interface: {}", interface);
+                info!("Starting live capture on interface: {interface}");
                 analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal.clone()))
             }
             Commands::Pcap { file } => {
-                info!("Analyzing PCAP file: {}", file);
+                info!("Analyzing PCAP file: {file}");
                 analyzer.analyze_pcap(&file, sender, Some(thread_cancel_signal))
             }
         };
@@ -122,25 +122,28 @@ fn main() {
         }
 
         if let Some(syn) = output.syn {
-            info!("{}", syn);
+            info!("{syn}");
         }
         if let Some(syn_ack) = output.syn_ack {
-            info!("{}", syn_ack);
+            info!("{syn_ack}");
         }
         if let Some(mtu) = output.mtu {
-            info!("{}", mtu);
+            info!("{mtu}");
         }
-        if let Some(uptime) = output.uptime {
-            info!("{}", uptime);
+        if let Some(client_uptime) = output.client_uptime {
+            info!("{client_uptime}");
+        }
+        if let Some(server_uptime) = output.server_uptime {
+            info!("{server_uptime}");
         }
         if let Some(http_request) = output.http_request {
-            info!("{}", http_request);
+            info!("{http_request}");
         }
         if let Some(http_response) = output.http_response {
-            info!("{}", http_response);
+            info!("{http_response}");
         }
         if let Some(tls_client) = output.tls_client {
-            info!("{}", tls_client);
+            info!("{tls_client}");
         }
     }
 

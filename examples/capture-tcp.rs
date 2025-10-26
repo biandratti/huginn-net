@@ -79,7 +79,7 @@ fn main() {
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
-                error!("Failed to load default database: {}", e);
+                error!("Failed to load default database: {e}");
                 return;
             }
         };
@@ -88,14 +88,14 @@ fn main() {
         let mut analyzer = match HuginnNetTcp::new(Some(&db), 1000) {
             Ok(analyzer) => analyzer,
             Err(e) => {
-                error!("Failed to create HuginnNetTcp analyzer: {}", e);
+                error!("Failed to create HuginnNetTcp analyzer: {e}");
                 return;
             }
         };
 
         let result = match args.command {
             Commands::Live { interface } => {
-                info!("Starting live capture on interface: {}", interface);
+                info!("Starting live capture on interface: {interface}");
                 analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
             }
         };
@@ -112,16 +112,19 @@ fn main() {
         }
 
         if let Some(syn) = output.syn {
-            info!("{}", syn);
+            info!("{syn}");
         }
         if let Some(syn_ack) = output.syn_ack {
-            info!("{}", syn_ack);
+            info!("{syn_ack}");
         }
         if let Some(mtu) = output.mtu {
-            info!("{}", mtu);
+            info!("{mtu}");
         }
-        if let Some(uptime) = output.uptime {
-            info!("{}", uptime);
+        if let Some(client_uptime) = output.client_uptime {
+            info!("{client_uptime}");
+        }
+        if let Some(server_uptime) = output.server_uptime {
+            info!("{server_uptime}");
         }
     }
 

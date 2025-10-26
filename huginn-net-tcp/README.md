@@ -58,16 +58,19 @@ fn main() -> Result<(), HuginnNetTcpError> {
     
     for result in receiver {
         if let Some(syn) = result.syn {
-            println!("{}", syn);
+            println!("{syn}");
         }
         if let Some(syn_ack) = result.syn_ack {
-            println!("{}", syn_ack);
+            println!("{syn_ack}");
         }
         if let Some(mtu) = result.mtu {
-            println!("{}", mtu);
+            println!("{mtu}");
         }
-        if let Some(uptime) = result.uptime {
-            println!("{}", uptime);
+        if let Some(client_uptime) = result.client_uptime {
+            println!("{client_uptime}");
+        }
+        if let Some(server_uptime) = result.server_uptime {
+            println!("{server_uptime}");
         }
     }
     
@@ -96,16 +99,19 @@ fn main() -> Result<(), HuginnNetTcpError> {
     
     for result in receiver {
         if let Some(syn) = result.syn {
-            println!("{}", syn);
+            println!("{syn}");
         }
         if let Some(syn_ack) = result.syn_ack {
-            println!("{}", syn_ack);
+            println!("{syn_ack}");
         }
         if let Some(mtu) = result.mtu {
-            println!("{}", mtu);
+            println!("{mtu}");
         }
-        if let Some(uptime) = result.uptime {
-            println!("{}", uptime);
+        if let Some(client_uptime) = result.client_uptime {
+            println!("{client_uptime}");
+        }
+        if let Some(server_uptime) = result.server_uptime {
+            println!("{server_uptime}");
         }
     }
     

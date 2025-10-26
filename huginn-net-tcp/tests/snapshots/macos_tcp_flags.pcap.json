@@ -1,7 +1,7 @@
 {
   "pcap_file": "macos_tcp_flags.pcap",
   "pcap_path": "../pcap/macos_tcp_flags.pcap",
-  "expected_connections": 2,
+  "expected_connections": 43,
   "connections": [
     {
       "source": {
@@ -25,7 +25,8 @@
           "link_type": "MTUQualityMatched { link: None, quality: NotMatched }",
           "raw_mtu": 1504
         },
-        "uptime": null
+        "client_uptime": null,
+        "server_uptime": null
       }
     },
     {
@@ -47,13 +48,951 @@
           "raw_signature": "4:63+1:0:1134:mtu*45,8:mss,sok,ts,nop,ws:df,ecn:0"
         },
         "mtu": null,
-        "uptime": {
-          "uptime_days": 0,
-          "uptime_hours": 22,
-          "uptime_minutes": 25,
-          "modulo_days": 50,
-          "raw_frequency": 1000.0
-        }
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2051,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2051,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:df,id+:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:ecn,df,id+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:ecn,df,id+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2016,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2010,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:df,id+:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:df,id+:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:df,id+:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2039,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2047,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2047,*:nop,nop,ts:ecn,df,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2028,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2026,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2022,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2012,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:1997,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:1997,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "destination": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      }
+    },
+    {
+      "source": {
+        "ip": "172.67.24.71",
+        "port": 443
+      },
+      "destination": {
+        "ip": "172.16.5.16",
+        "port": 61311
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
+          "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:df,id+:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
       }
     }
   ]

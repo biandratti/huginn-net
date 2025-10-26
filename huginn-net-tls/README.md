@@ -56,7 +56,7 @@ fn main() -> Result<(), HuginnNetTlsError> {
     });
     
     for tls in receiver {
-        println!("{}", tls);
+        println!("{tls}");
     }
     
     handle.join().unwrap()?;
@@ -81,7 +81,7 @@ fn main() -> Result<(), HuginnNetTlsError> {
     });
     
     for tls in receiver {
-        println!("{}", tls);
+        println!("{tls}");
     }
     
     handle.join().unwrap()?;
