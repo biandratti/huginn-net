@@ -43,6 +43,31 @@ pub fn from_server(tcp_flags: u8) -> bool {
     tcp_flags & SYN != 0 && tcp_flags & ACK != 0
 }
 
+/// Determines if a packet is from the client side of a connection.
+///
+/// This function uses a two-phase approach:
+/// 1. During TCP handshake: Uses SYN/SYN+ACK flags for definitive identification
+/// 2. After handshake: Uses port heuristics (ephemeral vs well-known ports)
+///
+/// # Returns
+/// `true` if the packet is from the client, `false` if from the server
+///
+/// # Port Heuristic
+/// - Ephemeral ports (>1024) typically indicate client-side
+/// - Well-known ports (≤1024) typically indicate server-side
+/// - A packet from high port to low port is likely from client
+pub fn is_packet_from_client(tcp_flags: u8, src_port: u16, dst_port: u16) -> bool {
+    if from_client(tcp_flags) {
+        // SYN packet (no ACK) is definitely from client
+        true
+    } else if from_server(tcp_flags) {
+        // SYN+ACK packet is definitely from server
+        false
+    } else {
+        src_port > 1024 && dst_port <= 1024
+    }
+}
+
 pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
     use TcpFlags::*;
 
@@ -170,7 +195,6 @@ fn visit_tcp(
     use TcpFlags::*;
     let flags: u8 = tcp.get_flags();
     let from_client: bool = from_client(flags);
-    let from_server: bool = from_server(flags);
 
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
     if !is_valid(flags, tcp_type) {
@@ -301,10 +325,10 @@ fn visit_tcp(
                         dst_ip: destination_ip,
                         dst_port: tcp.get_destination(),
                     };
-                    // Determine if this is from client or server
-                    // from_client is true for SYN packets (client initiating)
-                    // For other packets, we assume they're from client if they're not SYN+ACK
-                    let is_from_client: bool = from_client || !from_server;
+
+                    let is_from_client =
+                        is_packet_from_client(flags, tcp.get_source(), tcp.get_destination());
+
                     let (cli_uptime, srv_uptime) =
                         check_ts_tcp(connection_tracker, &connection, is_from_client, ts_val);
                     client_uptime = cli_uptime;
