@@ -232,6 +232,22 @@ impl fmt::Display for MTUOutput {
     }
 }
 
+/// Represents the role of the host in the connection for uptime tracking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UptimeRole {
+    Client,
+    Server,
+}
+
+impl fmt::Display for UptimeRole {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UptimeRole::Client => write!(f, "client"),
+            UptimeRole::Server => write!(f, "server"),
+        }
+    }
+}
+
 /// Holds uptime information derived from TCP timestamp analysis.
 ///
 /// This structure contains the estimated uptime components (days, hours, minutes),
@@ -244,6 +260,8 @@ pub struct UptimeOutput {
     pub source: IpPort,
     /// The destination IP address and port of the connection.
     pub destination: IpPort,
+    /// The role of the host (client or server).
+    pub role: UptimeRole,
     /// Estimated uptime in days, derived from the TCP timestamp value. Potentially approximate.
     pub days: u32,
     /// Estimated uptime component in hours. Potentially approximate.
@@ -256,14 +274,13 @@ pub struct UptimeOutput {
     pub freq: f64,
 }
 
-// TODO: client or host, add both options
 impl fmt::Display for UptimeOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             ".-[ {}/{} -> {}/{} (uptime) ]-\n\
             |\n\
-            | client   = {}/{}\n\
+            | {}   = {}/{}\n\
             | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
             | raw_freq = {:.2} Hz\n\
             `----\n",
@@ -271,6 +288,7 @@ impl fmt::Display for UptimeOutput {
             self.destination.port,
             self.source.ip,
             self.source.port,
+            self.role,
             self.destination.ip,
             self.destination.port,
             self.days,

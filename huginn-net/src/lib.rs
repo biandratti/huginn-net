@@ -15,6 +15,7 @@ use huginn_net_tcp::output::OSQualityMatched;
 pub use huginn_net_db::tcp::Ttl;
 use huginn_net_tcp::output::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
+    UptimeRole,
 };
 use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
 
@@ -456,6 +457,7 @@ impl<'a> HuginnNet<'a> {
                                 observable_package.destination.ip,
                                 observable_package.destination.port,
                             ),
+                            role: UptimeRole::Client,
                             days: update.days,
                             hours: update.hours,
                             min: update.min,
@@ -473,6 +475,7 @@ impl<'a> HuginnNet<'a> {
                                 observable_package.destination.ip,
                                 observable_package.destination.port,
                             ),
+                            role: UptimeRole::Server,
                             days: update.days,
                             hours: update.hours,
                             min: update.min,

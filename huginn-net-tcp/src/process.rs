@@ -3,7 +3,9 @@ use crate::output::{
     IpPort, MTUOutput, MTUQualityMatched, OSQualityMatched, OperativeSystem, SynAckTCPOutput,
     SynTCPOutput, UptimeOutput,
 };
-use crate::{tcp_process, ConnectionKey, SignatureMatcher, TcpAnalysisResult, TcpTimestamp};
+use crate::{
+    tcp_process, ConnectionKey, SignatureMatcher, TcpAnalysisResult, TcpTimestamp, UptimeRole,
+};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
@@ -144,10 +146,7 @@ fn create_observable_package_ipv4(
 
         let mtu_output = MTUOutput {
             source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             link: link_quality,
             mtu: mtu.value,
         };
@@ -157,10 +156,8 @@ fn create_observable_package_ipv4(
     if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
+            role: UptimeRole::Client,
             days: uptime.days,
             hours: uptime.hours,
             min: uptime.min,
@@ -173,10 +170,8 @@ fn create_observable_package_ipv4(
     if let Some(uptime) = tcp_package.server_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
+            role: UptimeRole::Server,
             days: uptime.days,
             hours: uptime.hours,
             min: uptime.min,
@@ -342,6 +337,7 @@ fn create_observable_package_ipv6(
                 std::net::IpAddr::V6(ipv6.get_destination()),
                 tcp.get_destination(),
             ),
+            role: UptimeRole::Client,
             days: uptime.days,
             hours: uptime.hours,
             min: uptime.min,
@@ -359,6 +355,7 @@ fn create_observable_package_ipv6(
                 std::net::IpAddr::V6(ipv6.get_destination()),
                 tcp.get_destination(),
             ),
+            role: UptimeRole::Server,
             days: uptime.days,
             hours: uptime.hours,
             min: uptime.min,
