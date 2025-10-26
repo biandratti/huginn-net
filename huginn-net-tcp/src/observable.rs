@@ -12,6 +12,7 @@ pub struct ObservableMtu {
 }
 
 // Observable Uptime signals
+#[derive(Debug, Clone)]
 pub struct ObservableUptime {
     pub days: u32,
     pub hours: u32,

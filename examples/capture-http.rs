@@ -114,10 +114,10 @@ fn main() {
         }
 
         if let Some(http_request) = output.http_request {
-            info!("{}", http_request);
+            info!("{http_request}");
         }
         if let Some(http_response) = output.http_response {
-            info!("{}", http_response);
+            info!("{http_response}");
         }
     }
 

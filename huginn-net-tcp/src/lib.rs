@@ -25,7 +25,9 @@ pub use output::*;
 pub use process::*;
 pub use signature_matcher::*;
 pub use tcp_process::*;
-pub use uptime::{Connection, SynData};
+pub use uptime::{
+    calculate_uptime_improved, Connection, ConnectionKey, TcpTimestamp, UptimeTracker,
+};
 
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
@@ -211,7 +213,7 @@ impl<'a> HuginnNetTcp<'a> {
     fn process_packet(
         &self,
         packet: &[u8],
-        connection_tracker: &mut TtlCache<Connection, SynData>,
+        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
         match parse_packet(packet) {
             IpPacket::Ipv4(ip_data) => {
@@ -222,7 +224,8 @@ impl<'a> HuginnNetTcp<'a> {
                         syn: None,
                         syn_ack: None,
                         mtu: None,
-                        uptime: None,
+                        client_uptime: None,
+                        server_uptime: None,
                     })
                 }
             }
@@ -234,7 +237,8 @@ impl<'a> HuginnNetTcp<'a> {
                         syn: None,
                         syn_ack: None,
                         mtu: None,
-                        uptime: None,
+                        client_uptime: None,
+                        server_uptime: None,
                     })
                 }
             }
@@ -242,7 +246,8 @@ impl<'a> HuginnNetTcp<'a> {
                 syn: None,
                 syn_ack: None,
                 mtu: None,
-                uptime: None,
+                client_uptime: None,
+                server_uptime: None,
             }),
         }
     }

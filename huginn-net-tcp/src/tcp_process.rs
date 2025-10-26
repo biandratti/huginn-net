@@ -3,7 +3,7 @@ use crate::ip_options::IpOptions;
 use crate::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::check_ts_tcp;
-use crate::uptime::{Connection, SynData};
+use crate::uptime::{Connection, ConnectionKey, TcpTimestamp};
 use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, ttl};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -29,7 +29,8 @@ pub struct ObservableTCPPackage {
     pub tcp_request: Option<ObservableTcp>,
     pub tcp_response: Option<ObservableTcp>,
     pub mtu: Option<ObservableMtu>,
-    pub uptime: Option<ObservableUptime>,
+    pub client_uptime: Option<ObservableUptime>,
+    pub server_uptime: Option<ObservableUptime>,
 }
 
 pub fn from_client(tcp_flags: u8) -> bool {
@@ -52,7 +53,7 @@ pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 
 pub fn process_tcp_ipv4(
     packet: &Ipv4Packet,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetTcpError::UnsupportedProtocol("IPv4".to_string()));
@@ -114,7 +115,7 @@ pub fn process_tcp_ipv4(
 
 pub fn process_tcp_ipv6(
     packet: &Ipv6Packet,
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetTcpError::UnsupportedProtocol("IPv6".to_string()));
@@ -156,7 +157,7 @@ pub fn process_tcp_ipv6(
 
 #[allow(clippy::too_many_arguments)]
 fn visit_tcp(
-    connection_tracker: &mut TtlCache<Connection, SynData>,
+    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
@@ -167,19 +168,10 @@ fn visit_tcp(
     destination_ip: IpAddr,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     use TcpFlags::*;
-
     let flags: u8 = tcp.get_flags();
     let from_client: bool = from_client(flags);
     let from_server: bool = from_server(flags);
 
-    if !from_client && !from_server {
-        return Ok(ObservableTCPPackage {
-            tcp_request: None,
-            tcp_response: None,
-            mtu: None,
-            uptime: None,
-        });
-    }
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
     if !is_valid(flags, tcp_type) {
         return Err(HuginnNetTcpError::InvalidTcpFlags(flags));
@@ -213,7 +205,8 @@ fn visit_tcp(
     let mut mss = None;
     let mut wscale = None;
     let mut olayout = vec![];
-    let mut uptime: Option<ObservableUptime> = None;
+    let mut client_uptime: Option<ObservableUptime> = None;
+    let mut server_uptime: Option<ObservableUptime> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
         buf = &buf[opt.packet_size().min(buf.len())..];
@@ -279,7 +272,7 @@ fn visit_tcp(
                             "Failed to convert slice to array for timestamp value".to_string(),
                         )
                     })?;
-                    if u32::from_ne_bytes(ts_val_bytes) == 0 {
+                    if u32::from_be_bytes(ts_val_bytes) == 0 {
                         quirks.push(Quirk::OwnTimestampZero);
                     }
                 }
@@ -290,7 +283,7 @@ fn visit_tcp(
                             "Failed to convert slice to array for peer timestamp value".to_string(),
                         )
                     })?;
-                    if u32::from_ne_bytes(ts_peer_bytes) != 0 {
+                    if u32::from_be_bytes(ts_peer_bytes) != 0 {
                         quirks.push(Quirk::PeerTimestampNonZero);
                     }
                 }
@@ -301,14 +294,21 @@ fn visit_tcp(
                             "Failed to convert slice to array for timestamp value".to_string(),
                         )
                     })?;
-                    let ts_val: u32 = u32::from_ne_bytes(ts_val_bytes);
+                    let ts_val: u32 = u32::from_be_bytes(ts_val_bytes);
                     let connection: Connection = Connection {
                         src_ip: source_ip,
                         src_port: tcp.get_source(),
                         dst_ip: destination_ip,
                         dst_port: tcp.get_destination(),
                     };
-                    uptime = check_ts_tcp(connection_tracker, &connection, from_client, ts_val);
+                    // Determine if this is from client or server
+                    // from_client is true for SYN packets (client initiating)
+                    // For other packets, we assume they're from client if they're not SYN+ACK
+                    let is_from_client: bool = from_client || !from_server;
+                    let (cli_uptime, srv_uptime) =
+                        check_ts_tcp(connection_tracker, &connection, is_from_client, ts_val);
+                    client_uptime = cli_uptime;
+                    server_uptime = srv_uptime;
                 }
 
                 /*if data.len() != 10 {
@@ -369,6 +369,7 @@ fn visit_tcp(
             None
         },
         mtu: if from_client { mtu } else { None },
-        uptime: if !from_client { uptime } else { None },
+        client_uptime,
+        server_uptime,
     })
 }

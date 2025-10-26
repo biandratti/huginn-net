@@ -96,7 +96,7 @@ fn main() {
             break;
         }
 
-        info!("{}", output);
+        info!("{output}");
     }
 
     info!("Analysis shutdown completed");

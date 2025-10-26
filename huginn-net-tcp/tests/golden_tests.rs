@@ -31,7 +31,8 @@ struct TcpAnalysisSnapshot {
     syn: Option<SynSnapshot>,
     syn_ack: Option<SynAckSnapshot>,
     mtu: Option<MtuSnapshot>,
-    uptime: Option<UptimeSnapshot>,
+    client_uptime: Option<UptimeSnapshot>,
+    server_uptime: Option<UptimeSnapshot>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -105,12 +106,14 @@ fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNe
     Ok(results)
 }
 
-/// Check if a TCP analysis result has meaningful data
+/// Check if a TCP analysis result has meaningful data for golden tests
+/// Includes SYN, SYN-ACK, MTU, and uptime packets.
 fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
     result.syn.is_some()
         || result.syn_ack.is_some()
         || result.mtu.is_some()
-        || result.uptime.is_some()
+        || result.client_uptime.is_some()
+        || result.server_uptime.is_some()
 }
 
 fn assert_connection_matches_snapshot(
@@ -209,13 +212,31 @@ fn assert_connection_matches_snapshot(
         );
     }
 
-    // Check uptime data if present
+    // Check client uptime data if present
     if let (Some(actual_uptime), Some(expected_uptime)) =
-        (&actual.uptime, &expected.tcp_analysis.uptime)
+        (&actual.client_uptime, &expected.tcp_analysis.client_uptime)
     {
         assert_eq!(
             actual_uptime.freq, expected_uptime.raw_frequency,
-            "Connection {connection_index}: Uptime raw frequency mismatch"
+            "Connection {connection_index}: Client uptime raw frequency mismatch"
+        );
+        assert_eq!(
+            actual_uptime.days, expected_uptime.uptime_days,
+            "Connection {connection_index}: Client uptime days mismatch"
+        );
+    }
+
+    // Check server uptime data if present
+    if let (Some(actual_uptime), Some(expected_uptime)) =
+        (&actual.server_uptime, &expected.tcp_analysis.server_uptime)
+    {
+        assert_eq!(
+            actual_uptime.freq, expected_uptime.raw_frequency,
+            "Connection {connection_index}: Server uptime raw frequency mismatch"
+        );
+        assert_eq!(
+            actual_uptime.days, expected_uptime.uptime_days,
+            "Connection {connection_index}: Server uptime days mismatch"
         );
     }
 }

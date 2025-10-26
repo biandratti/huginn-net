@@ -19,8 +19,11 @@ pub struct TcpAnalysisResult {
     /// Information about the Maximum Transmission Unit (MTU).
     pub mtu: Option<MTUOutput>,
 
-    /// Information about the system uptime.
-    pub uptime: Option<UptimeOutput>,
+    /// Information about the client system uptime.
+    pub client_uptime: Option<UptimeOutput>,
+
+    /// Information about the server system uptime.
+    pub server_uptime: Option<UptimeOutput>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -253,6 +256,7 @@ pub struct UptimeOutput {
     pub freq: f64,
 }
 
+// TODO: client or host, add both options
 impl fmt::Display for UptimeOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
