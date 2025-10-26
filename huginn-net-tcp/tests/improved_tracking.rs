@@ -1,4 +1,4 @@
-use huginn_net_tcp::{calculate_uptime_improved, TcpTimestamp, UptimeTracker};
+use huginn_net_tcp::{calculate_uptime_improved, FrequencyState, TcpTimestamp, UptimeTracker};
 
 #[test]
 fn test_improved_uptime_tracking() {
@@ -7,8 +7,8 @@ fn test_improved_uptime_tracking() {
     // Test initial state
     assert!(!tracker.has_valid_client_frequency());
     assert!(!tracker.has_valid_server_frequency());
-    assert_eq!(tracker.cli_tps, 0);
-    assert_eq!(tracker.srv_tps, 0);
+    assert!(matches!(tracker.cli_freq, FrequencyState::NotCalculated));
+    assert!(matches!(tracker.srv_freq, FrequencyState::NotCalculated));
 
     // Simulate SYN packet (client -> server)
     let syn_result = calculate_uptime_improved(&mut tracker, 1000000, true);
@@ -25,14 +25,16 @@ fn test_improved_uptime_tracking() {
 
         // Should have calculated a reasonable frequency (around 1000 Hz)
         assert!(tracker.has_valid_client_frequency());
-        assert!(tracker.cli_tps > 900 && tracker.cli_tps < 1100);
+        if let Some(freq) = tracker.cli_freq.value() {
+            assert!(freq > 900 && freq < 1100);
+        }
 
         // Uptime should be reasonable (based on timestamp value)
         assert!(uptime.freq > 900.0 && uptime.freq < 1100.0);
         assert!(uptime.up_mod_days > 40 && uptime.up_mod_days < 60); // ~50 days for 1000 Hz
     } else {
         // If calculation failed, check why
-        if tracker.cli_tps == -1 {
+        if tracker.cli_freq.is_invalid() {
             println!("Client frequency marked as bad");
         } else {
             println!("No uptime calculated - tracker state: {tracker:?}");
@@ -57,7 +59,7 @@ fn test_bad_frequency_handling() {
 
     // Try again - should skip calculation since frequency is bad
     let retry_result = calculate_uptime_improved(&mut tracker, 1000100, false);
-    if tracker.cli_tps == -1 {
+    if tracker.cli_freq.is_invalid() {
         assert!(retry_result.is_none());
         println!("Correctly skipped calculation for bad frequency");
     }
@@ -75,7 +77,7 @@ fn test_frequency_reuse() {
     let first_result = calculate_uptime_improved(&mut tracker, 1001000, false);
 
     if let Some(_uptime1) = first_result {
-        let stored_frequency = tracker.cli_tps;
+        let stored_frequency = tracker.cli_freq;
         assert!(tracker.has_valid_client_frequency());
 
         // Use the same frequency for subsequent calculations
@@ -83,8 +85,10 @@ fn test_frequency_reuse() {
 
         if let Some(_uptime2) = second_result {
             // Frequency should remain the same (reused)
-            assert_eq!(tracker.cli_tps, stored_frequency);
-            println!("Successfully reused frequency: {stored_frequency} Hz");
+            assert_eq!(tracker.cli_freq, stored_frequency);
+            if let Some(freq) = stored_frequency.value() {
+                println!("Successfully reused frequency: {freq} Hz");
+            }
         }
     }
 }
@@ -108,19 +112,23 @@ fn test_uptime_tracker_methods() {
     // Test initial state
     assert!(!tracker.has_valid_client_frequency());
     assert!(!tracker.has_valid_server_frequency());
+    assert!(matches!(tracker.cli_freq, FrequencyState::NotCalculated));
+    assert!(matches!(tracker.srv_freq, FrequencyState::NotCalculated));
 
     // Test marking frequencies as bad
     tracker.mark_client_frequency_bad();
-    assert_eq!(tracker.cli_tps, -1);
+    assert!(matches!(tracker.cli_freq, FrequencyState::Invalid));
     assert!(!tracker.has_valid_client_frequency());
 
     tracker.mark_server_frequency_bad();
-    assert_eq!(tracker.srv_tps, -1);
+    assert!(matches!(tracker.srv_freq, FrequencyState::Invalid));
     assert!(!tracker.has_valid_server_frequency());
 
     // Test setting valid frequencies
-    tracker.cli_tps = 1000;
-    tracker.srv_tps = 100;
+    tracker.cli_freq = FrequencyState::Valid(1000);
+    tracker.srv_freq = FrequencyState::Valid(100);
     assert!(tracker.has_valid_client_frequency());
     assert!(tracker.has_valid_server_frequency());
+    assert_eq!(tracker.cli_freq.value(), Some(1000));
+    assert_eq!(tracker.srv_freq.value(), Some(100));
 }

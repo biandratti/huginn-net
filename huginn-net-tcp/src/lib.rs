@@ -26,7 +26,8 @@ pub use process::*;
 pub use signature_matcher::*;
 pub use tcp_process::*;
 pub use uptime::{
-    calculate_uptime_improved, Connection, ConnectionKey, TcpTimestamp, UptimeTracker,
+    calculate_uptime_improved, Connection, ConnectionKey, FrequencyState, TcpTimestamp,
+    UptimeTracker,
 };
 
 use crate::packet_parser::{parse_packet, IpPacket};

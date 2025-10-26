@@ -40,7 +40,7 @@ pub struct TcpTimestamp {
     pub ts_val: u32,
     /// Time when packet was received (ms since epoch)
     pub recv_time_ms: u64,
-    /// Flag to indicate if frequency calculation failed (p0f: cli_tps = -1 or srv_tps = -1)
+    /// Flag to indicate if frequency calculation failed (p0f equivalent: FrequencyState::Invalid)
     pub is_bad_frequency: bool,
 }
 
@@ -61,12 +61,42 @@ impl TcpTimestamp {
         }
     }
 
-    /// Create a marker timestamp indicating bad frequency (p0f: cli_tps = -1 or srv_tps = -1)
+    /// Create a marker timestamp indicating bad frequency (p0f equivalent: FrequencyState::Invalid)
     pub fn bad_frequency_marker() -> Self {
         Self {
             ts_val: 0,
             recv_time_ms: 0,
             is_bad_frequency: true,
+        }
+    }
+}
+
+/// Represents the state of a frequency calculation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrequencyState {
+    /// Frequency not yet calculated (waiting for second packet)
+    NotCalculated,
+    /// Frequency calculation failed or is invalid
+    Invalid,
+    /// Valid frequency in Hz
+    Valid(u32),
+}
+
+impl FrequencyState {
+    /// Returns `true` if the frequency state is valid
+    pub fn is_valid(&self) -> bool {
+        matches!(self, FrequencyState::Valid(_))
+    }
+
+    /// Returns `true` if the frequency state is invalid
+    pub fn is_invalid(&self) -> bool {
+        matches!(self, FrequencyState::Invalid)
+    }
+
+    pub fn value(&self) -> Option<u32> {
+        match self {
+            FrequencyState::Valid(freq) => Some(*freq),
+            _ => None,
         }
     }
 }
@@ -78,10 +108,10 @@ pub struct UptimeTracker {
     pub last_syn: Option<TcpTimestamp>,
     /// Last SYN+ACK timestamp (for server tracking)  
     pub last_syn_ack: Option<TcpTimestamp>,
-    /// Client frequency in Hz (0 = not calculated, -1 = bad/invalid)
-    pub cli_tps: i32,
-    /// Server frequency in Hz (0 = not calculated, -1 = bad/invalid)
-    pub srv_tps: i32,
+    /// Client frequency state
+    pub cli_freq: FrequencyState,
+    /// Server frequency state
+    pub srv_freq: FrequencyState,
     /// Last calculated uptime information
     pub last_uptime: Option<ObservableUptime>,
 }
@@ -91,30 +121,30 @@ impl UptimeTracker {
         Self {
             last_syn: None,
             last_syn_ack: None,
-            cli_tps: 0,
-            srv_tps: 0,
+            cli_freq: FrequencyState::NotCalculated,
+            srv_freq: FrequencyState::NotCalculated,
             last_uptime: None,
         }
     }
 
     /// Mark client frequency as bad/invalid
     pub fn mark_client_frequency_bad(&mut self) {
-        self.cli_tps = -1;
+        self.cli_freq = FrequencyState::Invalid;
     }
 
     /// Mark server frequency as bad/invalid
     pub fn mark_server_frequency_bad(&mut self) {
-        self.srv_tps = -1;
+        self.srv_freq = FrequencyState::Invalid;
     }
 
     /// Check if client frequency is valid
     pub fn has_valid_client_frequency(&self) -> bool {
-        self.cli_tps > 0
+        self.cli_freq.is_valid()
     }
 
     /// Check if server frequency is valid
     pub fn has_valid_server_frequency(&self) -> bool {
-        self.srv_tps > 0
+        self.srv_freq.is_valid()
     }
 }
 
@@ -262,16 +292,15 @@ pub fn calculate_uptime_improved(
 
         if let Some(ref syn_ts) = tracker.last_syn {
             // Check if we already have a valid client frequency
-            if tracker.has_valid_client_frequency() {
+            if let Some(freq_hz) = tracker.cli_freq.value() {
                 // Use existing frequency to calculate uptime
-                let freq_hz = tracker.cli_tps as f64;
-                let uptime_info = calculate_uptime_from_frequency(ts_val, freq_hz);
+                let uptime_info = calculate_uptime_from_frequency(ts_val, freq_hz as f64);
                 tracker.last_uptime = Some(uptime_info.clone());
                 return Some(uptime_info);
             }
 
             // Check if client frequency is marked as bad
-            if tracker.cli_tps == -1 {
+            if tracker.cli_freq.is_invalid() {
                 return None;
             }
 
@@ -292,7 +321,7 @@ pub fn calculate_uptime_improved(
                     };
 
                     // Store the calculated frequency
-                    tracker.cli_tps = final_freq as i32;
+                    tracker.cli_freq = FrequencyState::Valid(final_freq as u32);
 
                     // Calculate uptime
                     let uptime_info = calculate_uptime_from_frequency(ts_val, final_freq);
@@ -351,7 +380,7 @@ pub fn check_ts_tcp(
         // This is a client packet (SYN or ACK)
         // Check if we have a previous timestamp from the same client
         if let Some(reference_ts) = connection_tracker.get(&tracking_key) {
-            // p0f: if frequency is marked as bad (cli_tps = -1), don't recalculate
+            // p0f: if frequency is marked as bad (equivalent to FrequencyState::Invalid), don't recalculate
             if reference_ts.is_bad_frequency {
                 debug!(
                     "Client frequency already marked as bad for {}:{}, skipping",
@@ -400,7 +429,7 @@ pub fn check_ts_tcp(
                 Err(error) => {
                     debug!("Client uptime calculation failed: {}", error);
 
-                    // p0f: Mark frequency as bad to avoid recalculation (cli_tps = -1)
+                    // p0f: Mark frequency as bad to avoid recalculation (equivalent to FrequencyState::Invalid)
                     // Store a bad frequency marker
                     connection_tracker.insert(
                         tracking_key.clone(),
@@ -425,7 +454,7 @@ pub fn check_ts_tcp(
         // This is a server packet (SYN+ACK or ACK)
         // Check if we have a previous timestamp from the same server
         if let Some(reference_ts) = connection_tracker.get(&tracking_key) {
-            // p0f: if frequency is marked as bad (srv_tps = -1), don't recalculate
+            // p0f: if frequency is marked as bad (equivalent to FrequencyState::Invalid), don't recalculate
             if reference_ts.is_bad_frequency {
                 debug!(
                     "Server frequency already marked as bad for {}:{}, skipping",
@@ -474,7 +503,7 @@ pub fn check_ts_tcp(
                 Err(error) => {
                     debug!("Server uptime calculation failed: {}", error);
 
-                    // p0f: Mark frequency as bad to avoid recalculation (srv_tps = -1)
+                    // p0f: Mark frequency as bad to avoid recalculation
                     // Store a bad frequency marker
                     connection_tracker.insert(
                         tracking_key.clone(),
