@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 use tracing::{error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::fmt;
@@ -18,8 +19,12 @@ struct Args {
     command: Commands,
 
     /// Log file path
-    #[arg(short = 'l', long = "log-file")]
+    #[arg(short = 'l', long = "log-file", global = true)]
     log_file: Option<String>,
+
+    /// Enable parallel processing with N workers (default: sequential)
+    #[arg(short = 'p', long = "parallel", global = true)]
+    parallel_workers: Option<usize>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -66,29 +71,93 @@ fn main() {
     let cancel_signal = Arc::new(AtomicBool::new(false));
     let ctrl_c_signal = cancel_signal.clone();
     let thread_cancel_signal = cancel_signal.clone();
+    let monitor_cancel_signal = cancel_signal.clone();
 
+    let parallel_workers = args.parallel_workers;
+
+    let mut analyzer = if let Some(workers) = parallel_workers {
+        info!("Using parallel mode with {} workers", workers);
+        HuginnNetTls::with_workers(workers)
+    } else {
+        info!("Using sequential mode");
+        HuginnNetTls::new()
+    };
+
+    // Initialize pool if parallel mode (before moving analyzer to thread)
+    if parallel_workers.is_some() {
+        if let Err(e) = analyzer.init_pool(sender.clone()) {
+            error!("Failed to initialize worker pool: {e}");
+            return;
+        }
+    }
+
+    // Get pool reference before moving analyzer
+    let worker_pool_monitor = analyzer.worker_pool();
+    let worker_pool_shutdown = worker_pool_monitor.clone();
+
+    // Setup Ctrl-C handler with pool shutdown
     if let Err(e) = ctrlc::set_handler(move || {
         info!("Received signal, initiating graceful shutdown...");
         ctrl_c_signal.store(true, Ordering::Relaxed);
+
+        // Shutdown worker pool if it exists
+        if let Some(ref pool) = worker_pool_shutdown {
+            pool.shutdown();
+        }
     }) {
         error!("Error setting signal handler: {e}");
         return;
     }
 
+    let analyzer_shared = Arc::new(std::sync::Mutex::new(analyzer));
+    
+    // Start analysis thread
     thread::spawn(move || {
-        let mut analyzer = HuginnNetTls::new();
-
-        let result = match args.command {
-            Commands::Live { interface } => {
-                info!("Starting TLS live capture on interface: {interface}");
-                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
-            }
+        let interface = match &args.command {
+            Commands::Live { interface } => interface.clone(),
+        };
+        
+        let result = {
+            let mut analyzer = match analyzer_shared.lock() {
+                Ok(a) => a,
+                Err(_) => {
+                    error!("Failed to lock analyzer");
+                    return;
+                }
+            };
+            analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
         };
 
         if let Err(e) = result {
             error!("TLS analysis failed: {e}");
         }
     });
+
+    // Spawn monitoring thread if we have a pool
+    if let Some(pool) = worker_pool_monitor.clone() {
+        thread::spawn(move || {
+            let mut counter: u8 = 0;
+            loop {
+                // Check cancel signal frequently (every 100ms)
+                thread::sleep(Duration::from_millis(100));
+
+                if monitor_cancel_signal.load(Ordering::Relaxed) {
+                    break;
+                }
+                
+                counter = counter.saturating_add(1);
+                // Log stats every 5 seconds (50 * 100ms)
+                if counter >= 50 {
+                    counter = 0;
+                    let stats = pool.stats();
+                    info!(
+                        "TLS stats - dispatched: {}, dropped: {}",
+                        stats.total_dispatched, stats.total_dropped
+                    );
+                }
+            }
+        });
+    }
 
     for output in receiver {
         if cancel_signal.load(Ordering::Relaxed) {
@@ -97,6 +166,17 @@ fn main() {
         }
 
         info!("{output}");
+
+        // Log worker stats if parallel mode
+        if let Some(ref pool) = worker_pool_monitor {
+            let stats = pool.stats();
+            for worker in &stats.workers {
+                info!(
+                    "  Worker {}: queue_size={}, dropped={}",
+                    worker.id, worker.queue_size, worker.dropped
+                );
+            }
+        }
     }
 
     info!("Analysis shutdown completed");
