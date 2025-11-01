@@ -34,7 +34,7 @@ lazy_static = "1.5.0"
 pcap-file = "3.0.0-rc1"
 hpack-patched = "0.3.0"
 clap = { version = "4.5.51", features = ["derive"] }
-ctrlc = "3.5.0"
+ctrlc = "3.5.1"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 criterion = { version = "0.7.0", features = ["html_reports"] }
