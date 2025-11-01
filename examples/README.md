@@ -22,10 +22,10 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FI
 # Build TLS example
 cargo build --release --examples -p huginn-net-tls
 
-# Sequential mode (single-threaded, lower resource usage)
+# Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log single -i eth0
 
-# Parallel mode (multi-threaded, high throughput)
+# Parallel mode (multi-threaded)
 # -w: number of worker threads (typically number of CPU cores)
 # -q: queue size per worker (default: 100, lower = lower latency)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i eth0 -w 4 -q 100

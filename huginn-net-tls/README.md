@@ -25,6 +25,8 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 - **GREASE Filtering** - Proper handling of GREASE values per RFC 8701
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
 - **Extension Analysis** - Comprehensive TLS extension parsing
+- **Parallel Processing** - Multi-threaded worker pool for high-throughput scenarios
+- **Sequential Mode** - Single-threaded processing for low-resource environments
 
 ## Quick Start
 
@@ -39,7 +41,7 @@ huginn-net-tls = "1.5.1"
 
 ### Basic Usage
 
-#### Live Network Analysis
+#### Live Network Analysis (Sequential Mode)
 
 ```rust
 use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
