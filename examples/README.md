@@ -22,11 +22,16 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FI
 # Build TLS example
 cargo build --release --examples -p huginn-net-tls
 
-# Live TLS capture (focuses only on TLS traffic)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l <TLS_LOG_FILE.LOG> live -i <INTERFACE>
+# Sequential mode (single-threaded, lower resource usage)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log single -i eth0
 
-# Example with specific interface
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live -i eth0
+# Parallel mode (multi-threaded, high throughput)
+# -w: number of worker threads (typically number of CPU cores)
+# -q: queue size per worker (default: 100, lower = lower latency)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i eth0 -w 4 -q 100
+
+# Example for high load scenarios (more workers, larger queues)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i eth0 -w 8 -q 200
 ```
 
 #### TCP-Only Analysis
@@ -55,6 +60,6 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l ht
 
 #### Differences between examples:
 - **`capture`**: Full analysis (TCP fingerprinting, HTTP analysis, TLS JA4, database matching)
-- **`capture-tls`**: TLS-only analysis (JA4 fingerprinting)
+- **`capture-tls`**: TLS-only analysis (JA4 fingerprinting, supports sequential and parallel modes)
 - **`capture-tcp`**: TCP-only analysis (OS fingerprinting, MTU detection, uptime calculation, requires database)
 - **`capture-http`**: HTTP-only analysis (browser fingerprinting, web server detection, language detection, requires database)
