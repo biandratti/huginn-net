@@ -133,31 +133,22 @@ impl<'a> HuginnNetHttp<'a> {
 
         debug!("Using network interface: {}", interface.name);
 
-        let config = Config {
-            promiscuous: true,
-            ..Config::default()
-        };
+        let config = Config { promiscuous: true, ..Config::default() };
 
         let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
-            Ok(_) => {
-                return Err(HuginnNetHttpError::Parse(
-                    "Unhandled channel type".to_string(),
-                ))
-            }
+            Ok(_) => return Err(HuginnNetHttpError::Parse("Unhandled channel type".to_string())),
             Err(e) => {
-                return Err(HuginnNetHttpError::Parse(format!(
-                    "Unable to create channel: {e}"
-                )))
+                return Err(HuginnNetHttpError::Parse(format!("Unable to create channel: {e}")))
             }
         };
 
         self.process_with(
             move || match rx.next() {
                 Ok(packet) => Some(Ok(packet.to_vec())),
-                Err(e) => Some(Err(HuginnNetHttpError::Parse(format!(
-                    "Error receiving packet: {e}"
-                )))),
+                Err(e) => {
+                    Some(Err(HuginnNetHttpError::Parse(format!("Error receiving packet: {e}"))))
+                }
             },
             sender,
             cancel_signal,
@@ -187,9 +178,9 @@ impl<'a> HuginnNetHttp<'a> {
         self.process_with(
             move || match pcap_reader.next_packet() {
                 Some(Ok(packet)) => Some(Ok(packet.data.to_vec())),
-                Some(Err(e)) => Some(Err(HuginnNetHttpError::Parse(format!(
-                    "Error reading PCAP packet: {e}"
-                )))),
+                Some(Err(e)) => {
+                    Some(Err(HuginnNetHttpError::Parse(format!("Error reading PCAP packet: {e}"))))
+                }
                 None => None,
             },
             sender,
@@ -218,10 +209,7 @@ impl<'a> HuginnNetHttp<'a> {
                         self.matcher.as_ref(),
                     )
                 } else {
-                    Ok(HttpAnalysisResult {
-                        http_request: None,
-                        http_response: None,
-                    })
+                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
                 }
             }
             IpPacket::Ipv6(ip_data) => {
@@ -233,16 +221,10 @@ impl<'a> HuginnNetHttp<'a> {
                         self.matcher.as_ref(),
                     )
                 } else {
-                    Ok(HttpAnalysisResult {
-                        http_request: None,
-                        http_response: None,
-                    })
+                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
                 }
             }
-            IpPacket::None => Ok(HttpAnalysisResult {
-                http_request: None,
-                http_response: None,
-            }),
+            IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
         }
     }
 }

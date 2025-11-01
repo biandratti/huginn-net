@@ -284,10 +284,7 @@ fn test_looks_like_http2_response_edge_cases() {
             0x00, 0x00, 0x00, 0x01, // Stream ID: 1
             0x00, 0x00, 0x00, 0x00, // Payload
         ];
-        assert!(
-            looks_like_http2_response(&frame),
-            "Frame type {frame_type} should be valid"
-        );
+        assert!(looks_like_http2_response(&frame), "Frame type {frame_type} should be valid");
     }
 
     // Invalid frame type (11+)

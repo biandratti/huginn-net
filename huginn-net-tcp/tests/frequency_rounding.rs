@@ -26,10 +26,7 @@ fn test_p0f_rounding_algorithm_behavior() {
 
     for (input, expected) in test_cases_range_11_50 {
         let calculated = (input + 3) / 5 * 5;
-        assert_eq!(
-            calculated, expected,
-            "Range 11-50: {input} Hz should round to {expected} Hz"
-        );
+        assert_eq!(calculated, expected, "Range 11-50: {input} Hz should round to {expected} Hz");
     }
 
     // Range 51-100: Round to multiples of 10
@@ -44,10 +41,7 @@ fn test_p0f_rounding_algorithm_behavior() {
 
     for (input, expected) in test_cases_range_51_100 {
         let calculated = (input + 7) / 10 * 10;
-        assert_eq!(
-            calculated, expected,
-            "Range 51-100: {input} Hz should round to {expected} Hz"
-        );
+        assert_eq!(calculated, expected, "Range 51-100: {input} Hz should round to {expected} Hz");
     }
 
     // Range 101-500: Round to multiples of 50
@@ -62,10 +56,7 @@ fn test_p0f_rounding_algorithm_behavior() {
 
     for (input, expected) in test_cases_range_101_500 {
         let calculated = (input + 33) / 50 * 50;
-        assert_eq!(
-            calculated, expected,
-            "Range 101-500: {input} Hz should round to {expected} Hz"
-        );
+        assert_eq!(calculated, expected, "Range 101-500: {input} Hz should round to {expected} Hz");
     }
 
     // Range >500: Round to multiples of 100
@@ -79,10 +70,7 @@ fn test_p0f_rounding_algorithm_behavior() {
 
     for (input, expected) in test_cases_range_above_500 {
         let calculated = (input + 67) / 100 * 100;
-        assert_eq!(
-            calculated, expected,
-            "Range >500: {input} Hz should round to {expected} Hz"
-        );
+        assert_eq!(calculated, expected, "Range >500: {input} Hz should round to {expected} Hz");
     }
 }
 
@@ -186,10 +174,7 @@ fn test_frequency_families() {
         let diff_ratio = (freq - 1000.0_f64).abs() / 1000.0;
 
         // Should be recognized as 1000 Hz family if within tolerance
-        assert!(
-            diff_ratio <= tolerance,
-            "{freq} Hz should be within 10% of 1000 Hz family"
-        );
+        assert!(diff_ratio <= tolerance, "{freq} Hz should be within 10% of 1000 Hz family");
     }
 
     // 100 Hz family (with 10% tolerance)
@@ -206,9 +191,6 @@ fn test_frequency_families() {
         let diff_ratio = (freq - 100.0_f64).abs() / 100.0;
 
         // Should be recognized as 100 Hz family if within tolerance
-        assert!(
-            diff_ratio <= tolerance,
-            "{freq} Hz should be within 10% of 100 Hz family"
-        );
+        assert!(diff_ratio <= tolerance, "{freq} Hz should be within 10% of 100 Hz family");
     }
 }

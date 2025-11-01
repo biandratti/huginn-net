@@ -49,28 +49,16 @@ pub struct TcpTimestamp {
 
 impl TcpTimestamp {
     pub fn new(ts_val: u32, recv_time_ms: u64) -> Self {
-        Self {
-            ts_val,
-            recv_time_ms,
-            is_bad_frequency: false,
-        }
+        Self { ts_val, recv_time_ms, is_bad_frequency: false }
     }
 
     pub fn now(ts_val: u32) -> Self {
-        Self {
-            ts_val,
-            recv_time_ms: get_unix_time_ms().unwrap_or(0),
-            is_bad_frequency: false,
-        }
+        Self { ts_val, recv_time_ms: get_unix_time_ms().unwrap_or(0), is_bad_frequency: false }
     }
 
     /// Create a marker timestamp indicating bad frequency (p0f equivalent: FrequencyState::Invalid)
     pub fn bad_frequency_marker() -> Self {
-        Self {
-            ts_val: 0,
-            recv_time_ms: 0,
-            is_bad_frequency: true,
-        }
+        Self { ts_val: 0, recv_time_ms: 0, is_bad_frequency: true }
     }
 }
 
@@ -212,14 +200,10 @@ fn calculate_frequency_p0f_style(
 
     // Validate time interval
     if ms_diff < MIN_TWAIT {
-        return Err(format!(
-            "Time interval too short: {ms_diff}ms < {MIN_TWAIT}ms"
-        ));
+        return Err(format!("Time interval too short: {ms_diff}ms < {MIN_TWAIT}ms"));
     }
     if ms_diff > MAX_TWAIT {
-        return Err(format!(
-            "Time interval too long: {ms_diff}ms > {MAX_TWAIT}ms"
-        ));
+        return Err(format!("Time interval too long: {ms_diff}ms > {MAX_TWAIT}ms"));
     }
 
     // First, detect if timestamp went backward (p0f-style detection)
@@ -354,13 +338,7 @@ fn calculate_uptime_from_frequency(ts_val: u32, freq_hz: f64) -> ObservableUptim
     // Calculate wrap-around period
     let up_mod_days = (u32::MAX as f64 / (freq_hz * 60.0 * 60.0 * 24.0)) as u32;
 
-    ObservableUptime {
-        days,
-        hours,
-        min: minutes,
-        up_mod_days,
-        freq: freq_hz,
-    }
+    ObservableUptime { days, hours, min: minutes, up_mod_days, freq: freq_hz }
 }
 
 pub fn check_ts_tcp(
@@ -371,10 +349,7 @@ pub fn check_ts_tcp(
 ) -> (Option<ObservableUptime>, Option<ObservableUptime>) {
     // Create a key that identifies this endpoint's timestamps
     // Client and server timestamps are tracked separately
-    let tracking_key = ConnectionKey {
-        connection: connection.clone(),
-        is_client: from_client,
-    };
+    let tracking_key = ConnectionKey { connection: connection.clone(), is_client: from_client };
 
     // Create TcpTimestamp for current packet
     let current_ts = TcpTimestamp::now(ts_val);

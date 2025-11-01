@@ -88,11 +88,7 @@ fn test_min_ts_diff_validation() {
 
         let (client_uptime, server_uptime) =
             check_ts_tcp(&mut connection_tracker, &server_connection, false, ts_val);
-        assert!(
-            client_uptime.is_none() && server_uptime.is_none(),
-            "{}",
-            description
-        );
+        assert!(client_uptime.is_none() && server_uptime.is_none(), "{}", description);
     }
 }
 
@@ -155,12 +151,8 @@ fn test_valid_timestamp_difference() {
     // - If sleep is 90ms:  25/0.09  = 277 Hz ✓
     // - If sleep is 100ms: 25/0.10  = 250 Hz ✓
     // - If sleep is 110ms: 25/0.11  = 227 Hz ✓
-    let (client_uptime, server_uptime) = check_ts_tcp(
-        &mut connection_tracker,
-        &server_connection,
-        false,
-        1_000_025,
-    );
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &server_connection, false, 1_000_025);
 
     // This should pass:
     // - MIN_TS_DIFF: 25 ticks >> 5 ticks ✓

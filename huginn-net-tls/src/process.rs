@@ -39,22 +39,13 @@ fn create_observable_package_ipv4(
     let tcp = TcpPacket::new(ipv4.payload())
         .ok_or_else(|| HuginnNetTlsError::Parse("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: IpAddr::V4(ipv4.get_source()),
-        port: tcp.get_source(),
-    };
-    let destination = IpPort {
-        ip: IpAddr::V4(ipv4.get_destination()),
-        port: tcp.get_destination(),
-    };
+    let source = IpPort { ip: IpAddr::V4(ipv4.get_source()), port: tcp.get_source() };
+    let destination =
+        IpPort { ip: IpAddr::V4(ipv4.get_destination()), port: tcp.get_destination() };
 
     let tls_package = crate::tls_process::process_tls_ipv4(ipv4)?;
 
-    Ok(ObservablePackage {
-        source,
-        destination,
-        tls_client: tls_package.tls_client,
-    })
+    Ok(ObservablePackage { source, destination, tls_client: tls_package.tls_client })
 }
 
 pub fn process_ipv6_packet(
@@ -82,20 +73,11 @@ fn create_observable_package_ipv6(
     let tcp = TcpPacket::new(ipv6.payload())
         .ok_or_else(|| HuginnNetTlsError::Parse("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: IpAddr::V6(ipv6.get_source()),
-        port: tcp.get_source(),
-    };
-    let destination = IpPort {
-        ip: IpAddr::V6(ipv6.get_destination()),
-        port: tcp.get_destination(),
-    };
+    let source = IpPort { ip: IpAddr::V6(ipv6.get_source()), port: tcp.get_source() };
+    let destination =
+        IpPort { ip: IpAddr::V6(ipv6.get_destination()), port: tcp.get_destination() };
 
     let tls_package = crate::tls_process::process_tls_ipv6(ipv6)?;
 
-    Ok(ObservablePackage {
-        source,
-        destination,
-        tls_client: tls_package.tls_client,
-    })
+    Ok(ObservablePackage { source, destination, tls_client: tls_package.tls_client })
 }

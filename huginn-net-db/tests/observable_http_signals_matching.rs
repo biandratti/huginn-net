@@ -73,10 +73,7 @@ fn test_distance_header_optional_skip_in_middle() {
 
 #[test]
 fn test_distance_header_multiple_optional_skips() {
-    let observed = vec![
-        Header::new("Host"),
-        Header::new("Connection").with_value("keep-alive"),
-    ];
+    let observed = vec![Header::new("Host"), Header::new("Connection").with_value("keep-alive")];
 
     let signature = vec![
         Header::new("Host"),
@@ -98,10 +95,7 @@ fn test_distance_header_multiple_optional_skips() {
 #[test]
 fn test_distance_header_required_in_middle_causes_error() {
     // Required header in middle should cause error and misalignment
-    let observed = vec![
-        Header::new("Host"),
-        Header::new("Connection").with_value("keep-alive"),
-    ];
+    let observed = vec![Header::new("Host"), Header::new("Connection").with_value("keep-alive")];
 
     let signature = vec![
         Header::new("Host"),
@@ -148,10 +142,7 @@ fn test_distance_header_realistic_browser_with_optional_skips() {
 
 #[test]
 fn test_distance_header_missing_optional_header() {
-    let observed = vec![
-        Header::new("Host"),
-        Header::new("User-Agent").with_value("Mozilla/5.0"),
-    ];
+    let observed = vec![Header::new("Host"), Header::new("User-Agent").with_value("Mozilla/5.0")];
 
     let signature = vec![
         Header::new("Host"),
@@ -194,10 +185,7 @@ fn test_distance_header_extra_headers_in_observed() {
         Header::new("X-Custom-Header").with_value("custom"), // Extra header
     ];
 
-    let signature = vec![
-        Header::new("Host"),
-        Header::new("User-Agent").with_value("Mozilla/5.0"),
-    ];
+    let signature = vec![Header::new("Host"), Header::new("User-Agent").with_value("Mozilla/5.0")];
 
     let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
     assert_eq!(
@@ -209,10 +197,7 @@ fn test_distance_header_extra_headers_in_observed() {
 
 #[test]
 fn test_distance_header_optional_header_at_end() {
-    let observed = vec![
-        Header::new("Host"),
-        Header::new("User-Agent").with_value("Mozilla/5.0"),
-    ];
+    let observed = vec![Header::new("Host"), Header::new("User-Agent").with_value("Mozilla/5.0")];
 
     let signature = vec![
         Header::new("Host"),
@@ -275,10 +260,7 @@ fn test_distance_header_observed_vs_signature_with_optional() {
 
 #[test]
 fn test_distance_header_value_mismatch_not_optional() {
-    let observed = vec![
-        Header::new("Host"),
-        Header::new("Connection").with_value("keep-alive"),
-    ];
+    let observed = vec![Header::new("Host"), Header::new("Connection").with_value("keep-alive")];
 
     let signature = vec![
         Header::new("Host"),
