@@ -7,6 +7,7 @@ use crate::HuginnNetTlsError;
 use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError, TrySendError};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
+use std::fmt;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -33,6 +34,16 @@ pub struct WorkerStats {
     pub dropped: u64,
 }
 
+impl fmt::Display for WorkerStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Worker {}: queue_size={}, dropped={}",
+            self.id, self.queue_size, self.dropped
+        )
+    }
+}
+
 /// Simple statistics for monitoring
 #[derive(Debug, Clone, Default)]
 pub struct PoolStats {
@@ -42,6 +53,20 @@ pub struct PoolStats {
     pub total_dropped: u64,
     /// Per-worker statistics (current state)
     pub workers: Vec<WorkerStats>,
+}
+
+impl fmt::Display for PoolStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "TLS Pool Stats - packets dispatched: {}, packets dropped: {}",
+            self.total_dispatched, self.total_dropped
+        )?;
+        for worker in &self.workers {
+            writeln!(f, "  {worker}")?;
+        }
+        Ok(())
+    }
 }
 
 /// Worker pool for parallel TLS processing

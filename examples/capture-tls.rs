@@ -74,6 +74,7 @@ fn main() {
     let args = Args::parse();
     initialize_logging(args.log_file.clone());
     let mut packet_count: u64 = 0;
+    // Log stats every 100 packets
     const LOG_STATS_EVERY: u64 = 100;
 
     info!("Starting TLS-only capture example");
@@ -159,16 +160,7 @@ fn main() {
             // Log detailed stats every N packets
             if packet_count % LOG_STATS_EVERY == 0 {
                 let stats = pool.stats();
-                info!(
-                    "TLS stats - dispatched: {}, dropped: {}",
-                    stats.total_dispatched, stats.total_dropped
-                );
-                for worker in &stats.workers {
-                    info!(
-                        "  Worker {}: queue_size={}, dropped={}",
-                        worker.id, worker.queue_size, worker.dropped
-                    );
-                }
+                info!("{stats}");
             }
         }
     }
