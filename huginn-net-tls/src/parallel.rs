@@ -71,10 +71,7 @@ impl WorkerPool {
             HuginnNetTlsError::Parse("Number of workers must be greater than 0".to_string())
         })?;
 
-        debug!(
-            "Creating TLS worker pool: {} workers, queue size: {}",
-            num_workers, queue_size
-        );
+        debug!("Creating TLS worker pool: {} workers, queue size: {}", num_workers, queue_size);
 
         let num_workers_val = num_workers.get();
         let mut workers = Vec::with_capacity(num_workers_val);
@@ -93,7 +90,9 @@ impl WorkerPool {
                 .spawn(move || {
                     Self::worker_loop(worker_id, rx, result_sender_clone);
                 })
-                .map_err(|e| HuginnNetTlsError::Parse(format!("Failed to spawn worker thread: {e}")))?;
+                .map_err(|e| {
+                    HuginnNetTlsError::Parse(format!("Failed to spawn worker thread: {e}"))
+                })?;
 
             workers.push(handle);
         }

@@ -53,10 +53,7 @@ impl HuginnNetTls {
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
-        Self {
-            parallel_config: None,
-            worker_pool: None,
-        }
+        Self { parallel_config: None, worker_pool: None }
     }
 
     /// Creates a new instance with parallel processing using N worker threads.
@@ -68,10 +65,7 @@ impl HuginnNetTls {
     /// A new `HuginnNetTls` instance with parallel processing enabled.
     pub fn with_workers(num_workers: usize) -> Self {
         Self {
-            parallel_config: Some(ParallelConfig {
-                num_workers,
-                queue_size: 128,
-            }),
+            parallel_config: Some(ParallelConfig { num_workers, queue_size: 128 }),
             worker_pool: None,
         }
     }
@@ -86,10 +80,7 @@ impl HuginnNetTls {
     /// A new `HuginnNetTls` instance with custom parallel configuration.
     pub fn with_config(num_workers: usize, queue_size: usize) -> Self {
         Self {
-            parallel_config: Some(ParallelConfig {
-                num_workers,
-                queue_size,
-            }),
+            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
             worker_pool: None,
         }
     }
@@ -120,7 +111,8 @@ impl HuginnNetTls {
     pub fn init_pool(&mut self, sender: Sender<TlsClientOutput>) -> Result<(), HuginnNetTlsError> {
         if let Some(config) = &self.parallel_config {
             if self.worker_pool.is_none() {
-                let worker_pool = Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+                let worker_pool =
+                    Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
                 self.worker_pool = Some(worker_pool);
             }
         }
@@ -140,13 +132,16 @@ impl HuginnNetTls {
         if let Some(config) = &self.parallel_config {
             // Create and store pool if not already created
             if self.worker_pool.is_none() {
-                let worker_pool = Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+                let worker_pool =
+                    Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
                 self.worker_pool = Some(worker_pool);
             }
-            
+
             let worker_pool = match self.worker_pool.as_ref() {
                 Some(pool) => pool.clone(),
-                None => return Err(HuginnNetTlsError::Parse("Worker pool not initialized".to_string())),
+                None => {
+                    return Err(HuginnNetTlsError::Parse("Worker pool not initialized".to_string()))
+                }
             };
 
             while let Some(packet_result) = packet_fn() {

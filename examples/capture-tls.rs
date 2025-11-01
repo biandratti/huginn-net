@@ -110,13 +110,13 @@ fn main() {
     }
 
     let analyzer_shared = Arc::new(std::sync::Mutex::new(analyzer));
-    
+
     // Start analysis thread
     thread::spawn(move || {
         let interface = match &args.command {
             Commands::Live { interface } => interface.clone(),
         };
-        
+
         let result = {
             let mut analyzer = match analyzer_shared.lock() {
                 Ok(a) => a,
@@ -144,7 +144,7 @@ fn main() {
                 if monitor_cancel_signal.load(Ordering::Relaxed) {
                     break;
                 }
-                
+
                 counter = counter.saturating_add(1);
                 // Log stats every 5 seconds (50 * 100ms)
                 if counter >= 50 {
