@@ -104,12 +104,7 @@ pub struct AnalysisConfig {
 
 impl Default for AnalysisConfig {
     fn default() -> Self {
-        Self {
-            http_enabled: true,
-            tcp_enabled: true,
-            tls_enabled: true,
-            matcher_enabled: true,
-        }
+        Self { http_enabled: true, tcp_enabled: true, tls_enabled: true, matcher_enabled: true }
     }
 }
 
@@ -254,17 +249,12 @@ impl<'a> HuginnNet<'a> {
 
         debug!("Using network interface: {}", interface.name);
 
-        let config = Config {
-            promiscuous: true,
-            ..Config::default()
-        };
+        let config = Config { promiscuous: true, ..Config::default() };
 
         let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
-                return Err(HuginnNetError::MissConfiguration(
-                    "Unhandled channel type".to_string(),
-                ))
+                return Err(HuginnNetError::MissConfiguration("Unhandled channel type".to_string()))
             }
             Err(e) => {
                 return Err(HuginnNetError::MissConfiguration(format!(

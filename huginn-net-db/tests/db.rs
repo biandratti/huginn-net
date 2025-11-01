@@ -17,10 +17,7 @@ fn test_default_database() {
             ("Ethernet or modem".to_owned(), vec![576, 1500]),
             ("DSL".to_owned(), vec![1452, 1454, 1492]),
             ("GIF".to_owned(), vec![1240, 1280]),
-            (
-                "generic tunnel or VPN".to_owned(),
-                vec![1300, 1400, 1420, 1440, 1450, 1460]
-            ),
+            ("generic tunnel or VPN".to_owned(), vec![1300, 1400, 1420, 1440, 1450, 1460]),
             ("IPSec or GRE".to_owned(), vec![1476]),
             ("IPIP or SIT".to_owned(), vec![1480]),
             ("PPTP".to_owned(), vec![1490]),

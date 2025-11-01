@@ -276,12 +276,9 @@ fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<String>)>> {
 }
 
 fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
-    let (input, (name, _, value)) = (
-        alphanumeric1,
-        space0,
-        opt(preceded((space0, tag("="), space0), alphanumeric1)),
-    )
-        .parse(input)?;
+    let (input, (name, _, value)) =
+        (alphanumeric1, space0, opt(preceded((space0, tag("="), space0), alphanumeric1)))
+            .parse(input)?;
 
     Ok((input, (name, value)))
 }
@@ -290,10 +287,7 @@ fn parse_label(input: &str) -> IResult<&str, Label> {
     let (input, (ty, _, class, _, name, flavor)) = (
         parse_type,
         tag(":"),
-        alt((
-            map(tag("!"), |_| None),
-            map(take_until(":"), |s: &str| Some(s.to_string())),
-        )),
+        alt((map(tag("!"), |_| None), map(take_until(":"), |s: &str| Some(s.to_string())))),
         tag(":"),
         take_until(":"),
         opt(preceded(tag(":"), rest)),
@@ -312,11 +306,7 @@ fn parse_label(input: &str) -> IResult<&str, Label> {
 }
 
 fn parse_type(input: &str) -> IResult<&str, Type> {
-    alt((
-        tag("s").map(|_| Type::Specified),
-        tag("g").map(|_| Type::Generic),
-    ))
-    .parse(input)
+    alt((tag("s").map(|_| Type::Specified), tag("g").map(|_| Type::Generic))).parse(input)
 }
 
 fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
@@ -330,17 +320,11 @@ fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
         tag(":"),
         map_res(digit1, |s: &str| s.parse::<u8>()), // olen
         tag(":"),
-        alt((
-            tag("*").map(|_| None),
-            map_res(digit1, |s: &str| s.parse::<u16>().map(Some)),
-        )), // mss
+        alt((tag("*").map(|_| None), map_res(digit1, |s: &str| s.parse::<u16>().map(Some)))), // mss
         tag(":"),
         parse_window_size,
         tag(","),
-        alt((
-            tag("*").map(|_| None),
-            map_res(digit1, |s: &str| s.parse::<u8>().map(Some)),
-        )), // wscale
+        alt((tag("*").map(|_| None), map_res(digit1, |s: &str| s.parse::<u8>().map(Some)))), // wscale
         tag(":"),
         separated_list1(tag(","), parse_tcp_option),
         tag(":"),
@@ -352,17 +336,7 @@ fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
 
     Ok((
         input,
-        TcpSignature {
-            version,
-            ittl,
-            olen,
-            mss,
-            wsize,
-            wscale,
-            olayout,
-            quirks,
-            pclass,
-        },
+        TcpSignature { version, ittl, olen, mss, wsize, wscale, olayout, quirks, pclass },
     ))
 }
 
@@ -377,12 +351,8 @@ fn parse_ip_version(input: &str) -> IResult<&str, IpVersion> {
 
 fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
     alt((
-        map_res(terminated(digit1, tag("-")), |s: &str| {
-            s.parse::<u8>().map(Ttl::Bad)
-        }),
-        map_res(terminated(digit1, tag("+?")), |s: &str| {
-            s.parse::<u8>().map(Ttl::Guess)
-        }),
+        map_res(terminated(digit1, tag("-")), |s: &str| s.parse::<u8>().map(Ttl::Bad)),
+        map_res(terminated(digit1, tag("+?")), |s: &str| s.parse::<u8>().map(Ttl::Guess)),
         map_res(
             separated_pair(digit1, tag("+"), digit1),
             |(ttl_str, distance_str): (&str, &str)| match (
@@ -402,15 +372,9 @@ fn parse_ttl(input: &str) -> IResult<&str, Ttl> {
 fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
     alt((
         map(tag("*"), |_| WindowSize::Any),
-        map_res(preceded(tag("mss*"), digit1), |s: &str| {
-            s.parse::<u8>().map(WindowSize::Mss)
-        }),
-        map_res(preceded(tag("mtu*"), digit1), |s: &str| {
-            s.parse::<u8>().map(WindowSize::Mtu)
-        }),
-        map_res(preceded(tag("%"), digit1), |s: &str| {
-            s.parse::<u16>().map(WindowSize::Mod)
-        }),
+        map_res(preceded(tag("mss*"), digit1), |s: &str| s.parse::<u8>().map(WindowSize::Mss)),
+        map_res(preceded(tag("mtu*"), digit1), |s: &str| s.parse::<u8>().map(WindowSize::Mtu)),
+        map_res(preceded(tag("%"), digit1), |s: &str| s.parse::<u16>().map(WindowSize::Mod)),
         map_res(digit1, |s: &str| s.parse::<u16>().map(WindowSize::Value)),
     ))
     .parse(input)
@@ -418,20 +382,15 @@ fn parse_window_size(input: &str) -> IResult<&str, WindowSize> {
 
 fn parse_tcp_option(input: &str) -> IResult<&str, TcpOption> {
     alt((
-        map_res(preceded(tag("eol+"), digit1), |s: &str| {
-            s.parse::<u8>().map(TcpOption::Eol)
-        }),
+        map_res(preceded(tag("eol+"), digit1), |s: &str| s.parse::<u8>().map(TcpOption::Eol)),
         tag("nop").map(|_| TcpOption::Nop),
         tag("mss").map(|_| TcpOption::Mss),
         tag("ws").map(|_| TcpOption::Ws),
         tag("sok").map(|_| TcpOption::Sok),
         tag("sack").map(|_| TcpOption::Sack),
         tag("ts").map(|_| TcpOption::TS),
-        preceded(
-            tag("?"),
-            map(digit1, |s: &str| s.parse::<u8>().unwrap_or(0)),
-        )
-        .map(TcpOption::Unknown),
+        preceded(tag("?"), map(digit1, |s: &str| s.parse::<u8>().unwrap_or(0)))
+            .map(TcpOption::Unknown),
     ))
     .parse(input)
 }
@@ -486,15 +445,7 @@ fn parse_http_signature(input: &str) -> IResult<&str, HttpSignature> {
         .filter(|h| !h.name.is_empty())
         .collect();
 
-    Ok((
-        input,
-        HttpSignature {
-            version,
-            horder,
-            habsent,
-            expsw: expsw.to_string(),
-        },
-    ))
+    Ok((input, HttpSignature { version, horder, habsent, expsw: expsw.to_string() }))
 }
 
 fn parse_http_version(input: &str) -> IResult<&str, HttpVersion> {

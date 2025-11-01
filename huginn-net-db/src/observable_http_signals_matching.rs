@@ -160,16 +160,10 @@ impl HttpSignatureHelper for http::Signature {
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
         let mut keys = Vec::new();
         if self.version == Version::Any {
-            keys.push(HttpIndexKey {
-                http_version_key: Version::V10,
-            });
-            keys.push(HttpIndexKey {
-                http_version_key: Version::V11,
-            });
+            keys.push(HttpIndexKey { http_version_key: Version::V10 });
+            keys.push(HttpIndexKey { http_version_key: Version::V11 });
         } else {
-            keys.push(HttpIndexKey {
-                http_version_key: self.version,
-            });
+            keys.push(HttpIndexKey { http_version_key: self.version });
         }
         keys
     }

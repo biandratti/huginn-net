@@ -13,9 +13,7 @@ fn create_test_signature() -> Signature {
         ],
         elliptic_curves: vec![0x001d, 0x0017, 0x0018, 0x0019],
         elliptic_curve_point_formats: vec![0x00],
-        signature_algorithms: vec![
-            0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601,
-        ],
+        signature_algorithms: vec![0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601],
         sni: Some("example.com".to_string()),
         alpn: Some("h2".to_string()),
     }
@@ -42,20 +40,9 @@ fn test_ja4_generation() {
 
     // Test hash lengths (should be 12 characters) - use the new enum structure
     let parts: Vec<&str> = ja4.full.value().split('_').collect();
-    assert!(
-        parts.len() >= 3,
-        "JA4 should have at least 3 parts separated by underscores"
-    );
-    assert_eq!(
-        parts[1].len(),
-        12,
-        "Second JA4 hash part should be 12 characters"
-    );
-    assert_eq!(
-        parts[2].len(),
-        12,
-        "Third JA4 hash part should be 12 characters"
-    );
+    assert!(parts.len() >= 3, "JA4 should have at least 3 parts separated by underscores");
+    assert_eq!(parts[1].len(), 12, "Second JA4 hash part should be 12 characters");
+    assert_eq!(parts[2].len(), 12, "Third JA4 hash part should be 12 characters");
 }
 
 #[test]
@@ -267,9 +254,7 @@ fn test_known_ja4_comparison() {
         ],
         elliptic_curves: vec![0x001d, 0x0017, 0x0018, 0x0019],
         elliptic_curve_point_formats: vec![0x00],
-        signature_algorithms: vec![
-            0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601,
-        ],
+        signature_algorithms: vec![0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601],
         sni: Some("example.com".to_string()),
         alpn: Some("h2".to_string()),
     };
@@ -299,9 +284,7 @@ fn test_captured_traffic_ja4() {
         ],
         elliptic_curves: vec![0x001d, 0x0017, 0x0018, 0x0019],
         elliptic_curve_point_formats: vec![0x00],
-        signature_algorithms: vec![
-            0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601,
-        ],
+        signature_algorithms: vec![0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601],
         sni: Some("example.com".to_string()),
         alpn: Some("h2".to_string()),
     };

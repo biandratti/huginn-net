@@ -78,10 +78,7 @@ fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
 }
 
 fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNetTcpError> {
-    assert!(
-        Path::new(pcap_path).exists(),
-        "PCAP file must exist: {pcap_path}"
-    );
+    assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
     // Load the default database for TCP analysis
     let db = Database::load_default()

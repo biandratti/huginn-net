@@ -25,10 +25,7 @@ pub struct HttpProcessors {
 impl HttpProcessors {
     pub fn new() -> Self {
         Self {
-            parsers: vec![
-                Box::new(Http1ParserAdapter::new()),
-                Box::new(Http2ParserAdapter::new()),
-            ],
+            parsers: vec![Box::new(Http1ParserAdapter::new()), Box::new(Http2ParserAdapter::new())],
         }
     }
 
@@ -69,9 +66,7 @@ struct Http1ParserAdapter {
 
 impl Http1ParserAdapter {
     fn new() -> Self {
-        Self {
-            processor: http1_process::Http1Processor::new(),
-        }
+        Self { processor: http1_process::Http1Processor::new() }
     }
 }
 
@@ -104,9 +99,7 @@ struct Http2ParserAdapter {
 
 impl Http2ParserAdapter {
     fn new() -> Self {
-        Self {
-            processor: http2_process::Http2Processor::new(),
-        }
+        Self { processor: http2_process::Http2Processor::new() }
     }
 }
 
@@ -233,10 +226,7 @@ pub fn process_http_ipv4(
             processors,
         )
     } else {
-        Ok(ObservableHttpPackage {
-            http_request: None,
-            http_response: None,
-        })
+        Ok(ObservableHttpPackage { http_request: None, http_response: None })
     }
 }
 
@@ -257,10 +247,7 @@ pub fn process_http_ipv6(
             processors,
         )
     } else {
-        Ok(ObservableHttpPackage {
-            http_request: None,
-            http_response: None,
-        })
+        Ok(ObservableHttpPackage { http_request: None, http_response: None })
     }
 }
 
@@ -273,10 +260,8 @@ fn process_tcp_packet(
 ) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
     let src_port: u16 = tcp.get_source();
     let dst_port: u16 = tcp.get_destination();
-    let mut observable_http_package = ObservableHttpPackage {
-        http_request: None,
-        http_response: None,
-    };
+    let mut observable_http_package =
+        ObservableHttpPackage { http_request: None, http_response: None };
 
     let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
     let (tcp_flow, is_client) = {
@@ -294,10 +279,7 @@ fn process_tcp_packet(
 
     if let Some(flow) = tcp_flow {
         if !tcp.payload().is_empty() {
-            let tcp_data = TcpData {
-                sequence: tcp.get_sequence(),
-                data: Vec::from(tcp.payload()),
-            };
+            let tcp_data = TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
 
             if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
                 // Only add data and parse if not already parsed
@@ -360,10 +342,8 @@ fn process_tcp_packet(
             }
         }
     } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
-        let tcp_data: TcpData = TcpData {
-            sequence: tcp.get_sequence(),
-            data: Vec::from(tcp.payload()),
-        };
+        let tcp_data: TcpData =
+            TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
         let flow: TcpFlow = TcpFlow::init(src_ip, src_port, dst_ip, dst_port, tcp_data);
         http_flows.insert(flow_key, flow, Duration::new(60, 0));
     }

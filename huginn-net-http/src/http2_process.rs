@@ -16,9 +16,7 @@ pub struct Http2Processor {
 
 impl Http2Processor {
     pub fn new() -> Self {
-        Self {
-            parser: http2_parser::Http2Parser::new(),
-        }
+        Self { parser: http2_parser::Http2Parser::new() }
     }
 }
 
@@ -207,9 +205,7 @@ fn parse_http2_request(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/2 request: {}", e);
-            Err(HuginnNetHttpError::Parse(format!(
-                "Failed to parse HTTP/2 request: {e}"
-            )))
+            Err(HuginnNetHttpError::Parse(format!("Failed to parse HTTP/2 request: {e}")))
         }
     }
 }
@@ -229,9 +225,7 @@ fn parse_http2_response(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/2 response: {}", e);
-            Err(HuginnNetHttpError::Parse(format!(
-                "Failed to parse HTTP/2 response: {e}"
-            )))
+            Err(HuginnNetHttpError::Parse(format!("Failed to parse HTTP/2 response: {e}")))
         }
     }
 }

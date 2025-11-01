@@ -1,0 +1,19 @@
+# Rustfmt configuration for huginn-net
+# See https://rust-lang.github.io/rustfmt/ for all options
+
+edition = "2021"
+hard_tabs = false
+tab_spaces = 4
+max_width = 100
+use_small_heuristics = "Default"
+newline_style = "Unix"
+reorder_imports = true
+use_field_init_shorthand = true
+remove_nested_parens = true
+reorder_modules = true
+use_try_shorthand = true
+match_block_trailing_comma = false
+chain_width = 60
+fn_call_width = 80
+struct_lit_width = 80
+array_width = 80

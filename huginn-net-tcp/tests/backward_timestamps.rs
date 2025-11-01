@@ -21,12 +21,8 @@ fn test_timestamp_wraparound_detection() {
     let near_max_timestamp = u32::MAX - 1000; // Close to overflow
 
     // Store SYN data with timestamp near maximum
-    let (client_uptime, server_uptime) = check_ts_tcp(
-        &mut connection_tracker,
-        &connection,
-        true,
-        near_max_timestamp,
-    );
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &connection, true, near_max_timestamp);
     assert!(
         client_uptime.is_none() && server_uptime.is_none(),
         "SYN packet should not return uptime calculation"
@@ -91,12 +87,8 @@ fn test_small_backward_movement_within_grace() {
     // Simulate a small backward movement (packet reordering)
     let backward_timestamp = 9998; // 2 ticks backward
 
-    let (client_uptime, server_uptime) = check_ts_tcp(
-        &mut connection_tracker,
-        &server_connection,
-        false,
-        backward_timestamp,
-    );
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &server_connection, false, backward_timestamp);
 
     // Should be rejected due to small backward movement within grace period
     assert!(
@@ -139,12 +131,8 @@ fn test_large_backward_movement() {
     // Simulate large backward movement (different server behind NAT)
     let low_timestamp = 100_000; // Much lower timestamp
 
-    let (client_uptime, server_uptime) = check_ts_tcp(
-        &mut connection_tracker,
-        &server_connection,
-        false,
-        low_timestamp,
-    );
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &server_connection, false, low_timestamp);
 
     // The algorithm should detect this as a large backward movement
     // and attempt to calculate frequency using the inverted difference
@@ -187,12 +175,8 @@ fn test_normal_forward_progression() {
     // Normal forward progression
     let forward_timestamp = 500_100; // 100 ticks forward
 
-    let (client_uptime, server_uptime) = check_ts_tcp(
-        &mut connection_tracker,
-        &server_connection,
-        false,
-        forward_timestamp,
-    );
+    let (client_uptime, server_uptime) =
+        check_ts_tcp(&mut connection_tracker, &server_connection, false, forward_timestamp);
 
     // This should be processed normally (though may fail other validations)
     println!("Normal forward progression test result: client={client_uptime:?}, server={server_uptime:?}");
@@ -220,14 +204,8 @@ fn test_wraparound_calculation_logic() {
     println!(
         "  ref={ts_ref1}, cur={ts_cur1}, diff={diff1}, !diff={inv1}, is_backward={is_backward1}"
     );
-    assert!(
-        !is_backward1,
-        "Forward progression should NOT be detected as backward"
-    );
-    assert!(
-        diff1 <= threshold,
-        "Forward progression: diff should be <= threshold"
-    );
+    assert!(!is_backward1, "Forward progression should NOT be detected as backward");
+    assert!(diff1 <= threshold, "Forward progression: diff should be <= threshold");
 
     // Case 2: Small backward movement
     let ts_ref2 = 2000u32;
@@ -240,14 +218,8 @@ fn test_wraparound_calculation_logic() {
     println!(
         "  ref={ts_ref2}, cur={ts_cur2}, diff={diff2}, !diff={inv2}, is_backward={is_backward2}"
     );
-    assert!(
-        is_backward2,
-        "Small backward movement SHOULD be detected as backward"
-    );
-    assert!(
-        diff2 > threshold,
-        "Small backward: diff should be > threshold"
-    );
+    assert!(is_backward2, "Small backward movement SHOULD be detected as backward");
+    assert!(diff2 > threshold, "Small backward: diff should be > threshold");
 
     // Case 3: Large backward movement (what p0f calls "wraparound")
     let ts_ref3 = 100u32;
@@ -260,14 +232,8 @@ fn test_wraparound_calculation_logic() {
     println!(
         "  ref={ts_ref3}, cur={ts_cur3}, diff={diff3}, !diff={inv3}, is_backward={is_backward3}"
     );
-    assert!(
-        is_backward3,
-        "Large backward movement SHOULD be detected as backward"
-    );
-    assert!(
-        diff3 > threshold,
-        "Large backward: diff should be > threshold"
-    );
+    assert!(is_backward3, "Large backward movement SHOULD be detected as backward");
+    assert!(diff3 > threshold, "Large backward: diff should be > threshold");
 
     // Case 4: True overflow scenario (timestamp counter wrapped around)
     let ts_ref4 = u32::MAX - 100;
@@ -284,10 +250,7 @@ fn test_wraparound_calculation_logic() {
         !is_backward4,
         "True overflow should NOT be detected as backward (small positive result)"
     );
-    assert!(
-        diff4 <= threshold,
-        "True overflow: diff should be <= threshold"
-    );
+    assert!(diff4 <= threshold, "True overflow: diff should be <= threshold");
 
     println!("\n✓ All wraparound detection cases validated correctly");
 }
