@@ -10,13 +10,7 @@ const TLS_HANDSHAKE_TYPE: u8 = 0x16;
 /// Helper to create minimal TLS handshake payload  
 fn create_tls_payload(version: tls_parser::TlsVersion) -> Vec<u8> {
     let version_bytes = version.0.to_be_bytes();
-    vec![
-        TLS_HANDSHAKE_TYPE,
-        version_bytes[0],
-        version_bytes[1],
-        0x00,
-        0x05,
-    ]
+    vec![TLS_HANDSHAKE_TYPE, version_bytes[0], version_bytes[1], 0x00, 0x05]
 }
 
 #[test]
@@ -58,10 +52,7 @@ fn test_version_detection() {
     // Test TLS 1.3 detection via supported_versions extension
     let legacy_v12_but_13 = tls_parser::TlsVersion::Tls12;
     assert_eq!(
-        determine_tls_version(
-            &legacy_v12_but_13,
-            &[TlsExtensionType::SupportedVersions.into()]
-        ),
+        determine_tls_version(&legacy_v12_but_13, &[TlsExtensionType::SupportedVersions.into()]),
         TlsVersion::V1_3
     );
 
@@ -176,10 +167,7 @@ fn test_extract_signature_with_mock_client_hello() {
 
     // Should succeed and generate JA4 with empty extension fields (matching JA4 spec)
     let result = extract_tls_signature_from_client_hello(&client_hello);
-    assert!(
-        result.is_ok(),
-        "Failed to extract TLS signature from ClientHello"
-    );
+    assert!(result.is_ok(), "Failed to extract TLS signature from ClientHello");
 
     let signature = match result {
         Ok(sig) => sig,
@@ -224,10 +212,7 @@ fn test_extract_signature_grease_filtering() {
 
     // Mock the extension parsing by providing minimal valid extension data
     let result = extract_tls_signature_from_client_hello(&client_hello);
-    assert!(
-        result.is_ok(),
-        "Failed to extract TLS signature for GREASE test"
-    );
+    assert!(result.is_ok(), "Failed to extract TLS signature for GREASE test");
     let signature = match result {
         Ok(sig) => sig,
         Err(_) => panic!("Should not fail after assert"),
@@ -332,10 +317,7 @@ fn test_extract_signature_minimal_extensions() {
 
     // Should succeed even if extension parsing fails - falls back to empty extensions
     let result = extract_tls_signature_from_client_hello(&client_hello);
-    assert!(
-        result.is_ok(),
-        "Should succeed even with minimal extension data"
-    );
+    assert!(result.is_ok(), "Should succeed even with minimal extension data");
 
     let signature = match result {
         Ok(sig) => sig,

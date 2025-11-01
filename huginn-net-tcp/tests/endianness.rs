@@ -9,12 +9,8 @@ fn test_tcp_timestamp_endianness() {
     ];
 
     // Extract TSval using big-endian (correct according to RFC 1323)
-    let ts_val_bytes: [u8; 4] = [
-        tcp_option_data[2],
-        tcp_option_data[3],
-        tcp_option_data[4],
-        tcp_option_data[5],
-    ];
+    let ts_val_bytes: [u8; 4] =
+        [tcp_option_data[2], tcp_option_data[3], tcp_option_data[4], tcp_option_data[5]];
     let ts_val_be = u32::from_be_bytes(ts_val_bytes);
 
     // Extract TSval using native-endian (incorrect)
@@ -56,12 +52,8 @@ fn test_timestamp_zero_detection() {
         0x00, 0x00, 0x00, 0x00, // TSecr = 0 (big-endian)
     ];
 
-    let ts_val_bytes: [u8; 4] = [
-        zero_timestamp[2],
-        zero_timestamp[3],
-        zero_timestamp[4],
-        zero_timestamp[5],
-    ];
+    let ts_val_bytes: [u8; 4] =
+        [zero_timestamp[2], zero_timestamp[3], zero_timestamp[4], zero_timestamp[5]];
     let ts_val = u32::from_be_bytes(ts_val_bytes);
 
     assert_eq!(ts_val, 0, "Zero timestamp should be detected correctly");
@@ -92,8 +84,5 @@ fn test_realistic_timestamp_values() {
     let estimated_uptime_seconds = ts_val / 1000;
     let estimated_uptime_hours = estimated_uptime_seconds / 3600;
 
-    assert_eq!(
-        estimated_uptime_hours, 1,
-        "Should estimate ~1 hour of uptime"
-    );
+    assert_eq!(estimated_uptime_hours, 1, "Should estimate ~1 hour of uptime");
 }

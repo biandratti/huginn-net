@@ -105,9 +105,7 @@ pub struct Http1Parser {
 
 impl Http1Parser {
     pub fn new() -> Self {
-        Self {
-            config: Http1Config::default(),
-        }
+        Self { config: Http1Config::default() }
     }
 
     pub fn with_config(config: Http1Config) -> Self {
@@ -374,12 +372,7 @@ impl Http1Parser {
                     duplicate_headers.push(name_lower.clone());
                 }
 
-                headers.push(HttpHeader {
-                    name,
-                    value,
-                    position,
-                    source: HeaderSource::Http1Line,
-                });
+                headers.push(HttpHeader { name, value, position, source: HeaderSource::Http1Line });
             } else {
                 has_malformed = true;
                 if self.config.strict_parsing {
@@ -421,17 +414,9 @@ impl Http1Parser {
                         .trim()
                         .to_string(),
                 );
-                cookies.push(HttpCookie {
-                    name,
-                    value,
-                    position,
-                });
+                cookies.push(HttpCookie { name, value, position });
             } else {
-                cookies.push(HttpCookie {
-                    name: cookie_str.to_string(),
-                    value: None,
-                    position,
-                });
+                cookies.push(HttpCookie { name: cookie_str.to_string(), value: None, position });
             }
             position = position.saturating_add(1);
         }

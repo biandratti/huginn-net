@@ -30,10 +30,7 @@ fn test_distance_ttl_non_matching_cases() {
         Ttl::Distance(57, 7).distance_ttl(&Ttl::Value(128)),
         Some(TcpMatchQuality::Low.as_score())
     );
-    assert_eq!(
-        Ttl::Bad(0).distance_ttl(&Ttl::Bad(1)),
-        Some(TcpMatchQuality::Low.as_score())
-    );
+    assert_eq!(Ttl::Bad(0).distance_ttl(&Ttl::Bad(1)), Some(TcpMatchQuality::Low.as_score()));
 }
 
 #[test]

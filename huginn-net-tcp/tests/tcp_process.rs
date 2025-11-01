@@ -21,9 +21,6 @@ fn test_is_valid() {
     assert!(is_valid(TcpFlags::SYN, TcpFlags::SYN));
     assert!(!is_valid(TcpFlags::SYN | TcpFlags::FIN, TcpFlags::SYN));
     assert!(!is_valid(TcpFlags::SYN | TcpFlags::RST, TcpFlags::SYN));
-    assert!(!is_valid(
-        TcpFlags::FIN | TcpFlags::RST,
-        TcpFlags::FIN | TcpFlags::RST
-    ));
+    assert!(!is_valid(TcpFlags::FIN | TcpFlags::RST, TcpFlags::FIN | TcpFlags::RST));
     assert!(!is_valid(TcpFlags::SYN, 0));
 }

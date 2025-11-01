@@ -56,10 +56,7 @@ fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
 }
 
 fn analyze_pcap_file(pcap_path: &str) -> Vec<HttpAnalysisResult> {
-    assert!(
-        Path::new(pcap_path).exists(),
-        "PCAP file must exist: {pcap_path}"
-    );
+    assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
     let db = Database::load_default().unwrap_or_else(|e| panic!("Failed to load database: {e}"));
     let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)

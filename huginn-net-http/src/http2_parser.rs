@@ -174,17 +174,11 @@ impl<'a> Default for Http2Parser<'a> {
 
 impl<'a> Http2Parser<'a> {
     pub fn new() -> Self {
-        Self {
-            config: Http2Config::default(),
-            hpack_decoder: RefCell::new(Decoder::new()),
-        }
+        Self { config: Http2Config::default(), hpack_decoder: RefCell::new(Decoder::new()) }
     }
 
     pub fn with_config(config: Http2Config) -> Self {
-        Self {
-            config,
-            hpack_decoder: RefCell::new(Decoder::new()),
-        }
+        Self { config, hpack_decoder: RefCell::new(Decoder::new()) }
     }
 
     /// Parse HTTP/2 request from binary data
@@ -458,15 +452,7 @@ impl<'a> Http2Parser<'a> {
             }
         }
 
-        Ok(Http2Stream {
-            stream_id,
-            headers,
-            method,
-            path,
-            authority,
-            scheme,
-            status,
-        })
+        Ok(Http2Stream { stream_id, headers, method, path, authority, scheme, status })
     }
 
     fn parse_headers_payload(&self, payload: &[u8]) -> Result<Vec<HttpHeader>, Http2ParseError> {
@@ -549,11 +535,7 @@ impl<'a> Http2Parser<'a> {
                                 .trim()
                                 .to_string(),
                         );
-                        cookies.push(HttpCookie {
-                            name,
-                            value,
-                            position,
-                        });
+                        cookies.push(HttpCookie { name, value, position });
                     } else {
                         cookies.push(HttpCookie {
                             name: cookie_str.to_string(),

@@ -85,10 +85,7 @@ fn test_invalid_preface() {
     let parser = Http2Parser::new();
     let invalid_data = b"GET / HTTP/1.1\r\n\r\n";
 
-    assert_parser_error(
-        parser.parse_request(invalid_data),
-        Http2ParseError::InvalidPreface,
-    );
+    assert_parser_error(parser.parse_request(invalid_data), Http2ParseError::InvalidPreface);
 }
 
 #[test]
@@ -396,11 +393,7 @@ fn test_cookie_parsing_edge_cases() {
             .filter(|h| h.name.to_lowercase() == "cookie")
             .collect();
         let cookies = parser.parse_cookies_from_headers(&cookie_headers);
-        assert_eq!(
-            cookies.len(),
-            expected_count,
-            "Failed for case: '{cookie_str}'"
-        );
+        assert_eq!(cookies.len(), expected_count, "Failed for case: '{cookie_str}'");
 
         match cookie_str {
             "" => {

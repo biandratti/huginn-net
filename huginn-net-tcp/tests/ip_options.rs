@@ -42,10 +42,7 @@ fn test_ipv6_fragment() {
     data[40] = IpNextHeaderProtocols::Tcp.0; // Next Header = TCP
 
     let packet_opt = Ipv6Packet::new(&data);
-    assert!(
-        packet_opt.is_some(),
-        "Failed to create IPv6 fragment packet"
-    );
+    assert!(packet_opt.is_some(), "Failed to create IPv6 fragment packet");
     let packet = match packet_opt {
         Some(pkt) => pkt,
         None => panic!("Should not fail after assert"),

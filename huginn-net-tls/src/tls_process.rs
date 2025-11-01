@@ -90,13 +90,9 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
                     return extract_tls_signature_from_client_hello(client_hello);
                 }
             }
-            Err(HuginnNetTlsError::Parse(
-                "No ClientHello found in TLS record".to_string(),
-            ))
+            Err(HuginnNetTlsError::Parse("No ClientHello found in TLS record".to_string()))
         }
-        Err(e) => Err(HuginnNetTlsError::Parse(format!(
-            "TLS parsing failed: {e:?}"
-        ))),
+        Err(e) => Err(HuginnNetTlsError::Parse(format!("TLS parsing failed: {e:?}"))),
     }
 }
 
@@ -192,10 +188,7 @@ pub fn determine_tls_version(
         tls_parser::TlsVersion::Tls10 => TlsVersion::V1_0,
         tls_parser::TlsVersion::Ssl30 => TlsVersion::Ssl3_0,
         _ => {
-            debug!(
-                "Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2",
-                legacy_version
-            );
+            debug!("Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2", legacy_version);
             TlsVersion::V1_2
         }
     }
