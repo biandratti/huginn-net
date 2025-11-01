@@ -148,9 +148,7 @@ impl WorkerPool {
     /// Dispatch packet to a worker (round-robin)
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
         let counter = self.next_worker.fetch_add(1, Ordering::Relaxed);
-        // SAFETY: NonZeroUsize guarantees num_workers.get() > 0, so modulo cannot panic
-        #[allow(clippy::arithmetic_side_effects)]
-        let worker_id = counter % self.num_workers.get();
+        let worker_id = counter.checked_rem(self.num_workers.get()).unwrap_or(0);
 
         if let Ok(senders) = self.packet_senders.lock() {
             if senders.is_empty() {
@@ -174,7 +172,7 @@ impl WorkerPool {
                 }
             }
         } else {
-            DispatchResult::Dropped // Failed to lock
+            DispatchResult::Dropped
         }
     }
 
