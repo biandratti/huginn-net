@@ -215,10 +215,7 @@ fn generate_final_report(_c: &mut Criterion) {
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
         println!("Capacity Planning (Single Core):");
-        println!(
-            "  - Full TCP Analysis: {} packets/second",
-            format_throughput(throughput)
-        );
+        println!("  - Full TCP Analysis: {} packets/second", format_throughput(throughput));
         println!(
             "  - 1 Gbps (81,274 pps): {:.1}% CPU utilization",
             (81274.0 / throughput) * 100.0
@@ -532,10 +529,9 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
             report
                 .timings
                 .push(("mtu_with_link_matching".to_string(), mtu_with_link_time));
-            report.timings.push((
-                "mtu_without_link_matching".to_string(),
-                mtu_without_link_time,
-            ));
+            report
+                .timings
+                .push(("mtu_without_link_matching".to_string(), mtu_without_link_time));
         }
     }
 }
@@ -665,10 +661,9 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
     if let Ok(mut guard) = BENCHMARK_RESULTS.lock() {
         if let Some(ref mut report) = *guard {
-            report.timings.push((
-                "uptime_with_tracking".to_string(),
-                uptime_with_tracking_time,
-            ));
+            report
+                .timings
+                .push(("uptime_with_tracking".to_string(), uptime_with_tracking_time));
             report
                 .timings
                 .push(("uptime_small_cache".to_string(), uptime_small_cache_time));

@@ -208,10 +208,7 @@ fn generate_final_report(_c: &mut Criterion) {
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
         println!("Capacity Planning (Single Core):");
-        println!(
-            "  - Full HTTP Analysis: {} packets/second",
-            format_throughput(throughput)
-        );
+        println!("  - Full HTTP Analysis: {} packets/second", format_throughput(throughput));
         println!(
             "  - 1 Gbps (81,274 pps): {:.1}% CPU utilization",
             (81274.0 / throughput) * 100.0
@@ -419,14 +416,12 @@ fn bench_http_browser_detection(c: &mut Criterion) {
 
     if let Ok(mut guard) = BENCHMARK_RESULTS.lock() {
         if let Some(ref mut report) = *guard {
-            report.timings.push((
-                "http_with_browser_matching".to_string(),
-                http_with_match_time,
-            ));
-            report.timings.push((
-                "http_without_browser_matching".to_string(),
-                http_without_match_time,
-            ));
+            report
+                .timings
+                .push(("http_with_browser_matching".to_string(), http_with_match_time));
+            report
+                .timings
+                .push(("http_without_browser_matching".to_string(), http_without_match_time));
             report
                 .timings
                 .push(("http_packet_parsing".to_string(), parsing_time));
@@ -561,10 +556,9 @@ fn bench_http_server_detection(c: &mut Criterion) {
             report
                 .timings
                 .push(("server_with_matching".to_string(), server_with_match_time));
-            report.timings.push((
-                "server_without_matching".to_string(),
-                server_without_match_time,
-            ));
+            report
+                .timings
+                .push(("server_without_matching".to_string(), server_without_match_time));
         }
     }
 }

@@ -97,10 +97,7 @@ fn generate_final_report(_c: &mut Criterion) {
     println!("  - PCAP file: {}", report.pcap_name);
     println!("  - Total packets analyzed: {}", report.packet_count);
     println!("  - TLS packets found: {}", report.tls_packet_count);
-    println!(
-        "  - JA4 fingerprints generated: {}",
-        report.ja4_fingerprints
-    );
+    println!("  - JA4 fingerprints generated: {}", report.ja4_fingerprints);
     let tls_effectiveness = (report.tls_packet_count as f64 / report.packet_count as f64) * 100.0;
     println!("  - TLS packet effectiveness: {tls_effectiveness:.1}%");
     println!();
