@@ -115,11 +115,7 @@ pub enum HttpDiagnosis {
 
 impl Header {
     pub fn new<S: AsRef<str>>(name: S) -> Self {
-        Header {
-            optional: false,
-            name: name.as_ref().to_owned(),
-            value: None,
-        }
+        Header { optional: false, name: name.as_ref().to_owned(), value: None }
     }
 
     pub fn with_value<S: AsRef<str>>(mut self, value: S) -> Self {
@@ -193,11 +189,5 @@ pub fn request_common_headers() -> Vec<&'static str> {
 }
 
 pub fn response_common_headers() -> Vec<&'static str> {
-    vec![
-        "Content-Type",
-        "Connection",
-        "Keep-Alive",
-        "Accept-Ranges",
-        "Date",
-    ]
+    vec!["Content-Type", "Connection", "Keep-Alive", "Accept-Ranges", "Date"]
 }

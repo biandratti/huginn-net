@@ -16,9 +16,7 @@ pub struct Http1Processor {
 
 impl Http1Processor {
     pub fn new() -> Self {
-        Self {
-            parser: http1_parser::Http1Parser::new(),
-        }
+        Self { parser: http1_parser::Http1Parser::new() }
     }
 }
 
@@ -256,9 +254,7 @@ pub fn parse_http1_request(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/1.x request: {}", e);
-            Err(HuginnNetHttpError::Parse(format!(
-                "Failed to parse HTTP/1.x request: {e}"
-            )))
+            Err(HuginnNetHttpError::Parse(format!("Failed to parse HTTP/1.x request: {e}")))
         }
     }
 }
@@ -278,9 +274,7 @@ pub fn parse_http1_response(
         }
         Err(e) => {
             debug!("Failed to parse HTTP/1.x response: {}", e);
-            Err(HuginnNetHttpError::Parse(format!(
-                "Failed to parse HTTP/1.x response: {e}"
-            )))
+            Err(HuginnNetHttpError::Parse(format!("Failed to parse HTTP/1.x response: {e}")))
         }
     }
 }

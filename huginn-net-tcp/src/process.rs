@@ -37,14 +37,9 @@ fn create_observable_package_ipv4(
     let tcp = TcpPacket::new(ipv4.payload())
         .ok_or_else(|| HuginnNetTcpError::Parse("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: IpAddr::V4(ipv4.get_source()),
-        port: tcp.get_source(),
-    };
-    let destination = IpPort {
-        ip: IpAddr::V4(ipv4.get_destination()),
-        port: tcp.get_destination(),
-    };
+    let source = IpPort { ip: IpAddr::V4(ipv4.get_source()), port: tcp.get_source() };
+    let destination =
+        IpPort { ip: IpAddr::V4(ipv4.get_destination()), port: tcp.get_destination() };
 
     let tcp_package = tcp_process::process_tcp_ipv4(ipv4, connection_tracker)?;
 
@@ -66,16 +61,10 @@ fn create_observable_package_ipv4(
                     quality: crate::db::MatchQualityType::Matched(quality),
                 }
             } else {
-                OSQualityMatched {
-                    os: None,
-                    quality: crate::db::MatchQualityType::NotMatched,
-                }
+                OSQualityMatched { os: None, quality: crate::db::MatchQualityType::NotMatched }
             }
         } else {
-            OSQualityMatched {
-                os: None,
-                quality: crate::db::MatchQualityType::Disabled,
-            }
+            OSQualityMatched { os: None, quality: crate::db::MatchQualityType::Disabled }
         };
 
         let syn_output = SynTCPOutput {
@@ -100,16 +89,10 @@ fn create_observable_package_ipv4(
                     quality: crate::db::MatchQualityType::Matched(quality),
                 }
             } else {
-                OSQualityMatched {
-                    os: None,
-                    quality: crate::db::MatchQualityType::NotMatched,
-                }
+                OSQualityMatched { os: None, quality: crate::db::MatchQualityType::NotMatched }
             }
         } else {
-            OSQualityMatched {
-                os: None,
-                quality: crate::db::MatchQualityType::Disabled,
-            }
+            OSQualityMatched { os: None, quality: crate::db::MatchQualityType::Disabled }
         };
 
         let syn_ack_output = SynAckTCPOutput {
@@ -132,16 +115,10 @@ fn create_observable_package_ipv4(
                     quality: crate::db::MatchQualityType::Matched(1.0),
                 }
             } else {
-                MTUQualityMatched {
-                    link: None,
-                    quality: crate::db::MatchQualityType::NotMatched,
-                }
+                MTUQualityMatched { link: None, quality: crate::db::MatchQualityType::NotMatched }
             }
         } else {
-            MTUQualityMatched {
-                link: None,
-                quality: crate::db::MatchQualityType::Disabled,
-            }
+            MTUQualityMatched { link: None, quality: crate::db::MatchQualityType::Disabled }
         };
 
         let mtu_output = MTUOutput {
@@ -181,11 +158,7 @@ fn create_observable_package_ipv4(
         tcp_result.server_uptime = Some(uptime_output);
     }
 
-    Ok(ObservablePackage {
-        source,
-        destination,
-        tcp_result,
-    })
+    Ok(ObservablePackage { source, destination, tcp_result })
 }
 
 /// Processes an IPv6 packet for TCP content.
@@ -207,14 +180,9 @@ fn create_observable_package_ipv6(
     let tcp = TcpPacket::new(ipv6.payload())
         .ok_or_else(|| HuginnNetTcpError::Parse("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: IpAddr::V6(ipv6.get_source()),
-        port: tcp.get_source(),
-    };
-    let destination = IpPort {
-        ip: IpAddr::V6(ipv6.get_destination()),
-        port: tcp.get_destination(),
-    };
+    let source = IpPort { ip: IpAddr::V6(ipv6.get_source()), port: tcp.get_source() };
+    let destination =
+        IpPort { ip: IpAddr::V6(ipv6.get_destination()), port: tcp.get_destination() };
 
     let tcp_package = tcp_process::process_tcp_ipv6(ipv6, connection_tracker)?;
 
@@ -237,16 +205,10 @@ fn create_observable_package_ipv6(
                     quality: crate::db::MatchQualityType::Matched(quality),
                 }
             } else {
-                OSQualityMatched {
-                    os: None,
-                    quality: crate::db::MatchQualityType::NotMatched,
-                }
+                OSQualityMatched { os: None, quality: crate::db::MatchQualityType::NotMatched }
             }
         } else {
-            OSQualityMatched {
-                os: None,
-                quality: crate::db::MatchQualityType::Disabled,
-            }
+            OSQualityMatched { os: None, quality: crate::db::MatchQualityType::Disabled }
         };
 
         let syn_output = SynTCPOutput {
@@ -272,16 +234,10 @@ fn create_observable_package_ipv6(
                     quality: crate::db::MatchQualityType::Matched(quality),
                 }
             } else {
-                OSQualityMatched {
-                    os: None,
-                    quality: crate::db::MatchQualityType::NotMatched,
-                }
+                OSQualityMatched { os: None, quality: crate::db::MatchQualityType::NotMatched }
             }
         } else {
-            OSQualityMatched {
-                os: None,
-                quality: crate::db::MatchQualityType::Disabled,
-            }
+            OSQualityMatched { os: None, quality: crate::db::MatchQualityType::Disabled }
         };
 
         let syn_ack_output = SynAckTCPOutput {
@@ -305,16 +261,10 @@ fn create_observable_package_ipv6(
                     quality: crate::db::MatchQualityType::Matched(1.0),
                 }
             } else {
-                MTUQualityMatched {
-                    link: None,
-                    quality: crate::db::MatchQualityType::NotMatched,
-                }
+                MTUQualityMatched { link: None, quality: crate::db::MatchQualityType::NotMatched }
             }
         } else {
-            MTUQualityMatched {
-                link: None,
-                quality: crate::db::MatchQualityType::Disabled,
-            }
+            MTUQualityMatched { link: None, quality: crate::db::MatchQualityType::Disabled }
         };
 
         let mtu_output = MTUOutput {
@@ -365,9 +315,5 @@ fn create_observable_package_ipv6(
         tcp_result.server_uptime = Some(uptime_output);
     }
 
-    Ok(ObservablePackage {
-        source,
-        destination,
-        tcp_result,
-    })
+    Ok(ObservablePackage { source, destination, tcp_result })
 }

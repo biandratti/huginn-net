@@ -42,37 +42,21 @@ impl ObservablePackage {
         match parse_packet(packet) {
             IpPacket::Ipv4(ip_data) => {
                 if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4(
-                        connection_tracker,
-                        http_flows,
-                        http_processors,
-                        ipv4,
-                        config,
-                    )
+                    process_ipv4(connection_tracker, http_flows, http_processors, ipv4, config)
                 } else {
-                    Err(HuginnNetError::UnexpectedPackage(
-                        "Invalid IPv4 packet".to_string(),
-                    ))
+                    Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet".to_string()))
                 }
             }
             IpPacket::Ipv6(ip_data) => {
                 if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6(
-                        connection_tracker,
-                        http_flows,
-                        http_processors,
-                        ipv6,
-                        config,
-                    )
+                    process_ipv6(connection_tracker, http_flows, http_processors, ipv6, config)
                 } else {
-                    Err(HuginnNetError::UnexpectedPackage(
-                        "Invalid IPv6 packet".to_string(),
-                    ))
+                    Err(HuginnNetError::UnexpectedPackage("Invalid IPv6 packet".to_string()))
                 }
             }
-            IpPacket::None => Err(HuginnNetError::UnexpectedPackage(
-                "No valid IP packet found".to_string(),
-            )),
+            IpPacket::None => {
+                Err(HuginnNetError::UnexpectedPackage("No valid IP packet found".to_string()))
+            }
         }
     }
 }
@@ -106,10 +90,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
     }
 
     fn get_addresses(&self) -> (IpAddr, IpAddr) {
-        (
-            IpAddr::V4(self.get_source()),
-            IpAddr::V4(self.get_destination()),
-        )
+        (IpAddr::V4(self.get_source()), IpAddr::V4(self.get_destination()))
     }
 
     fn process_http_with_data(
@@ -128,9 +109,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                     }
                 })
         } else {
-            Err(HuginnNetError::UnexpectedPackage(
-                "Invalid IPv4 packet data".to_string(),
-            ))
+            Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet data".to_string()))
         }
     }
 
@@ -156,9 +135,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                 },
             )
         } else {
-            Err(HuginnNetError::UnexpectedPackage(
-                "Invalid IPv4 packet data".to_string(),
-            ))
+            Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet data".to_string()))
         }
     }
 
@@ -174,9 +151,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                 }
             })
         } else {
-            Err(HuginnNetError::UnexpectedPackage(
-                "Invalid IPv4 packet data".to_string(),
-            ))
+            Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet data".to_string()))
         }
     }
 }
@@ -187,17 +162,11 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
     }
 
     fn get_protocol_error(&self) -> String {
-        format!(
-            "IPv6 packet with non-TCP payload: {}",
-            self.get_next_header()
-        )
+        format!("IPv6 packet with non-TCP payload: {}", self.get_next_header())
     }
 
     fn get_addresses(&self) -> (IpAddr, IpAddr) {
-        (
-            IpAddr::V6(self.get_source()),
-            IpAddr::V6(self.get_destination()),
-        )
+        (IpAddr::V6(self.get_source()), IpAddr::V6(self.get_destination()))
     }
 
     fn process_http_with_data(
@@ -216,9 +185,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                     }
                 })
         } else {
-            Err(HuginnNetError::UnexpectedPackage(
-                "Invalid IPv6 packet data".to_string(),
-            ))
+            Err(HuginnNetError::UnexpectedPackage("Invalid IPv6 packet data".to_string()))
         }
     }
 
@@ -244,9 +211,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                 },
             )
         } else {
-            Err(HuginnNetError::UnexpectedPackage(
-                "Invalid IPv6 packet data".to_string(),
-            ))
+            Err(HuginnNetError::UnexpectedPackage("Invalid IPv6 packet data".to_string()))
         }
     }
 
@@ -262,9 +227,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                 }
             })
         } else {
-            Err(HuginnNetError::UnexpectedPackage(
-                "Invalid IPv6 packet data".to_string(),
-            ))
+            Err(HuginnNetError::UnexpectedPackage("Invalid IPv6 packet data".to_string()))
         }
     }
 }
@@ -281,10 +244,7 @@ fn execute_analysis<P: IpPacketProcessor>(
     let http_response = if config.http_enabled {
         P::process_http_with_data(packet_data, http_flows, http_processors)?
     } else {
-        ObservableHttpPackage {
-            http_request: None,
-            http_response: None,
-        }
+        ObservableHttpPackage { http_request: None, http_response: None }
     };
 
     let tcp_response: ObservableTCPPackage = if config.tcp_enabled {
@@ -305,13 +265,7 @@ fn execute_analysis<P: IpPacketProcessor>(
         ObservableTlsPackage { tls_client: None }
     };
 
-    handle_http_tcp_tlc(
-        Ok(http_response),
-        Ok(tcp_response),
-        Ok(tls_response),
-        source,
-        destination,
-    )
+    handle_http_tcp_tlc(Ok(http_response), Ok(tcp_response), Ok(tls_response), source, destination)
 }
 
 fn process_ip<P: IpPacketProcessor>(
@@ -322,23 +276,15 @@ fn process_ip<P: IpPacketProcessor>(
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
     if !packet.is_tcp() {
-        return Err(HuginnNetError::UnsupportedProtocol(
-            packet.get_protocol_error(),
-        ));
+        return Err(HuginnNetError::UnsupportedProtocol(packet.get_protocol_error()));
     }
 
     let (source_ip, destination_ip) = packet.get_addresses();
     let tcp_ports = TcpPacket::new(packet.payload())
         .ok_or_else(|| HuginnNetError::UnexpectedPackage("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: source_ip,
-        port: tcp_ports.get_source(),
-    };
-    let destination = IpPort {
-        ip: destination_ip,
-        port: tcp_ports.get_destination(),
-    };
+    let source = IpPort { ip: source_ip, port: tcp_ports.get_source() };
+    let destination = IpPort { ip: destination_ip, port: tcp_ports.get_destination() };
 
     let packet_data = packet.packet();
 
@@ -360,13 +306,7 @@ pub fn process_ipv4(
     packet: Ipv4Packet,
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
-    process_ip(
-        connection_tracker,
-        http_flows,
-        http_processors,
-        packet,
-        config,
-    )
+    process_ip(connection_tracker, http_flows, http_processors, packet, config)
 }
 
 pub fn process_ipv6(
@@ -376,13 +316,7 @@ pub fn process_ipv6(
     packet: Ipv6Packet,
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
-    process_ip(
-        connection_tracker,
-        http_flows,
-        http_processors,
-        packet,
-        config,
-    )
+    process_ip(connection_tracker, http_flows, http_processors, packet, config)
 }
 
 fn handle_http_tcp_tlc(
