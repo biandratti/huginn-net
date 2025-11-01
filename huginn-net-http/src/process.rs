@@ -39,21 +39,13 @@ fn create_observable_package_ipv4(
     let tcp = TcpPacket::new(ipv4.payload())
         .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: IpAddr::V4(ipv4.get_source()),
-        port: tcp.get_source(),
-    };
-    let destination = IpPort {
-        ip: IpAddr::V4(ipv4.get_destination()),
-        port: tcp.get_destination(),
-    };
+    let source = IpPort { ip: IpAddr::V4(ipv4.get_source()), port: tcp.get_source() };
+    let destination =
+        IpPort { ip: IpAddr::V4(ipv4.get_destination()), port: tcp.get_destination() };
 
     let http_package = http_process::process_http_ipv4(ipv4, http_flows, http_processors)?;
 
-    let mut http_result = HttpAnalysisResult {
-        http_request: None,
-        http_response: None,
-    };
+    let mut http_result = HttpAnalysisResult { http_request: None, http_response: None };
 
     if let Some(http_request) = http_package.http_request {
         let browser_quality = if let Some(matcher) = matcher {
@@ -143,11 +135,7 @@ fn create_observable_package_ipv4(
         http_result.http_response = Some(response_output);
     }
 
-    Ok(ObservablePackage {
-        source,
-        destination,
-        http_result,
-    })
+    Ok(ObservablePackage { source, destination, http_result })
 }
 
 /// Processes an IPv6 packet for HTTP content.
@@ -172,21 +160,13 @@ fn create_observable_package_ipv6(
     let tcp = TcpPacket::new(ipv6.payload())
         .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
 
-    let source = IpPort {
-        ip: IpAddr::V6(ipv6.get_source()),
-        port: tcp.get_source(),
-    };
-    let destination = IpPort {
-        ip: IpAddr::V6(ipv6.get_destination()),
-        port: tcp.get_destination(),
-    };
+    let source = IpPort { ip: IpAddr::V6(ipv6.get_source()), port: tcp.get_source() };
+    let destination =
+        IpPort { ip: IpAddr::V6(ipv6.get_destination()), port: tcp.get_destination() };
 
     let http_package = http_process::process_http_ipv6(ipv6, http_flows, http_processors)?;
 
-    let mut http_result = HttpAnalysisResult {
-        http_request: None,
-        http_response: None,
-    };
+    let mut http_result = HttpAnalysisResult { http_request: None, http_response: None };
 
     // Process HTTP request
     if let Some(http_request) = http_package.http_request {
@@ -278,9 +258,5 @@ fn create_observable_package_ipv6(
         http_result.http_response = Some(response_output);
     }
 
-    Ok(ObservablePackage {
-        source,
-        destination,
-        http_result,
-    })
+    Ok(ObservablePackage { source, destination, http_result })
 }

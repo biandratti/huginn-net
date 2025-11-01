@@ -23,12 +23,7 @@ pub struct HttpHeader {
 
 impl HttpHeader {
     pub fn new(name: &str, value: Option<&str>, position: usize, source: HeaderSource) -> Self {
-        Self {
-            name: name.to_string(),
-            value: value.map(String::from),
-            position,
-            source,
-        }
+        Self { name: name.to_string(), value: value.map(String::from), position, source }
     }
 }
 

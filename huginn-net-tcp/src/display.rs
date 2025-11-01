@@ -15,13 +15,7 @@ trait TcpDisplayFormat {
     fn get_pclass(&self) -> PayloadSize;
 
     fn format_tcp_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}:{}:{}:",
-            self.get_version(),
-            self.get_ittl(),
-            self.get_olen()
-        )?;
+        write!(f, "{}:{}:{}:", self.get_version(), self.get_ittl(), self.get_olen())?;
 
         if let Some(mss) = self.get_mss() {
             write!(f, "{mss}")?;

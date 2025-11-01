@@ -59,9 +59,7 @@ impl ObservedFingerprint for HttpRequestObservation {
     type Key = HttpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        HttpIndexKey {
-            http_version_key: self.version,
-        }
+        HttpIndexKey { http_version_key: self.version }
     }
 }
 
@@ -69,8 +67,6 @@ impl ObservedFingerprint for HttpResponseObservation {
     type Key = HttpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        HttpIndexKey {
-            http_version_key: self.version,
-        }
+        HttpIndexKey { http_version_key: self.version }
     }
 }

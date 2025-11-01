@@ -57,10 +57,7 @@ fn test_parse_request_with_referer() {
     assert_eq!(request.method, "GET");
     assert_eq!(request.uri, "/page");
     assert_eq!(request.host, Some("example.com".to_string()));
-    assert_eq!(
-        request.referer,
-        Some("https://google.com/search".to_string())
-    );
+    assert_eq!(request.referer, Some("https://google.com/search".to_string()));
     assert_eq!(request.user_agent, Some("test-browser".to_string()));
 }
 
@@ -303,10 +300,7 @@ fn test_malformed_headers() {
 
 #[test]
 fn test_strict_parsing_mode() {
-    let config = Http1Config {
-        strict_parsing: true,
-        ..Default::default()
-    };
+    let config = Http1Config { strict_parsing: true, ..Default::default() };
     let parser = Http1Parser::with_config(config);
 
     // Malformed header should fail in strict mode
@@ -338,15 +332,7 @@ fn test_invalid_methods() {
 fn test_valid_extended_methods() {
     let parser = Http1Parser::new();
 
-    let valid_methods = [
-        "PROPFIND",
-        "PROPPATCH",
-        "MKCOL",
-        "COPY",
-        "MOVE",
-        "LOCK",
-        "UNLOCK",
-    ];
+    let valid_methods = ["PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK"];
 
     for method in valid_methods {
         let data = format!("{method} / HTTP/1.1\r\nHost: example.com\r\n\r\n");
@@ -418,11 +404,7 @@ fn test_cookie_parsing_edge_cases() {
     for (cookie_str, expected_count) in cookie_test_cases {
         let data = format!("GET / HTTP/1.1\r\nHost: example.com\r\nCookie: {cookie_str}\r\n\r\n");
         let result = unwrap_parser_result(parser.parse_request(data.as_bytes()));
-        assert_eq!(
-            result.cookies.len(),
-            expected_count,
-            "Failed for cookie: '{cookie_str}'"
-        );
+        assert_eq!(result.cookies.len(), expected_count, "Failed for cookie: '{cookie_str}'");
     }
 }
 
@@ -444,11 +426,7 @@ fn test_parse_cookies_direct() {
 
     for (cookie_str, expected_count) in test_cases {
         let cookies = parser.parse_cookies(cookie_str);
-        assert_eq!(
-            cookies.len(),
-            expected_count,
-            "Failed for case: '{cookie_str}'"
-        );
+        assert_eq!(cookies.len(), expected_count, "Failed for case: '{cookie_str}'");
 
         match cookie_str {
             "" => {
@@ -528,11 +506,7 @@ fn test_parse_cookies_rfc6265_compliance() {
 
     for (cookie_str, expected_cookies) in rfc_cases {
         let cookies = parser.parse_cookies(cookie_str);
-        assert_eq!(
-            cookies.len(),
-            expected_cookies.len(),
-            "Failed for RFC case: '{cookie_str}'"
-        );
+        assert_eq!(cookies.len(), expected_cookies.len(), "Failed for RFC case: '{cookie_str}'");
 
         for (i, (expected_name, expected_value)) in expected_cookies.iter().enumerate() {
             assert_eq!(cookies[i].name, *expected_name);
@@ -551,30 +525,21 @@ fn test_header_value_edge_cases() {
     let result = unwrap_parser_result(parser.parse_request(data));
     let empty_header = result.headers.iter().find(|h| h.name == "Empty-Header");
     assert!(empty_header.is_some(), "Empty-Header should be present");
-    assert_eq!(
-        empty_header.as_ref().and_then(|h| h.value.as_deref()),
-        Some("")
-    );
+    assert_eq!(empty_header.as_ref().and_then(|h| h.value.as_deref()), Some(""));
 
     // Header with only spaces as value
     let data = b"GET / HTTP/1.1\r\nSpaces-Header:   \r\nHost: example.com\r\n\r\n";
     let result = unwrap_parser_result(parser.parse_request(data));
     let spaces_header = result.headers.iter().find(|h| h.name == "Spaces-Header");
     assert!(spaces_header.is_some(), "Spaces-Header should be present");
-    assert_eq!(
-        spaces_header.as_ref().and_then(|h| h.value.as_deref()),
-        Some("")
-    );
+    assert_eq!(spaces_header.as_ref().and_then(|h| h.value.as_deref()), Some(""));
 
     // Header with leading/trailing spaces
     let data = b"GET / HTTP/1.1\r\nTrim-Header:  value with spaces  \r\nHost: example.com\r\n\r\n";
     let result = unwrap_parser_result(parser.parse_request(data));
     let trim_header = result.headers.iter().find(|h| h.name == "Trim-Header");
     assert!(trim_header.is_some(), "Trim-Header should be present");
-    assert_eq!(
-        trim_header.as_ref().and_then(|h| h.value.as_deref()),
-        Some("value with spaces")
-    );
+    assert_eq!(trim_header.as_ref().and_then(|h| h.value.as_deref()), Some("value with spaces"));
 }
 
 #[test]
@@ -707,10 +672,7 @@ fn test_performance_metadata() {
     // Verify metadata is populated
     assert!(result.parsing_metadata.parsing_time_ns > 0);
     assert_eq!(result.parsing_metadata.header_count, 2);
-    assert_eq!(
-        result.parsing_metadata.request_line_length,
-        "GET /path HTTP/1.1".len()
-    );
+    assert_eq!(result.parsing_metadata.request_line_length, "GET /path HTTP/1.1".len());
     assert!(result.parsing_metadata.total_headers_length > 0);
     assert!(!result.parsing_metadata.has_malformed_headers);
 }
