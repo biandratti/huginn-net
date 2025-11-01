@@ -1,5 +1,3 @@
-//! Parallel TLS packet processing using crossbeam worker pool
-
 use crate::output::TlsClientOutput;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
@@ -74,7 +72,7 @@ pub struct WorkerPool {
     _workers: Vec<thread::JoinHandle<()>>,
     packet_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<TlsClientOutput>>>>,
-    num_workers: NonZeroUsize,
+    pub num_workers: NonZeroUsize,
     next_worker: AtomicUsize,
     queued_count: AtomicU64,
     dropped_count: AtomicU64,

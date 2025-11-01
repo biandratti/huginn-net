@@ -18,7 +18,7 @@ struct Args {
     command: Commands,
 
     /// Log file path
-    #[arg(short = 'l', long = "log-file", global = true)]
+    #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
 }
 
