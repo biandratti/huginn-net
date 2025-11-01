@@ -22,9 +22,18 @@ struct Args {
     #[arg(short = 'l', long = "log-file", global = true)]
     log_file: Option<String>,
 
-    /// Enable parallel processing with N workers (default: sequential)
-    #[arg(short = 'p', long = "parallel", global = true)]
-    parallel_workers: Option<usize>,
+    /// Enable parallel processing with N workers (default: 1 = sequential)
+    #[arg(
+        short = 'p',
+        long = "parallel-workers",
+        default_value = "1",
+        global = true
+    )]
+    parallel_workers: usize,
+
+    /// Queue size for parallel processing
+    #[arg(short = 'q', long = "queue-size", default_value = "100", global = true)]
+    queue_size: usize,
 }
 
 #[derive(Subcommand, Debug)]
@@ -75,16 +84,17 @@ fn main() {
 
     let parallel_workers = args.parallel_workers;
 
-    let mut analyzer = if let Some(workers) = parallel_workers {
-        info!("Using parallel mode with {} workers", workers);
-        HuginnNetTls::with_workers(workers)
+    let mut analyzer = if parallel_workers > 1 {
+        let queue_size = args.queue_size;
+        info!("Using parallel mode with {parallel_workers} workers, queue_size={queue_size}");
+        HuginnNetTls::with_config(parallel_workers, queue_size)
     } else {
         info!("Using sequential mode");
         HuginnNetTls::new()
     };
 
     // Initialize pool if parallel mode (before moving analyzer to thread)
-    if parallel_workers.is_some() {
+    if parallel_workers > 1 {
         if let Err(e) = analyzer.init_pool(sender.clone()) {
             error!("Failed to initialize worker pool: {e}");
             return;

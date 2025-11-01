@@ -56,24 +56,10 @@ impl HuginnNetTls {
         Self { parallel_config: None, worker_pool: None }
     }
 
-    /// Creates a new instance with parallel processing using N worker threads.
+    /// Creates a new instance with parallel configuration.
     ///
     /// # Parameters
     /// - `num_workers`: Number of worker threads (typically number of CPU cores)
-    ///
-    /// # Returns
-    /// A new `HuginnNetTls` instance with parallel processing enabled.
-    pub fn with_workers(num_workers: usize) -> Self {
-        Self {
-            parallel_config: Some(ParallelConfig { num_workers, queue_size: 128 }),
-            worker_pool: None,
-        }
-    }
-
-    /// Creates a new instance with custom parallel configuration.
-    ///
-    /// # Parameters
-    /// - `num_workers`: Number of worker threads
     /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
     ///
     /// # Returns
@@ -106,8 +92,8 @@ impl HuginnNetTls {
     /// This can be called explicitly to get the pool reference before starting analysis
     ///
     /// # Errors
+    /// - If the worker pool creation fails.
     ///
-    /// Returns an error if worker pool creation fails
     pub fn init_pool(&mut self, sender: Sender<TlsClientOutput>) -> Result<(), HuginnNetTlsError> {
         if let Some(config) = &self.parallel_config {
             if self.worker_pool.is_none() {
@@ -121,6 +107,22 @@ impl HuginnNetTls {
 
     fn process_with<F>(
         &mut self,
+        packet_fn: F,
+        sender: Sender<TlsClientOutput>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTlsError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
+    {
+        if self.parallel_config.is_some() {
+            self.process_parallel(packet_fn, sender, cancel_signal)
+        } else {
+            self.process_sequential(packet_fn, sender, cancel_signal)
+        }
+    }
+
+    fn process_parallel<F>(
+        &mut self,
         mut packet_fn: F,
         sender: Sender<TlsClientOutput>,
         cancel_signal: Option<Arc<AtomicBool>>,
@@ -128,44 +130,23 @@ impl HuginnNetTls {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
     {
-        // Use parallel processing if configured
-        if let Some(config) = &self.parallel_config {
-            // Create and store pool if not already created
-            if self.worker_pool.is_none() {
-                let worker_pool =
-                    Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
-                self.worker_pool = Some(worker_pool);
-            }
+        let config = self
+            .parallel_config
+            .as_ref()
+            .ok_or_else(|| HuginnNetTlsError::Parse("Parallel config not found".to_string()))?;
 
-            let worker_pool = match self.worker_pool.as_ref() {
-                Some(pool) => pool.clone(),
-                None => {
-                    return Err(HuginnNetTlsError::Parse("Worker pool not initialized".to_string()))
-                }
-            };
-
-            while let Some(packet_result) = packet_fn() {
-                if let Some(ref cancel) = cancel_signal {
-                    if cancel.load(Ordering::Relaxed) {
-                        debug!("Cancellation signal received, stopping packet processing");
-                        break;
-                    }
-                }
-
-                match packet_result {
-                    Ok(packet) => {
-                        let _ = worker_pool.dispatch(packet);
-                    }
-                    Err(e) => {
-                        error!("Failed to read packet: {}", e);
-                    }
-                }
-            }
-
-            return Ok(());
+        if self.worker_pool.is_none() {
+            let worker_pool =
+                Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+            self.worker_pool = Some(worker_pool);
         }
 
-        // Sequential processing (original code)
+        let worker_pool = self
+            .worker_pool
+            .as_ref()
+            .ok_or_else(|| HuginnNetTlsError::Parse("Worker pool not initialized".to_string()))?
+            .clone();
+
         while let Some(packet_result) = packet_fn() {
             if let Some(ref cancel) = cancel_signal {
                 if cancel.load(Ordering::Relaxed) {
@@ -176,26 +157,55 @@ impl HuginnNetTls {
 
             match packet_result {
                 Ok(packet) => {
-                    match self.process_packet(&packet) {
-                        Ok(Some(result)) => {
-                            if sender.send(result).is_err() {
-                                error!("Receiver dropped, stopping packet processing");
-                                break;
-                            }
-                        }
-                        Ok(None) => {
-                            // No TLS found, continue processing
-                        }
-                        Err(tls_error) => {
-                            debug!("Error processing packet: {}", tls_error);
-                        }
-                    }
+                    let _ = worker_pool.dispatch(packet);
                 }
                 Err(e) => {
-                    error!("Failed to read packet: {}", e);
+                    error!("Failed to read packet: {e}");
                 }
             }
         }
+
+        Ok(())
+    }
+
+    fn process_sequential<F>(
+        &mut self,
+        mut packet_fn: F,
+        sender: Sender<TlsClientOutput>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTlsError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
+    {
+        while let Some(packet_result) = packet_fn() {
+            if let Some(ref cancel) = cancel_signal {
+                if cancel.load(Ordering::Relaxed) {
+                    debug!("Cancellation signal received, stopping packet processing");
+                    break;
+                }
+            }
+
+            match packet_result {
+                Ok(packet) => match self.process_packet(&packet) {
+                    Ok(Some(result)) => {
+                        if sender.send(result).is_err() {
+                            error!("Receiver dropped, stopping packet processing");
+                            break;
+                        }
+                    }
+                    Ok(None) => {
+                        debug!("No TLS found, continuing packet processing");
+                    }
+                    Err(tls_error) => {
+                        error!("Error processing packet: {tls_error}");
+                    }
+                },
+                Err(e) => {
+                    error!("Failed to read packet: {e}");
+                }
+            }
+        }
+
         Ok(())
     }
 
