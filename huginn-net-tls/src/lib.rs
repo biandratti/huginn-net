@@ -2,6 +2,7 @@ pub mod error;
 pub mod observable;
 pub mod output;
 pub mod packet_parser;
+pub mod parallel;
 pub mod process;
 pub mod tls;
 pub mod tls_process;
@@ -10,6 +11,7 @@ pub mod tls_process;
 pub use error::*;
 pub use observable::*;
 pub use output::*;
+pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::*;
 pub use tls::*;
 pub use tls_process::*;
@@ -23,28 +25,150 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tracing::{debug, error};
 
+/// Configuration for parallel processing
+#[derive(Debug, Clone)]
+struct ParallelConfig {
+    num_workers: usize,
+    queue_size: usize,
+}
+
 /// A TLS-focused passive fingerprinting analyzer using JA4 methodology.
 ///
 /// The `HuginnNetTls` struct handles TLS packet analysis and JA4 fingerprinting
 /// following the official FoxIO specification.
-pub struct HuginnNetTls;
+pub struct HuginnNetTls {
+    parallel_config: Option<ParallelConfig>,
+    worker_pool: Option<Arc<WorkerPool>>,
+}
 
 impl Default for HuginnNetTls {
     fn default() -> Self {
-        Self
+        Self::new()
     }
 }
 
 impl HuginnNetTls {
-    /// Creates a new instance of `HuginnNetTls`.
+    /// Creates a new instance of `HuginnNetTls` in sequential mode (single-threaded).
     ///
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
-        Self
+        Self { parallel_config: None, worker_pool: None }
+    }
+
+    /// Creates a new instance with parallel configuration.
+    ///
+    /// # Parameters
+    /// - `num_workers`: Number of worker threads (typically number of CPU cores)
+    /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
+    ///
+    /// # Returns
+    /// A new `HuginnNetTls` instance with custom parallel configuration.
+    pub fn with_config(num_workers: usize, queue_size: usize) -> Self {
+        Self {
+            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            worker_pool: None,
+        }
+    }
+
+    /// Get worker pool statistics (only available in parallel mode, after analyze_* is called)
+    ///
+    /// # Returns
+    /// `Some(PoolStats)` if parallel mode is active, `None` otherwise
+    pub fn stats(&self) -> Option<PoolStats> {
+        self.worker_pool.as_ref().map(|pool| pool.stats())
+    }
+
+    /// Get a reference to the worker pool (only available in parallel mode, after analyze_* is called)
+    ///
+    /// # Returns
+    /// `Some(Arc<WorkerPool>)` if parallel mode is active, `None` otherwise
+    pub fn worker_pool(&self) -> Option<Arc<WorkerPool>> {
+        self.worker_pool.clone()
+    }
+
+    /// Initialize the worker pool (only for parallel mode, called automatically by analyze_*)
+    ///
+    /// This can be called explicitly to get the pool reference before starting analysis
+    ///
+    /// # Errors
+    /// - If the worker pool creation fails.
+    ///
+    pub fn init_pool(&mut self, sender: Sender<TlsClientOutput>) -> Result<(), HuginnNetTlsError> {
+        if let Some(config) = &self.parallel_config {
+            if self.worker_pool.is_none() {
+                let worker_pool =
+                    Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+                self.worker_pool = Some(worker_pool);
+            }
+        }
+        Ok(())
     }
 
     fn process_with<F>(
+        &mut self,
+        packet_fn: F,
+        sender: Sender<TlsClientOutput>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTlsError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
+    {
+        if self.parallel_config.is_some() {
+            self.process_parallel(packet_fn, sender, cancel_signal)
+        } else {
+            self.process_sequential(packet_fn, sender, cancel_signal)
+        }
+    }
+
+    fn process_parallel<F>(
+        &mut self,
+        mut packet_fn: F,
+        sender: Sender<TlsClientOutput>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTlsError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
+    {
+        let config = self
+            .parallel_config
+            .as_ref()
+            .ok_or_else(|| HuginnNetTlsError::Parse("Parallel config not found".to_string()))?;
+
+        if self.worker_pool.is_none() {
+            let worker_pool =
+                Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+            self.worker_pool = Some(worker_pool);
+        }
+
+        let worker_pool = self
+            .worker_pool
+            .as_ref()
+            .ok_or_else(|| HuginnNetTlsError::Parse("Worker pool not initialized".to_string()))?
+            .clone();
+
+        while let Some(packet_result) = packet_fn() {
+            if let Some(ref cancel) = cancel_signal {
+                if cancel.load(Ordering::Relaxed) {
+                    debug!("Cancellation signal received, stopping packet processing");
+                    break;
+                }
+            }
+
+            match packet_result {
+                Ok(packet) => {
+                    let _ = worker_pool.dispatch(packet);
+                }
+                Err(e) => {
+                    error!("Failed to read packet: {e}");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn process_sequential<F>(
         &mut self,
         mut packet_fn: F,
         sender: Sender<TlsClientOutput>,
@@ -62,27 +186,26 @@ impl HuginnNetTls {
             }
 
             match packet_result {
-                Ok(packet) => {
-                    match self.process_packet(&packet) {
-                        Ok(Some(result)) => {
-                            if sender.send(result).is_err() {
-                                error!("Receiver dropped, stopping packet processing");
-                                break;
-                            }
-                        }
-                        Ok(None) => {
-                            // No TLS found, continue processing
-                        }
-                        Err(tls_error) => {
-                            debug!("Error processing packet: {}", tls_error);
+                Ok(packet) => match self.process_packet(&packet) {
+                    Ok(Some(result)) => {
+                        if sender.send(result).is_err() {
+                            error!("Receiver dropped, stopping packet processing");
+                            break;
                         }
                     }
-                }
+                    Ok(None) => {
+                        debug!("No TLS found, continuing packet processing");
+                    }
+                    Err(tls_error) => {
+                        error!("Error processing packet: {tls_error}");
+                    }
+                },
                 Err(e) => {
-                    error!("Failed to read packet: {}", e);
+                    error!("Failed to read packet: {e}");
                 }
             }
         }
+
         Ok(())
     }
 
