@@ -1,12 +1,19 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use huginn_net_tls::{process_ipv4_packet, process_ipv6_packet};
+use huginn_net_tls::{process_ipv4_packet, process_ipv6_packet, tls_process::is_tls_traffic};
 use pcap_file::pcap::PcapReader;
+use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
+use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
+use pnet::packet::tcp::TcpPacket;
+use pnet::packet::Packet;
 use std::error::Error;
 use std::fs::File;
 use std::sync::Mutex;
 use std::time::Duration;
+
+/// Number of times to repeat the PCAP dataset for stable benchmarks
+const REPEAT_COUNT: usize = 1000;
 
 /// Benchmark results storage for automatic reporting
 static BENCHMARK_RESULTS: Mutex<Option<BenchmarkReport>> = Mutex::new(None);
@@ -107,6 +114,11 @@ fn generate_final_report(_c: &mut Criterion) {
     }
 
     // Find key timings for calculations
+    let detection_time = report
+        .timings
+        .iter()
+        .find(|(name, _)| name.contains("detection"))
+        .map(|(_, t)| *t);
     let parsing_time = report
         .timings
         .iter()
@@ -125,7 +137,7 @@ fn generate_final_report(_c: &mut Criterion) {
 
     println!("Performance Summary:");
     println!("+--------------------------------------------------------------------------+");
-    println!("| Operation                        | Time/Packet | Throughput    | vs Parsing |");
+    println!("| Operation                        | Time/Packet | Throughput    | Overhead   |");
     println!("+--------------------------------------------------------------------------+");
 
     for (name, duration) in &report.timings {
@@ -135,15 +147,15 @@ fn generate_final_report(_c: &mut Criterion) {
         let throughput = calculate_throughput(per_packet, 1);
         let pps_str = format_throughput(throughput);
 
-        let overhead_str = if let Some(baseline) = parsing_time {
-            if !name.contains("parsing") {
-                let overhead = calculate_overhead(baseline, per_packet);
-                format!("{:>7.0}x", overhead / 100.0 + 1.0)
+        let overhead_str = if let Some(baseline) = detection_time {
+            if name.contains("detection") {
+                "    1.0x  ".to_string()
             } else {
-                "  1.0x  ".to_string()
+                let overhead = calculate_overhead(baseline, per_packet);
+                format!("{:>7.1}x", overhead / 100.0 + 1.0)
             }
         } else {
-            "   -    ".to_string()
+            "     -    ".to_string()
         };
 
         let display_name = name
@@ -161,40 +173,236 @@ fn generate_final_report(_c: &mut Criterion) {
     println!();
 
     // Overhead Analysis
-    if let (Some(parsing), Some(full)) = (parsing_time, full_tls) {
-        let overhead = calculate_overhead(parsing, full);
+    if let (Some(detection), Some(processing)) = (detection_time, tls_processing) {
+        let overhead = calculate_overhead(detection, processing);
         println!("Overhead Analysis:");
         println!(
-            "  - Parsing -> Full TLS Processing: {:.0}x overhead (JA4 fingerprint calculation)",
+            "  - TLS Detection -> Full Processing: {:.1}x overhead (parsing + JA4 calculation)",
             overhead / 100.0 + 1.0
         );
     }
 
-    if let (Some(basic), Some(full)) = (tls_processing, full_tls) {
-        let overhead = calculate_overhead(basic, full);
-        println!("  - Basic -> Full TLS: {overhead:.1}% (JA4 fingerprint extraction overhead)");
+    if let (Some(parsing), Some(processing)) = (parsing_time, tls_processing) {
+        let overhead = calculate_overhead(parsing, processing);
+        println!(
+            "  - Parsing -> Full Processing: {:.1}x overhead (JA4 calculation only)",
+            overhead / 100.0 + 1.0
+        );
     }
     println!();
 
     // Capacity Planning
-    if let Some(full) = full_tls {
-        let per_packet = full
+    let capacity_time = full_tls.or(tls_processing);
+    if let Some(processing) = capacity_time {
+        let per_packet = processing
             .checked_div(report.packet_count as u32)
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
-        println!("Capacity Planning (Single Core):");
+
+        let available_cpus = num_cpus::get();
+        let parallel_efficiency = 0.90; // Assume 90% scaling efficiency
+
+        println!("Capacity Planning:");
+        println!("  System CPUs: {available_cpus}");
+        println!();
+        println!("Sequential Mode (1 core):");
+        println!("  - Throughput: {} packets/second", format_throughput(throughput));
+
+        let cpu_1gbps = (81274.0 / throughput) * 100.0;
+        let cpu_10gbps = (812740.0 / throughput) * 100.0;
+
         println!(
-            "  - Full TLS Analysis with JA4: {} packets/second",
-            format_throughput(throughput)
+            "  - 1 Gbps (81,274 pps): {:.1}% CPU{}",
+            cpu_1gbps,
+            if cpu_1gbps > 100.0 { " [OVERLOAD]" } else { "" }
         );
         println!(
-            "  - 1 Gbps (81,274 pps): {:.1}% CPU utilization",
-            (81274.0 / throughput) * 100.0
+            "  - 10 Gbps (812,740 pps): {:.1}% CPU{}",
+            cpu_10gbps,
+            if cpu_10gbps > 100.0 {
+                " [OVERLOAD]"
+            } else {
+                ""
+            }
         );
+
+        println!();
+        println!("Parallel Mode Recommendations:");
+
+        // 1 Gbps recommendation
+        if cpu_1gbps > 100.0 {
+            let workers_needed = ((cpu_1gbps / 100.0) / parallel_efficiency).ceil() as usize;
+            let workers_recommended = workers_needed.min(available_cpus);
+            let estimated_throughput =
+                throughput * (workers_recommended as f64 * parallel_efficiency);
+
+            println!("  1 Gbps (81,274 pps):");
+            println!("    - Workers needed: {workers_needed}");
+            if workers_needed > available_cpus {
+                println!("    - WARNING: Needs {workers_needed} workers but only {available_cpus} CPUs available");
+                println!("    - Recommended: {workers_recommended} workers (max available)");
+                println!(
+                    "    - Expected throughput: {} pps",
+                    format_throughput(estimated_throughput)
+                );
+            } else {
+                println!("    - Recommended: {workers_recommended} workers");
+                println!(
+                    "    - Expected throughput: {} pps",
+                    format_throughput(estimated_throughput)
+                );
+            }
+        } else {
+            println!("  1 Gbps: Sequential mode sufficient");
+        }
+
+        println!();
+
+        // 10 Gbps recommendation
+        if cpu_10gbps > 100.0 {
+            let workers_needed = ((cpu_10gbps / 100.0) / parallel_efficiency).ceil() as usize;
+            let workers_recommended = workers_needed.min(available_cpus);
+            let estimated_throughput =
+                throughput * (workers_recommended as f64 * parallel_efficiency);
+
+            println!("  10 Gbps (812,740 pps):");
+            println!("    - Workers needed: {workers_needed}");
+            if workers_needed > available_cpus {
+                println!("    - WARNING: Needs {workers_needed} workers but only {available_cpus} CPUs available");
+                println!("    - Recommended: {workers_recommended} workers (max available)");
+                println!(
+                    "    - Expected throughput: {} pps ({:.1}% of target)",
+                    format_throughput(estimated_throughput),
+                    (estimated_throughput / 812740.0) * 100.0
+                );
+                let deficit = 812740.0 - estimated_throughput;
+                if deficit > 0.0 {
+                    println!(
+                        "    - Shortfall: {} pps ({:.1}% packet loss expected)",
+                        format_throughput(deficit),
+                        (deficit / 812740.0) * 100.0
+                    );
+                }
+            } else {
+                println!("    - Recommended: {workers_recommended} workers");
+                println!(
+                    "    - Expected throughput: {} pps",
+                    format_throughput(estimated_throughput)
+                );
+            }
+        } else {
+            println!("  10 Gbps: Sequential mode sufficient");
+        }
+
+        // Sequential vs Parallel Comparison
+        println!();
+        println!("Sequential vs Parallel Comparison:");
+        println!();
+        println!("Packets Processed per Second:");
+        println!("  Sequential Mode (1 core):  {} pps", format_throughput(throughput));
+
+        let parallel_throughput = throughput * (available_cpus as f64 * parallel_efficiency);
+        let speedup = parallel_throughput / throughput;
+
         println!(
-            "  - 10 Gbps (812,740 pps): {:.1}% CPU utilization",
-            (812740.0 / throughput) * 100.0
+            "  Parallel Mode ({available_cpus} cores):    {} pps ({speedup:.1}x faster)",
+            format_throughput(parallel_throughput)
         );
+        println!();
+        println!(
+            "+------------------------------------------------------------------------------+"
+        );
+        println!("| Scenario      | Sequential (1 core) | Parallel ({available_cpus} cores) | Speedup       |");
+        println!(
+            "+------------------------------------------------------------------------------+"
+        );
+
+        println!(
+            "| Throughput    | {:>15} pps | {:>18} pps | {:>11.1}x |",
+            format_throughput(throughput),
+            format_throughput(parallel_throughput),
+            speedup
+        );
+
+        // 1 Gbps scenario
+        let seq_cpu_1g = cpu_1gbps.min(100.0);
+        let par_cpu_1g = (81274.0 / parallel_throughput * 100.0).min(100.0);
+        let cpu_savings_1g = if cpu_1gbps > 100.0 {
+            format!("{cpu_1gbps:.1}% → {par_cpu_1g:.1}%")
+        } else {
+            format!("{seq_cpu_1g:.1}%")
+        };
+
+        println!(
+            "| 1 Gbps        | {:>19} | {:>22} | {:>13} |",
+            format!("{seq_cpu_1g:.1}% CPU"),
+            if cpu_1gbps > 100.0 {
+                format!("{par_cpu_1g:.1}% CPU")
+            } else {
+                "Not needed".to_string()
+            },
+            if cpu_1gbps > 100.0 {
+                cpu_savings_1g
+            } else {
+                "N/A".to_string()
+            }
+        );
+
+        // 10 Gbps scenario
+        let seq_cpu_10g = cpu_10gbps.min(100.0);
+        let par_cpu_10g = (812740.0 / parallel_throughput * 100.0).min(100.0);
+        let cpu_savings_10g = if cpu_10gbps > 100.0 {
+            format!("{cpu_10gbps:.1}% → {par_cpu_10g:.1}%")
+        } else {
+            format!("{seq_cpu_10g:.1}%")
+        };
+
+        println!(
+            "| 10 Gbps       | {:>19} | {:>22} | {:>13} |",
+            if cpu_10gbps > 100.0 {
+                "OVERLOAD".to_string()
+            } else {
+                format!("{seq_cpu_10g:.1}% CPU")
+            },
+            if cpu_10gbps > 100.0 {
+                if 812740.0 <= parallel_throughput {
+                    format!("{par_cpu_10g:.1}% CPU")
+                } else {
+                    let coverage = (parallel_throughput / 812740.0) * 100.0;
+                    format!("{coverage:.1}% coverage")
+                }
+            } else {
+                "Not needed".to_string()
+            },
+            if cpu_10gbps > 100.0 {
+                cpu_savings_10g
+            } else {
+                "N/A".to_string()
+            }
+        );
+
+        println!(
+            "+------------------------------------------------------------------------------+"
+        );
+
+        // Summary recommendation
+        println!();
+        println!("Recommendation Summary:");
+        if cpu_10gbps <= 100.0 {
+            println!("  Sequential mode is sufficient for both 1 Gbps and 10 Gbps");
+            println!("  Recommended: HuginnNetTls::new() for optimal performance");
+        } else if cpu_1gbps <= 100.0 && cpu_10gbps > 100.0 {
+            let workers_10g = ((cpu_10gbps / 100.0) / parallel_efficiency).ceil() as usize;
+            let workers_10g_recommended = workers_10g.min(available_cpus);
+            println!("  Sequential mode is sufficient for 1 Gbps");
+            println!("  Parallel mode REQUIRED for 10 Gbps");
+            println!("  Recommended: HuginnNetTls::with_config({workers_10g_recommended}, 100) for 10 Gbps workloads");
+        } else {
+            let workers_1g = ((cpu_1gbps / 100.0) / parallel_efficiency).ceil() as usize;
+            let workers_1g_recommended = workers_1g.min(available_cpus);
+            println!("  Parallel mode REQUIRED for both 1 Gbps and 10 Gbps");
+            println!("  Recommended: HuginnNetTls::with_config({workers_1g_recommended}, 100) for production");
+        }
     }
     println!();
     println!("Benchmark report generation complete");
@@ -209,6 +417,58 @@ fn load_packets_from_pcap(pcap_path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error
         packets.push(pkt?.data.into());
     }
     Ok(packets)
+}
+
+/// Load packets from PCAP and repeat them for stable benchmarks
+fn load_packets_repeated(pcap_path: &str, repeat: usize) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+    let packets = load_packets_from_pcap(pcap_path)?;
+    if packets.is_empty() {
+        return Ok(packets);
+    }
+
+    // Repeat packets to get a stable benchmark dataset
+    let capacity = packets.len().saturating_mul(repeat);
+    let mut repeated = Vec::with_capacity(capacity);
+    for _ in 0..repeat {
+        repeated.extend(packets.iter().cloned());
+    }
+    Ok(repeated)
+}
+
+/// Detect if packet contains TLS traffic (using library function)
+fn detect_tls_in_packet(packet: &[u8]) -> bool {
+    let ethernet = match EthernetPacket::new(packet) {
+        Some(eth) => eth,
+        None => return false,
+    };
+
+    match ethernet.get_ethertype() {
+        EtherTypes::Ipv4 => {
+            let ipv4 = match Ipv4Packet::new(ethernet.payload()) {
+                Some(ip) => ip,
+                None => return false,
+            };
+            if ipv4.get_next_level_protocol() == IpNextHeaderProtocols::Tcp {
+                if let Some(tcp) = TcpPacket::new(ipv4.payload()) {
+                    return is_tls_traffic(tcp.payload());
+                }
+            }
+            false
+        }
+        EtherTypes::Ipv6 => {
+            let ipv6 = match Ipv6Packet::new(ethernet.payload()) {
+                Some(ip) => ip,
+                None => return false,
+            };
+            if ipv6.get_next_header() == IpNextHeaderProtocols::Tcp {
+                if let Some(tcp) = TcpPacket::new(ipv6.payload()) {
+                    return is_tls_traffic(tcp.payload());
+                }
+            }
+            false
+        }
+        _ => false,
+    }
 }
 
 /// Process a packet using the public TLS API
@@ -234,7 +494,7 @@ fn process_tls_packet(packet: &[u8]) -> Option<huginn_net_tls::TlsClientOutput> 
 
 /// Benchmark TLS JA4 fingerprinting using TLS 1.2 PCAP
 fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/tls12.pcap") {
+    let packets = match load_packets_repeated("../pcap/tls12.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TLS 1.2 PCAP file: {e}");
@@ -248,7 +508,7 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
     }
 
     println!("TLS 1.2 PCAP Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
@@ -268,12 +528,21 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
             packet_count: packets.len(),
             tls_packet_count,
             ja4_fingerprints: tls_packet_count,
-            pcap_name: "tls12.pcap".to_string(),
+            pcap_name: format!("tls12.pcap ({REPEAT_COUNT}x)"),
             timings: Vec::new(),
         });
     }
 
     let mut group = c.benchmark_group("TLS_JA4_TLS12");
+
+    // Baseline: TLS detection only
+    group.bench_function("tls_detection", |b| {
+        b.iter(|| {
+            for packet in packets.iter() {
+                let _ = detect_tls_in_packet(packet);
+            }
+        })
+    });
 
     // Benchmark TLS processing
     group.bench_function("tls_processing", |b| {
@@ -297,6 +566,15 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
     group.finish();
 
     // Measure and store actual times for reporting
+    let tls_detection_time = measure_average_time(
+        || {
+            for packet in packets.iter() {
+                let _ = detect_tls_in_packet(packet);
+            }
+        },
+        10,
+    );
+
     let tls_processing_time = measure_average_time(
         || {
             for packet in packets.iter() {
@@ -319,6 +597,9 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
         if let Some(ref mut report) = *guard {
             report
                 .timings
+                .push(("tls_detection".to_string(), tls_detection_time));
+            report
+                .timings
                 .push(("tls_processing".to_string(), tls_processing_time));
             report
                 .timings
@@ -329,7 +610,7 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
 
 /// Benchmark TLS JA4 fingerprinting using TLS ALPN H2 PCAP
 fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/tls-alpn-h2.pcap") {
+    let packets = match load_packets_repeated("../pcap/tls-alpn-h2.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TLS ALPN H2 PCAP file: {e}");
@@ -343,7 +624,7 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
     }
 
     println!("TLS ALPN H2 PCAP Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
@@ -419,7 +700,7 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
 
 /// Benchmark TLS packet parsing performance without JA4 calculation
 fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/tls12.pcap") {
+    let packets = match load_packets_repeated("../pcap/tls12.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TLS PCAP file: {e}");
@@ -433,7 +714,7 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
     }
 
     println!("TLS Packet Parsing Performance:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
@@ -532,7 +813,7 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
 
 /// Benchmark JA4 calculation overhead by comparing different processing levels
 fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/tls-alpn-h2.pcap") {
+    let packets = match load_packets_repeated("../pcap/tls-alpn-h2.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TLS ALPN H2 PCAP file: {e}");
@@ -546,7 +827,7 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     }
 
     println!("JA4 Calculation Overhead Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
