@@ -101,15 +101,16 @@ For detailed usage examples, installation guides, and complete code samples:
 
 ### Multi-Protocol Performance Summary
 
-| Protocol | Parsing Speed | Analysis Speed | Primary Use Case |
-|----------|---------------|----------------|------------------|
-| **TCP** | 6.1M packets/sec | 167K packets/sec | OS fingerprinting, MTU detection |
-| **TLS** | 316M packets/sec | 72K packets/sec | JA4 fingerprinting, TLS analysis |
-| **HTTP** | 23.7M packets/sec | 26K packets/sec | Browser/server detection |
+| Protocol | Detection Speed | Full Analysis | Primary Use Case |
+|----------|-----------------|---------------|------------------|
+| **TCP** | 166.7M pps | 1.25M pps | OS fingerprinting, MTU detection |
+| **TLS** | 66.7M pps | 84.6K pps | JA4 fingerprinting, TLS analysis |
+| **HTTP** | 200M pps | 562.1K pps | Browser/server detection |
 
 ### Key Performance Highlights
-- **Ultra-fast parsing**: TLS leads with 316M packets/sec for pre-filtering
-- **Robust analysis**: TCP provides 167K packets/sec for complete OS fingerprinting
+- **Ultra-fast detection**: HTTP leads with 200M pps, TCP at 166.7M pps for pre-filtering
+- **Robust analysis**: TCP provides 1.25M pps, HTTP 562.1K pps for complete fingerprinting
+- **TLS parallel support**: Scales 7.2x with 8 cores for high-throughput scenarios
 - **Comprehensive coverage**: All protocols optimized for real-time network monitoring
 
 ### Accuracy & Compatibility

@@ -18,7 +18,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 |----------|-----------|---------------|-----------------|----------|
 | **TCP** | 166.7M pps | 1.25M pps | 798 ns | OS fingerprinting, MTU detection |
 | **TLS** | 66.7M pps | 84.6K pps | 11.8 μs | JA4 fingerprinting, TLS analysis |
-| **HTTP** | 23.7M pps | 26K pps | 37.8 μs | Browser/server detection |
+| **HTTP** | 200M pps | 562.1K pps | 1.779 μs | Browser/server detection |
 
 ### Parallel Mode Performance (TLS)
 
@@ -33,8 +33,8 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 ### Protocol Efficiency Ranking
 1. **TCP**: Fastest (1.25M pps) - excellent balance of speed and analysis depth
-2. **TLS**: Moderate speed (84.6K pps) with cryptographic complexity, scales well in parallel mode (7.2x with 8 cores)
-3. **HTTP**: Slowest (26K pps) but comprehensive, slower due to header parsing
+2. **HTTP**: Fast (562.1K pps) - comprehensive application-layer analysis
+3. **TLS**: Moderate (84.6K pps) - cryptographic complexity, scales well in parallel mode (7.2x with 8 cores)
 
 ### Parallel Processing Support
 - **TLS**: Full parallel support with worker pool architecture
@@ -45,7 +45,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 - **HTTP**: Planned (requires hash-based worker assignment for flow tracking)
 
 ### PCAP Effectiveness
-- **HTTP**: 12.5% effectiveness (2/16 packets useful)
+- **HTTP**: 6.2% effectiveness with repeated dataset (16,000 packets from 16 original)
 - **TCP**: 102.3% effectiveness with repeated dataset (43,000 packets from 43 original)
 - **TLS**: 100% effectiveness with repeated dataset (1,000 packets from 1 original)
 
@@ -76,9 +76,10 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 - JA4 calculation is front-loaded during processing
 
 #### HTTP Optimization
-- Server matching can be disabled (25% performance gain)
-- Flow cache size has minimal impact (~1% variation)
-- Consider selective feature enabling based on requirements
+- Disable browser matching when not needed (46% faster)
+- Disable server matching when not needed (48% faster)
+- Use large cache (10K flows) for high volumes (8% faster)
+- Header analysis only (skip database matching) for best performance (49% faster)
 
 ## Detailed Analysis Reports
 
@@ -96,7 +97,7 @@ Each protocol has a dedicated analysis report with comprehensive performance dat
 - PCAP effectiveness varies based on protocol handshake presence
 - Sequential mode results are single-core measurements on x86_64 architecture
 - Parallel mode assumes 90% scaling efficiency per worker
-- TLS and TCP benchmarks use repeated datasets (1000x) for statistical stability
+- TLS, TCP, and HTTP benchmarks use repeated datasets (1000x) for statistical stability
 
 ## Contributing
 

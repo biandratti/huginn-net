@@ -12,6 +12,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 use ttl_cache::TtlCache;
 
+/// Number of times to repeat the PCAP dataset for stable benchmarks
+const REPEAT_COUNT: usize = 1000;
+
 /// Benchmark results storage for automatic reporting
 static BENCHMARK_RESULTS: Mutex<Option<BenchmarkReport>> = Mutex::new(None);
 
@@ -95,13 +98,19 @@ fn generate_final_report(_c: &mut Criterion) {
         return;
     };
 
+    let original_count = report.packet_count / REPEAT_COUNT;
+
     println!("\n");
     println!("===============================================================================");
     println!("                   HTTP BENCHMARK ANALYSIS REPORT                           ");
     println!("===============================================================================");
     println!();
     println!("PCAP Analysis Summary:");
-    println!("  - Total packets analyzed: {}", report.packet_count);
+    println!(
+        "  - Total packets analyzed: {} (repeated {}x)",
+        report.packet_count, REPEAT_COUNT
+    );
+    println!("  - Original PCAP packets: {original_count}");
     println!("  - HTTP requests: {}", report.request_count);
     println!("  - HTTP responses: {}", report.response_count);
     println!("  - Browser detections: {}", report.browser_detections);
@@ -207,15 +216,25 @@ fn generate_final_report(_c: &mut Criterion) {
             .checked_div(report.packet_count as u32)
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
-        println!("Capacity Planning (Single Core):");
-        println!("  - Full HTTP Analysis: {} packets/second", format_throughput(throughput));
+
+        let cpu_1gbps = (81274.0 / throughput) * 100.0;
+        let cpu_10gbps = (812740.0 / throughput) * 100.0;
+
+        println!("Capacity Planning:");
+        println!();
+        println!("Sequential Mode (1 core):");
+        println!("  - Throughput: {} packets/second", format_throughput(throughput));
         println!(
-            "  - 1 Gbps (81,274 pps): {:.1}% CPU utilization",
-            (81274.0 / throughput) * 100.0
+            "  - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU{}",
+            if cpu_1gbps > 100.0 { " [OVERLOAD]" } else { "" }
         );
         println!(
-            "  - 10 Gbps (812,740 pps): {:.1}% CPU utilization",
-            (812740.0 / throughput) * 100.0
+            "  - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU{}",
+            if cpu_10gbps > 100.0 {
+                " [OVERLOAD]"
+            } else {
+                ""
+            }
         );
     }
     println!();
@@ -231,6 +250,22 @@ fn load_packets_from_pcap(pcap_path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error
         packets.push(pkt?.data.into());
     }
     Ok(packets)
+}
+
+/// Load packets from PCAP and repeat them for stable benchmarking
+fn load_packets_repeated(pcap_path: &str, repeat: usize) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+    let packets = load_packets_from_pcap(pcap_path)?;
+    if packets.is_empty() {
+        return Ok(packets);
+    }
+
+    // Repeat packets to get a stable benchmark dataset
+    let capacity = packets.len().saturating_mul(repeat);
+    let mut repeated = Vec::with_capacity(capacity);
+    for _ in 0..repeat {
+        repeated.extend(packets.iter().cloned());
+    }
+    Ok(repeated)
 }
 
 /// Process a packet using the public HTTP API
@@ -261,7 +296,7 @@ fn process_http_packet(
 
 /// Benchmark HTTP browser detection using simple GET PCAP
 fn bench_http_browser_detection(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/http-simple-get.pcap") {
+    let packets = match load_packets_repeated("../pcap/http-simple-get.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load HTTP simple GET PCAP file: {e}");
@@ -286,7 +321,7 @@ fn bench_http_browser_detection(c: &mut Criterion) {
     let http_processors = HttpProcessors::new();
 
     println!("HTTP Browser Detection Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count HTTP analysis results
     let mut http_flows = TtlCache::new(1000);
@@ -431,7 +466,7 @@ fn bench_http_browser_detection(c: &mut Criterion) {
 
 /// Benchmark HTTP server detection performance
 fn bench_http_server_detection(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/http-simple-get.pcap") {
+    let packets = match load_packets_repeated("../pcap/http-simple-get.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load HTTP PCAP file: {e}");
@@ -453,7 +488,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
     };
 
     println!("HTTP Server Detection Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count server detections
     let matcher = SignatureMatcher::new(&db);
@@ -565,7 +600,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
 
 /// Benchmark HTTP protocol analysis performance (HTTP/1 vs HTTP/2)
 fn bench_http_protocol_analysis(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/http-simple-get.pcap") {
+    let packets = match load_packets_repeated("../pcap/http-simple-get.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load HTTP PCAP file: {e}");
@@ -579,7 +614,7 @@ fn bench_http_protocol_analysis(c: &mut Criterion) {
     }
 
     println!("HTTP Protocol Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count HTTP protocol versions
     let http_processors = HttpProcessors::new();
@@ -751,7 +786,7 @@ fn bench_http_protocol_analysis(c: &mut Criterion) {
 
 /// Benchmark HTTP processing overhead analysis
 fn bench_http_processing_overhead(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/http-simple-get.pcap") {
+    let packets = match load_packets_repeated("../pcap/http-simple-get.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load HTTP PCAP file: {e}");
@@ -773,7 +808,7 @@ fn bench_http_processing_overhead(c: &mut Criterion) {
     };
 
     println!("HTTP Processing Overhead Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
     println!("--------------------");
 
     let mut group = c.benchmark_group("HTTP_Processing_Overhead");
