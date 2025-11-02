@@ -9,7 +9,7 @@
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
-  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
   [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
 </div>
 
@@ -17,13 +17,13 @@
 
 #### Why choose Huginn Net?
 
-- **No system dependencies** - No tshark, wireshark, or external tools required
+- **No third-party tools** - No tshark, wireshark, or external tools required
 - **Same accuracy as p0f** - Validated against extensive device testing  
 - **Modern Rust implementation** - Memory safety and zero-cost abstractions  
 - **Production performance** - Processes packets in ~3.1ms with comparable speed to original p0f  
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time  
 - **Comprehensive testing** - Full unit and integration test coverage  
-- **Simple integration** - Single crate installation, no system dependencies
+- **Simple integration** - Pure Rust implementation, no system libraries required
 - **Active development** - Continuously improved and maintained  
 
 #### What is Passive Traffic Fingerprinting?
@@ -55,7 +55,7 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 | Crate | Description | Documentation |
 |-------|-------------|---------------|
 | **[huginn-net](huginn-net/README.md)** | **TCP-HTTP-TLS Analysis** - Complete multi-protocol network fingerprinting | [📖 Usage Guide](huginn-net/README.md) |
-| **[huginn-net-tcp](huginn-net-tcp/README.md)** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime calculation | [📖 TCP Guide](huginn-net-tcp/README.md) |
+| **[huginn-net-tcp](huginn-net-tcp/README.md)** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime estimation | [📖 TCP Guide](huginn-net-tcp/README.md) |
 | **[huginn-net-http](huginn-net-http/README.md)** | **HTTP Analysis** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting | [📖 HTTP Guide](huginn-net-http/README.md) |
 | **[huginn-net-tls](huginn-net-tls/README.md)** | **TLS Client Analysis** - JA4 fingerprinting, TLS version detection | [📖 TLS Guide](huginn-net-tls/README.md) |
 
@@ -101,15 +101,16 @@ For detailed usage examples, installation guides, and complete code samples:
 
 ### Multi-Protocol Performance Summary
 
-| Protocol | Parsing Speed | Analysis Speed | Primary Use Case |
-|----------|---------------|----------------|------------------|
-| **TCP** | 6.1M packets/sec | 167K packets/sec | OS fingerprinting, MTU detection |
-| **TLS** | 316M packets/sec | 72K packets/sec | JA4 fingerprinting, TLS analysis |
-| **HTTP** | 23.7M packets/sec | 26K packets/sec | Browser/server detection |
+| Protocol | Detection Speed | Full Analysis | Primary Use Case |
+|----------|-----------------|---------------|------------------|
+| **TCP** | 166.7M pps | 1.25M pps | OS fingerprinting, MTU detection |
+| **TLS** | 66.7M pps | 84.6K pps | JA4 fingerprinting, TLS analysis |
+| **HTTP** | 200M pps | 562.1K pps | Browser/server detection |
 
 ### Key Performance Highlights
-- **Ultra-fast parsing**: TLS leads with 316M packets/sec for pre-filtering
-- **Robust analysis**: TCP provides 167K packets/sec for complete OS fingerprinting
+- **Ultra-fast detection**: HTTP leads with 200M pps, TCP at 166.7M pps for pre-filtering
+- **Robust analysis**: TCP provides 1.25M pps, HTTP 562.1K pps for complete fingerprinting
+- **TLS parallel support**: Scales 7.2x with 8 cores for high-throughput scenarios
 - **Comprehensive coverage**: All protocols optimized for real-time network monitoring
 
 ### Accuracy & Compatibility
@@ -151,7 +152,7 @@ The current signature database includes patterns for:
 - **HTTP Request/Response** analysis for application identification  
 - **TLS ClientHello** analysis with JA4 fingerprinting for client identification
 - **MTU Discovery** for link type detection
-- **Uptime Calculation** from TCP timestamps
+- **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
 - **Custom Signature Databases** with easy updates
 
 ### Matching Quality

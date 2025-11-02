@@ -9,7 +9,7 @@
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
-  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
 
   **JA4 TLS client fingerprinting for Huginn Net.**
 </div>
@@ -17,6 +17,15 @@
 ## Overview
 
 This crate provides JA4 TLS client fingerprinting capabilities for passive network analysis. It implements the official JA4 specification by FoxIO, LLC for identifying TLS clients through ClientHello analysis.
+
+### Why choose huginn-net-tls?
+
+- **No third-party tools** - No tshark, wireshark, or external tools required
+- **Official JA4 implementation** - Complete spec compliance for TLS fingerprinting
+- **Pure Rust implementation** - No system libraries required
+- **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores)
+- **Parallel processing** - Multi-threaded worker pool for production workloads
+- **Type-safe architecture** - Prevents entire classes of bugs at compile time
 
 ## Features
 

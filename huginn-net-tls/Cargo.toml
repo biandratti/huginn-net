@@ -35,6 +35,7 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 criterion = { workspace = true }
+num_cpus = { workspace = true }
 
 [[bench]]
 name = "bench_tls"
