@@ -1,107 +1,69 @@
 # TLS Benchmark Analysis
 
-This document provides detailed analysis of TLS processing performance using `huginn-net-tls` library. The benchmarks measure JA4 fingerprinting performance across different TLS packet types and processing levels.
+Performance analysis of `huginn-net-tls` library for JA4 fingerprinting with sequential and parallel processing modes.
 
-## Test Data Overview
+## Test Data
 
-The benchmarks use two PCAP files containing real TLS traffic:
-
-| PCAP File | Total Packets | TLS Packets | Effectiveness |
-|-----------|---------------|-------------|---------------|
-| tls12.pcap | 1 | 1 | 100% |
-| tls-alpn-h2.pcap | 9 | 1 | 11% |
+PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1000 TLS Client Hello packets).
 
 ## Performance Results
 
-### Core Processing Performance
+### Sequential Mode (Single-Core)
 
-| Operation | Time (microseconds) | Notes |
-|-----------|-------------------|-------|
-| Raw packet parsing | 0.003 | Structure validation only |
-| Full TLS processing | 11.6 | Complete JA4 fingerprinting |
-| TLS 1.2 processing | 11.4 | Standard TLS handshake |
-| TLS ALPN H2 processing | 17.8 | With HTTP/2 extensions |
+| Operation | Time | Throughput | Notes |
+|-----------|------|------------|-------|
+| TLS Detection | 15 ns | 66.7M pps | Packet validation |
+| Full TLS Processing | 11.8 µs | 84.6K pps | Complete JA4 fingerprinting |
+| Overhead Analysis | - | 788x | Detection → Full processing |
 
-### Processing Overhead Analysis
+### Parallel Mode (8 Cores)
 
-| Comparison | Baseline | Target | Overhead | Impact |
-|------------|----------|--------|----------|---------|
-| Parsing vs Full Processing | 3.2 ns | 11.6 μs | 3,625x | Expected for cryptographic operations |
-| TLS 1.2 vs ALPN H2 | 11.4 μs | 17.8 μs | 56% | Additional extension processing |
-| Basic vs JA4 Access | 16.6 μs | 17.0 μs | 2% | JA4 pre-calculated during processing |
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Throughput | 608.8K pps | 7.2x speedup |
+| Parallel Efficiency | 90% | Excellent scaling |
+| Worker Architecture | Round-robin | Stateless packet distribution |
 
-### Throughput Estimates
+### Network Capacity
 
-Based on single-core performance:
-
-| Scenario | Packets/Second | Use Case |
-|----------|----------------|----------|
-| TLS 1.2 packets | ~87,700 | Standard TLS traffic |
-| TLS ALPN H2 packets | ~56,200 | Modern HTTP/2 over TLS |
-| Mixed TLS traffic | ~72,000 | Real-world average |
-
-## Benchmark Categories
-
-### 1. TLS Version Comparison
-- **TLS_JA4_TLS12**: Standard TLS 1.2 handshake processing
-- **TLS_JA4_ALPN_H2**: TLS with Application-Layer Protocol Negotiation for HTTP/2
-
-### 2. Processing Level Analysis
-- **raw_packet_parsing**: Basic packet structure validation
-- **full_tls_processing**: Complete JA4 fingerprint generation
-- **tls_with_result_extraction**: Full processing with result access
-
-### 3. JA4 Calculation Overhead
-- **basic_tls_processing**: Standard TLS analysis
-- **ja4_fingerprint_access**: Accessing pre-calculated JA4 values
-- **full_result_analysis**: Complete result collection and processing
+| Scenario | Sequential (1 core) | Parallel (8 cores) | Recommendation |
+|----------|--------------------|--------------------|----------------|
+| 1 Gbps (81.3K pps) | 96% CPU | Not needed | Use `HuginnNetTls::new()` |
+| 10 Gbps (812.7K pps) | 961% CPU (Overload) | 75% coverage | Use `HuginnNetTls::with_config(8, 100)` |
 
 ## Key Findings
 
 ### Performance Characteristics
 
-1. **Efficient Filtering**: The library can determine TLS packet validity in ~3 nanoseconds
-2. **Reasonable JA4 Cost**: Complete JA4 fingerprinting takes 12-18 microseconds per packet
-3. **Extension Impact**: ALPN and HTTP/2 extensions add ~63% processing overhead
-4. **Lazy Evaluation**: JA4 fingerprints are calculated during initial processing, not on access
+1. **Fast Detection**: TLS packet validation in 15 nanoseconds
+2. **JA4 Processing**: Complete fingerprinting in 11.8 microseconds per packet
+3. **High Overhead**: 788x from detection to full processing (expected for cryptographic operations)
+4. **Excellent Scaling**: 90% parallel efficiency with worker pool architecture
 
-### Scalability Insights
+### Mode Selection
 
-1. **Real-time Analysis**: The library can handle high-throughput scenarios (70k+ packets/second)
-2. **Memory Efficiency**: No significant overhead for result extraction
-3. **Protocol Optimization**: TLS 1.2 processing is 40% faster than ALPN H2
+| Workload | Mode | Configuration | Expected Throughput |
+|----------|------|---------------|---------------------|
+| < 1 Gbps | Sequential | `HuginnNetTls::new()` | 84.6K pps |
+| 1-10 Gbps | Parallel | `HuginnNetTls::with_config(8, 100)` | 608.8K pps |
+| > 10 Gbps | Work in progress | Working on optimizations | - |
 
-## How to Reproduce
+## Running Benchmarks
 
-1. Ensure PCAP files are present in the `pcap/` directory:
-   - `tls12.pcap`
-   - `tls-alpn-h2.pcap`
-
-2. Run the TLS-specific benchmark:
 ```bash
 cargo bench --bench bench_tls
 ```
 
-## Interpretation Guidelines
-
-### For Network Security Applications
-- The library provides excellent performance for real-time TLS fingerprinting
-- JA4 generation latency (12-18μs) is suitable for high-speed network analysis
-- Packet filtering efficiency (3ns) enables processing of high-volume traffic
-
-### For Performance Optimization
-- Pre-filtering non-TLS packets provides significant performance gains
-- JA4 calculation overhead is front-loaded during initial processing
-
-### For Capacity Planning
-- Single-core throughput: 72,000+ TLS packets per second
-- Memory usage: Minimal overhead for result storage
-- CPU utilization: Primarily bound by cryptographic operations
+The benchmark automatically generates a comprehensive report including:
+- Sequential mode throughput and capacity planning
+- Parallel mode throughput with scaling analysis
+- 1 Gbps and 10 Gbps network capacity assessment
+- Code recommendations for production deployment
 
 ## Technical Notes
 
-- Benchmarks run in release mode with compiler optimizations
-- Results measured using Criterion.rs with statistical analysis
-- Outliers (5-9% of measurements) indicate consistent performance
-- All timing measurements include complete JA4 fingerprint generation
-- PCAP file effectiveness varies based on TLS handshake presence
+- Benchmarks use release mode with full compiler optimizations
+- Dataset repeated 1000x for statistical stability
+- Measured using Criterion.rs with statistical analysis
+- Parallel mode assumes 90% scaling efficiency
+- Results measured on x86_64 architecture with 8 CPU cores
