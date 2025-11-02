@@ -55,7 +55,7 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 | Crate | Description | Documentation |
 |-------|-------------|---------------|
 | **[huginn-net](huginn-net/README.md)** | **TCP-HTTP-TLS Analysis** - Complete multi-protocol network fingerprinting | [📖 Usage Guide](huginn-net/README.md) |
-| **[huginn-net-tcp](huginn-net-tcp/README.md)** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime calculation | [📖 TCP Guide](huginn-net-tcp/README.md) |
+| **[huginn-net-tcp](huginn-net-tcp/README.md)** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime estimation | [📖 TCP Guide](huginn-net-tcp/README.md) |
 | **[huginn-net-http](huginn-net-http/README.md)** | **HTTP Analysis** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting | [📖 HTTP Guide](huginn-net-http/README.md) |
 | **[huginn-net-tls](huginn-net-tls/README.md)** | **TLS Client Analysis** - JA4 fingerprinting, TLS version detection | [📖 TLS Guide](huginn-net-tls/README.md) |
 
@@ -152,7 +152,7 @@ The current signature database includes patterns for:
 - **HTTP Request/Response** analysis for application identification  
 - **TLS ClientHello** analysis with JA4 fingerprinting for client identification
 - **MTU Discovery** for link type detection
-- **Uptime Calculation** from TCP timestamps
+- **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
 - **Custom Signature Databases** with easy updates
 
 ### Matching Quality

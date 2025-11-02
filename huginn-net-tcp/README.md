@@ -31,7 +31,7 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 
 - **OS Fingerprinting** - Identify operating systems from TCP signatures
 - **MTU Detection** - Calculate Maximum Transmission Unit from packet analysis  
-- **Uptime Calculation** - Estimate system uptime from TCP timestamps
+- **Uptime Estimation** - Best-effort uptime calculation from TCP timestamps (limited accuracy on modern systems)
 - **Quality Scoring** - Confidence metrics for all matches
 
 ## Quick Start
