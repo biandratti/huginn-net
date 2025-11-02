@@ -16,7 +16,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 | Protocol | Detection | Full Analysis | Processing Time | Use Case |
 |----------|-----------|---------------|-----------------|----------|
-| **TCP** | 6.1M pps | 167K pps | 6.4 μs | OS fingerprinting, MTU detection |
+| **TCP** | 166.7M pps | 1.25M pps | 798 ns | OS fingerprinting, MTU detection |
 | **TLS** | 66.7M pps | 84.6K pps | 11.8 μs | JA4 fingerprinting, TLS analysis |
 | **HTTP** | 23.7M pps | 26K pps | 37.8 μs | Browser/server detection |
 
@@ -32,9 +32,9 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 ## Key Performance Insights
 
 ### Protocol Efficiency Ranking
-1. **TCP**: Best balance of speed and analysis depth
-2. **TLS**: Moderate speed with cryptographic complexity, scales well in parallel mode (7.2x with 8 cores)
-3. **HTTP**: Comprehensive but slower due to header parsing
+1. **TCP**: Fastest (1.25M pps) - excellent balance of speed and analysis depth
+2. **TLS**: Moderate speed (84.6K pps) with cryptographic complexity, scales well in parallel mode (7.2x with 8 cores)
+3. **HTTP**: Slowest (26K pps) but comprehensive, slower due to header parsing
 
 ### Parallel Processing Support
 - **TLS**: Full parallel support with worker pool architecture
@@ -46,8 +46,8 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 ### PCAP Effectiveness
 - **HTTP**: 12.5% effectiveness (2/16 packets useful)
-- **TCP**: 9.3% effectiveness (4/43 packets useful)
-- **TLS**: 100% effectiveness with repeated dataset (1000 TLS packets from 1 original)
+- **TCP**: 102.3% effectiveness with repeated dataset (43,000 packets from 43 original)
+- **TLS**: 100% effectiveness with repeated dataset (1,000 packets from 1 original)
 
 ## Performance Optimization Recommendations
 
@@ -61,9 +61,10 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 ### Protocol-Specific Optimizations
 
 #### TCP Optimization
-- Disable OS matching when not needed (20% performance gain)
-- Use appropriate cache sizes (100-10,000 connections)
-- Larger caches provide better performance (~8% improvement)
+- Disable OS matching when not needed (68% faster)
+- Disable link matching when not needed (71% faster)
+- Use large cache (10K connections) for high volumes (23% faster)
+- Use small cache (100 connections) for better CPU cache locality (18% faster)
 
 #### TLS Optimization
 - **Sequential Mode**: Sufficient for 1 Gbps workloads (96% CPU)
@@ -95,7 +96,7 @@ Each protocol has a dedicated analysis report with comprehensive performance dat
 - PCAP effectiveness varies based on protocol handshake presence
 - Sequential mode results are single-core measurements on x86_64 architecture
 - Parallel mode assumes 90% scaling efficiency per worker
-- TLS parallel benchmarks repeated 1000x for statistical stability
+- TLS and TCP benchmarks use repeated datasets (1000x) for statistical stability
 
 ## Contributing
 

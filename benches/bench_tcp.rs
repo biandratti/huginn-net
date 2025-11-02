@@ -12,6 +12,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 use ttl_cache::TtlCache;
 
+/// Number of times to repeat the PCAP dataset for stable benchmarks
+const REPEAT_COUNT: usize = 1000;
+
 /// Benchmark results storage for automatic reporting
 static BENCHMARK_RESULTS: Mutex<Option<BenchmarkReport>> = Mutex::new(None);
 
@@ -214,15 +217,27 @@ fn generate_final_report(_c: &mut Criterion) {
             .checked_div(report.packet_count as u32)
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
-        println!("Capacity Planning (Single Core):");
-        println!("  - Full TCP Analysis: {} packets/second", format_throughput(throughput));
+
+        let cpu_1gbps = (81274.0 / throughput) * 100.0;
+        let cpu_10gbps = (812740.0 / throughput) * 100.0;
+
+        println!("Capacity Planning:");
+        println!();
+        println!("Sequential Mode (1 core):");
+        println!("  - Throughput: {} packets/second", format_throughput(throughput));
         println!(
-            "  - 1 Gbps (81,274 pps): {:.1}% CPU utilization",
-            (81274.0 / throughput) * 100.0
+            "  - 1 Gbps (81,274 pps): {:.1}% CPU{}",
+            cpu_1gbps,
+            if cpu_1gbps > 100.0 { " [OVERLOAD]" } else { "" }
         );
         println!(
-            "  - 10 Gbps (812,740 pps): {:.1}% CPU utilization",
-            (812740.0 / throughput) * 100.0
+            "  - 10 Gbps (812,740 pps): {:.1}% CPU{}",
+            cpu_10gbps,
+            if cpu_10gbps > 100.0 {
+                " [OVERLOAD]"
+            } else {
+                ""
+            }
         );
     }
     println!();
@@ -238,6 +253,22 @@ fn load_packets_from_pcap(pcap_path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error
         packets.push(pkt?.data.into());
     }
     Ok(packets)
+}
+
+/// Load packets from PCAP and repeat them for stable benchmarking
+fn load_packets_repeated(pcap_path: &str, repeat: usize) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+    let packets = load_packets_from_pcap(pcap_path)?;
+    if packets.is_empty() {
+        return Ok(packets);
+    }
+
+    // Repeat packets to get a stable benchmark dataset
+    let capacity = packets.len().saturating_mul(repeat);
+    let mut repeated = Vec::with_capacity(capacity);
+    for _ in 0..repeat {
+        repeated.extend(packets.iter().cloned());
+    }
+    Ok(repeated)
 }
 
 /// Process a packet using the public TCP API
@@ -267,7 +298,7 @@ fn process_tcp_packet(
 
 /// Benchmark TCP OS fingerprinting using macOS TCP flags PCAP
 fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/macos_tcp_flags.pcap") {
+    let packets = match load_packets_repeated("../pcap/macos_tcp_flags.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load macOS TCP flags PCAP file: {e}");
@@ -291,7 +322,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     let matcher = SignatureMatcher::new(&db);
 
     println!("TCP OS Fingerprinting Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count TCP analysis results
     let mut connection_tracker = TtlCache::new(1000);
@@ -417,7 +448,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
 
 /// Benchmark TCP MTU detection performance
 fn bench_tcp_mtu_detection(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/macos_tcp_flags.pcap") {
+    let packets = match load_packets_repeated("../pcap/macos_tcp_flags.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TCP PCAP file: {e}");
@@ -439,7 +470,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     };
 
     println!("TCP MTU Detection Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count MTU detections
     let matcher = SignatureMatcher::new(&db);
@@ -538,7 +569,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
 
 /// Benchmark TCP uptime calculation performance
 fn bench_tcp_uptime_calculation(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/macos_tcp_flags.pcap") {
+    let packets = match load_packets_repeated("../pcap/macos_tcp_flags.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TCP PCAP file: {e}");
@@ -552,7 +583,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
     }
 
     println!("TCP Uptime Calculation Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count uptime calculations
     let mut connection_tracker = TtlCache::new(1000);
@@ -676,7 +707,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
 /// Benchmark TCP processing overhead analysis
 fn bench_tcp_processing_overhead(c: &mut Criterion) {
-    let packets = match load_packets_from_pcap("../pcap/macos_tcp_flags.pcap") {
+    let packets = match load_packets_repeated("../pcap/macos_tcp_flags.pcap", REPEAT_COUNT) {
         Ok(pkts) => pkts,
         Err(e) => {
             eprintln!("Failed to load TCP PCAP file: {e}");
@@ -698,7 +729,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     };
 
     println!("TCP Processing Overhead Analysis:");
-    println!("  Total packets: {}", packets.len());
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
     println!("--------------------");
 
     let mut group = c.benchmark_group("TCP_Processing_Overhead");
