@@ -9,7 +9,7 @@
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
-  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
 
   **P0f database parser and matching engine for Huginn Net.**
 </div>

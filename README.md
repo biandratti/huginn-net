@@ -9,7 +9,7 @@
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
-  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
   [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
 </div>
 
@@ -17,13 +17,13 @@
 
 #### Why choose Huginn Net?
 
-- **No system dependencies** - No tshark, wireshark, or external tools required
+- **No third-party tools** - No tshark, wireshark, or external tools required
 - **Same accuracy as p0f** - Validated against extensive device testing  
 - **Modern Rust implementation** - Memory safety and zero-cost abstractions  
 - **Production performance** - Processes packets in ~3.1ms with comparable speed to original p0f  
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time  
 - **Comprehensive testing** - Full unit and integration test coverage  
-- **Simple integration** - Single crate installation, no system dependencies
+- **Simple integration** - Pure Rust implementation, no system libraries required
 - **Active development** - Continuously improved and maintained  
 
 #### What is Passive Traffic Fingerprinting?

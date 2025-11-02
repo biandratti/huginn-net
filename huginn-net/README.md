@@ -9,12 +9,21 @@
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
-  [![No System Dependencies](https://img.shields.io/badge/system%20deps-none-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
 
   **Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.**
 </div>
 
 This is the main orchestrator crate that combines all protocol analyzers into a unified interface.
+
+## Why choose huginn-net?
+
+- **No third-party tools** - No tshark, wireshark, or external tools required
+- **Multi-protocol support** - TCP, HTTP, and TLS analysis in one unified interface
+- **Pure Rust implementation** - No system libraries required
+- **High performance** - TCP: 1.25M pps, HTTP: 562.1K pps, TLS: 84.6K pps (608.8K with parallel)
+- **Same accuracy as p0f** - Validated against extensive device testing
+- **Type-safe architecture** - Prevents entire classes of bugs at compile time
 
 ## Quick Start
 
