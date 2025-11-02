@@ -422,7 +422,7 @@ dependencies = [
 
 [[package]]
 name = "huginn-net"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "clap",
  "ctrlc",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-db"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "lazy_static",
  "nom 8.0.0",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-http"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "clap",
  "criterion",
@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-tcp"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "clap",
  "criterion",
@@ -492,7 +492,7 @@ dependencies = [
 
 [[package]]
 name = "huginn-net-tls"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "clap",
  "criterion",
