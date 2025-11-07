@@ -16,37 +16,52 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 | Protocol | Detection | Full Analysis | Processing Time | Use Case |
 |----------|-----------|---------------|-----------------|----------|
-| **TCP** | 166.7M pps | 1.25M pps | 798 ns | OS fingerprinting, MTU detection |
+| **TCP** | 166.7M pps | 988.1K pps | 1.012 μs | OS fingerprinting, MTU detection |
 | **TLS** | 66.7M pps | 84.6K pps | 11.8 μs | JA4 fingerprinting, TLS analysis |
 | **HTTP** | 200M pps | 562.1K pps | 1.779 μs | Browser/server detection |
 
-### Parallel Mode Performance (TLS)
+### Parallel Mode Performance
 
+#### TLS (Round-Robin Dispatch)
 | Mode | Cores | Throughput | Speedup | 1 Gbps Support | 10 Gbps Support |
 |------|-------|------------|---------|----------------|-----------------|
 | Sequential | 1 | 84.6K pps | 1.0x | 96% CPU | Overload (961% CPU) |
 | Parallel | 8 | 608.8K pps | 7.2x | Sufficient | 75% coverage |
 
-**Note**: TLS parallel processing uses worker pool architecture with round-robin packet distribution. Optimal worker count typically matches available CPU cores.
+#### TCP (Hash-Based Worker Assignment)
+| Mode | Cores | Throughput | Speedup | Efficiency | 1 Gbps | 10 Gbps |
+|------|-------|------------|---------|------------|--------|---------|
+| Sequential | 1 | 988.1K pps | 1.0x | 100% | 8.2% CPU | 82.2% CPU |
+| Parallel | 4 | 3.04M pps | 3.08x | 77% | 2.7% CPU | 26.7% CPU |
+| Parallel | 8 | 2.94M pps | 2.98x | 37% | 2.8% CPU | 27.6% CPU |
+
+**Notes**: 
+- TLS uses round-robin dispatch (stateless processing)
+- TCP uses hash-based routing (same source IP → same worker for state consistency)
+- TCP shows best efficiency with 4 workers; diminishing returns beyond that
 
 ## Key Performance Insights
 
 ### Protocol Efficiency Ranking
-1. **TCP**: Fastest (1.25M pps) - excellent balance of speed and analysis depth
+1. **TCP**: Fastest (988k pps sequential, 3.04M parallel) - excellent balance of speed and analysis depth
 2. **HTTP**: Fast (562.1K pps) - comprehensive application-layer analysis
-3. **TLS**: Moderate (84.6K pps) - cryptographic complexity, scales well in parallel mode (7.2x with 8 cores)
+3. **TLS**: Moderate (84.6K pps sequential, 608.8K parallel) - cryptographic complexity
 
 ### Parallel Processing Support
+- **TCP**: Full parallel support with hash-based worker assignment
+  - 3.08x speedup with 4 cores (77% efficiency)
+  - Best performance at 4 workers (3.04M pps)
+  - Hash-based routing maintains per-connection state consistency
+  - Same source IP always routes to same worker
+  - Each worker has isolated connection tracker and cache
+  - Handles 10 Gbps at 26.7% CPU (4 workers)
+  
 - **TLS**: Full parallel support with worker pool architecture
   - 7.2x speedup with 8 cores (90% efficiency)
   - Handles 1 Gbps without parallel mode
   - Requires parallel mode for 10 Gbps workloads
   - Uses round-robin dispatch (stateless processing)
-- **TCP**: Full parallel support with hash-based worker assignment
-  - Maintains per-connection state consistency
-  - Same source IP always routes to same worker
-  - Each worker has isolated connection tracker and cache
-  - Recommended for 1+ Gbps workloads
+  
 - **HTTP**: Planned (requires hash-based worker assignment for flow tracking)
 
 ### PCAP Effectiveness
@@ -66,10 +81,12 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 ### Protocol-Specific Optimizations
 
 #### TCP Optimization
-- Disable OS matching when not needed (68% faster)
-- Disable link matching when not needed (71% faster)
-- Use large cache (10K connections) for high volumes (23% faster)
-- Use small cache (100 connections) for better CPU cache locality (18% faster)
+- **Parallel mode (4 workers)**: 208% faster than sequential (3.08x speedup)
+- Disable OS matching when not needed (118% faster)
+- Disable link matching when not needed (135% faster)
+- Use large cache (10K connections) for high volumes (31% faster)
+- Use small cache (100 connections) for better CPU cache locality (21% faster)
+- Hash-based routing ensures consistent per-connection state
 
 #### TLS Optimization
 - **Sequential Mode**: Sufficient for 1 Gbps workloads (96% CPU)
@@ -101,7 +118,8 @@ Each protocol has a dedicated analysis report with comprehensive performance dat
 - Timing measurements include complete analysis pipelines
 - PCAP effectiveness varies based on protocol handshake presence
 - Sequential mode results are single-core measurements on x86_64 architecture
-- Parallel mode assumes 90% scaling efficiency per worker
+- TLS parallel mode uses round-robin dispatch (90% scaling efficiency)
+- TCP parallel mode uses hash-based worker assignment (77% efficiency at 4 workers)
 - TLS, TCP, and HTTP benchmarks use repeated datasets (1000x) for statistical stability
 
 ## Contributing
