@@ -132,6 +132,9 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                     huginn_net_tcp::error::HuginnNetTcpError::UnexpectedPackage(msg) => {
                         HuginnNetError::UnexpectedPackage(msg)
                     }
+                    huginn_net_tcp::error::HuginnNetTcpError::Misconfiguration(msg) => {
+                        HuginnNetError::Parse(msg)
+                    }
                 },
             )
         } else {
@@ -145,6 +148,9 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                 huginn_net_tls::error::HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
                 huginn_net_tls::error::HuginnNetTlsError::UnsupportedProtocol(msg) => {
                     HuginnNetError::UnsupportedProtocol(msg)
+                }
+                huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
+                    HuginnNetError::Parse(msg)
                 }
                 huginn_net_tls::error::HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())
@@ -208,6 +214,9 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                     huginn_net_tcp::error::HuginnNetTcpError::UnexpectedPackage(msg) => {
                         HuginnNetError::UnexpectedPackage(msg)
                     }
+                    huginn_net_tcp::error::HuginnNetTcpError::Misconfiguration(msg) => {
+                        HuginnNetError::Parse(msg)
+                    }
                 },
             )
         } else {
@@ -221,6 +230,9 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                 huginn_net_tls::error::HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
                 huginn_net_tls::error::HuginnNetTlsError::UnsupportedProtocol(msg) => {
                     HuginnNetError::UnsupportedProtocol(msg)
+                }
+                huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
+                    HuginnNetError::Parse(msg)
                 }
                 huginn_net_tls::error::HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())

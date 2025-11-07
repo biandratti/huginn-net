@@ -20,6 +20,7 @@ thiserror = { workspace = true }
 pnet = { workspace = true }
 ttl_cache = { workspace = true }
 pcap-file = { workspace = true }
+crossbeam-channel = { workspace = true }
 
 [[example]]
 name = "capture-tcp"

@@ -91,7 +91,7 @@ impl WorkerPool {
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
     ) -> Result<Self, HuginnNetTlsError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or_else(|| {
-            HuginnNetTlsError::Parse("Number of workers must be greater than 0".to_string())
+            HuginnNetTlsError::Misconfiguration("Worker count must be greater than 0".to_string())
         })?;
 
         debug!("Creating TLS worker pool: {} workers, queue size: {}", num_workers, queue_size);
@@ -114,7 +114,7 @@ impl WorkerPool {
                     Self::worker_loop(worker_id, rx, result_sender_clone);
                 })
                 .map_err(|e| {
-                    HuginnNetTlsError::Parse(format!("Failed to spawn worker thread: {e}"))
+                    HuginnNetTlsError::Misconfiguration(format!("Failed to spawn worker thread: {e}"))
                 })?;
 
             workers.push(handle);

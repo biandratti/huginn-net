@@ -477,6 +477,7 @@ version = "1.5.2"
 dependencies = [
  "clap",
  "criterion",
+ "crossbeam-channel",
  "ctrlc",
  "huginn-net-db",
  "pcap-file",

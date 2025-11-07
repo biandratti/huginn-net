@@ -41,7 +41,12 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
   - 7.2x speedup with 8 cores (90% efficiency)
   - Handles 1 Gbps without parallel mode
   - Requires parallel mode for 10 Gbps workloads
-- **TCP**: Planned (requires hash-based worker assignment for stateful connections)
+  - Uses round-robin dispatch (stateless processing)
+- **TCP**: Full parallel support with hash-based worker assignment
+  - Maintains per-connection state consistency
+  - Same source IP always routes to same worker
+  - Each worker has isolated connection tracker and cache
+  - Recommended for 1+ Gbps workloads
 - **HTTP**: Planned (requires hash-based worker assignment for flow tracking)
 
 ### PCAP Effectiveness
