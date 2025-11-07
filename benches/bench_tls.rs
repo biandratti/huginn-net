@@ -199,7 +199,9 @@ fn generate_final_report(_c: &mut Criterion) {
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
 
-        let available_cpus = num_cpus::get();
+        let available_cpus = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
         let parallel_efficiency = 0.90; // Assume 90% scaling efficiency
 
         println!("Capacity Planning:");

@@ -289,7 +289,7 @@ impl WorkerPool {
             0 // Raw IP packet
         };
 
-        let min_length = ip_start.checked_add(20).unwrap_or(usize::MAX);
+        let min_length = ip_start.saturating_add(20);
         if packet.len() < min_length {
             // Packet too short, use fallback hash
             return Self::fallback_hash(packet);
