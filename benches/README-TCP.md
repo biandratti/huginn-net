@@ -22,7 +22,7 @@ Analysis results:
 | Full TCP Analysis | 1.012 µs | 988.1k pps | Complete processing |
 | Overhead Analysis | - | 164x | Parsing → Full analysis |
 
-### Parallel Mode (Multi-Core)
+### Parallel Mode (Multi-Worker)
 
 | Workers | Time/Packet | Throughput | Speedup | Efficiency | Notes |
 |---------|-------------|------------|---------|------------|-------|
@@ -30,7 +30,7 @@ Analysis results:
 | 4 | 329 ns | 3.04M pps | 3.08x | 77% | Good scaling |
 | 8 | 340 ns | 2.94M pps | 2.98x | 37% | Diminishing returns |
 
-**Note**: TCP parallel processing uses **hash-based worker assignment** where packets from the same source IP always route to the same worker, maintaining per-connection state consistency.
+**Note**: TCP parallel processing uses **hash-based worker assignment** where packets from the same source IP always route to the same worker, maintaining per-connection state consistency. Tested on 8-core system.
 
 ### Feature-Specific Performance
 
@@ -49,10 +49,12 @@ Analysis results:
 
 ### Network Capacity
 
-| Scenario | Sequential (1 core) | Parallel (8 cores) | Improvement |
-|----------|--------------------|--------------------|-------------|
+| Scenario | Sequential (1 worker) | Parallel (8 workers) | Improvement |
+|----------|-----------------------|----------------------|-------------|
 | 1 Gbps (81,274 pps) | 8.2% CPU | 2.8% CPU | 2.9x reduction |
 | 10 Gbps (812,740 pps) | 82.2% CPU | 27.6% CPU | 3.0x reduction |
+
+**Note**: Tested on 8-core system. Each worker runs on a CPU core.
 
 ## Key Findings
 

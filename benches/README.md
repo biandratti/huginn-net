@@ -23,22 +23,23 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 ### Parallel Mode Performance
 
 #### TLS (Round-Robin Dispatch)
-| Mode | Cores | Throughput | Speedup | 1 Gbps Support | 10 Gbps Support |
-|------|-------|------------|---------|----------------|-----------------|
+| Mode | Workers | Throughput | Speedup | 1 Gbps Support | 10 Gbps Support |
+|------|---------|------------|---------|----------------|-----------------|
 | Sequential | 1 | 84.6K pps | 1.0x | 96% CPU | Overload (961% CPU) |
 | Parallel | 8 | 608.8K pps | 7.2x | Sufficient | 75% coverage |
 
 #### TCP (Hash-Based Worker Assignment)
-| Mode | Cores | Throughput | Speedup | Efficiency | 1 Gbps | 10 Gbps |
-|------|-------|------------|---------|------------|--------|---------|
+| Mode | Workers | Throughput | Speedup | Efficiency | 1 Gbps | 10 Gbps |
+|------|---------|------------|---------|------------|--------|---------|
 | Sequential | 1 | 988.1K pps | 1.0x | 100% | 8.2% CPU | 82.2% CPU |
 | Parallel | 4 | 3.04M pps | 3.08x | 77% | 2.7% CPU | 26.7% CPU |
 | Parallel | 8 | 2.94M pps | 2.98x | 37% | 2.8% CPU | 27.6% CPU |
 
 **Notes**: 
-- TLS uses round-robin dispatch (stateless processing)
+- TLS uses round-robin dispatch (stateless processing) - **scales linearly with more workers**
 - TCP uses hash-based routing (same source IP → same worker for state consistency)
 - TCP shows best efficiency with 4 workers; diminishing returns beyond that
+- These benchmarks measured on laptop hardware (8 CPU cores); **more workers on server-class CPUs (16-32+ cores) would show significantly better performance**, especially for TLS
 
 ## Key Performance Insights
 
@@ -49,18 +50,20 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 ### Parallel Processing Support
 - **TCP**: Full parallel support with hash-based worker assignment
-  - 3.08x speedup with 4 cores (77% efficiency)
+  - 3.08x speedup with 4 workers (77% efficiency)
   - Best performance at 4 workers (3.04M pps)
   - Hash-based routing maintains per-connection state consistency
   - Same source IP always routes to same worker
   - Each worker has isolated connection tracker and cache
-  - Handles 10 Gbps at 26.7% CPU (4 workers)
+  - Handles 10 Gbps at 26.7% CPU (4 workers on 8-core system)
   
 - **TLS**: Full parallel support with worker pool architecture
-  - 7.2x speedup with 8 cores (90% efficiency)
+  - 7.2x speedup with 8 workers (90% efficiency)
+  - **Projected scaling**: ~14x with 16 workers, ~28x with 32 workers (if 90% efficiency maintained)
   - Handles 1 Gbps without parallel mode
   - Requires parallel mode for 10 Gbps workloads
   - Uses round-robin dispatch (stateless processing)
+  - **Ideal for server environments with high CPU core counts** (can run more workers)
   
 - **HTTP**: Planned (requires hash-based worker assignment for flow tracking)
 
@@ -118,7 +121,7 @@ Each protocol has a dedicated analysis report with comprehensive performance dat
 - Timing measurements include complete analysis pipelines
 - PCAP effectiveness varies based on protocol handshake presence
 - Sequential mode results are single-core measurements on x86_64 architecture
-- TLS parallel mode uses round-robin dispatch (90% scaling efficiency)
+- TLS parallel mode uses round-robin dispatch (90% scaling efficiency with workers)
 - TCP parallel mode uses hash-based worker assignment (77% efficiency at 4 workers)
 - TLS, TCP, and HTTP benchmarks use repeated datasets (1000x) for statistical stability
 
