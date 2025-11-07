@@ -22,7 +22,7 @@ fn create_ipv4_packet(src_ip: [u8; 4]) -> Vec<u8> {
     // IPv4 header (starts at offset 14)
     packet[14] = 0x45; // Version 4, IHL 5
     packet[23] = 0x06; // Protocol TCP
-    // Source IP (offset 26-29)
+                       // Source IP (offset 26-29)
     packet[26..30].copy_from_slice(&src_ip);
     // Destination IP (offset 30-33)
     packet[30..34].copy_from_slice(&[10, 0, 0, 2]);
@@ -100,11 +100,7 @@ fn test_different_ips_distributed() {
     let stats = pool.stats();
 
     // Packets should be distributed across workers
-    let workers_with_packets = stats
-        .workers
-        .iter()
-        .filter(|w| w.queue_size > 0)
-        .count();
+    let workers_with_packets = stats.workers.iter().filter(|w| w.queue_size > 0).count();
 
     assert!(
         workers_with_packets > 1,
@@ -226,11 +222,7 @@ fn test_concurrent_dispatch() {
 
 #[test]
 fn test_worker_stats_display() {
-    let worker = WorkerStats {
-        id: 0,
-        queue_size: 5,
-        dropped: 10,
-    };
+    let worker = WorkerStats { id: 0, queue_size: 5, dropped: 10 };
 
     let output = format!("{worker}");
     assert!(output.contains("Worker 0"));
@@ -244,16 +236,8 @@ fn test_pool_stats_display() {
         total_dispatched: 100,
         total_dropped: 5,
         workers: vec![
-            WorkerStats {
-                id: 0,
-                queue_size: 2,
-                dropped: 3,
-            },
-            WorkerStats {
-                id: 1,
-                queue_size: 1,
-                dropped: 2,
-            },
+            WorkerStats { id: 0, queue_size: 2, dropped: 3 },
+            WorkerStats { id: 1, queue_size: 1, dropped: 2 },
         ],
     };
 
@@ -284,9 +268,5 @@ fn test_state_isolation() {
 
     // Verify workers have received packets
     let active_workers = stats.workers.iter().filter(|w| w.queue_size > 0).count();
-    assert!(
-        active_workers > 0,
-        "Expected at least one worker to have packets"
-    );
+    assert!(active_workers > 0, "Expected at least one worker to have packets");
 }
-

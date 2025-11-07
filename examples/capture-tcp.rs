@@ -98,11 +98,7 @@ fn main() {
                 }
             }
         }
-        Commands::Parallel {
-            workers,
-            queue_size,
-            ..
-        } => {
+        Commands::Parallel { workers, queue_size, .. } => {
             info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
             match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size) {
                 Ok(analyzer) => analyzer,

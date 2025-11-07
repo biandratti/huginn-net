@@ -77,12 +77,7 @@ impl HuginnNetTcp {
         database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Self, HuginnNetTcpError> {
-        Ok(Self {
-            matcher: database,
-            max_connections,
-            parallel_config: None,
-            worker_pool: None,
-        })
+        Ok(Self { matcher: database, max_connections, parallel_config: None, worker_pool: None })
     }
 
     /// Creates a new instance of `HuginnNetTcp` configured for parallel processing.
@@ -125,9 +120,12 @@ impl HuginnNetTcp {
         &mut self,
         sender: Sender<TcpAnalysisResult>,
     ) -> Result<(), HuginnNetTcpError> {
-        let config = self.parallel_config.ok_or(HuginnNetTcpError::Misconfiguration(
-            "Parallel mode not configured. Use with_config() to enable parallel processing".to_string(),
-        ))?;
+        let config = self
+            .parallel_config
+            .ok_or(HuginnNetTcpError::Misconfiguration(
+                "Parallel mode not configured. Use with_config() to enable parallel processing"
+                    .to_string(),
+            ))?;
 
         // Clone Arc for sharing across threads (cheap, just increments ref count)
         let database_arc = self.matcher.as_ref().map(Arc::clone);
@@ -225,11 +223,12 @@ impl HuginnNetTcp {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTcpError>>,
     {
-        let worker_pool = self.worker_pool.as_ref().ok_or(
-            HuginnNetTcpError::Misconfiguration(
+        let worker_pool = self
+            .worker_pool
+            .as_ref()
+            .ok_or(HuginnNetTcpError::Misconfiguration(
                 "Worker pool not initialized. Call init_pool() before processing".to_string(),
-            ),
-        )?;
+            ))?;
 
         while let Some(packet_result) = packet_fn() {
             if let Some(ref cancel) = cancel_signal {
@@ -351,7 +350,10 @@ impl HuginnNetTcp {
         connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
         // Create SignatureMatcher from Arc<Database> if available
-        let matcher = self.matcher.as_ref().map(|db| SignatureMatcher::new(db.as_ref()));
+        let matcher = self
+            .matcher
+            .as_ref()
+            .map(|db| SignatureMatcher::new(db.as_ref()));
 
         match parse_packet(packet) {
             IpPacket::Ipv4(ip_data) => {

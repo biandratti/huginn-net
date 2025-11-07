@@ -172,7 +172,9 @@ impl WorkerPool {
         max_connections: usize,
     ) {
         // Each worker creates its own matcher from the shared database
-        let matcher = database.as_ref().map(|db| SignatureMatcher::new(db.as_ref()));
+        let matcher = database
+            .as_ref()
+            .map(|db| SignatureMatcher::new(db.as_ref()));
 
         // Each worker maintains its own connection tracker (state isolation)
         let mut connection_tracker = TtlCache::new(max_connections);
@@ -245,7 +247,7 @@ impl WorkerPool {
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
         // Extract source IP for hashing
         let source_ip_hash = Self::hash_source_ip(&packet);
-        
+
         // NonZeroUsize guarantees num_workers.get() > 0
         let worker_id = source_ip_hash
             .checked_rem(self.num_workers.get())
@@ -365,4 +367,3 @@ impl WorkerPool {
         }
     }
 }
-

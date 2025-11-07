@@ -114,7 +114,9 @@ impl WorkerPool {
                     Self::worker_loop(worker_id, rx, result_sender_clone);
                 })
                 .map_err(|e| {
-                    HuginnNetTlsError::Misconfiguration(format!("Failed to spawn worker thread: {e}"))
+                    HuginnNetTlsError::Misconfiguration(format!(
+                        "Failed to spawn worker thread: {e}"
+                    ))
                 })?;
 
             workers.push(handle);
