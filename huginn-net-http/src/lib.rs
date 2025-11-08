@@ -12,6 +12,8 @@ pub mod http_languages;
 pub mod http_process;
 pub mod packet_parser;
 
+pub mod packet_hash;
+
 pub mod display;
 pub mod error;
 pub mod observable;
