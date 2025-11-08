@@ -117,7 +117,6 @@ impl WorkerPool {
             let dropped_counter = Arc::new(AtomicU64::new(0));
             worker_dropped.push(Arc::clone(&dropped_counter));
 
-            // Clone Arc<Database> for each worker (cheap, just increments ref count)
             let worker_database = database.as_ref().map(Arc::clone);
 
             let handle = thread::Builder::new()
@@ -140,7 +139,6 @@ impl WorkerPool {
             workers.push(handle);
         }
 
-        // Convert Arc<AtomicU64> to plain AtomicU64 by reading values
         let worker_dropped_plain: Vec<AtomicU64> = worker_dropped
             .iter()
             .map(|arc| AtomicU64::new(arc.load(Ordering::Relaxed)))
@@ -157,7 +155,6 @@ impl WorkerPool {
         })
     }
 
-    /// Worker loop that processes TCP packets with local state.
     fn worker_loop(
         worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
@@ -174,7 +171,6 @@ impl WorkerPool {
         let mut connection_tracker = TtlCache::new(max_connections);
 
         while let Ok(packet) = rx.recv() {
-            // Process packet based on IP version
             let result = match parse_packet(&packet) {
                 IpPacket::Ipv4(ip_data) => {
                     if let Some(ipv4) = Ipv4Packet::new(ip_data) {
@@ -323,11 +319,18 @@ impl WorkerPool {
     }
 
     /// Fallback hash for invalid packets.
+    ///
+    /// Used when a packet is too short, malformed, or has an unknown IP version.
+    /// Instead of discarding the packet or crashing, we hash the entire packet contents
+    /// to distribute it to a worker. This sacrifices per-connection state consistency
+    /// for that specific packet, but ensures robustness in production environments
+    /// with corrupted traffic, fragmentation issues, or malicious crafted packets.
+    ///
+    /// Note: This is specific to TCP's hash-based routing.
     fn fallback_hash(packet: &[u8]) -> usize {
         Self::hash_bytes(packet)
     }
 
-    /// Returns current pool statistics.
     pub fn stats(&self) -> PoolStats {
         let mut workers = Vec::new();
 

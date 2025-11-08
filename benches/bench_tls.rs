@@ -258,7 +258,7 @@ fn generate_final_report(_c: &mut Criterion) {
                 let throughput = calculate_throughput(per_packet, 1);
                 println!("  2 Workers:");
                 println!("    - Throughput: {} pps", format_throughput(throughput));
-                
+
                 let cpu_1gbps = (81274.0 / throughput) * 100.0;
                 let cpu_10gbps = (812740.0 / throughput) * 100.0;
                 println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
@@ -273,7 +273,7 @@ fn generate_final_report(_c: &mut Criterion) {
                 println!();
                 println!("  4 Workers:");
                 println!("    - Throughput: {} pps", format_throughput(throughput));
-                
+
                 let cpu_1gbps = (81274.0 / throughput) * 100.0;
                 let cpu_10gbps = (812740.0 / throughput) * 100.0;
                 println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
@@ -288,7 +288,7 @@ fn generate_final_report(_c: &mut Criterion) {
                 println!();
                 println!("  8 Workers:");
                 println!("    - Throughput: {} pps", format_throughput(throughput));
-                
+
                 let cpu_1gbps = (81274.0 / throughput) * 100.0;
                 let cpu_10gbps = (812740.0 / throughput) * 100.0;
                 println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");

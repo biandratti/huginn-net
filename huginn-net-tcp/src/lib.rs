@@ -349,7 +349,6 @@ impl HuginnNetTcp {
         packet: &[u8],
         connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
-        // Create SignatureMatcher from Arc<Database> if available
         let matcher = self
             .matcher
             .as_ref()
