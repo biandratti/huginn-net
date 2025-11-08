@@ -33,6 +33,7 @@ criterion_group!(
     bench_tls_ja4_fingerprinting_alpn_h2,
     bench_tls_packet_parsing_performance,
     bench_tls_ja4_calculation_overhead,
+    bench_tls_parallel_processing,
     generate_final_report
 );
 criterion_main!(tls_benches);
@@ -199,18 +200,13 @@ fn generate_final_report(_c: &mut Criterion) {
             .unwrap_or(Duration::ZERO);
         let throughput = calculate_throughput(per_packet, 1);
 
-        let available_cpus = num_cpus::get();
-        let parallel_efficiency = 0.90; // Assume 90% scaling efficiency
-
-        println!("Capacity Planning:");
-        println!("  System CPUs: {available_cpus}");
-        println!();
-        println!("Sequential Mode (1 core):");
-        println!("  - Throughput: {} packets/second", format_throughput(throughput));
-
         let cpu_1gbps = (81274.0 / throughput) * 100.0;
         let cpu_10gbps = (812740.0 / throughput) * 100.0;
 
+        println!("Capacity Planning:");
+        println!();
+        println!("Sequential Mode (1 core):");
+        println!("  - Throughput: {} packets/second", format_throughput(throughput));
         println!(
             "  - 1 Gbps (81,274 pps): {:.1}% CPU{}",
             cpu_1gbps,
@@ -226,182 +222,82 @@ fn generate_final_report(_c: &mut Criterion) {
             }
         );
 
-        println!();
-        println!("Parallel Mode Recommendations:");
+        // Parallel Mode Analysis
+        let parallel_2 = report
+            .timings
+            .iter()
+            .find(|(name, _)| name.contains("parallel_2_workers"))
+            .map(|(_, t)| *t);
+        let parallel_4 = report
+            .timings
+            .iter()
+            .find(|(name, _)| name.contains("parallel_4_workers"))
+            .map(|(_, t)| *t);
+        let parallel_8 = report
+            .timings
+            .iter()
+            .find(|(name, _)| name.contains("parallel_8_workers"))
+            .map(|(_, t)| *t);
 
-        // 1 Gbps recommendation
-        if cpu_1gbps > 100.0 {
-            let workers_needed = ((cpu_1gbps / 100.0) / parallel_efficiency).ceil() as usize;
-            let workers_recommended = workers_needed.min(available_cpus);
-            let estimated_throughput =
-                throughput * (workers_recommended as f64 * parallel_efficiency);
+        if parallel_2.is_some() || parallel_4.is_some() || parallel_8.is_some() {
+            println!();
+            println!("Parallel Mode Performance:");
+            println!();
 
-            println!("  1 Gbps (81,274 pps):");
-            println!("    - Workers needed: {workers_needed}");
-            if workers_needed > available_cpus {
-                println!("    - WARNING: Needs {workers_needed} workers but only {available_cpus} CPUs available");
-                println!("    - Recommended: {workers_recommended} workers (max available)");
-                println!(
-                    "    - Expected throughput: {} pps",
-                    format_throughput(estimated_throughput)
-                );
-            } else {
-                println!("    - Recommended: {workers_recommended} workers");
-                println!(
-                    "    - Expected throughput: {} pps",
-                    format_throughput(estimated_throughput)
-                );
+            let available_cpus = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1);
+
+            println!("  System CPUs: {available_cpus}");
+            println!();
+
+            if let Some(p2) = parallel_2 {
+                let per_packet = p2
+                    .checked_div(report.packet_count as u32)
+                    .unwrap_or(Duration::ZERO);
+                let throughput = calculate_throughput(per_packet, 1);
+                println!("  2 Workers:");
+                println!("    - Throughput: {} pps", format_throughput(throughput));
+
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
             }
-        } else {
-            println!("  1 Gbps: Sequential mode sufficient");
-        }
 
-        println!();
+            if let Some(p4) = parallel_4 {
+                let per_packet = p4
+                    .checked_div(report.packet_count as u32)
+                    .unwrap_or(Duration::ZERO);
+                let throughput = calculate_throughput(per_packet, 1);
+                println!();
+                println!("  4 Workers:");
+                println!("    - Throughput: {} pps", format_throughput(throughput));
 
-        // 10 Gbps recommendation
-        if cpu_10gbps > 100.0 {
-            let workers_needed = ((cpu_10gbps / 100.0) / parallel_efficiency).ceil() as usize;
-            let workers_recommended = workers_needed.min(available_cpus);
-            let estimated_throughput =
-                throughput * (workers_recommended as f64 * parallel_efficiency);
-
-            println!("  10 Gbps (812,740 pps):");
-            println!("    - Workers needed: {workers_needed}");
-            if workers_needed > available_cpus {
-                println!("    - WARNING: Needs {workers_needed} workers but only {available_cpus} CPUs available");
-                println!("    - Recommended: {workers_recommended} workers (max available)");
-                println!(
-                    "    - Expected throughput: {} pps ({:.1}% of target)",
-                    format_throughput(estimated_throughput),
-                    (estimated_throughput / 812740.0) * 100.0
-                );
-                let deficit = 812740.0 - estimated_throughput;
-                if deficit > 0.0 {
-                    println!(
-                        "    - Shortfall: {} pps ({:.1}% packet loss expected)",
-                        format_throughput(deficit),
-                        (deficit / 812740.0) * 100.0
-                    );
-                }
-            } else {
-                println!("    - Recommended: {workers_recommended} workers");
-                println!(
-                    "    - Expected throughput: {} pps",
-                    format_throughput(estimated_throughput)
-                );
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
             }
-        } else {
-            println!("  10 Gbps: Sequential mode sufficient");
-        }
 
-        // Sequential vs Parallel Comparison
-        println!();
-        println!("Sequential vs Parallel Comparison:");
-        println!();
-        println!("Packets Processed per Second:");
-        println!("  Sequential Mode (1 core):  {} pps", format_throughput(throughput));
+            if let Some(p8) = parallel_8 {
+                let per_packet = p8
+                    .checked_div(report.packet_count as u32)
+                    .unwrap_or(Duration::ZERO);
+                let throughput = calculate_throughput(per_packet, 1);
+                println!();
+                println!("  8 Workers:");
+                println!("    - Throughput: {} pps", format_throughput(throughput));
 
-        let parallel_throughput = throughput * (available_cpus as f64 * parallel_efficiency);
-        let speedup = parallel_throughput / throughput;
-
-        println!(
-            "  Parallel Mode ({available_cpus} cores):    {} pps ({speedup:.1}x faster)",
-            format_throughput(parallel_throughput)
-        );
-        println!();
-        println!(
-            "+------------------------------------------------------------------------------+"
-        );
-        println!("| Scenario      | Sequential (1 core) | Parallel ({available_cpus} cores) | Speedup       |");
-        println!(
-            "+------------------------------------------------------------------------------+"
-        );
-
-        println!(
-            "| Throughput    | {:>15} pps | {:>18} pps | {:>11.1}x |",
-            format_throughput(throughput),
-            format_throughput(parallel_throughput),
-            speedup
-        );
-
-        // 1 Gbps scenario
-        let seq_cpu_1g = cpu_1gbps.min(100.0);
-        let par_cpu_1g = (81274.0 / parallel_throughput * 100.0).min(100.0);
-        let cpu_savings_1g = if cpu_1gbps > 100.0 {
-            format!("{cpu_1gbps:.1}% → {par_cpu_1g:.1}%")
-        } else {
-            format!("{seq_cpu_1g:.1}%")
-        };
-
-        println!(
-            "| 1 Gbps        | {:>19} | {:>22} | {:>13} |",
-            format!("{seq_cpu_1g:.1}% CPU"),
-            if cpu_1gbps > 100.0 {
-                format!("{par_cpu_1g:.1}% CPU")
-            } else {
-                "Not needed".to_string()
-            },
-            if cpu_1gbps > 100.0 {
-                cpu_savings_1g
-            } else {
-                "N/A".to_string()
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
             }
-        );
 
-        // 10 Gbps scenario
-        let seq_cpu_10g = cpu_10gbps.min(100.0);
-        let par_cpu_10g = (812740.0 / parallel_throughput * 100.0).min(100.0);
-        let cpu_savings_10g = if cpu_10gbps > 100.0 {
-            format!("{cpu_10gbps:.1}% → {par_cpu_10g:.1}%")
-        } else {
-            format!("{seq_cpu_10g:.1}%")
-        };
-
-        println!(
-            "| 10 Gbps       | {:>19} | {:>22} | {:>13} |",
-            if cpu_10gbps > 100.0 {
-                "OVERLOAD".to_string()
-            } else {
-                format!("{seq_cpu_10g:.1}% CPU")
-            },
-            if cpu_10gbps > 100.0 {
-                if 812740.0 <= parallel_throughput {
-                    format!("{par_cpu_10g:.1}% CPU")
-                } else {
-                    let coverage = (parallel_throughput / 812740.0) * 100.0;
-                    format!("{coverage:.1}% coverage")
-                }
-            } else {
-                "Not needed".to_string()
-            },
-            if cpu_10gbps > 100.0 {
-                cpu_savings_10g
-            } else {
-                "N/A".to_string()
-            }
-        );
-
-        println!(
-            "+------------------------------------------------------------------------------+"
-        );
-
-        // Summary recommendation
-        println!();
-        println!("Recommendation Summary:");
-        if cpu_10gbps <= 100.0 {
-            println!("  Sequential mode is sufficient for both 1 Gbps and 10 Gbps");
-            println!("  Recommended: HuginnNetTls::new() for optimal performance");
-        } else if cpu_1gbps <= 100.0 && cpu_10gbps > 100.0 {
-            let workers_10g = ((cpu_10gbps / 100.0) / parallel_efficiency).ceil() as usize;
-            let workers_10g_recommended = workers_10g.min(available_cpus);
-            println!("  Sequential mode is sufficient for 1 Gbps");
-            println!("  Parallel mode REQUIRED for 10 Gbps");
-            println!("  Recommended: HuginnNetTls::with_config({workers_10g_recommended}, 100) for 10 Gbps workloads");
-        } else {
-            let workers_1g = ((cpu_1gbps / 100.0) / parallel_efficiency).ceil() as usize;
-            let workers_1g_recommended = workers_1g.min(available_cpus);
-            println!("  Parallel mode REQUIRED for both 1 Gbps and 10 Gbps");
-            println!("  Recommended: HuginnNetTls::with_config({workers_1g_recommended}, 100) for production");
+            println!();
+            println!("Note: TLS uses round-robin dispatch (stateless processing)");
+            println!("      Parallel benchmarks include worker pool overhead");
         }
     }
     println!();
@@ -946,6 +842,119 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
             report
                 .timings
                 .push(("full_result_analysis".to_string(), full_analysis_time));
+        }
+    }
+}
+
+/// Benchmark TLS parallel processing with different worker counts
+fn bench_tls_parallel_processing(c: &mut Criterion) {
+    let packets = match load_packets_repeated("../pcap/tls12.pcap", REPEAT_COUNT) {
+        Ok(pkts) => pkts,
+        Err(e) => {
+            eprintln!("Failed to load TLS PCAP file for parallel benchmark: {e}");
+            return;
+        }
+    };
+
+    if packets.is_empty() {
+        eprintln!("No packets found in TLS PCAP file for parallel benchmark");
+        return;
+    }
+
+    println!("TLS Parallel Processing Analysis:");
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
+    println!("--------------------");
+
+    let worker_counts = [2, 4, 8];
+    let mut group = c.benchmark_group("TLS_Parallel_Processing");
+
+    for &num_workers in &worker_counts {
+        let bench_name = format!("parallel_{num_workers}_workers");
+        group.bench_function(&bench_name, |b| {
+            b.iter(|| {
+                let (tx, rx) = std::sync::mpsc::channel();
+                let pool = match huginn_net_tls::WorkerPool::new(num_workers, 100, tx) {
+                    Ok(p) => p,
+                    Err(e) => panic!("Failed to create worker pool: {e}"),
+                };
+
+                // Dispatch all packets
+                for packet in packets.iter() {
+                    let _ = pool.dispatch(packet.clone());
+                }
+
+                // Shutdown and collect results
+                pool.shutdown();
+                let mut _result_count: usize = 0;
+                while rx.recv().is_ok() {
+                    _result_count = _result_count.saturating_add(1);
+                }
+            })
+        });
+    }
+
+    group.finish();
+
+    // Measure parallel processing times for reporting
+    let parallel_2_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pool = match huginn_net_tls::WorkerPool::new(2, 100, tx) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    let parallel_4_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pool = match huginn_net_tls::WorkerPool::new(4, 100, tx) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    let parallel_8_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pool = match huginn_net_tls::WorkerPool::new(8, 100, tx) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    if let Ok(mut guard) = BENCHMARK_RESULTS.lock() {
+        if let Some(ref mut report) = *guard {
+            report
+                .timings
+                .push(("parallel_2_workers".to_string(), parallel_2_workers_time));
+            report
+                .timings
+                .push(("parallel_4_workers".to_string(), parallel_4_workers_time));
+            report
+                .timings
+                .push(("parallel_8_workers".to_string(), parallel_8_workers_time));
         }
     }
 }

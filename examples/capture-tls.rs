@@ -17,30 +17,23 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 
-    /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Capture from live network interface in sequential mode
     Single {
-        /// Network interface name
         #[arg(short = 'i', long)]
         interface: String,
     },
-    /// Capture from live network interface in parallel mode
     Parallel {
-        /// Network interface name
         #[arg(short = 'i', long)]
         interface: String,
 
-        /// Number of worker threads
         #[arg(short = 'w', long = "workers")]
         workers: usize,
 
-        /// Queue size per worker
         #[arg(short = 'q', long = "queue-size", default_value = "100")]
         queue_size: usize,
     },

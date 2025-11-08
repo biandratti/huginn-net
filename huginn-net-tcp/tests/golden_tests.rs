@@ -84,7 +84,7 @@ fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNe
     let db = Database::load_default()
         .map_err(|e| HuginnNetTcpError::Parse(format!("Failed to load database: {e}")))?;
 
-    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
+    let mut analyzer = HuginnNetTcp::new(Some(std::sync::Arc::new(db)), 1000)?;
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
 
     let pcap_file_str = pcap_path.to_string();

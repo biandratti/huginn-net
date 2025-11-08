@@ -10,6 +10,10 @@ pub enum HuginnNetTlsError {
     #[error("Unsupported protocol: {0}")]
     UnsupportedProtocol(String),
 
+    /// Misconfiguration error.
+    #[error("Misconfiguration: {0}")]
+    Misconfiguration(String),
+
     /// An unknown error occurred.
     #[error("Unknown error")]
     Unknown,

@@ -13,4 +13,7 @@ pub enum HuginnNetTcpError {
 
     #[error("Invalid package: {0}")]
     UnexpectedPackage(String),
+
+    #[error("Misconfiguration: {0}")]
+    Misconfiguration(String),
 }

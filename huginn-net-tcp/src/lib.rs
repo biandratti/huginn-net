@@ -6,6 +6,7 @@ pub use huginn_net_db::tcp;
 pub mod ip_options;
 pub mod mtu;
 pub mod packet_parser;
+pub mod parallel;
 pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
@@ -22,6 +23,7 @@ pub mod signature_matcher;
 pub use error::*;
 pub use observable::*;
 pub use output::*;
+pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::*;
 pub use signature_matcher::*;
 pub use tcp_process::*;
@@ -42,34 +44,137 @@ use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
+/// Configuration for parallel processing.
+#[derive(Debug, Clone, Copy)]
+pub struct ParallelConfig {
+    pub num_workers: usize,
+    pub queue_size: usize,
+}
+
 /// A TCP-focused passive fingerprinting analyzer.
 ///
 /// The `HuginnNetTcp` struct handles TCP packet analysis for OS fingerprinting,
 /// MTU detection, and uptime calculation using p0f-style methodologies.
-pub struct HuginnNetTcp<'a> {
-    pub matcher: Option<SignatureMatcher<'a>>,
+///
+/// Supports both sequential (single-threaded) and parallel (multi-threaded) processing modes.
+pub struct HuginnNetTcp {
+    matcher: Option<Arc<db::Database>>,
     max_connections: usize,
+    parallel_config: Option<ParallelConfig>,
+    worker_pool: Option<Arc<WorkerPool>>,
 }
 
-impl<'a> HuginnNetTcp<'a> {
-    /// Creates a new instance of `HuginnNetTcp`.
+impl HuginnNetTcp {
+    /// Creates a new instance of `HuginnNetTcp` in sequential mode.
     ///
     /// # Parameters
     /// - `database`: Optional signature database for OS matching
     /// - `max_connections`: Maximum number of connections to track in the connection tracker
     ///
     /// # Returns
-    /// A new `HuginnNetTcp` instance ready for TCP analysis.
+    /// A new `HuginnNetTcp` instance ready for sequential TCP analysis.
     pub fn new(
-        database: Option<&'a db::Database>,
+        database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Self, HuginnNetTcpError> {
-        let matcher = database.map(SignatureMatcher::new);
+        Ok(Self { matcher: database, max_connections, parallel_config: None, worker_pool: None })
+    }
 
-        Ok(Self { matcher, max_connections })
+    /// Creates a new instance of `HuginnNetTcp` configured for parallel processing.
+    ///
+    /// Uses hash-based worker assignment to ensure packets from the same source IP
+    /// always go to the same worker, maintaining state consistency.
+    ///
+    /// # Parameters
+    /// - `database`: Optional signature database for OS matching
+    /// - `max_connections`: Maximum number of connections to track per worker
+    /// - `num_workers`: Number of worker threads for parallel processing
+    /// - `queue_size`: Size of packet queue per worker
+    ///
+    /// # Returns
+    /// A new `HuginnNetTcp` instance configured for parallel processing.
+    pub fn with_config(
+        database: Option<Arc<db::Database>>,
+        max_connections: usize,
+        num_workers: usize,
+        queue_size: usize,
+    ) -> Result<Self, HuginnNetTcpError> {
+        Ok(Self {
+            matcher: database,
+            max_connections,
+            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            worker_pool: None,
+        })
+    }
+
+    /// Initializes the worker pool for parallel processing.
+    ///
+    /// Must be called before `analyze_network` or `analyze_pcap` when using parallel mode.
+    ///
+    /// # Parameters
+    /// - `sender`: Channel to send TCP analysis results
+    ///
+    /// # Errors
+    /// Returns error if called without parallel config or if worker pool creation fails.
+    pub fn init_pool(
+        &mut self,
+        sender: Sender<TcpAnalysisResult>,
+    ) -> Result<(), HuginnNetTcpError> {
+        let config = self
+            .parallel_config
+            .ok_or(HuginnNetTcpError::Misconfiguration(
+                "Parallel mode not configured. Use with_config() to enable parallel processing"
+                    .to_string(),
+            ))?;
+
+        // Clone Arc for sharing across threads (cheap, just increments ref count)
+        let database_arc = self.matcher.as_ref().map(Arc::clone);
+
+        let worker_pool = WorkerPool::new(
+            config.num_workers,
+            config.queue_size,
+            sender,
+            database_arc,
+            self.max_connections,
+        )?;
+
+        self.worker_pool = Some(Arc::new(worker_pool));
+        Ok(())
+    }
+
+    /// Returns a reference to the worker pool.
+    ///
+    /// # Returns
+    /// An `Option` containing an `Arc` to the `WorkerPool` if parallel mode is enabled.
+    pub fn worker_pool(&self) -> Option<Arc<WorkerPool>> {
+        self.worker_pool.as_ref().map(Arc::clone)
+    }
+
+    /// Returns current pool statistics (parallel mode only).
+    ///
+    /// # Returns
+    /// `Some(PoolStats)` if in parallel mode, `None` otherwise.
+    pub fn stats(&self) -> Option<PoolStats> {
+        self.worker_pool.as_ref().map(|pool| pool.stats())
     }
 
     fn process_with<F>(
+        &mut self,
+        packet_fn: F,
+        sender: Sender<TcpAnalysisResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTcpError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTcpError>>,
+    {
+        if self.parallel_config.is_some() {
+            self.process_parallel(packet_fn, sender, cancel_signal)
+        } else {
+            self.process_sequential(packet_fn, sender, cancel_signal)
+        }
+    }
+
+    fn process_sequential<F>(
         &mut self,
         mut packet_fn: F,
         sender: Sender<TcpAnalysisResult>,
@@ -78,7 +183,7 @@ impl<'a> HuginnNetTcp<'a> {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTcpError>>,
     {
-        // Connection tracker for TCP analysis
+        // Connection tracker for TCP analysis (sequential mode)
         let mut connection_tracker = TtlCache::new(self.max_connections);
 
         while let Some(packet_result) = packet_fn() {
@@ -98,14 +203,54 @@ impl<'a> HuginnNetTcp<'a> {
                         }
                     }
                     Err(tcp_error) => {
-                        debug!("Error processing packet: {}", tcp_error);
+                        debug!("Error processing packet: {tcp_error}");
                     }
                 },
                 Err(e) => {
-                    error!("Failed to read packet: {}", e);
+                    error!("Failed to read packet: {e}");
                 }
             }
         }
+        Ok(())
+    }
+
+    fn process_parallel<F>(
+        &mut self,
+        mut packet_fn: F,
+        _sender: Sender<TcpAnalysisResult>,
+        cancel_signal: Option<Arc<AtomicBool>>,
+    ) -> Result<(), HuginnNetTcpError>
+    where
+        F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTcpError>>,
+    {
+        let worker_pool = self
+            .worker_pool
+            .as_ref()
+            .ok_or(HuginnNetTcpError::Misconfiguration(
+                "Worker pool not initialized. Call init_pool() before processing".to_string(),
+            ))?;
+
+        while let Some(packet_result) = packet_fn() {
+            if let Some(ref cancel) = cancel_signal {
+                if cancel.load(Ordering::Relaxed) {
+                    debug!("Cancellation signal received, stopping packet processing");
+                    break;
+                }
+            }
+
+            match packet_result {
+                Ok(packet) => {
+                    // Dispatch to worker pool using hash-based assignment
+                    worker_pool.dispatch(packet);
+                }
+                Err(e) => {
+                    error!("Failed to read packet: {e}");
+                }
+            }
+        }
+
+        // Signal workers to finish
+        worker_pool.shutdown();
         Ok(())
     }
 
@@ -204,10 +349,15 @@ impl<'a> HuginnNetTcp<'a> {
         packet: &[u8],
         connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
+        let matcher = self
+            .matcher
+            .as_ref()
+            .map(|db| SignatureMatcher::new(db.as_ref()));
+
         match parse_packet(packet) {
             IpPacket::Ipv4(ip_data) => {
                 if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4, connection_tracker, self.matcher.as_ref())
+                    process_ipv4_packet(&ipv4, connection_tracker, matcher.as_ref())
                 } else {
                     Ok(TcpAnalysisResult {
                         syn: None,
@@ -220,7 +370,7 @@ impl<'a> HuginnNetTcp<'a> {
             }
             IpPacket::Ipv6(ip_data) => {
                 if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6, connection_tracker, self.matcher.as_ref())
+                    process_ipv6_packet(&ipv6, connection_tracker, matcher.as_ref())
                 } else {
                     Ok(TcpAnalysisResult {
                         syn: None,

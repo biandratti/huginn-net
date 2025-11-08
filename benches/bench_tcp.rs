@@ -34,6 +34,7 @@ criterion_group!(
     bench_tcp_mtu_detection,
     bench_tcp_uptime_calculation,
     bench_tcp_processing_overhead,
+    bench_tcp_parallel_processing,
     generate_final_report
 );
 criterion_main!(tcp_benches);
@@ -239,6 +240,84 @@ fn generate_final_report(_c: &mut Criterion) {
                 ""
             }
         );
+
+        // Parallel Mode Analysis
+        let parallel_2 = report
+            .timings
+            .iter()
+            .find(|(name, _)| name.contains("parallel_2_workers"))
+            .map(|(_, t)| *t);
+        let parallel_4 = report
+            .timings
+            .iter()
+            .find(|(name, _)| name.contains("parallel_4_workers"))
+            .map(|(_, t)| *t);
+        let parallel_8 = report
+            .timings
+            .iter()
+            .find(|(name, _)| name.contains("parallel_8_workers"))
+            .map(|(_, t)| *t);
+
+        if parallel_2.is_some() || parallel_4.is_some() || parallel_8.is_some() {
+            println!();
+            println!("Parallel Mode Performance:");
+            println!();
+
+            let available_cpus = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1);
+
+            println!("  System CPUs: {available_cpus}");
+            println!();
+
+            if let Some(p2) = parallel_2 {
+                let per_packet = p2
+                    .checked_div(report.packet_count as u32)
+                    .unwrap_or(Duration::ZERO);
+                let throughput = calculate_throughput(per_packet, 1);
+                println!("  2 Workers:");
+                println!("    - Throughput: {} pps", format_throughput(throughput));
+
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
+            }
+
+            if let Some(p4) = parallel_4 {
+                let per_packet = p4
+                    .checked_div(report.packet_count as u32)
+                    .unwrap_or(Duration::ZERO);
+                let throughput = calculate_throughput(per_packet, 1);
+                println!();
+                println!("  4 Workers:");
+                println!("    - Throughput: {} pps", format_throughput(throughput));
+
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
+            }
+
+            if let Some(p8) = parallel_8 {
+                let per_packet = p8
+                    .checked_div(report.packet_count as u32)
+                    .unwrap_or(Duration::ZERO);
+                let throughput = calculate_throughput(per_packet, 1);
+                println!();
+                println!("  8 Workers:");
+                println!("    - Throughput: {} pps", format_throughput(throughput));
+
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
+            }
+
+            println!();
+            println!("Note: TCP uses hash-based worker assignment for stateful connections");
+            println!("      Parallel benchmarks include worker pool overhead");
+        }
     }
     println!();
     println!("Benchmark report generation complete");
@@ -839,6 +918,139 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
                 "full_analysis_with_collection".to_string(),
                 full_analysis_with_collection_time,
             ));
+        }
+    }
+}
+
+/// Benchmark TCP parallel processing with different worker counts
+fn bench_tcp_parallel_processing(c: &mut Criterion) {
+    let packets = match load_packets_repeated("../pcap/macos_tcp_flags.pcap", REPEAT_COUNT) {
+        Ok(pkts) => pkts,
+        Err(e) => {
+            eprintln!("Failed to load TCP PCAP file: {e}");
+            return;
+        }
+    };
+
+    if packets.is_empty() {
+        eprintln!("No packets found in TCP PCAP file");
+        return;
+    }
+
+    let db = match Database::load_default() {
+        Ok(db) => std::sync::Arc::new(db),
+        Err(e) => {
+            eprintln!("Failed to load default database: {e}");
+            return;
+        }
+    };
+
+    println!("TCP Parallel Processing Analysis:");
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
+    println!("--------------------");
+
+    let worker_counts = [2, 4, 8];
+    let mut group = c.benchmark_group("TCP_Parallel_Processing");
+
+    for &num_workers in &worker_counts {
+        let bench_name = format!("parallel_{num_workers}_workers");
+        group.bench_function(&bench_name, |b| {
+            b.iter(|| {
+                let (tx, rx) = std::sync::mpsc::channel();
+                let pool = match huginn_net_tcp::parallel::WorkerPool::new(
+                    num_workers,
+                    100,
+                    tx,
+                    Some(db.clone()),
+                    1000,
+                ) {
+                    Ok(p) => p,
+                    Err(e) => panic!("Failed to create worker pool: {e}"),
+                };
+
+                // Dispatch all packets
+                for packet in packets.iter() {
+                    let _ = pool.dispatch(packet.clone());
+                }
+
+                // Shutdown and collect results
+                pool.shutdown();
+                let mut _result_count: usize = 0;
+                while rx.recv().is_ok() {
+                    _result_count = _result_count.saturating_add(1);
+                }
+            })
+        });
+    }
+
+    group.finish();
+
+    // Measure parallel processing times for reporting
+    let parallel_2_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pool =
+                match huginn_net_tcp::parallel::WorkerPool::new(2, 100, tx, Some(db.clone()), 1000)
+                {
+                    Ok(p) => p,
+                    Err(e) => panic!("Failed to create worker pool: {e}"),
+                };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    let parallel_4_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pool =
+                match huginn_net_tcp::parallel::WorkerPool::new(4, 100, tx, Some(db.clone()), 1000)
+                {
+                    Ok(p) => p,
+                    Err(e) => panic!("Failed to create worker pool: {e}"),
+                };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    let parallel_8_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pool =
+                match huginn_net_tcp::parallel::WorkerPool::new(8, 100, tx, Some(db.clone()), 1000)
+                {
+                    Ok(p) => p,
+                    Err(e) => panic!("Failed to create worker pool: {e}"),
+                };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    if let Ok(mut guard) = BENCHMARK_RESULTS.lock() {
+        if let Some(ref mut report) = *guard {
+            report
+                .timings
+                .push(("parallel_2_workers".to_string(), parallel_2_workers_time));
+            report
+                .timings
+                .push(("parallel_4_workers".to_string(), parallel_4_workers_time));
+            report
+                .timings
+                .push(("parallel_8_workers".to_string(), parallel_8_workers_time));
         }
     }
 }
