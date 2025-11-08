@@ -1,9 +1,3 @@
-//! Parallel processing module for TCP fingerprinting with hash-based worker assignment.
-//!
-//! This module provides a worker pool for parallel TCP packet processing. Unlike TLS,
-//! TCP fingerprinting maintains per-connection state (cache, uptime tracking, etc.),
-//! so packets are dispatched to workers based on source IP hash to ensure state consistency.
-
 use crate::error::HuginnNetTcpError;
 use crate::output::TcpAnalysisResult;
 use crate::packet_parser::{parse_packet, IpPacket};

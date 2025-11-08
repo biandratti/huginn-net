@@ -49,8 +49,8 @@ Analysis results:
 
 ### Network Capacity
 
-| Scenario | Sequential (1 worker) | Parallel (8 workers) | Improvement |
-|----------|-----------------------|----------------------|-------------|
+| Scenario | Sequential (1 worker) | Parallel (8 workers) | Multi-thread Gain |
+|----------|-----------------------|----------------------|-------------------|
 | 1 Gbps (81,274 pps) | 8.2% CPU | 2.8% CPU | 2.9x reduction |
 | 10 Gbps (812,740 pps) | 82.2% CPU | 27.6% CPU | 3.0x reduction |
 

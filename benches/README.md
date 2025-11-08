@@ -63,7 +63,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
   - Handles 1 Gbps without parallel mode
   - Requires parallel mode for 10 Gbps workloads
   - Uses round-robin dispatch (stateless processing)
-  - **Ideal for server environments with high CPU core counts** (can run more workers)
+  - **Scales effectively with more workers**
   
 - **HTTP**: Planned (requires hash-based worker assignment for flow tracking)
 
