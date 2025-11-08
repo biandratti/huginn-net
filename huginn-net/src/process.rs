@@ -107,6 +107,9 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                     huginn_net_http::error::HuginnNetHttpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
+                    huginn_net_http::error::HuginnNetHttpError::Misconfiguration(msg) => {
+                        HuginnNetError::Parse(msg)
+                    }
                 })
         } else {
             Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet data".to_string()))
@@ -188,6 +191,9 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                     }
                     huginn_net_http::error::HuginnNetHttpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
+                    }
+                    huginn_net_http::error::HuginnNetHttpError::Misconfiguration(msg) => {
+                        HuginnNetError::Parse(msg)
                     }
                 })
         } else {

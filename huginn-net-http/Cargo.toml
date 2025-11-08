@@ -22,6 +22,7 @@ ttl_cache = { workspace = true }
 hpack-patched = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
+crossbeam-channel = { workspace = true }
 
 [[example]]
 name = "capture-http"

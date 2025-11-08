@@ -8,7 +8,7 @@ PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1000 TLS Cl
 
 ## Performance Results
 
-### Sequential Mode (Single-Core)
+### Sequential Mode (Single-Thread)
 
 | Operation | Time | Throughput | Notes |
 |-----------|------|------------|-------|

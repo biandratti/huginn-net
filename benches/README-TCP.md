@@ -14,7 +14,7 @@ Analysis results:
 
 ## Performance Results
 
-### Sequential Mode (Single-Core)
+### Sequential Mode (Single-Thread)
 
 | Operation | Time | Throughput | Notes |
 |-----------|------|------------|-------|

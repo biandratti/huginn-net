@@ -1,9 +1,8 @@
 use clap::{Parser, Subcommand};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use huginn_net_db::Database;
 use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use tracing::{debug, error, info};
@@ -18,17 +17,25 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 
-    /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Live {
-        /// Network interface name
+    Single {
         #[arg(short = 'i', long)]
         interface: String,
+    },
+    Parallel {
+        #[arg(short = 'i', long)]
+        interface: String,
+
+        #[arg(short = 'w', long = "workers")]
+        workers: usize,
+
+        #[arg(short = 'q', long = "queue-size", default_value = "100")]
+        queue_size: usize,
     },
 }
 
@@ -39,7 +46,7 @@ fn initialize_logging(log_file: Option<String>) {
         RollingFileAppender::new(Rotation::NEVER, ".", log_file)
             .with_max_level(tracing::Level::INFO)
     } else {
-        RollingFileAppender::new(Rotation::NEVER, ".", "http-capture.log")
+        RollingFileAppender::new(Rotation::NEVER, ".", "default.log")
             .with_max_level(tracing::Level::INFO)
     };
 
@@ -63,7 +70,7 @@ fn main() {
     info!("Starting HTTP-only capture example");
 
     let (sender, receiver): (Sender<HttpAnalysisResult>, Receiver<HttpAnalysisResult>) =
-        mpsc::channel();
+        unbounded();
 
     let cancel_signal = Arc::new(AtomicBool::new(false));
     let ctrl_c_signal = cancel_signal.clone();
@@ -87,23 +94,51 @@ fn main() {
         };
         debug!("Loaded database: {:?}", db);
 
-        let mut analyzer = match HuginnNetHttp::new(Some(&db), 1000) {
-            Ok(analyzer) => analyzer,
-            Err(e) => {
-                error!("Failed to create HuginnNetHttp analyzer: {e}");
-                return;
-            }
-        };
+        let db_option = Some(Arc::new(db));
 
-        let result = match args.command {
-            Commands::Live { interface } => {
+        match args.command {
+            Commands::Single { interface } => {
+                info!("Initializing HTTP analyzer in sequential mode");
+                let mut analyzer = match HuginnNetHttp::new(db_option, 1000) {
+                    Ok(analyzer) => analyzer,
+                    Err(e) => {
+                        error!("Failed to create HuginnNetHttp analyzer: {e}");
+                        return;
+                    }
+                };
+
                 info!("Starting HTTP live capture on interface: {interface}");
-                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
+                if let Err(e) =
+                    analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
+                {
+                    error!("HTTP analysis failed: {e}");
+                }
             }
-        };
+            Commands::Parallel { interface, workers, queue_size } => {
+                info!(
+                    "Initializing HTTP analyzer with {workers} worker threads (flow-based routing)"
+                );
+                let mut analyzer =
+                    match HuginnNetHttp::with_config(db_option, 1000, workers, queue_size) {
+                        Ok(analyzer) => analyzer,
+                        Err(e) => {
+                            error!("Failed to create HuginnNetHttp analyzer: {e}");
+                            return;
+                        }
+                    };
 
-        if let Err(e) = result {
-            error!("HTTP analysis failed: {e}");
+                if let Err(e) = analyzer.init_pool(sender.clone()) {
+                    error!("Failed to initialize worker pool: {e}");
+                    return;
+                }
+
+                info!("Starting HTTP live capture on interface: {interface}");
+                if let Err(e) =
+                    analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
+                {
+                    error!("HTTP analysis failed: {e}");
+                }
+            }
         }
     });
 

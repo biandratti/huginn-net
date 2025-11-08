@@ -450,6 +450,7 @@ version = "1.5.2"
 dependencies = [
  "clap",
  "criterion",
+ "crossbeam-channel",
  "ctrlc",
  "hpack-patched",
  "huginn-net-db",

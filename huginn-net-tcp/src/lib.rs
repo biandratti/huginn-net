@@ -5,6 +5,7 @@ pub use huginn_net_db::tcp;
 
 pub mod ip_options;
 pub mod mtu;
+pub mod packet_hash;
 pub mod packet_parser;
 pub mod parallel;
 pub mod tcp_process;
