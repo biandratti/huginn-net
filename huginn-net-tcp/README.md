@@ -134,37 +134,29 @@ For a complete working example, see [`examples/capture-tcp.rs`](../examples/capt
 ### Example Output
 
 ```text
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
-|
-| client   = 1.2.3.4/1524
-| os       = Windows XP
-| dist     = 8
-| params   = none
-| raw_sig  = 4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
-`----
+[TCP SYN] 1.2.3.4:1524 → 4.3.2.1:80
+  OS:     Windows XP
+  Dist:   8
+  Params: none
+  Sig:    4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
 
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]-
-|
-| server   = 4.3.2.1/80
-| os       = Linux 3.x
-| dist     = 0
-| params   = none
-| raw_sig  = 4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
-`----
+[TCP SYN+ACK] 4.3.2.1:80 → 1.2.3.4:1524
+  OS:     Linux 3.x
+  Dist:   0
+  Params: none
+  Sig:    4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
 
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (mtu) ]-
-|
-| client   = 1.2.3.4/1524
-| link     = DSL
-| raw_mtu  = 1492
-`----
+[TCP MTU] 1.2.3.4:1524 → 4.3.2.1:80
+  Link:   DSL
+  MTU:    1492
 
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (uptime) ]-
-|
-| client   = 1.2.3.4/1524
-| uptime   = 0 days 11 hrs 16 min (modulo 198 days)
-| raw_freq = 250.00 Hz
-`----
+[TCP Uptime - Client] 1.2.3.4:1524 → 4.3.2.1:80
+  Uptime: 0 days, 11 hrs, 16 min (modulo 198 days)
+  Freq:   250.00 Hz
+
+[TCP Uptime - Server] 4.3.2.1:80 → 1.2.3.4:1524
+  Uptime: 15 days, 3 hrs, 42 min (modulo 497 days)
+  Freq:   100.00 Hz
 ```
 
 ## Documentation

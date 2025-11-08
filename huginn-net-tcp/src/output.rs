@@ -91,20 +91,15 @@ impl fmt::Display for SynTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (syn) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | os       = {}\n\
-            | dist     = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "[TCP SYN] {}:{} → {}:{}\n\
+              OS:     {}\n\
+              Dist:   {}\n\
+              Params: {}\n\
+              Sig:    {}\n",
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
             self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
                 format!(
                     "{}/{}/{}",
@@ -148,18 +143,13 @@ impl fmt::Display for SynAckTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (syn+ack) ]-\n\
-            |\n\
-            | server   = {}/{}\n\
-            | os       = {}\n\
-            | dist     = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "[TCP SYN+ACK] {}:{} → {}:{}\n\
+              OS:     {}\n\
+              Dist:   {}\n\
+              Params: {}\n\
+              Sig:    {}\n",
             self.source.ip,
             self.source.port,
-            self.destination.ip,
-            self.destination.port,
             self.destination.ip,
             self.destination.port,
             self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
@@ -211,16 +201,11 @@ impl fmt::Display for MTUOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (mtu) ]-\n\
-            |\n\
-            | server   = {}/{}\n\
-            | link     = {}\n\
-            | raw_mtu  = {}\n\
-            `----\n",
+            "[TCP MTU] {}:{} → {}:{}\n\
+              Link:   {}\n\
+              MTU:    {}\n",
             self.source.ip,
             self.source.port,
-            self.destination.ip,
-            self.destination.port,
             self.destination.ip,
             self.destination.port,
             self.link
@@ -276,21 +261,20 @@ pub struct UptimeOutput {
 
 impl fmt::Display for UptimeOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let role_str = match self.role {
+            UptimeRole::Client => "Client",
+            UptimeRole::Server => "Server",
+        };
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (uptime) ]-\n\
-            |\n\
-            | {}   = {}/{}\n\
-            | uptime   = {} days, {} hrs, {} min (modulo {} days)\n\
-            | raw_freq = {:.2} Hz\n\
-            `----\n",
+            "[TCP Uptime - {}] {}:{} → {}:{}\n\
+              Uptime: {} days, {} hrs, {} min (modulo {} days)\n\
+              Freq:   {:.2} Hz\n",
+            role_str,
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.role,
-            self.source.ip,
-            self.source.port,
             self.days,
             self.hours,
             self.min,
