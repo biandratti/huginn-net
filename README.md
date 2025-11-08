@@ -103,14 +103,14 @@ For detailed usage examples, installation guides, and complete code samples:
 
 | Protocol | Detection Speed | Full Analysis | Primary Use Case |
 |----------|-----------------|---------------|------------------|
-| **TCP** | 166.7M pps | 1.25M pps | OS fingerprinting, MTU detection |
-| **TLS** | 66.7M pps | 84.6K pps | JA4 fingerprinting, TLS analysis |
-| **HTTP** | 200M pps | 562.1K pps | Browser/server detection |
+| **TCP** | 166.7M pps | 1.11M pps | OS fingerprinting, MTU detection |
+| **HTTP** | 200M pps | 797K pps | Browser/server detection |
+| **TLS** | 66.7M pps | 49.7K pps | JA4 fingerprinting, TLS analysis |
 
 ### Key Performance Highlights
 - **Ultra-fast detection**: HTTP leads with 200M pps, TCP at 166.7M pps for pre-filtering
-- **Robust analysis**: TCP provides 1.25M pps, HTTP 562.1K pps for complete fingerprinting
-- **TLS parallel support**: Scales 7.2x with 8 cores for high-throughput scenarios
+- **Robust analysis**: TCP provides 1.11M pps, HTTP 797K pps for complete fingerprinting
+- **Parallel support**: TCP scales to 3.56M pps (4 workers), HTTP to 1.07M pps (2 workers), TLS to 232.9K pps (4 workers)
 - **Comprehensive coverage**: All protocols optimized for real-time network monitoring
 
 ### Accuracy & Compatibility
