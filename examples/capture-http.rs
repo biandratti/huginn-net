@@ -1,9 +1,8 @@
 use clap::{Parser, Subcommand};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use huginn_net_db::Database;
 use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use tracing::{debug, error, info};
@@ -63,7 +62,7 @@ fn main() {
     info!("Starting HTTP-only capture example");
 
     let (sender, receiver): (Sender<HttpAnalysisResult>, Receiver<HttpAnalysisResult>) =
-        mpsc::channel();
+        unbounded();
 
     let cancel_signal = Arc::new(AtomicBool::new(false));
     let ctrl_c_signal = cancel_signal.clone();
@@ -87,7 +86,7 @@ fn main() {
         };
         debug!("Loaded database: {:?}", db);
 
-        let mut analyzer = match HuginnNetHttp::new(Some(&db), 1000) {
+        let mut analyzer = match HuginnNetHttp::new(Some(Arc::new(db)), 1000) {
             Ok(analyzer) => analyzer,
             Err(e) => {
                 error!("Failed to create HuginnNetHttp analyzer: {e}");

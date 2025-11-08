@@ -36,6 +36,7 @@ criterion_group!(
     bench_http_server_detection,
     bench_http_protocol_analysis,
     bench_http_processing_overhead,
+    bench_http_parallel_processing,
     generate_final_report
 );
 criterion_main!(http_benches);
@@ -237,6 +238,73 @@ fn generate_final_report(_c: &mut Criterion) {
             }
         );
     }
+
+    // Parallel Mode Results
+    let parallel_2 = report
+        .timings
+        .iter()
+        .find(|(name, _)| name.contains("parallel_2_workers"))
+        .map(|(_, t)| *t);
+    let parallel_4 = report
+        .timings
+        .iter()
+        .find(|(name, _)| name.contains("parallel_4_workers"))
+        .map(|(_, t)| *t);
+    let parallel_8 = report
+        .timings
+        .iter()
+        .find(|(name, _)| name.contains("parallel_8_workers"))
+        .map(|(_, t)| *t);
+
+    if parallel_2.is_some() || parallel_4.is_some() || parallel_8.is_some() {
+        println!();
+        println!("Parallel Mode (Multi-Worker):");
+        println!("Note: Includes worker pool overhead and flow-based hashing");
+        println!();
+
+        if let Some(p2) = parallel_2 {
+            let per_packet = p2
+                .checked_div(report.packet_count as u32)
+                .unwrap_or(Duration::ZERO);
+            let throughput = calculate_throughput(per_packet, 1);
+            let cpu_1gbps = (81274.0 / throughput) * 100.0;
+            let cpu_10gbps = (812740.0 / throughput) * 100.0;
+            println!("2 Workers:");
+            println!("  - Throughput: {} packets/second", format_throughput(throughput));
+            println!("  - 1 Gbps CPU: {cpu_1gbps:.1}%");
+            println!("  - 10 Gbps CPU: {cpu_10gbps:.1}%");
+            println!();
+        }
+
+        if let Some(p4) = parallel_4 {
+            let per_packet = p4
+                .checked_div(report.packet_count as u32)
+                .unwrap_or(Duration::ZERO);
+            let throughput = calculate_throughput(per_packet, 1);
+            let cpu_1gbps = (81274.0 / throughput) * 100.0;
+            let cpu_10gbps = (812740.0 / throughput) * 100.0;
+            println!("4 Workers:");
+            println!("  - Throughput: {} packets/second", format_throughput(throughput));
+            println!("  - 1 Gbps CPU: {cpu_1gbps:.1}%");
+            println!("  - 10 Gbps CPU: {cpu_10gbps:.1}%");
+            println!();
+        }
+
+        if let Some(p8) = parallel_8 {
+            let per_packet = p8
+                .checked_div(report.packet_count as u32)
+                .unwrap_or(Duration::ZERO);
+            let throughput = calculate_throughput(per_packet, 1);
+            let cpu_1gbps = (81274.0 / throughput) * 100.0;
+            let cpu_10gbps = (812740.0 / throughput) * 100.0;
+            println!("8 Workers:");
+            println!("  - Throughput: {} packets/second", format_throughput(throughput));
+            println!("  - 1 Gbps CPU: {cpu_1gbps:.1}%");
+            println!("  - 10 Gbps CPU: {cpu_10gbps:.1}%");
+            println!();
+        }
+    }
+
     println!();
     println!("Benchmark report generation complete");
     println!();
@@ -934,6 +1002,135 @@ fn bench_http_processing_overhead(c: &mut Criterion) {
                 "full_analysis_with_collection".to_string(),
                 full_analysis_with_collection_time,
             ));
+        }
+    }
+}
+
+/// Benchmark HTTP parallel processing with different worker counts
+fn bench_http_parallel_processing(c: &mut Criterion) {
+    use std::sync::Arc;
+
+    let packets = match load_packets_repeated("../pcap/http-simple-get.pcap", REPEAT_COUNT) {
+        Ok(pkts) => pkts,
+        Err(e) => {
+            eprintln!("Failed to load HTTP PCAP file for parallel benchmark: {e}");
+            return;
+        }
+    };
+
+    if packets.is_empty() {
+        eprintln!("No packets found in HTTP PCAP file for parallel benchmark");
+        return;
+    }
+
+    let db = match Database::load_default() {
+        Ok(db) => Arc::new(db),
+        Err(e) => {
+            eprintln!("Failed to load default database: {e}");
+            return;
+        }
+    };
+
+    println!("HTTP Parallel Processing Analysis:");
+    println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
+    println!("--------------------");
+
+    let worker_counts = [2, 4, 8];
+    let mut group = c.benchmark_group("HTTP_Parallel_Processing");
+
+    for &num_workers in &worker_counts {
+        let bench_name = format!("parallel_{num_workers}_workers");
+        group.bench_function(&bench_name, |b| {
+            b.iter(|| {
+                let (tx, rx) = crossbeam_channel::unbounded();
+                let pool = match huginn_net_http::WorkerPool::new(
+                    num_workers,
+                    100,
+                    tx,
+                    Some(db.clone()),
+                    1000,
+                ) {
+                    Ok(p) => p,
+                    Err(e) => panic!("Failed to create worker pool: {e}"),
+                };
+
+                // Dispatch all packets
+                for packet in packets.iter() {
+                    let _ = pool.dispatch(packet.clone());
+                }
+
+                // Shutdown and collect results
+                pool.shutdown();
+                let mut _result_count: usize = 0;
+                while rx.recv().is_ok() {
+                    _result_count = _result_count.saturating_add(1);
+                }
+            })
+        });
+    }
+
+    group.finish();
+
+    // Measure parallel processing times for reporting
+    let parallel_2_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = crossbeam_channel::unbounded();
+            let pool = match huginn_net_http::WorkerPool::new(2, 100, tx, Some(db.clone()), 1000) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    let parallel_4_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = crossbeam_channel::unbounded();
+            let pool = match huginn_net_http::WorkerPool::new(4, 100, tx, Some(db.clone()), 1000) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    let parallel_8_workers_time = measure_average_time(
+        || {
+            let (tx, rx) = crossbeam_channel::unbounded();
+            let pool = match huginn_net_http::WorkerPool::new(8, 100, tx, Some(db.clone()), 1000) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
+            for packet in packets.iter() {
+                let _ = pool.dispatch(packet.clone());
+            }
+            pool.shutdown();
+            while rx.recv().is_ok() {}
+        },
+        3,
+    );
+
+    if let Ok(mut guard) = BENCHMARK_RESULTS.lock() {
+        if let Some(ref mut report) = *guard {
+            report
+                .timings
+                .push(("parallel_2_workers".to_string(), parallel_2_workers_time));
+            report
+                .timings
+                .push(("parallel_4_workers".to_string(), parallel_4_workers_time));
+            report
+                .timings
+                .push(("parallel_8_workers".to_string(), parallel_8_workers_time));
         }
     }
 }

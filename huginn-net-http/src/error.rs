@@ -7,4 +7,7 @@ pub enum HuginnNetHttpError {
 
     #[error("Unsupported protocol: {0}")]
     UnsupportedProtocol(String),
+
+    #[error("Unacceptable configuration: {0}")]
+    Misconfiguration(String),
 }
