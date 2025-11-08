@@ -85,27 +85,21 @@ impl fmt::Display for HttpRequestOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (http request) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | app      = {}\n\
-            | lang     = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "[HTTP Request] {}:{} → {}:{}\n\
+              Browser: {}\n\
+              Lang:    {}\n\
+              Params:  {}\n\
+              Sig:     {}\n",
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
             self.browser_matched
                 .browser
                 .as_ref()
                 .map_or("???".to_string(), |browser| {
                     format!(
-                        "{}/{}/{}",
-                        browser.name,
+                        "{}:{}",
                         browser.family.as_deref().unwrap_or("???"),
                         browser.variant.as_deref().unwrap_or("???")
                     )
@@ -170,29 +164,27 @@ impl fmt::Display for HttpResponseOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (http response) ]-\n\
-            |\n\
-            | server   = {}/{}\n\
-            | app      = {}\n\
-            | params   = {}\n\
-            | raw_sig  = {}\n\
-            `----\n",
+            "[HTTP Response] {}:{} → {}:{}\n\
+              Server:  {}\n\
+              Params:  {}\n\
+              Sig:     {}\n",
             self.source.ip,
             self.source.port,
-            self.destination.ip,
-            self.destination.port,
             self.destination.ip,
             self.destination.port,
             self.web_server_matched
                 .web_server
                 .as_ref()
                 .map_or("???".to_string(), |web_server| {
-                    format!(
-                        "{}/{}/{}",
-                        web_server.name,
-                        web_server.family.as_deref().unwrap_or("???"),
-                        web_server.variant.as_deref().unwrap_or("???")
-                    )
+                    if !web_server.name.is_empty() {
+                        web_server.name.clone()
+                    } else {
+                        format!(
+                            "{}:{}",
+                            web_server.family.as_deref().unwrap_or("???"),
+                            web_server.variant.as_deref().unwrap_or("???")
+                        )
+                    }
                 }),
             self.diagnosis,
             self.sig,

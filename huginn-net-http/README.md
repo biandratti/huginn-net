@@ -117,22 +117,16 @@ For a complete working example, see [`examples/capture-http.rs`](../examples/cap
 ### Example Output
 
 ```text
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]-
-|
-| client   = 1.2.3.4/1524
-| app      = Firefox:10.x or newer
-| lang     = English
-| params   = none
-| raw_sig  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
-`----
+[HTTP Request] 1.2.3.4:1524 → 4.3.2.1:80
+  Browser: Firefox:10.x or newer
+  Lang:    English
+  Params:  none
+  Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
 
-.-[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]-
-|
-| server   = 91.189.91.21/80
-| app      = nginx/1.14.0 (Ubuntu)
-| params   = anonymous
-| raw_sig  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
-`----
+[HTTP Response] 192.168.1.22:58494 → 91.189.91.21:80
+  Server:  nginx/1.14.0 (Ubuntu)
+  Params:  anonymous
+  Sig:     server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
 ```
 
 ## Documentation
