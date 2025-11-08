@@ -247,7 +247,6 @@ fn generate_final_report(_c: &mut Criterion) {
             let available_cpus = std::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(1);
-            let parallel_efficiency = 0.90; // Round-robin dispatch efficiency
 
             println!("  System CPUs: {available_cpus}");
             println!();
@@ -257,17 +256,13 @@ fn generate_final_report(_c: &mut Criterion) {
                     .checked_div(report.packet_count as u32)
                     .unwrap_or(Duration::ZERO);
                 let throughput = calculate_throughput(per_packet, 1);
-                let speedup = throughput
-                    / calculate_throughput(
-                        processing
-                            .checked_div(report.packet_count as u32)
-                            .unwrap_or(Duration::ZERO),
-                        1,
-                    );
                 println!("  2 Workers:");
                 println!("    - Throughput: {} pps", format_throughput(throughput));
-                println!("    - Speedup: {speedup:.2}x vs sequential");
-                println!("    - Efficiency: {:.1}%", (speedup / 2.0) * 100.0);
+                
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
             }
 
             if let Some(p4) = parallel_4 {
@@ -275,17 +270,14 @@ fn generate_final_report(_c: &mut Criterion) {
                     .checked_div(report.packet_count as u32)
                     .unwrap_or(Duration::ZERO);
                 let throughput = calculate_throughput(per_packet, 1);
-                let speedup = throughput
-                    / calculate_throughput(
-                        processing
-                            .checked_div(report.packet_count as u32)
-                            .unwrap_or(Duration::ZERO),
-                        1,
-                    );
+                println!();
                 println!("  4 Workers:");
                 println!("    - Throughput: {} pps", format_throughput(throughput));
-                println!("    - Speedup: {speedup:.2}x vs sequential");
-                println!("    - Efficiency: {:.1}%", (speedup / 4.0) * 100.0);
+                
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
             }
 
             if let Some(p8) = parallel_8 {
@@ -293,59 +285,19 @@ fn generate_final_report(_c: &mut Criterion) {
                     .checked_div(report.packet_count as u32)
                     .unwrap_or(Duration::ZERO);
                 let throughput = calculate_throughput(per_packet, 1);
-                let speedup = throughput
-                    / calculate_throughput(
-                        processing
-                            .checked_div(report.packet_count as u32)
-                            .unwrap_or(Duration::ZERO),
-                        1,
-                    );
+                println!();
                 println!("  8 Workers:");
                 println!("    - Throughput: {} pps", format_throughput(throughput));
-                println!("    - Speedup: {speedup:.2}x vs sequential");
-                println!("    - Efficiency: {:.1}%", (speedup / 8.0) * 100.0);
-
-                // Parallel capacity planning
-                println!();
-                println!("Parallel Mode Capacity Planning ({available_cpus} cores):");
-                let estimated_throughput = throughput.min(
-                    calculate_throughput(
-                        processing
-                            .checked_div(report.packet_count as u32)
-                            .unwrap_or(Duration::ZERO),
-                        1,
-                    ) * (available_cpus as f64 * parallel_efficiency),
-                );
-                println!(
-                    "  - Estimated throughput: {} pps",
-                    format_throughput(estimated_throughput)
-                );
-
-                let cpu_1gbps_parallel = (81274.0 / estimated_throughput) * 100.0;
-                let cpu_10gbps_parallel = (812740.0 / estimated_throughput) * 100.0;
-
-                println!(
-                    "  - 1 Gbps (81,274 pps): {:.1}% CPU{}",
-                    cpu_1gbps_parallel,
-                    if cpu_1gbps_parallel > 100.0 {
-                        " [OVERLOAD]"
-                    } else {
-                        " [OK]"
-                    }
-                );
-                println!(
-                    "  - 10 Gbps (812,740 pps): {:.1}% CPU{}",
-                    cpu_10gbps_parallel,
-                    if cpu_10gbps_parallel > 100.0 {
-                        " [OVERLOAD]"
-                    } else {
-                        " [OK]"
-                    }
-                );
-
-                println!();
-                println!("Note: TLS uses round-robin dispatch (stateless processing)");
+                
+                let cpu_1gbps = (81274.0 / throughput) * 100.0;
+                let cpu_10gbps = (812740.0 / throughput) * 100.0;
+                println!("    - 1 Gbps (81,274 pps): {cpu_1gbps:.1}% CPU");
+                println!("    - 10 Gbps (812,740 pps): {cpu_10gbps:.1}% CPU");
             }
+
+            println!();
+            println!("Note: TLS uses round-robin dispatch (stateless processing)");
+            println!("      Parallel benchmarks include worker pool overhead");
         }
     }
     println!();

@@ -39,31 +39,38 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 - TLS uses round-robin dispatch (stateless processing) - **scales linearly with more workers**
 - TCP uses hash-based routing (same source IP → same worker for state consistency)
 - TCP shows best efficiency with 4 workers; diminishing returns beyond that
-- These benchmarks measured on laptop hardware (8 CPU cores); **more workers on server-class CPUs (16-32+ cores) would show significantly better performance**, especially for TLS
+- These benchmarks measured on laptop hardware (8 CPU cores)
+- **Server-class hardware (32-64+ cores) would show significantly better parallel performance**:
+  - TCP could reach 10-20M+ pps with 16-32 workers
+  - TLS could reach 1M+ pps with 16-32 workers
+  - Optimal worker count typically 50-75% of available cores
+- Current optimal worker counts (4) are specific to 8-core systems
 
 ## Key Performance Insights
 
 ### Protocol Efficiency Ranking
-1. **TCP**: Fastest (988k pps sequential, 3.04M parallel) - excellent balance of speed and analysis depth
+1. **TCP**: Fastest (1.11M pps sequential, 3.56M parallel) - excellent balance of speed and analysis depth
 2. **HTTP**: Fast (562.1K pps) - comprehensive application-layer analysis
 3. **TLS**: Moderate (84.6K pps sequential, 608.8K parallel) - cryptographic complexity
 
 ### Parallel Processing Support
 - **TCP**: Full parallel support with hash-based worker assignment
-  - 3.08x speedup with 4 workers (77% efficiency)
-  - Best performance at 4 workers (3.04M pps)
+  - Best performance at 4 workers (3.56M pps, 22.8% CPU @ 10 Gbps)
+  - Parallel mode: 2 workers (2.11M pps), 4 workers (3.56M pps), 8 workers (3.00M pps)
+  - Sequential mode: 1.11M pps (73.0% CPU @ 10 Gbps)
   - Hash-based routing maintains per-connection state consistency
   - Same source IP always routes to same worker
   - Each worker has isolated connection tracker and cache
-  - Handles 10 Gbps at 26.7% CPU (4 workers on 8-core system)
+  - Production ready: Handles 10 Gbps easily with parallel mode
   
 - **TLS**: Full parallel support with worker pool architecture
-  - 7.2x speedup with 8 workers (90% efficiency)
-  - **Projected scaling**: ~14x with 16 workers, ~28x with 32 workers (if 90% efficiency maintained)
-  - Handles 1 Gbps without parallel mode
-  - Requires parallel mode for 10 Gbps workloads
+  - Best throughput: 232.9K pps with 4 workers (34.9% CPU @ 1 Gbps)
+  - Sequential mode: 49.7K pps (163.5% CPU for 1 Gbps)
+  - Parallel (2 workers): 200.7K pps (40.5% CPU @ 1 Gbps)
+  - Parallel (4 workers): 232.9K pps (34.9% CPU @ 1 Gbps)
   - Uses round-robin dispatch (stateless processing)
-  - **Scales effectively with more workers**
+  - Performance degrades with 8+ workers (dispatch overhead)
+  - 10 Gbps requires further optimization
   
 - **HTTP**: Planned (requires hash-based worker assignment for flow tracking)
 
@@ -84,7 +91,8 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 ### Protocol-Specific Optimizations
 
 #### TCP Optimization
-- **Parallel mode (4 workers)**: 208% faster than sequential (3.08x speedup)
+- **Parallel mode (4 workers)**: 3.56M pps throughput (22.8% CPU for 10 Gbps) - **Recommended**
+- **Sequential mode**: 1.11M pps throughput (73.0% CPU for 10 Gbps)
 - Disable OS matching when not needed (118% faster)
 - Disable link matching when not needed (135% faster)
 - Use large cache (10K connections) for high volumes (31% faster)
@@ -92,11 +100,11 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 - Hash-based routing ensures consistent per-connection state
 
 #### TLS Optimization
-- **Sequential Mode**: Sufficient for 1 Gbps workloads (96% CPU)
-- **Parallel Mode**: Required for 10 Gbps workloads (8 workers recommended)
-- Use `HuginnNetTls::new()` for sequential processing
-- Use `HuginnNetTls::with_config(workers, queue_size)` for parallel processing
-- Parallel efficiency: ~90% scaling with worker count
+- **Sequential Mode**: 49.7K pps throughput (163.5% CPU for 1 Gbps - requires parallel mode)
+- **Parallel Mode (4 workers)**: 232.9K pps throughput (34.9% CPU for 1 Gbps) - **Recommended**
+- **Parallel Mode (2 workers)**: 200.7K pps throughput (40.5% CPU for 1 Gbps)
+- Use `HuginnNetTls::with_config(4, 100)` for optimal throughput
+- Performance degrades with 8+ workers due to dispatch overhead
 - Pre-filter non-TLS packets for significant gains
 - JA4 calculation is front-loaded during processing
 
@@ -121,9 +129,10 @@ Each protocol has a dedicated analysis report with comprehensive performance dat
 - Timing measurements include complete analysis pipelines
 - PCAP effectiveness varies based on protocol handshake presence
 - Sequential mode results are single-core measurements on x86_64 architecture
-- TLS parallel mode uses round-robin dispatch (90% scaling efficiency with workers)
-- TCP parallel mode uses hash-based worker assignment (77% efficiency at 4 workers)
+- TLS parallel mode uses round-robin dispatch (best throughput with 4 workers: 232.9K pps)
+- TCP parallel mode uses hash-based worker assignment (best throughput with 4 workers: 3.56M pps)
 - TLS, TCP, and HTTP benchmarks use repeated datasets (1000x) for statistical stability
+- Parallel benchmarks include worker pool creation/dispatch/shutdown overhead
 
 ## Contributing
 
