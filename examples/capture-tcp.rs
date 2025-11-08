@@ -25,7 +25,6 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Commands {
     Single {
-        /// Network interface name
         #[arg(short = 'i', long)]
         interface: String,
     },
