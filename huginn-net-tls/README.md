@@ -105,16 +105,13 @@ For a complete working example, see [`examples/capture-tls.rs`](../examples/capt
 ### Example Output
 
 ```text
-.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls client) ]-
-|
-| client   = 192.168.1.10/45234
-| ja4      = t13d1516h2_8daaf6152771_b0da82dd1658
-| ja4_r    = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
-| ja4_o    = t13d1516h2_8daaf6152771_b0da82dd1658
-| ja4_or   = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
-| sni      = www.google.com
-| version  = 1.3
-`----
+[TLS Client] 192.168.1.10:45234 → 172.217.5.46:443
+  SNI:     www.google.com
+  Version: TLS 1.3
+  JA4:     t13d1516h2_8daaf6152771_b0da82dd1658
+  JA4_r:   t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
+  JA4_o:   t13d1516h2_8daaf6152771_b0da82dd1658
+  JA4_or:  t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
 ```
 
 ## Documentation
