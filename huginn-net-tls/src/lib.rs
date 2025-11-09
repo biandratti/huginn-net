@@ -197,7 +197,7 @@ impl HuginnNetTls {
                         debug!("No TLS found, continuing packet processing");
                     }
                     Err(tls_error) => {
-                        error!("Error processing packet: {tls_error}");
+                        debug!("Skipping non-TLS packet: {tls_error}");
                     }
                 },
                 Err(e) => {
