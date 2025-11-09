@@ -31,8 +31,12 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 
 - **OS Fingerprinting** - Identify operating systems from TCP signatures
 - **MTU Detection** - Calculate Maximum Transmission Unit from packet analysis  
-- **Uptime Estimation** - Best-effort uptime calculation from TCP timestamps (limited accuracy on modern systems)
+- **Uptime Estimation** - Best-effort uptime calculation from TCP timestamps
+  - ⚠️ **Limited on modern systems**: Most modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy/security, making uptime estimation unreliable or impossible
+  - Works best on: Legacy systems, embedded devices, IoT hardware, and some server distributions
 - **Quality Scoring** - Confidence metrics for all matches
+- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
+- **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
 
 ## Quick Start
 
@@ -42,130 +46,68 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tcp = "1.5.2"
+huginn-net-tcp = "1.6.0"
 ```
 
 ### Basic Usage
 
-#### Live Network Analysis
-
 ```rust
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
+use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult};
 use huginn_net_db::Database;
 use std::sync::mpsc;
-use std::thread;
 
-fn main() -> Result<(), HuginnNetTcpError> {
-    let db = Database::load_default()?;
-    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
-    
+fn main() {
+    let db = Database::load_default().unwrap();
+    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000).unwrap();
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
     
-    let handle = thread::spawn(move || {
-        analyzer.analyze_network("eth0", sender, None)
-    });
+    // Live capture (use parallel mode for high throughput)
+    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    
+    // Or PCAP analysis (always use sequential mode)
+    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
     
     for result in receiver {
-        if let Some(syn) = result.syn {
-            println!("{syn}");
-        }
-        if let Some(syn_ack) = result.syn_ack {
-            println!("{syn_ack}");
-        }
-        if let Some(mtu) = result.mtu {
-            println!("{mtu}");
-        }
-        if let Some(client_uptime) = result.client_uptime {
-            println!("{client_uptime}");
-        }
-        if let Some(server_uptime) = result.server_uptime {
-            println!("{server_uptime}");
-        }
+        if let Some(syn) = result.syn { println!("{syn}"); }
+        if let Some(syn_ack) = result.syn_ack { println!("{syn_ack}"); }
+        if let Some(mtu) = result.mtu { println!("{mtu}"); }
+        if let Some(client_uptime) = result.client_uptime { println!("{client_uptime}"); }
+        if let Some(server_uptime) = result.server_uptime { println!("{server_uptime}"); }
     }
-    
-    handle.join().unwrap()?;
-    Ok(())
 }
 ```
 
-#### PCAP File Analysis
-
-```rust
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
-use huginn_net_db::Database;
-use std::sync::mpsc;
-use std::thread;
-
-fn main() -> Result<(), HuginnNetTcpError> {
-    let db = Database::load_default()?;
-    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
-    
-    let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
-    
-    let handle = thread::spawn(move || {
-        analyzer.analyze_pcap("capture.pcap", sender, None)
-    });
-    
-    for result in receiver {
-        if let Some(syn) = result.syn {
-            println!("{syn}");
-        }
-        if let Some(syn_ack) = result.syn_ack {
-            println!("{syn_ack}");
-        }
-        if let Some(mtu) = result.mtu {
-            println!("{mtu}");
-        }
-        if let Some(client_uptime) = result.client_uptime {
-            println!("{client_uptime}");
-        }
-        if let Some(server_uptime) = result.server_uptime {
-            println!("{server_uptime}");
-        }
-    }
-    
-    handle.join().unwrap()?;
-    Ok(())
-}
-```
-
-For a complete working example, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
+For a complete working example with signal handling and error management, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
 
 ### Example Output
 
 ```text
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]-
-|
-| client   = 1.2.3.4/1524
-| os       = Windows XP
-| dist     = 8
-| params   = none
-| raw_sig  = 4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
-`----
+[TCP SYN] 1.2.3.4:1524 → 4.3.2.1:80
+  OS:     Windows XP
+  Dist:   8
+  Params: none
+  Sig:    4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
 
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]-
-|
-| server   = 4.3.2.1/80
-| os       = Linux 3.x
-| dist     = 0
-| params   = none
-| raw_sig  = 4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
-`----
+[TCP SYN+ACK] 4.3.2.1:80 → 1.2.3.4:1524
+  OS:     Linux 3.x
+  Dist:   0
+  Params: none
+  Sig:    4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
 
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (mtu) ]-
-|
-| client   = 1.2.3.4/1524
-| link     = DSL
-| raw_mtu  = 1492
-`----
+[TCP MTU] 1.2.3.4:1524 → 4.3.2.1:80
+  Link:   DSL
+  MTU:    1492
 
-.-[ 1.2.3.4/1524 -> 4.3.2.1/80 (uptime) ]-
-|
-| client   = 1.2.3.4/1524
-| uptime   = 0 days 11 hrs 16 min (modulo 198 days)
-| raw_freq = 250.00 Hz
-`----
+[TCP Uptime - Client] 1.2.3.4:1524 → 4.3.2.1:80
+  Uptime: 0 days, 11 hrs, 16 min (modulo 198 days)
+  Freq:   250.00 Hz
+
+[TCP Uptime - Server] 4.3.2.1:80 → 1.2.3.4:1524
+  Uptime: 15 days, 3 hrs, 42 min (modulo 497 days)
+  Freq:   100.00 Hz
 ```
+
+**Note on Uptime Estimation:** Modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy, making uptime estimation unreliable. This feature works best on legacy systems, embedded devices, and network equipment.
 
 ## Documentation
 

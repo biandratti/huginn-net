@@ -7,20 +7,20 @@ use huginn_net_tls::output::TlsClientOutput;
 /// This struct contains various optional outputs that can be derived
 /// from analyzing TCP, HTTP, and TLS packets.
 pub struct FingerprintResult {
-    /// Information derived from SYN packets.
-    pub syn: Option<SynTCPOutput>,
+    /// Information derived from TCP SYN packets.
+    pub tcp_syn: Option<SynTCPOutput>,
 
-    /// Information derived from SYN-ACK packets.
-    pub syn_ack: Option<SynAckTCPOutput>,
+    /// Information derived from TCP SYN-ACK packets.
+    pub tcp_syn_ack: Option<SynAckTCPOutput>,
 
-    /// Information about the Maximum Transmission Unit (MTU).
-    pub mtu: Option<MTUOutput>,
+    /// Information about the TCP Maximum Transmission Unit (MTU).
+    pub tcp_mtu: Option<MTUOutput>,
 
-    /// Information about the client system uptime.
-    pub client_uptime: Option<UptimeOutput>,
+    /// Information about the TCP client system uptime.
+    pub tcp_client_uptime: Option<UptimeOutput>,
 
-    /// Information about the server system uptime.
-    pub server_uptime: Option<UptimeOutput>,
+    /// Information about the TCP server system uptime.
+    pub tcp_server_uptime: Option<UptimeOutput>,
 
     /// Information derived from HTTP request headers.
     pub http_request: Option<HttpRequestOutput>,

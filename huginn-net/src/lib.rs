@@ -599,11 +599,11 @@ impl<'a> HuginnNet<'a> {
                 };
 
                 FingerprintResult {
-                    syn,
-                    syn_ack,
-                    mtu,
-                    client_uptime,
-                    server_uptime,
+                    tcp_syn: syn,
+                    tcp_syn_ack: syn_ack,
+                    tcp_mtu: mtu,
+                    tcp_client_uptime: client_uptime,
+                    tcp_server_uptime: server_uptime,
                     http_request,
                     http_response,
                     tls_client,
@@ -612,11 +612,11 @@ impl<'a> HuginnNet<'a> {
             Err(error) => {
                 debug!("Fail to process signature: {}", error);
                 FingerprintResult {
-                    syn: None,
-                    syn_ack: None,
-                    mtu: None,
-                    client_uptime: None,
-                    server_uptime: None,
+                    tcp_syn: None,
+                    tcp_syn_ack: None,
+                    tcp_mtu: None,
+                    tcp_client_uptime: None,
+                    tcp_server_uptime: None,
                     http_request: None,
                     http_response: None,
                     tls_client: None,

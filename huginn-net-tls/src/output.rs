@@ -31,28 +31,23 @@ impl fmt::Display for TlsClientOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            ".-[ {}/{} -> {}/{} (tls client) ]-\n\
-            |\n\
-            | client   = {}/{}\n\
-            | ja4      = {}\n\
-            | ja4_r    = {}\n\
-            | ja4_o    = {}\n\
-            | ja4_or   = {}\n\
-            | sni      = {}\n\
-            | version  = {}\n\
-            `----\n",
+            "[TLS Client] {}:{} → {}:{}\n\
+              SNI:     {}\n\
+              Version: TLS {}\n\
+              JA4:     {}\n\
+              JA4_r:   {}\n\
+              JA4_o:   {}\n\
+              JA4_or:  {}\n",
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.source.ip,
-            self.source.port,
+            self.sig.sni.as_deref().unwrap_or("none"),
+            self.sig.version,
             self.sig.ja4.full.value(),
             self.sig.ja4.raw.value(),
             self.sig.ja4_original.full.value(),
             self.sig.ja4_original.raw.value(),
-            self.sig.sni.as_deref().unwrap_or("none"),
-            self.sig.version,
         )
     }
 }

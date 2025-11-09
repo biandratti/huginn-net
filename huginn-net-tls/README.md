@@ -34,8 +34,8 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 - **GREASE Filtering** - Proper handling of GREASE values per RFC 8701
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
 - **Extension Analysis** - Comprehensive TLS extension parsing
-- **Parallel Processing** - Multi-threaded worker pool for high-throughput scenarios
-- **Sequential Mode** - Single-threaded processing for low-resource environments
+- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
+- **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
 
 ## Quick Start
 
@@ -45,76 +45,43 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tls = "1.5.2"
+huginn-net-tls = "1.6.0"
 ```
 
 ### Basic Usage
 
-#### Live Network Analysis (Sequential Mode)
-
 ```rust
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
+use huginn_net_tls::{HuginnNetTls, TlsClientOutput};
 use std::sync::mpsc;
-use std::thread;
 
-fn main() -> Result<(), HuginnNetTlsError> {
+fn main() {
     let mut analyzer = HuginnNetTls::new();
-    
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
     
-    let handle = thread::spawn(move || {
-        analyzer.analyze_network("eth0", sender, None)
-    });
+    // Live capture (use parallel mode for high throughput)
+    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    
+    // Or PCAP analysis (always use sequential mode)
+    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
     
     for tls in receiver {
         println!("{tls}");
     }
-    
-    handle.join().unwrap()?;
-    Ok(())
 }
 ```
 
-#### PCAP File Analysis
-
-```rust
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
-use std::sync::mpsc;
-use std::thread;
-
-fn main() -> Result<(), HuginnNetTlsError> {
-    let mut analyzer = HuginnNetTls::new();
-    
-    let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
-    
-    let handle = thread::spawn(move || {
-        analyzer.analyze_pcap("capture.pcap", sender, None)
-    });
-    
-    for tls in receiver {
-        println!("{tls}");
-    }
-    
-    handle.join().unwrap()?;
-    Ok(())
-}
-```
-
-For a complete working example, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+For a complete working example with signal handling and error management, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
 
 ### Example Output
 
 ```text
-.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls client) ]-
-|
-| client   = 192.168.1.10/45234
-| ja4      = t13d1516h2_8daaf6152771_b0da82dd1658
-| ja4_r    = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
-| ja4_o    = t13d1516h2_8daaf6152771_b0da82dd1658
-| ja4_or   = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
-| sni      = www.google.com
-| version  = 1.3
-`----
+[TLS Client] 192.168.1.10:45234 → 172.217.5.46:443
+  SNI:     www.google.com
+  Version: TLS 1.3
+  JA4:     t13d1516h2_8daaf6152771_b0da82dd1658
+  JA4_r:   t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
+  JA4_o:   t13d1516h2_8daaf6152771_b0da82dd1658
+  JA4_or:  t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
 ```
 
 ## Documentation

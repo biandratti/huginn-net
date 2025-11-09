@@ -121,20 +121,20 @@ fn main() {
             break;
         }
 
-        if let Some(syn) = output.syn {
-            info!("{syn}");
+        if let Some(tcp_syn) = output.tcp_syn {
+            info!("{tcp_syn}");
         }
-        if let Some(syn_ack) = output.syn_ack {
-            info!("{syn_ack}");
+        if let Some(tcp_syn_ack) = output.tcp_syn_ack {
+            info!("{tcp_syn_ack}");
         }
-        if let Some(mtu) = output.mtu {
-            info!("{mtu}");
+        if let Some(tcp_mtu) = output.tcp_mtu {
+            info!("{tcp_mtu}");
         }
-        if let Some(client_uptime) = output.client_uptime {
-            info!("{client_uptime}");
+        if let Some(tcp_client_uptime) = output.tcp_client_uptime {
+            info!("{tcp_client_uptime}");
         }
-        if let Some(server_uptime) = output.server_uptime {
-            info!("{server_uptime}");
+        if let Some(tcp_server_uptime) = output.tcp_server_uptime {
+            info!("{tcp_server_uptime}");
         }
         if let Some(http_request) = output.http_request {
             info!("{http_request}");

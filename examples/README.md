@@ -26,7 +26,7 @@ cargo build --release --examples -p huginn-net-tls
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log single -i eth0
 
 # Parallel mode (multi-threaded)
-# -w: number of worker threads (typically number of CPU cores)
+# -w: number of worker threads
 # -q: queue size per worker (default: 100, lower = lower latency)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i eth0 -w 4 -q 100
 
@@ -43,7 +43,7 @@ cargo build --release --examples -p huginn-net-tcp
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log single -i eth0
 
 # Parallel mode (multi-threaded, hash-based worker assignment)
-# -w: number of worker threads (typically number of CPU cores)
+# -w: number of worker threads
 # -q: queue size per worker (default: 100, lower = lower latency)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i eth0 -w 4 -q 100
 
