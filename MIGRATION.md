@@ -6,8 +6,6 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ## v1.5.2 → v1.6.0
 
-### ⚠️ Breaking Changes
-
 **Renamed fields in `FingerprintResult`** for consistency across all protocols. All TCP fields now use the `tcp_` prefix to match HTTP and TLS naming conventions.
 
 | Old Field (v1.5.2) | New Field (v1.6.0) |
@@ -39,19 +37,6 @@ for result in receiver {
     if let Some(tcp_client_uptime) = result.tcp_client_uptime { println!("{tcp_client_uptime}"); }
 }
 ```
-
-**⚠️ Important:** Review changes carefully to avoid replacing unrelated variables.
-
-### Why This Change?
-
-1. **Consistent naming**: All protocols now follow `{protocol}_{type}` pattern
-2. **Better IDE support**: Autocomplete groups all TCP-related fields together
-3. **Future-proof**: Easy to add new protocols with clear naming
-
-### SemVer Note
-
-This is technically a breaking change. However, given the early adoption stage and the straightforward migration path, we've opted for a MINOR version bump (1.6.0) instead of MAJOR (2.0.0). We'll follow strict SemVer in future releases as the API stabilizes.
-
 ---
 
 ## Need Help?
