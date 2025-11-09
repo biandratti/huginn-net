@@ -61,11 +61,11 @@ fn main() {
     // std::thread::spawn(move || analyzer.analyze_pcap("traffic.pcap", sender, None));
     
     for result in receiver {
-        if let Some(syn) = result.syn { println!("{syn}"); }
-        if let Some(syn_ack) = result.syn_ack { println!("{syn_ack}"); }
-        if let Some(mtu) = result.mtu { println!("{mtu}"); }
-        if let Some(client_uptime) = result.client_uptime { println!("{client_uptime}"); }
-        if let Some(server_uptime) = result.server_uptime { println!("{server_uptime}"); }
+        if let Some(tcp_syn) = result.tcp_syn { println!("{tcp_syn}"); }
+        if let Some(tcp_syn_ack) = result.tcp_syn_ack { println!("{tcp_syn_ack}"); }
+        if let Some(tcp_mtu) = result.tcp_mtu { println!("{tcp_mtu}"); }
+        if let Some(tcp_client_uptime) = result.tcp_client_uptime { println!("{tcp_client_uptime}"); }
+        if let Some(tcp_server_uptime) = result.tcp_server_uptime { println!("{tcp_server_uptime}"); }
         if let Some(http_request) = result.http_request { println!("{http_request}"); }
         if let Some(http_response) = result.http_response { println!("{http_response}"); }
         if let Some(tls_client) = result.tls_client { println!("{tls_client}"); }
@@ -99,6 +99,10 @@ For complete working examples with signal handling and error management, see [`e
 [TCP Uptime - Client] 1.2.3.4:1524 → 4.3.2.1:80
   Uptime: 0 days, 11 hrs, 16 min (modulo 198 days)
   Freq:   250.00 Hz
+
+[TCP Uptime - Server] 4.3.2.1:80 → 1.2.3.4:1524
+  Uptime: 12 days, 5 hrs, 32 min (modulo 198 days)
+  Freq:   100.00 Hz
 
 [HTTP Request] 1.2.3.4:1524 → 4.3.2.1:80
   Browser: Firefox:10.x or newer

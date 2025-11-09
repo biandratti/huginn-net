@@ -31,7 +31,9 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 
 - **OS Fingerprinting** - Identify operating systems from TCP signatures
 - **MTU Detection** - Calculate Maximum Transmission Unit from packet analysis  
-- **Uptime Estimation** - Best-effort uptime calculation from TCP timestamps (limited accuracy on modern systems)
+- **Uptime Estimation** - Best-effort uptime calculation from TCP timestamps
+  - ⚠️ **Limited on modern systems**: Most modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy/security, making uptime estimation unreliable or impossible
+  - Works best on: Legacy systems, embedded devices, IoT hardware, and some server distributions
 - **Quality Scoring** - Confidence metrics for all matches
 - **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
 - **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
@@ -104,6 +106,8 @@ For a complete working example with signal handling and error management, see [`
   Uptime: 15 days, 3 hrs, 42 min (modulo 497 days)
   Freq:   100.00 Hz
 ```
+
+**Note on Uptime Estimation:** Modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy, making uptime estimation unreliable. This feature works best on legacy systems, embedded devices, and network equipment.
 
 ## Documentation
 
