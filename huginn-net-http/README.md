@@ -34,6 +34,8 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **Language Detection** - Extract preferred languages from Accept-Language headers
 - **HTTP/1.x & HTTP/2** - Support for both major HTTP versions
 - **Quality Scoring** - Confidence metrics for all matches
+- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
+- **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
 
 ## Quick Start
 
@@ -48,71 +50,30 @@ huginn-net-http = "1.5.2"
 
 ### Basic Usage
 
-#### Live Network Analysis
-
 ```rust
-use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult, HuginnNetHttpError};
+use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult};
 use huginn_net_db::Database;
 use std::sync::mpsc;
-use std::thread;
 
-fn main() -> Result<(), HuginnNetHttpError> {
-    let db = Database::load_default()?;
-    let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)?;
-    
+fn main() {
+    let db = Database::load_default().unwrap();
+    let mut analyzer = HuginnNetHttp::new(Some(&db), 1000).unwrap();
     let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
     
-    let handle = thread::spawn(move || {
-        analyzer.analyze_network("eth0", sender, None)
-    });
+    // Live capture (use parallel mode for high throughput)
+    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    
+    // Or PCAP analysis (always use sequential mode)
+    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
     
     for result in receiver {
-        if let Some(http_request) = result.http_request {
-            println!("{http_request}");
-        }
-        if let Some(http_response) = result.http_response {
-            println!("{http_response}");
-        }
+        if let Some(http_request) = result.http_request { println!("{http_request}"); }
+        if let Some(http_response) = result.http_response { println!("{http_response}"); }
     }
-    
-    handle.join().unwrap()?;
-    Ok(())
 }
 ```
 
-#### PCAP File Analysis
-
-```rust
-use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult, HuginnNetHttpError};
-use huginn_net_db::Database;
-use std::sync::mpsc;
-use std::thread;
-
-fn main() -> Result<(), HuginnNetHttpError> {
-    let db = Database::load_default()?;
-    let mut analyzer = HuginnNetHttp::new(Some(&db), 1000)?;
-    
-    let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
-    
-    let handle = thread::spawn(move || {
-        analyzer.analyze_pcap("capture.pcap", sender, None)
-    });
-    
-    for result in receiver {
-        if let Some(http_request) = result.http_request {
-            println!("{http_request}");
-        }
-        if let Some(http_response) = result.http_response {
-            println!("{http_response}");
-        }
-    }
-    
-    handle.join().unwrap()?;
-    Ok(())
-}
-```
-
-For a complete working example, see [`examples/capture-http.rs`](../examples/capture-http.rs).
+For a complete working example with signal handling and error management, see [`examples/capture-http.rs`](../examples/capture-http.rs).
 
 ### Example Output
 

@@ -59,7 +59,7 @@ impl HuginnNetTls {
     /// Creates a new instance with parallel configuration.
     ///
     /// # Parameters
-    /// - `num_workers`: Number of worker threads (typically number of CPU cores)
+    /// - `num_workers`: Number of worker threads
     /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
     ///
     /// # Returns

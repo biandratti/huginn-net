@@ -34,8 +34,8 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 - **GREASE Filtering** - Proper handling of GREASE values per RFC 8701
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
 - **Extension Analysis** - Comprehensive TLS extension parsing
-- **Parallel Processing** - Multi-threaded worker pool for high-throughput scenarios
-- **Sequential Mode** - Single-threaded processing for low-resource environments
+- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
+- **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
 
 ## Quick Start
 
@@ -50,57 +50,27 @@ huginn-net-tls = "1.5.2"
 
 ### Basic Usage
 
-#### Live Network Analysis (Sequential Mode)
-
 ```rust
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
+use huginn_net_tls::{HuginnNetTls, TlsClientOutput};
 use std::sync::mpsc;
-use std::thread;
 
-fn main() -> Result<(), HuginnNetTlsError> {
+fn main() {
     let mut analyzer = HuginnNetTls::new();
-    
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
     
-    let handle = thread::spawn(move || {
-        analyzer.analyze_network("eth0", sender, None)
-    });
+    // Live capture (use parallel mode for high throughput)
+    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    
+    // Or PCAP analysis (always use sequential mode)
+    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
     
     for tls in receiver {
         println!("{tls}");
     }
-    
-    handle.join().unwrap()?;
-    Ok(())
 }
 ```
 
-#### PCAP File Analysis
-
-```rust
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput, HuginnNetTlsError};
-use std::sync::mpsc;
-use std::thread;
-
-fn main() -> Result<(), HuginnNetTlsError> {
-    let mut analyzer = HuginnNetTls::new();
-    
-    let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
-    
-    let handle = thread::spawn(move || {
-        analyzer.analyze_pcap("capture.pcap", sender, None)
-    });
-    
-    for tls in receiver {
-        println!("{tls}");
-    }
-    
-    handle.join().unwrap()?;
-    Ok(())
-}
-```
-
-For a complete working example, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+For a complete working example with signal handling and error management, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
 
 ### Example Output
 

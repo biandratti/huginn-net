@@ -33,6 +33,8 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 - **MTU Detection** - Calculate Maximum Transmission Unit from packet analysis  
 - **Uptime Estimation** - Best-effort uptime calculation from TCP timestamps (limited accuracy on modern systems)
 - **Quality Scoring** - Confidence metrics for all matches
+- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
+- **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
 
 ## Quick Start
 
@@ -47,89 +49,33 @@ huginn-net-tcp = "1.5.2"
 
 ### Basic Usage
 
-#### Live Network Analysis
-
 ```rust
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
+use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult};
 use huginn_net_db::Database;
 use std::sync::mpsc;
-use std::thread;
 
-fn main() -> Result<(), HuginnNetTcpError> {
-    let db = Database::load_default()?;
-    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
-    
+fn main() {
+    let db = Database::load_default().unwrap();
+    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000).unwrap();
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
     
-    let handle = thread::spawn(move || {
-        analyzer.analyze_network("eth0", sender, None)
-    });
+    // Live capture (use parallel mode for high throughput)
+    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    
+    // Or PCAP analysis (always use sequential mode)
+    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
     
     for result in receiver {
-        if let Some(syn) = result.syn {
-            println!("{syn}");
-        }
-        if let Some(syn_ack) = result.syn_ack {
-            println!("{syn_ack}");
-        }
-        if let Some(mtu) = result.mtu {
-            println!("{mtu}");
-        }
-        if let Some(client_uptime) = result.client_uptime {
-            println!("{client_uptime}");
-        }
-        if let Some(server_uptime) = result.server_uptime {
-            println!("{server_uptime}");
-        }
+        if let Some(syn) = result.syn { println!("{syn}"); }
+        if let Some(syn_ack) = result.syn_ack { println!("{syn_ack}"); }
+        if let Some(mtu) = result.mtu { println!("{mtu}"); }
+        if let Some(client_uptime) = result.client_uptime { println!("{client_uptime}"); }
+        if let Some(server_uptime) = result.server_uptime { println!("{server_uptime}"); }
     }
-    
-    handle.join().unwrap()?;
-    Ok(())
 }
 ```
 
-#### PCAP File Analysis
-
-```rust
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult, HuginnNetTcpError};
-use huginn_net_db::Database;
-use std::sync::mpsc;
-use std::thread;
-
-fn main() -> Result<(), HuginnNetTcpError> {
-    let db = Database::load_default()?;
-    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000)?;
-    
-    let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
-    
-    let handle = thread::spawn(move || {
-        analyzer.analyze_pcap("capture.pcap", sender, None)
-    });
-    
-    for result in receiver {
-        if let Some(syn) = result.syn {
-            println!("{syn}");
-        }
-        if let Some(syn_ack) = result.syn_ack {
-            println!("{syn_ack}");
-        }
-        if let Some(mtu) = result.mtu {
-            println!("{mtu}");
-        }
-        if let Some(client_uptime) = result.client_uptime {
-            println!("{client_uptime}");
-        }
-        if let Some(server_uptime) = result.server_uptime {
-            println!("{server_uptime}");
-        }
-    }
-    
-    handle.join().unwrap()?;
-    Ok(())
-}
-```
-
-For a complete working example, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
+For a complete working example with signal handling and error management, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
 
 ### Example Output
 
