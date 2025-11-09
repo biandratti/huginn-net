@@ -33,7 +33,7 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-huginn-net = "1.5.2"
+huginn-net = "1.6.0"
 ```
 
 ### Examples & Tutorials
