@@ -39,6 +39,8 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 
 ## Quick Start
 
+> **Note:** Live packet capture requires `libpcap` (usually pre-installed on Linux/macOS).
+
 ### Installation
 
 Add this to your `Cargo.toml`:

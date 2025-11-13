@@ -1,9 +1,9 @@
-use crossbeam_channel::unbounded;
 use huginn_net_db::Database;
 use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::sync::mpsc::channel;
 use std::sync::Arc;
 
 // Snapshot structures for JSON serialization
@@ -63,7 +63,7 @@ fn analyze_pcap_file(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     let mut analyzer = HuginnNetHttp::new(Some(Arc::new(db)), 1000)
         .unwrap_or_else(|e| panic!("Failed to create analyzer: {e}"));
 
-    let (sender, receiver) = unbounded();
+    let (sender, receiver) = channel();
 
     // Run PCAP analysis in the same thread to avoid lifetime issues
     if let Err(e) = analyzer.analyze_pcap(pcap_path, sender, None) {

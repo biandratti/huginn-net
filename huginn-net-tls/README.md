@@ -39,6 +39,8 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 
 ## Quick Start
 
+> **Note:** Live packet capture requires `libpcap` (usually pre-installed on Linux/macOS).
+
 ### Installation
 
 Add this to your `Cargo.toml`:

@@ -1042,7 +1042,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
         let bench_name = format!("parallel_{num_workers}_workers");
         group.bench_function(&bench_name, |b| {
             b.iter(|| {
-                let (tx, rx) = crossbeam_channel::unbounded();
+                let (tx, rx) = std::sync::mpsc::channel();
                 let pool = match huginn_net_http::WorkerPool::new(
                     num_workers,
                     100,
@@ -1074,7 +1074,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
     // Measure parallel processing times for reporting
     let parallel_2_workers_time = measure_average_time(
         || {
-            let (tx, rx) = crossbeam_channel::unbounded();
+            let (tx, rx) = std::sync::mpsc::channel();
             let pool = match huginn_net_http::WorkerPool::new(2, 100, tx, Some(db.clone()), 1000) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
@@ -1090,7 +1090,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
 
     let parallel_4_workers_time = measure_average_time(
         || {
-            let (tx, rx) = crossbeam_channel::unbounded();
+            let (tx, rx) = std::sync::mpsc::channel();
             let pool = match huginn_net_http::WorkerPool::new(4, 100, tx, Some(db.clone()), 1000) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
@@ -1106,7 +1106,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
 
     let parallel_8_workers_time = measure_average_time(
         || {
-            let (tx, rx) = crossbeam_channel::unbounded();
+            let (tx, rx) = std::sync::mpsc::channel();
             let pool = match huginn_net_http::WorkerPool::new(8, 100, tx, Some(db.clone()), 1000) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
