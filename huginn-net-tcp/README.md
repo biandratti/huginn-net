@@ -40,6 +40,8 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 
 ## Quick Start
 
+> **Note:** Live packet capture requires `libpcap` (usually pre-installed on Linux/macOS).
+
 ### Installation
 
 Add this to your `Cargo.toml`:

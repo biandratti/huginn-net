@@ -32,11 +32,11 @@ pub use process::*;
 pub use signature_matcher::*;
 
 use crate::packet_parser::{parse_packet, IpPacket};
-use crossbeam_channel::Sender;
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;

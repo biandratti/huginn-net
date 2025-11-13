@@ -20,7 +20,7 @@ use ttl_cache::TtlCache;
 /// Worker pool for parallel HTTP packet processing.
 pub struct WorkerPool {
     packet_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>,
-    result_sender: Arc<Mutex<Option<Sender<HttpAnalysisResult>>>>,
+    result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<HttpAnalysisResult>>>>,
     dispatched_count: Arc<AtomicU64>,
     dropped_count: Arc<AtomicU64>,
     worker_dropped: Vec<Arc<AtomicU64>>,
@@ -67,7 +67,7 @@ impl WorkerPool {
     pub fn new(
         num_workers: usize,
         queue_size: usize,
-        result_tx: Sender<HttpAnalysisResult>,
+        result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
@@ -114,7 +114,7 @@ impl WorkerPool {
     /// Worker thread main loop.
     fn worker_loop(
         rx: crossbeam_channel::Receiver<Vec<u8>>,
-        result_tx: Sender<HttpAnalysisResult>,
+        result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
         dropped: Arc<AtomicU64>,

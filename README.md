@@ -70,6 +70,8 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 
 ## 🚀 Quick Start
 
+> **Note:** Live packet capture requires `libpcap` (usually pre-installed on Linux/macOS).
+
 ### Choose Your Approach
 
 **For multi-protocol analysis:**
