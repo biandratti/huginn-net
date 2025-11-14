@@ -24,7 +24,7 @@
     <div class="headerWrapper wrapper">
         <header>
             <a href="/huginn-net/">
-                <img class="logo" src="/huginn-net/img/huginn-white.svg" alt="Huginn Net" style="margin-right:18px;" />
+                <img class="logo" src="/huginn-net/img/huginn-net-icon.png" alt="Huginn Net" style="margin-right:18px;" />
                 <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
@@ -66,7 +66,7 @@
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -229,7 +229,7 @@
                                             </a>
                                             SYN Packet Analyzed
                                         </h3>
-                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn) ]</span>-<br />|<br />| <span class="hljs-type">client </span>  = 1.2.3.4/1524<br />| <span class="hljs-type">os</span>       = Windows XP<br />| <span class="hljs-type">dist</span>     = 8<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0<br />|<br />`----<br /></code></pre>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[TCP SYN]</span> 1.2.3.4:1524 → 4.3.2.1:80<br />  <span class="hljs-type">OS:</span>     Windows XP<br />  <span class="hljs-type">Dist:</span>   8<br />  <span class="hljs-type">Params:</span> none<br />  <span class="hljs-type">Sig:</span>    4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0</code></pre>
 
                                         <h3>
                                             <a class="anchor" aria-hidden="true" id="syn-package-fields"></a>
@@ -244,11 +244,10 @@
                                             SYN Key Fields
                                         </h3>
                                         <ul>
-                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
-                                            <li><p><span class="hljs-type">os</span>: The identified operating system matches the signature in the database.</p></li>
-                                            <li><p><span class="hljs-type">dist</span>: The distance in network hops to the server.</p></li>
-                                            <li><p><span class="hljs-type">params</span>: Optional TCP parameters.</p></li>
-                                            <li><p><span class="hljs-type">raw_sig</span>: The raw TCP signature, representing how the packet is structured.</p></li>
+                                            <li><p><span class="hljs-type">OS</span>: The identified operating system matched from the database signature.</p></li>
+                                            <li><p><span class="hljs-type">Dist</span>: The distance in network hops to the server.</p></li>
+                                            <li><p><span class="hljs-type">Params</span>: Optional TCP parameters.</p></li>
+                                            <li><p><span class="hljs-type">Sig</span>: The TCP signature showing packet structure (ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass).</p></li>
                                         </ul>
 
                                         <h2>
@@ -277,7 +276,7 @@
                                             </a>
                                             SYN+ACK Packet Analyzed
                                         </h3>
-                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (syn+ack) ]</span>-<br />|<br />| <span class="hljs-type">server</span>   = 4.3.2.1/80<br />| <span class="hljs-type">os</span>       = Linux 3.x<br />| <span class="hljs-type">dist</span>     = 0<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0<br />|<br />`----<br /></code></pre>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[TCP SYN+ACK]</span> 4.3.2.1:80 → 1.2.3.4:1524<br />  <span class="hljs-type">OS:</span>     Linux 3.x<br />  <span class="hljs-type">Dist:</span>   0<br />  <span class="hljs-type">Params:</span> none<br />  <span class="hljs-type">Sig:</span>    4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0</code></pre>
 
                                         <h3>
                                             <a class="anchor" aria-hidden="true" id="syn-ack-package-fields"></a>
@@ -292,11 +291,10 @@
                                             SYN+ACK Key Fields
                                         </h3>
                                         <ul>
-                                            <li><p><span class="hljs-type">server</span>: The destination IP and port of the server connection.</p></li>
-                                            <li><p><span class="hljs-type">os</span>: The identified operating system matches the signature in the database.</p></li>
-                                            <li><p><span class="hljs-type">dist</span>: The distance in network hops (it's always 0).</p></li>
-                                            <li><p><span class="hljs-type">params</span>: Optional TCP parameters.</p></li>
-                                            <li><p><span class="hljs-type">raw_sig</span>: The raw TCP signature, representing how the packet is structured.</p></li>
+                                            <li><p><span class="hljs-type">OS</span>: The identified operating system matched from the database signature.</p></li>
+                                            <li><p><span class="hljs-type">Dist</span>: The distance in network hops (always 0 for server responses).</p></li>
+                                            <li><p><span class="hljs-type">Params</span>: Optional TCP parameters.</p></li>
+                                            <li><p><span class="hljs-type">Sig</span>: The TCP signature showing packet structure (ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass).</p></li>
                                         </ul>
 
                                     </span>

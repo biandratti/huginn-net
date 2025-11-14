@@ -24,7 +24,7 @@
     <div class="headerWrapper wrapper">
         <header>
             <a href="/huginn-net/">
-                <img class="logo" src="/huginn-net/img/huginn-white.svg" alt="Huginn Net" style="margin-right:18px;" />
+                <img class="logo" src="/huginn-net/img/huginn-net-icon.png" alt="Huginn Net" style="margin-right:18px;" />
                 <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
@@ -66,7 +66,7 @@
                                     <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -186,7 +186,7 @@
                                             </a>
                                             MTU Analyzed
                                         </h2>
-                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (mtu) ]</span>-<br />|<br />| <span class="hljs-type">client</span>   = 1.2.3.4/1524<br />| <span class="hljs-type">link</span>     = DSL<br />| <span class="hljs-type">raw_mtu</span>  = 1492<br />|<br />`----</code></pre>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[TCP MTU]</span> 1.2.3.4:1524 → 4.3.2.1:80<br />  <span class="hljs-type">Link:</span>   DSL<br />  <span class="hljs-type">MTU:</span>    1492</code></pre>
 
                                         <h2>
                                             <a class="anchor" aria-hidden="true" id="mtu-fields"></a>
@@ -201,9 +201,8 @@
                                             MTU Key Fields
                                         </h2>
                                         <ul>
-                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
-                                            <li><p><span class="hljs-type">link</span>: The label corresponds to a specific networking technology or use case, matches the signature in the database.</p></li>
-                                            <li><p><span class="hljs-type">raw_mtu</span>: The raw MTU signature, representing the Maximum Transmission Unit value.</p></li>
+                                            <li><p><span class="hljs-type">Link</span>: The networking technology type (DSL, Ethernet, PPPoE, etc.) matched from the database signature.</p></li>
+                                            <li><p><span class="hljs-type">MTU</span>: The Maximum Transmission Unit value detected from the TCP packet.</p></li>
                                         </ul>
 
                                     </span>

@@ -24,7 +24,7 @@
     <div class="headerWrapper wrapper">
         <header>
             <a href="/huginn-net/">
-                <img class="logo" src="/huginn-net/img/huginn-white.svg" alt="Huginn Net" style="margin-right:18px;" />
+                <img class="logo" src="/huginn-net/img/huginn-net-icon.png" alt="Huginn Net" style="margin-right:18px;" />
                 <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
@@ -66,7 +66,7 @@
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
                                     <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -143,11 +143,15 @@
                     <article>
                         <div>
                                     <span>
-                                        <p><b>Huginn Net</b> provides an estimate of how long the system has been running since its last boot for TCP traffic.</p>
+                                        <p><b>Huginn Net</b> provides an estimate of how long the system has been running since its last boot for TCP traffic. Uptime is calculated separately for both client and server endpoints based on TCP timestamp analysis.</p>
+                                        
+                                        <blockquote>
+                                            <p><strong>⚠️ Important:</strong> Uptime estimation has <strong>limited accuracy on modern systems</strong>. Most modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy/security, making uptime estimation unreliable or impossible. This feature works best on legacy systems, embedded devices, IoT hardware, and some server distributions.</p>
+                                        </blockquote>
 
                                         <h2>
-                                            <a class="anchor" aria-hidden="true" id="uptime-analyzed"></a>
-                                            <a href="#uptime-analyzed" aria-hidden="true" class="hash-link">
+                                            <a class="anchor" aria-hidden="true" id="client-uptime"></a>
+                                            <a href="#client-uptime" aria-hidden="true" class="hash-link">
                                                 <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                                     <path
                                                             fill-rule="evenodd"
@@ -155,9 +159,25 @@
                                                     ></path>
                                                 </svg>
                                             </a>
-                                            Uptime Analyzed
+                                            Client Uptime
                                         </h2>
-                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (uptime) ]</span>-<br />|<br />| <span class="hljs-type">client</span>   = 1.2.3.4<br />| <span class="hljs-type">uptime</span>   = 0 days 11 hrs 16 min (modulo 198 days)<br />| <span class="hljs-type">raw_freq</span> = 250.00 Hz<br />|<br />`----</code></pre>
+                                        <p>Estimates uptime for the client (connection initiator) based on TCP timestamps from outgoing packets.</p>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[TCP Uptime - Client]</span> 1.2.3.4:1524 → 4.3.2.1:80<br />  <span class="hljs-type">Uptime:</span> 0 days, 11 hrs, 16 min (modulo 198 days)<br />  <span class="hljs-type">Freq:</span>   250.00 Hz</code></pre>
+
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="server-uptime"></a>
+                                            <a href="#server-uptime" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            Server Uptime
+                                        </h2>
+                                        <p>Estimates uptime for the server (connection responder) based on TCP timestamps from response packets.</p>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[TCP Uptime - Server]</span> 4.3.2.1:80 → 1.2.3.4:1524<br />  <span class="hljs-type">Uptime:</span> 12 days, 5 hrs, 32 min (modulo 198 days)<br />  <span class="hljs-type">Freq:</span>   100.00 Hz</code></pre>
 
                                         <h2>
                                             <a class="anchor" aria-hidden="true" id="uptime-fields"></a>
@@ -172,9 +192,27 @@
                                             Uptime Key Fields
                                         </h2>
                                         <ul>
-                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
-                                            <li><p><span class="hljs-type">uptime</span>: This is the estimated time the system has been running since its last reboot.</p></li>
-                                            <li><p><span class="hljs-type">raw_freq</span>: Refers to the frequency of the system's TCP timestamp clock, which is usually derived from the host's kernel timer.</p></li>
+                                            <li><p><span class="hljs-type">Uptime</span>: Estimated time the system has been running since last reboot, shown in days, hours, and minutes. The "modulo" value indicates the maximum time range before the counter would wrap around.</p></li>
+                                            <li><p><span class="hljs-type">Freq</span>: Frequency of the system's TCP timestamp clock in Hz, typically derived from the kernel timer (common values: 100 Hz, 250 Hz, 1000 Hz).</p></li>
+                                        </ul>
+                                        
+                                        <h2>
+                                            <a class="anchor" aria-hidden="true" id="limitations"></a>
+                                            <a href="#limitations" aria-hidden="true" class="hash-link">
+                                                <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
+                                                    <path
+                                                            fill-rule="evenodd"
+                                                            d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                            Known Limitations
+                                        </h2>
+                                        <ul>
+                                            <li><p><strong>Modern OS Randomization:</strong> Windows 10+, Linux 4.10+, and macOS 10.12+ randomize TCP timestamps for privacy, rendering uptime estimation unreliable.</p></li>
+                                            <li><p><strong>Counter Wraparound:</strong> TCP timestamp counters eventually wrap around, leading to ambiguity in absolute uptime values.</p></li>
+                                            <li><p><strong>Best Effort:</strong> Uptime estimation is a best-effort technique and should not be relied upon for critical security decisions on modern systems.</p></li>
+                                            <li><p><strong>Works Best On:</strong> Legacy systems, embedded devices, IoT hardware, and some server distributions that haven't implemented timestamp randomization.</p></li>
                                         </ul>
 
                                     </span>
@@ -189,8 +227,10 @@
         </div>
         <nav class="onPageNav">
             <ul class="toc-headings">
-                <li><a href="#uptime-analyzed">Uptime Analyzed</a></li>
+                <li><a href="#client-uptime">Client Uptime</a></li>
+                <li><a href="#server-uptime">Server Uptime</a></li>
                 <li><a href="#uptime-fields">Uptime Key Fields</a></li>
+                <li><a href="#limitations">Known Limitations</a></li>
             </ul>
         </nav>
     </div>

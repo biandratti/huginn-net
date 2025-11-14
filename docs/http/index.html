@@ -24,7 +24,7 @@
     <div class="headerWrapper wrapper">
         <header>
             <a href="/huginn-net/">
-                <img class="logo" src="/huginn-net/img/huginn-white.svg" alt="Huginn Net" style="margin-right:18px;" />
+                <img class="logo" src="/huginn-net/img/huginn-net-icon.png" alt="Huginn Net" style="margin-right:18px;" />
                 <h2 class="headerTitleWithLogo">Huginn Net: Multi-Protocol Passive Fingerprinting</h2>
             </a>
             <div class="navigationWrapper navigationSlider">
@@ -66,7 +66,7 @@
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
                                     <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
-                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
+                                    <li class="navListItem"><a class="navItem" href="/huginn-net/docs/tls">TLS</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -193,7 +193,7 @@
                                             </a>
                                             HTTP Request Analyzed
                                         </h3>
-                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 1.2.3.4/1524 -> 4.3.2.1/80 (http request) ]</span>-<br />|<br />| <span class="hljs-type">client</span>   = 1.2.3.4/1524<br />| <span class="hljs-type">app</span>      = Firefox:10.x or newer<br />| <span class="hljs-type">lang</span>     = English<br />| <span class="hljs-type">params</span>   = none<br />| <span class="hljs-type">raw_sig</span>  = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/<br />|<br />`----</code></pre>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[HTTP Request]</span> 1.2.3.4:1524 → 4.3.2.1:80<br />  <span class="hljs-type">Browser:</span> Firefox:10.x or newer<br />  <span class="hljs-type">Lang:</span>    English<br />  <span class="hljs-type">Params:</span>  none<br />  <span class="hljs-type">Sig:</span>     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/</code></pre>
 
                                         <h3>
                                             <a class="anchor" aria-hidden="true" id="http-request-fields"></a>
@@ -208,11 +208,10 @@
                                             HTTP Request Key Fields
                                         </h3>
                                         <ul>
-                                            <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
-                                            <li><p><span class="hljs-type">app</span>: The identified browser matches the signature in the database.</p></li>
-                                            <li><p><span class="hljs-type">lang</span>: The identified language matches the signature in the database.</p></li>
-                                            <li><p><span class="hljs-type">params</span>: Additional parameters or optional data included in the headers.</p></li>
-                                            <li><p><span class="hljs-type">raw_sig</span>: The raw HTTP request signature, representing how the packet is structured.</p></li>
+                                            <li><p><span class="hljs-type">Browser</span>: The identified browser matched from the database signature.</p></li>
+                                            <li><p><span class="hljs-type">Lang</span>: The detected language from Accept-Language header.</p></li>
+                                            <li><p><span class="hljs-type">Params</span>: Additional parameters or optional data included in the headers.</p></li>
+                                            <li><p><span class="hljs-type">Sig</span>: The HTTP request signature showing header order and values.</p></li>
                                         </ul>
 
                                         <h2>
@@ -241,7 +240,7 @@
                                             </a>
                                             HTTP Response Analyzed
                                         </h3>
-                                        <pre><code class="hljs css language-bash">.-<span class="hljs-type">[ 192.168.1.22/58494 -> 91.189.91.21/80 (http response) ]</span>-<br />|<br />| <span class="hljs-type">server</span>   = 91.189.91.21/80<br />| <span class="hljs-type">app</span>      = nginx/1.14.0 (Ubuntu)<br />| <span class="hljs-type">params</span>   = anonymous<br />| <span class="hljs-type">raw_sig</span>  = server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:<br />|<br />`----</code></pre>
+                                        <pre><code class="hljs css language-bash"><span class="hljs-type">[HTTP Response]</span> 192.168.1.22:58494 → 91.189.91.21:80<br />  <span class="hljs-type">Server:</span>  nginx/1.14.0 (Ubuntu)<br />  <span class="hljs-type">Params:</span>  anonymous<br />  <span class="hljs-type">Sig:</span>     server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:</code></pre>
 
                                         <h3>
                                             <a class="anchor" aria-hidden="true" id="http-response-fields"></a>
@@ -256,10 +255,9 @@
                                             HTTP Response Key Fields
                                         </h3>
                                         <ul>
-                                            <li><p><span class="hljs-type">server</span>: The destination IP and port of the server connection.</p></li>
-                                            <li><p><span class="hljs-type">app</span>: The identified server matches the signature in the database.</p></li>
-                                            <li><p><span class="hljs-type">params</span>: Additional parameters or optional data included in the headers.</p></li>
-                                            <li><p><span class="hljs-type">raw_sig</span>: The raw HTTP response signature, representing how the packet is structured.</p></li>
+                                            <li><p><span class="hljs-type">Server</span>: The identified web server matched from the database signature.</p></li>
+                                            <li><p><span class="hljs-type">Params</span>: Additional parameters or optional data included in the headers.</p></li>
+                                            <li><p><span class="hljs-type">Sig</span>: The HTTP response signature showing header order and values.</p></li>
                                         </ul>
 
 
@@ -269,7 +267,7 @@
                 </div>
                 <div class="docs-prevnext">
                     <a class="docs-prev button" href="/huginn-net/docs/uptime"><span class="arrow-prev">← </span><span>Uptime</span></a>
-                    <a class="docs-next button" href="/huginn-net/docs/tls"><span>TLS Analysis</span><span class="arrow-next"> →</span></a>
+                    <a class="docs-next button" href="/huginn-net/docs/tls"><span>TLS</span><span class="arrow-next"> →</span></a>
                 </div>
             </div>
         </div>
