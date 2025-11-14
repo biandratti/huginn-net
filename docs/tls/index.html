@@ -3,15 +3,15 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>TLS Analysis · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
+    <title>TLS · Huginn Net: Multi-Protocol Passive Fingerprinting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Docusaurus" />
-    <meta name="description" content="TLS analysis for Huginn Net: Multi-Protocol Passive Fingerprinting" />
+    <meta name="description" content="TLS fingerprinting for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="docsearch:language" content="en" />
-    <meta property="og:title" content="TLS Analysis · Huginn Net: Multi-Protocol Passive Fingerprinting" />
+    <meta property="og:title" content="TLS · Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
-    <meta property="og:description" content="TLS analysis for Huginn Net: Multi-Protocol Passive Fingerprinting" />
+    <meta property="og:description" content="TLS fingerprinting for Huginn Net: Multi-Protocol Passive Fingerprinting" />
     <meta name="twitter:card" content="summary" />
     <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
@@ -66,7 +66,7 @@
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/mtu">MTU</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/uptime">Uptime</a></li>
                                     <li class="navListItem"><a class="navItem" href="/huginn-net/docs/http">Http request and response</a></li>
-                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/tls">TLS Analysis</a></li>
+                                    <li class="navListItem navListItemActive"><a class="navItem" href="/huginn-net/docs/tls">TLS</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -139,7 +139,7 @@
         <div class="container mainContainer docsContainer">
             <div class="wrapper">
                 <div class="post">
-                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">TLS Analysis</h1></header>
+                    <header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">TLS</h1></header>
                     <article>
                         <div>
                             <span>
@@ -179,7 +179,7 @@
                                     </a>
                                     TLS Client
                                 </h2>
-                                <pre><code class="hljs css language-bash">.-[ 192.168.1.10/45234 -> 172.217.5.46/443 (tls client) ]-<br />|<br />| <span class="hljs-type">client</span>   = 192.168.1.10/45234<br />| <span class="hljs-type">ja4</span>      = t13d1516h2_8daaf6152771_b0da82dd1658<br />| <span class="hljs-type">ja4_r</span>    = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d<br />| <span class="hljs-type">ja4_o</span>    = t13d1516h2_8daaf6152771_b0da82dd1658<br />| <span class="hljs-type">ja4_or</span>   = t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d<br />| <span class="hljs-type">sni</span>      = www.google.com<br />| <span class="hljs-type">version</span>  = 1.3<br />`----</code></pre>
+                                <pre><code class="hljs css language-bash"><span class="hljs-type">[TLS Client]</span> 192.168.1.10:45234 → 172.217.5.46:443<br />  <span class="hljs-type">SNI:</span>     www.google.com<br />  <span class="hljs-type">Version:</span> TLS 1.3<br />  <span class="hljs-type">JA4:</span>     t13d1516h2_8daaf6152771_b0da82dd1658<br />  <span class="hljs-type">JA4_r:</span>   t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d<br />  <span class="hljs-type">JA4_o:</span>   t13d1516h2_8daaf6152771_b0da82dd1658<br />  <span class="hljs-type">JA4_or:</span>  t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d</code></pre>
 
                                 <h2>
                                     <a class="anchor" aria-hidden="true" id="tls-fields"></a>
@@ -194,13 +194,12 @@
                                     TLS Key Fields
                                 </h2>
                                 <ul>
-                                    <li><p><span class="hljs-type">client</span>: The source IP and port initiating the connection.</p></li>
-                                    <li><p><span class="hljs-type">ja4</span>: The computed JA4 TLS fingerprint for the ClientHello.</p></li>
-                                    <li><p><span class="hljs-type">ja4_r</span>: The raw JA4 string, showing the ordered list of ciphers and extensions.</p></li>
-                                    <li><p><span class="hljs-type">ja4_o</span>: The observed JA4 fingerprint (may be identical to ja4, but can differ if options are reordered or normalized).</p></li>
-                                    <li><p><span class="hljs-type">ja4_or</span>: The raw observed JA4 string, showing the actual order of ciphers and extensions as seen on the wire.</p></li>
-                                    <li><p><span class="hljs-type">sni</span>: The Server Name Indication (SNI) value, indicating the hostname the client is connecting to.</p></li>
-                                    <li><p><span class="hljs-type">version</span>: The TLS protocol version used (e.g., 1.3).</p></li>
+                                    <li><p><span class="hljs-type">SNI</span>: Server Name Indication, the hostname the client is connecting to.</p></li>
+                                    <li><p><span class="hljs-type">Version</span>: TLS protocol version (e.g., TLS 1.3, TLS 1.2).</p></li>
+                                    <li><p><span class="hljs-type">JA4</span>: JA4 fingerprint with sorted cipher suites and extensions (hashed).</p></li>
+                                    <li><p><span class="hljs-type">JA4_r</span>: JA4 raw fingerprint with sorted cipher suites and extensions (full).</p></li>
+                                    <li><p><span class="hljs-type">JA4_o</span>: JA4 fingerprint with original order (unsorted, hashed).</p></li>
+                                    <li><p><span class="hljs-type">JA4_or</span>: JA4 raw fingerprint with original order (unsorted, full).</p></li>
                                 </ul>
                             </span>
                         </div>
@@ -214,7 +213,7 @@
         <nav class="onPageNav">
             <ul class="toc-headings">
                 <li><a href="#tls-signature">TLS Signature (JA4)</a></li>
-                <li><a href="#tls-analyzed">TLS Analyzed Example</a></li>
+                <li><a href="#tls-analyzed">TLS Client</a></li>
                 <li><a href="#tls-fields">TLS Key Fields</a></li>
             </ul>
         </nav>
