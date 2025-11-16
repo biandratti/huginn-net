@@ -1,6 +1,7 @@
 use huginn_net_tcp::packet_parser::{
     detect_datalink_format, parse_packet, DatalinkFormat, IpPacket,
 };
+use pnet::packet::Packet;
 
 #[test]
 fn test_detect_null_datalink() {
@@ -106,9 +107,9 @@ fn test_parse_ethernet_ipv4() {
         0xc0, 0xa8, 0x01, 0x02, // Dest IP: 192.168.1.2
     ];
     match parse_packet(&ethernet_ipv4) {
-        IpPacket::Ipv4(ip_data) => {
-            assert_eq!(ip_data[0], 0x45); // Version=4, IHL=5
-            assert_eq!(ip_data.len(), 20); // IPv4 header length
+        IpPacket::Ipv4(ipv4) => {
+            assert_eq!(ipv4.get_version(), 4); // Version=4
+            assert_eq!(ipv4.get_header_length(), 5); // IHL=5
         }
         _ => panic!("Expected IPv4 packet"),
     }
@@ -127,9 +128,9 @@ fn test_parse_raw_ipv6() {
         0x02,
     ];
     match parse_packet(&raw_ipv6) {
-        IpPacket::Ipv6(ip_data) => {
-            assert_eq!(ip_data[0], 0x60); // Version=6
-            assert_eq!(ip_data.len(), 40); // IPv6 header length
+        IpPacket::Ipv6(ipv6) => {
+            assert_eq!(ipv6.get_version(), 6); // Version=6
+            assert_eq!(ipv6.packet().len(), 40); // IPv6 header length
         }
         _ => panic!("Expected IPv6 packet"),
     }
@@ -149,9 +150,9 @@ fn test_parse_null_datalink_ipv6() {
         0x02, // dst
     ];
     match parse_packet(&null_ipv6) {
-        IpPacket::Ipv6(ip_data) => {
-            assert_eq!(ip_data[0], 0x60); // Version=6
-            assert_eq!(ip_data.len(), 40); // IPv6 header (40 bytes total)
+        IpPacket::Ipv6(ipv6) => {
+            assert_eq!(ipv6.get_version(), 6); // Version=6
+            assert_eq!(ipv6.packet().len(), 40); // IPv6 header (40 bytes total)
         }
         _ => panic!("Expected NULL datalink IPv6 packet"),
     }

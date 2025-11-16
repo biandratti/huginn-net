@@ -36,8 +36,6 @@ pub use uptime::{
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
 use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -50,6 +48,8 @@ use ttl_cache::TtlCache;
 pub struct ParallelConfig {
     pub num_workers: usize,
     pub queue_size: usize,
+    pub batch_size: usize,
+    pub timeout_ms: u64,
 }
 
 /// A TCP-focused passive fingerprinting analyzer.
@@ -91,6 +91,31 @@ impl HuginnNetTcp {
     /// - `max_connections`: Maximum number of connections to track per worker
     /// - `num_workers`: Number of worker threads for parallel processing
     /// - `queue_size`: Size of packet queue per worker
+    /// - `batch_size`: Maximum packets to process in one batch (default: 32)
+    ///   - Higher values (32-64): Better throughput, higher latency
+    ///   - Lower values (8-16): Lower latency, more overhead
+    ///   - Trade-off: Batching amortizes per-packet overhead but increases processing delay
+    /// - `timeout_ms`: Worker receive timeout in milliseconds (default: 10)
+    ///   - Lower values (5-10ms): More responsive, higher CPU wake-ups
+    ///   - Higher values (20-50ms): Lower CPU overhead, batches fill slower
+    ///   - Trade-off: Shorter timeouts enable quicker shutdown but more frequent wake-ups
+    ///
+    /// # Configuration Guidelines
+    ///
+    /// **High Throughput (10+ Gbps)**:
+    /// ```ignore
+    /// HuginnNetTcp::with_config(db, 1000, 4, 100, 32, 10)
+    /// ```
+    ///
+    /// **Low Latency**:
+    /// ```ignore
+    /// HuginnNetTcp::with_config(db, 1000, 2, 100, 8, 5)
+    /// ```
+    ///
+    /// **Balanced (Recommended)**:
+    /// ```ignore
+    /// HuginnNetTcp::with_config(db, 1000, 4, 100, 32, 10)
+    /// ```
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance configured for parallel processing.
@@ -99,11 +124,18 @@ impl HuginnNetTcp {
         max_connections: usize,
         num_workers: usize,
         queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
     ) -> Result<Self, HuginnNetTcpError> {
         Ok(Self {
             matcher: database,
             max_connections,
-            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size,
+                timeout_ms,
+            }),
             worker_pool: None,
         })
     }
@@ -134,6 +166,8 @@ impl HuginnNetTcp {
         let worker_pool = WorkerPool::new(
             config.num_workers,
             config.queue_size,
+            config.batch_size,
+            config.timeout_ms,
             sender,
             database_arc,
             self.max_connections,
@@ -356,31 +390,11 @@ impl HuginnNetTcp {
             .map(|db| SignatureMatcher::new(db.as_ref()));
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4, connection_tracker, matcher.as_ref())
-                } else {
-                    Ok(TcpAnalysisResult {
-                        syn: None,
-                        syn_ack: None,
-                        mtu: None,
-                        client_uptime: None,
-                        server_uptime: None,
-                    })
-                }
+            IpPacket::Ipv4(ipv4) => {
+                process_ipv4_packet(&ipv4, connection_tracker, matcher.as_ref())
             }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6, connection_tracker, matcher.as_ref())
-                } else {
-                    Ok(TcpAnalysisResult {
-                        syn: None,
-                        syn_ack: None,
-                        mtu: None,
-                        client_uptime: None,
-                        server_uptime: None,
-                    })
-                }
+            IpPacket::Ipv6(ipv6) => {
+                process_ipv6_packet(&ipv6, connection_tracker, matcher.as_ref())
             }
             IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,

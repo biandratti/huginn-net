@@ -33,14 +33,14 @@ fn create_ipv4_packet(src_ip: [u8; 4]) -> Vec<u8> {
 #[test]
 fn test_worker_pool_rejects_zero_workers() {
     let (tx, _rx) = mpsc::channel();
-    let result = WorkerPool::new(0, 100, tx, None, 1000);
+    let result = WorkerPool::new(0, 100, 32, 10, tx, None, 1000);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_worker_pool_creates_with_valid_workers() {
     let (tx, _rx) = mpsc::channel();
-    let result = WorkerPool::new(4, 100, tx, None, 1000);
+    let result = WorkerPool::new(4, 100, 32, 10, tx, None, 1000);
     assert!(result.is_ok());
 
     let pool = unwrap_worker_pool(result);
@@ -50,7 +50,7 @@ fn test_worker_pool_creates_with_valid_workers() {
 #[test]
 fn test_hash_based_dispatch_consistency() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(4, 10, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(4, 10, 32, 10, tx, None, 1000));
 
     // Create packets with the same source IP
     let src_ip = [192, 168, 1, 100];
@@ -79,7 +79,7 @@ fn test_hash_based_dispatch_consistency() {
 #[test]
 fn test_different_ips_distributed() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(4, 10, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(4, 10, 32, 10, tx, None, 1000));
 
     // Create packets with different source IPs
     let src_ips = vec![
@@ -112,7 +112,7 @@ fn test_different_ips_distributed() {
 fn test_queue_overflow_handling() {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 5;
-    let pool = unwrap_worker_pool(WorkerPool::new(2, queue_size, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, None, 1000));
 
     let mut queued = 0;
     let mut dropped = 0;
@@ -139,7 +139,7 @@ fn test_queue_overflow_handling() {
 #[test]
 fn test_stats_accuracy() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None, 1000));
 
     // Dispatch some packets
     let dispatch_count = 10;
@@ -155,7 +155,7 @@ fn test_stats_accuracy() {
 #[test]
 fn test_shutdown_stops_accepting_packets() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None, 1000));
 
     // Dispatch before shutdown should work
     let result = pool.dispatch(create_ipv4_packet([192, 168, 1, 1]));
@@ -173,7 +173,7 @@ fn test_shutdown_stops_accepting_packets() {
 fn test_per_worker_dropped_count() {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 2;
-    let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, None, 1000));
 
     // Fill the single worker's queue (same source IP)
     let src_ip = [192, 168, 1, 100];
@@ -194,7 +194,7 @@ fn test_per_worker_dropped_count() {
 #[test]
 fn test_concurrent_dispatch() {
     let (tx, _rx) = mpsc::channel();
-    let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, tx, None, 1000)));
+    let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, 32, 10, tx, None, 1000)));
 
     let handles: Vec<_> = (0..4)
         .map(|thread_id| {
@@ -251,7 +251,7 @@ fn test_pool_stats_display() {
 #[test]
 fn test_state_isolation() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(3, 100, tx, None, 1000));
+    let pool = unwrap_worker_pool(WorkerPool::new(3, 100, 32, 10, tx, None, 1000));
 
     // Dispatch packets from 3 different IPs (should go to different workers)
     let ips = [[10, 0, 0, 1], [10, 0, 0, 2], [10, 0, 0, 3]];
