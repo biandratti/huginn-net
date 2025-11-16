@@ -26,11 +26,19 @@ use std::sync::Arc;
 use tracing::{debug, error};
 
 /// Configuration for parallel processing
+///
+/// Controls the behavior of worker threads in parallel mode.
 #[derive(Debug, Clone)]
 struct ParallelConfig {
+    /// Number of worker threads to spawn
     num_workers: usize,
+    /// Size of packet queue per worker (affects memory usage and backpressure)
     queue_size: usize,
+    /// Maximum packets to process in one batch before checking for new work
+    /// Higher = better throughput, lower = better latency (typical: 16-64)
     batch_size: usize,
+    /// Worker receive timeout in milliseconds
+    /// Lower = faster shutdown, higher = better throughput (typical: 5-50)
     timeout_ms: u64,
 }
 
@@ -58,37 +66,43 @@ impl HuginnNetTls {
         Self { parallel_config: None, worker_pool: None }
     }
 
-    /// Creates a new instance with parallel configuration.
-    ///
-    /// # Parameters
-    /// - `num_workers`: Number of worker threads
-    /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
-    ///
-    /// # Returns
-    /// A new `HuginnNetTls` instance with custom parallel configuration.
-    pub fn with_config(num_workers: usize, queue_size: usize) -> Self {
-        Self {
-            parallel_config: Some(ParallelConfig {
-                num_workers,
-                queue_size,
-                batch_size: 32, // Default: good balance
-                timeout_ms: 10, // Default: responsive shutdown
-            }),
-            worker_pool: None,
-        }
-    }
-
     /// Creates a new instance with full parallel configuration.
     ///
     /// # Parameters
-    /// - `num_workers`: Number of worker threads
-    /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
-    /// - `batch_size`: Maximum packets to process together (higher = better throughput, typical: 16-64)
-    /// - `timeout_ms`: Worker timeout in milliseconds (lower = faster shutdown, typical: 5-50)
+    /// - `num_workers`: Number of worker threads (recommended: 2-4 on 8-core systems)
+    /// - `queue_size`: Size of packet queue per worker (typical: 100-200)
+    /// - `batch_size`: Maximum packets to process in one batch (typical: 16-64, recommended: 32)
+    /// - `timeout_ms`: Worker receive timeout in milliseconds (typical: 5-50, recommended: 10)
+    ///
+    /// # Configuration Guide
+    ///
+    /// ## batch_size
+    /// - **Low (8-16)**: Lower latency, more responsive, higher overhead
+    /// - **Medium (32)**: Balanced throughput and latency *(recommended)*
+    /// - **High (64-128)**: Maximum throughput, higher latency
+    ///
+    /// ## timeout_ms
+    /// - **Low (5-10ms)**: Fast shutdown, slightly lower throughput *(recommended: 10)*
+    /// - **Medium (20-50ms)**: Better throughput, slower shutdown
+    /// - **High (100ms+)**: Maximum throughput, slow shutdown
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use huginn_net_tls::HuginnNetTls;
+    ///
+    /// // Balanced configuration (recommended)
+    /// let tls = HuginnNetTls::with_config(4, 100, 32, 10);
+    ///
+    /// // Low latency
+    /// let low_latency = HuginnNetTls::with_config(2, 100, 8, 5);
+    ///
+    /// // High throughput
+    /// let high_throughput = HuginnNetTls::with_config(4, 200, 64, 20);
+    /// ```
     ///
     /// # Returns
-    /// A new `HuginnNetTls` instance with full custom parallel configuration.
-    pub fn with_full_config(
+    /// A new `HuginnNetTls` instance with parallel configuration.
+    pub fn with_config(
         num_workers: usize,
         queue_size: usize,
         batch_size: usize,
