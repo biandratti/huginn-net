@@ -1036,8 +1036,8 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 let pool = match huginn_net_http::WorkerPool::new(
                     num_workers,
                     100,
-                    16, // batch_size: balanced for HTTP
-                    10, // timeout_ms: fast shutdown
+                    16,
+                    10,
                     tx,
                     Some(db.clone()),
                     1000,

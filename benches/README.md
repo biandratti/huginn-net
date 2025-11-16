@@ -17,7 +17,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 | Protocol | Detection | Full Analysis | Processing Time | Use Case |
 |----------|-----------|---------------|-----------------|----------|
 | **TCP** | 166.7M pps | 1.11M pps | 901 ns | OS fingerprinting, MTU detection |
-| **HTTP** | 200M pps | 797K pps | 1.254 μs | Browser/server detection, flow tracking |
+| **HTTP** | 142.9M pps | 526.6K pps | 1.899 μs | Browser/server detection, flow tracking |
 | **TLS** | 43.5M pps | 50.8K pps | 19.7 μs | JA4 fingerprinting, TLS analysis |
 
 ### Parallel Mode Performance
@@ -41,19 +41,19 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 #### HTTP (Flow-Based Hash Routing)
 | Mode | Workers | Throughput | 1 Gbps | 10 Gbps |
 |------|---------|------------|--------|---------|
-| Sequential | 1 | 797K pps | 10.2% CPU | 101.9% CPU [OVERLOAD] |
-| Parallel | 2 | 1.07M pps | 7.6% CPU | 76.1% CPU |
-| Parallel | 4 | 294K pps | 27.6% CPU | 276.0% CPU [OVERLOAD] |
-| Parallel | 8 | 328K pps | 24.7% CPU | 247.2% CPU [OVERLOAD] |
+| Sequential | 1 | 526.6K pps | 15.4% CPU | 154.3% CPU [OVERLOAD] |
+| Parallel | 2 | 1.54M pps | 5.3% CPU | 52.7% CPU |
+| Parallel | 4 | 1.38M pps | 5.9% CPU | 59.0% CPU |
+| Parallel | 8 | 1.40M pps | 5.8% CPU | 57.9% CPU |
 
 **Notes**: 
 - **TLS**: Round-robin dispatch (stateless) - best throughput with 4 workers (623.4K pps)
 - **TCP**: Hash-based routing (source IP → worker) - maintains per-connection state consistency
 - **HTTP**: Flow-based routing (src_ip, dst_ip, src_port, dst_port → worker) - maintains request/response pairs
 - TCP shows best performance with 4 workers (3.56M pps, 22.8% CPU @ 10 Gbps)
-- HTTP shows best performance with 2 workers (1.07M pps, 76.1% CPU @ 10 Gbps)
+- HTTP shows best performance with 2 workers (1.54M pps, 52.7% CPU @ 10 Gbps)
 - TLS shows best performance with 4 workers (623.4K pps, 13.0% CPU @ 1 Gbps, 77% of 10 Gbps capacity)
-- HTTP's complex flow tracking limits parallel scaling beyond 2 workers
+- HTTP's 4-8 workers show similar performance (1.38-1.40M pps) with diminishing returns
 - These benchmarks measured on laptop hardware (8 CPU cores)
 - Current optimal worker counts are specific to 8-core systems
 
@@ -61,7 +61,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 ### Protocol Efficiency Ranking
 1. **TCP**: Fastest (1.11M pps sequential, 3.56M pps parallel @ 4 workers) - excellent balance of speed and analysis depth
-2. **HTTP**: Fast (797K pps sequential, 1.07M pps parallel @ 2 workers) - comprehensive application-layer analysis with flow tracking
+2. **HTTP**: Fast (526.6K pps sequential, 1.54M pps parallel @ 2 workers) - comprehensive application-layer analysis with flow tracking
 3. **TLS**: Moderate (50.8K pps sequential, 623.4K pps parallel @ 4 workers) - cryptographic complexity
 
 ### Parallel Processing Support
@@ -84,13 +84,13 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
   - Maximum throughput is 77% of 10 Gbps packet rate (623.4K of 812K pps)
   
 - **HTTP**: Full parallel support with flow-based hash routing
-  - Best performance at 2 workers (1.07M pps, 76.1% CPU @ 10 Gbps)
-  - Parallel mode: 2 workers (1.07M pps), 4 workers (294K pps), 8 workers (328K pps)
-  - Sequential mode: 797K pps (101.9% CPU @ 10 Gbps)
+  - Best performance at 2 workers (1.54M pps, 52.7% CPU @ 10 Gbps)
+  - Parallel mode: 2 workers (1.54M pps), 4 workers (1.38M pps), 8 workers (1.40M pps)
+  - Sequential mode: 526.6K pps (154.3% CPU @ 10 Gbps [OVERLOAD])
   - Flow-based routing maintains request/response consistency
-  - Complex flow tracking limits parallel scaling beyond 2 workers
+  - 4-8 workers show diminishing returns due to flow-based hashing
   - Each worker has isolated flow cache and state
-  - Production ready: 2 workers handle 10 Gbps at 76% CPU
+  - Production ready: 2 workers handle 10 Gbps at 52.7% CPU
 
 ### PCAP Effectiveness
 - **HTTP**: 6.2% effectiveness with repeated dataset (16,000 packets from 16 original)
@@ -127,13 +127,13 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 - JA4 calculation is front-loaded during processing
 
 #### HTTP Optimization
-- **Sequential Mode**: 797K pps throughput (101.9% CPU for 10 Gbps - requires parallel mode)
-- **Parallel Mode (2 workers)**: 1.07M pps throughput (76.1% CPU for 10 Gbps) - **Recommended**
-- Use `HuginnNetHttp::with_config(2, 100)` for optimal throughput
-- Disable browser matching when not needed (reduces overhead)
-- Disable server matching when not needed (reduces overhead)
-- Use large cache (10K flows) for high volumes
-- Complex flow tracking limits scaling beyond 2 workers on 8-core systems
+- **Sequential Mode**: 526.6K pps throughput (154.3% CPU for 10 Gbps [OVERLOAD] - requires parallel mode)
+- **Parallel Mode (2 workers)**: 1.54M pps throughput (52.7% CPU for 10 Gbps) - **Recommended**
+- Use `HuginnNetHttp::with_config(Some(db), 1000, 2, 100, 16, 10)` for optimal throughput
+- Disable browser matching when not needed (reduces overhead by 44.3%)
+- Disable server matching when not needed (reduces overhead by 29.9%)
+- Use large cache (10K flows) for +3.2% throughput improvement
+- 4-8 workers show diminishing returns (1.38-1.40M pps) on 8-core systems
 
 ## Detailed Analysis Reports
 
