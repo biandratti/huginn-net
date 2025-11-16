@@ -11,6 +11,12 @@ use std::thread;
 use std::time::Duration;
 use tracing::debug;
 
+/// Worker configuration parameters
+struct WorkerConfig {
+    batch_size: usize,
+    timeout_ms: u64,
+}
+
 /// Result of dispatching a packet to a worker
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DispatchResult {
@@ -125,8 +131,7 @@ impl WorkerPool {
                         rx,
                         result_sender_clone,
                         shutdown_flag_clone,
-                        batch_size,
-                        timeout_ms,
+                        WorkerConfig { batch_size, timeout_ms },
                     );
                 })
                 .map_err(|e| {
@@ -214,24 +219,26 @@ impl WorkerPool {
         rx: Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
         shutdown_flag: Arc<AtomicBool>,
-        batch_size: usize,
-        timeout_ms: u64,
+        config: WorkerConfig,
     ) {
         debug!("TLS worker {} started", worker_id);
 
-        let mut batch = Vec::with_capacity(batch_size);
+        let mut batch = Vec::with_capacity(config.batch_size);
+        let timeout = Duration::from_millis(config.timeout_ms);
 
         loop {
-            // Check shutdown flag
             if shutdown_flag.load(Ordering::Relaxed) {
                 debug!("TLS worker {} received shutdown signal", worker_id);
                 break;
             }
 
             // Blocking recv for first packet (waits if queue is empty)
-            let first_packet = match rx.recv_timeout(Duration::from_millis(timeout_ms)) {
+            let first_packet = match rx.recv_timeout(timeout) {
                 Ok(packet) => packet,
                 Err(RecvTimeoutError::Timeout) => {
+                    if shutdown_flag.load(Ordering::Relaxed) {
+                        break;
+                    }
                     batch.clear();
                     continue;
                 }
@@ -244,7 +251,7 @@ impl WorkerPool {
             batch.push(first_packet);
 
             // Try to fill batch with more packets (non-blocking)
-            while batch.len() < batch_size {
+            while batch.len() < config.batch_size {
                 match rx.try_recv() {
                     Ok(packet) => batch.push(packet),
                     Err(TryRecvError::Empty) => break,

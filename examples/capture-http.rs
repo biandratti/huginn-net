@@ -117,14 +117,15 @@ fn main() {
                 info!(
                     "Initializing HTTP analyzer with {workers} worker threads (flow-based routing)"
                 );
-                let mut analyzer =
-                    match HuginnNetHttp::with_config(db_option, 1000, workers, queue_size) {
-                        Ok(analyzer) => analyzer,
-                        Err(e) => {
-                            error!("Failed to create HuginnNetHttp analyzer: {e}");
-                            return;
-                        }
-                    };
+                let mut analyzer = match HuginnNetHttp::with_config(
+                    db_option, 1000, workers, queue_size, 16, 10,
+                ) {
+                    Ok(analyzer) => analyzer,
+                    Err(e) => {
+                        error!("Failed to create HuginnNetHttp analyzer: {e}");
+                        return;
+                    }
+                };
 
                 if let Err(e) = analyzer.init_pool(sender.clone()) {
                     error!("Failed to initialize worker pool: {e}");

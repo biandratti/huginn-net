@@ -4,8 +4,6 @@ use huginn_net_http::{
     process_ipv4_packet, process_ipv6_packet, FlowKey, HttpProcessors, SignatureMatcher, TcpFlow,
 };
 use pcap_file::pcap::PcapReader;
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
 use std::error::Error;
 use std::fs::File;
 use std::sync::Mutex;
@@ -344,19 +342,11 @@ fn process_http_packet(
     matcher: Option<&SignatureMatcher>,
 ) -> Option<huginn_net_http::HttpAnalysisResult> {
     match huginn_net_http::packet_parser::parse_packet(packet) {
-        huginn_net_http::packet_parser::IpPacket::Ipv4(ip_data) => {
-            if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                process_ipv4_packet(&ipv4, http_flows, http_processors, matcher).ok()
-            } else {
-                None
-            }
+        huginn_net_http::packet_parser::IpPacket::Ipv4(ipv4) => {
+            process_ipv4_packet(&ipv4, http_flows, http_processors, matcher).ok()
         }
-        huginn_net_http::packet_parser::IpPacket::Ipv6(ip_data) => {
-            if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                process_ipv6_packet(&ipv6, http_flows, http_processors, matcher).ok()
-            } else {
-                None
-            }
+        huginn_net_http::packet_parser::IpPacket::Ipv6(ipv6) => {
+            process_ipv6_packet(&ipv6, http_flows, http_processors, matcher).ok()
         }
         huginn_net_http::packet_parser::IpPacket::None => None,
     }
@@ -1046,6 +1036,8 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 let pool = match huginn_net_http::WorkerPool::new(
                     num_workers,
                     100,
+                    16,
+                    10,
                     tx,
                     Some(db.clone()),
                     1000,
@@ -1075,7 +1067,15 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
     let parallel_2_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_http::WorkerPool::new(2, 100, tx, Some(db.clone()), 1000) {
+            let pool = match huginn_net_http::WorkerPool::new(
+                2,
+                100,
+                16,
+                10,
+                tx,
+                Some(db.clone()),
+                1000,
+            ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };
@@ -1091,7 +1091,15 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
     let parallel_4_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_http::WorkerPool::new(4, 100, tx, Some(db.clone()), 1000) {
+            let pool = match huginn_net_http::WorkerPool::new(
+                4,
+                100,
+                16,
+                10,
+                tx,
+                Some(db.clone()),
+                1000,
+            ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };
@@ -1107,7 +1115,15 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
     let parallel_8_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_http::WorkerPool::new(8, 100, tx, Some(db.clone()), 1000) {
+            let pool = match huginn_net_http::WorkerPool::new(
+                8,
+                100,
+                16,
+                10,
+                tx,
+                Some(db.clone()),
+                1000,
+            ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };

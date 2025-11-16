@@ -42,10 +42,20 @@ use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
 /// Configuration for parallel processing
+///
+/// Controls the behavior of worker threads in parallel mode.
 #[derive(Debug, Clone)]
 pub struct ParallelConfig {
+    /// Number of worker threads to spawn
     pub num_workers: usize,
+    /// Size of packet queue per worker (affects memory usage and backpressure)
     pub queue_size: usize,
+    /// Maximum packets to process in one batch before checking for new work
+    /// Higher = better throughput, lower = better latency (typical: 8-32)
+    pub batch_size: usize,
+    /// Worker receive timeout in milliseconds
+    /// Lower = faster shutdown, higher = better throughput (typical: 5-20)
+    pub timeout_ms: u64,
 }
 
 /// An HTTP-focused passive fingerprinting analyzer.
@@ -84,13 +94,41 @@ impl HuginnNetHttp {
         })
     }
 
-    /// Creates a new instance of `HuginnNetHttp` with parallel processing configuration.
+    /// Creates a new instance of `HuginnNetHttp` with full parallel configuration.
     ///
     /// # Parameters
     /// - `database`: Optional signature database for HTTP matching
-    /// - `max_connections`: Maximum number of HTTP flows to track per worker
-    /// - `num_workers`: Number of worker threads
-    /// - `queue_size`: Size of each worker's packet queue
+    /// - `max_connections`: Maximum number of HTTP flows to track per worker (typical: 1000-10000)
+    /// - `num_workers`: Number of worker threads (recommended: 2 for HTTP due to flow tracking)
+    /// - `queue_size`: Size of each worker's packet queue (typical: 100-200)
+    /// - `batch_size`: Maximum packets to process in one batch (typical: 8-32, recommended: 16)
+    /// - `timeout_ms`: Worker receive timeout in milliseconds (typical: 5-20, recommended: 10)
+    ///
+    /// # Configuration Guide
+    ///
+    /// ## batch_size
+    /// - **Low (8)**: Lower latency, more responsive, higher overhead
+    /// - **Medium (16)**: Balanced throughput and latency *(recommended)*
+    /// - **High (32-64)**: Maximum throughput, higher latency
+    ///
+    /// ## timeout_ms
+    /// - **Low (5-10ms)**: Fast shutdown, slightly lower throughput *(recommended: 10)*
+    /// - **Medium (15-20ms)**: Better throughput, slower shutdown
+    /// - **High (50ms+)**: Maximum throughput, slow shutdown
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use huginn_net_http::HuginnNetHttp;
+    ///
+    /// // Balanced configuration (recommended for HTTP)
+    /// let http = HuginnNetHttp::with_config(None, 1000, 2, 100, 16, 10);
+    ///
+    /// // Low latency
+    /// let low_latency = HuginnNetHttp::with_config(None, 1000, 2, 100, 8, 5);
+    ///
+    /// // High throughput
+    /// let high_throughput = HuginnNetHttp::with_config(None, 5000, 2, 200, 32, 15);
+    /// ```
     ///
     /// # Returns
     /// A new `HuginnNetHttp` instance configured for parallel processing.
@@ -99,11 +137,18 @@ impl HuginnNetHttp {
         max_connections: usize,
         num_workers: usize,
         queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
     ) -> Result<Self, HuginnNetHttpError> {
         Ok(Self {
             http_flows: TtlCache::new(max_connections),
             http_processors: HttpProcessors::new(),
-            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size,
+                timeout_ms,
+            }),
             worker_pool: None,
             database,
             max_connections,
@@ -127,6 +172,8 @@ impl HuginnNetHttp {
             let pool = WorkerPool::new(
                 config.num_workers,
                 config.queue_size,
+                config.batch_size,
+                config.timeout_ms,
                 result_tx,
                 self.database.clone(),
                 self.max_connections,
@@ -325,39 +372,24 @@ impl HuginnNetHttp {
     /// # Returns
     /// A `Result` containing an `HttpAnalysisResult` or an error.
     fn process_packet(&mut self, packet: &[u8]) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
-        use pnet::packet::ipv4::Ipv4Packet;
-        use pnet::packet::ipv6::Ipv6Packet;
-
         let matcher = self
             .database
             .as_ref()
             .map(|db| SignatureMatcher::new(db.as_ref()));
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process::process_ipv4_packet(
-                        &ipv4,
-                        &mut self.http_flows,
-                        &self.http_processors,
-                        matcher.as_ref(),
-                    )
-                } else {
-                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
-                }
-            }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process::process_ipv6_packet(
-                        &ipv6,
-                        &mut self.http_flows,
-                        &self.http_processors,
-                        matcher.as_ref(),
-                    )
-                } else {
-                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
-                }
-            }
+            IpPacket::Ipv4(ipv4) => process::process_ipv4_packet(
+                &ipv4,
+                &mut self.http_flows,
+                &self.http_processors,
+                matcher.as_ref(),
+            ),
+            IpPacket::Ipv6(ipv6) => process::process_ipv6_packet(
+                &ipv6,
+                &mut self.http_flows,
+                &self.http_processors,
+                matcher.as_ref(),
+            ),
             IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
         }
     }

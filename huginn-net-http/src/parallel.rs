@@ -12,19 +12,30 @@ use crate::{HttpAnalysisResult, SignatureMatcher};
 use crossbeam_channel::{bounded, Sender};
 use huginn_net_db as db;
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use tracing::debug;
 use ttl_cache::TtlCache;
+
+/// Worker configuration parameters
+struct WorkerConfig {
+    batch_size: usize,
+    timeout_ms: u64,
+    max_connections: usize,
+}
 
 /// Worker pool for parallel HTTP packet processing.
 pub struct WorkerPool {
-    packet_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>,
+    packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<HttpAnalysisResult>>>>,
+    shutdown_flag: Arc<AtomicBool>,
     dispatched_count: Arc<AtomicU64>,
     dropped_count: Arc<AtomicU64>,
     worker_dropped: Vec<Arc<AtomicU64>>,
     num_workers: usize,
+    pub batch_size: usize,
+    pub timeout_ms: u64,
 }
 
 /// Statistics for a single worker thread.
@@ -58,7 +69,9 @@ impl WorkerPool {
     /// # Parameters
     /// - `num_workers`: Number of worker threads
     /// - `queue_size`: Size of each worker's packet queue
-    /// - `result_tx`: Channel to send analysis results
+    /// - `batch_size`: Maximum packets to process in one batch
+    /// - `timeout_ms`: Worker receive timeout in milliseconds
+    /// - `result_sender`: Channel to send analysis results
     /// - `database`: Optional signature database for matching
     /// - `max_connections`: Maximum HTTP flows to track per worker
     ///
@@ -67,7 +80,9 @@ impl WorkerPool {
     pub fn new(
         num_workers: usize,
         queue_size: usize,
-        result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
+        batch_size: usize,
+        timeout_ms: u64,
+        result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
@@ -79,20 +94,30 @@ impl WorkerPool {
 
         let mut packet_senders = Vec::with_capacity(num_workers);
         let mut worker_dropped = Vec::with_capacity(num_workers);
+        let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         for worker_id in 0..num_workers {
             let (tx, rx) = bounded::<Vec<u8>>(queue_size);
             packet_senders.push(tx);
 
-            let result_tx_clone = result_tx.clone();
+            let result_sender_clone = result_sender.clone();
             let db_clone = database.clone();
             let dropped = Arc::new(AtomicU64::new(0));
             worker_dropped.push(Arc::clone(&dropped));
+            let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
             thread::Builder::new()
                 .name(format!("http-worker-{worker_id}"))
                 .spawn(move || {
-                    Self::worker_loop(rx, result_tx_clone, db_clone, max_connections, dropped)
+                    Self::worker_loop(
+                        worker_id,
+                        rx,
+                        result_sender_clone,
+                        db_clone,
+                        dropped,
+                        shutdown_flag_clone,
+                        WorkerConfig { batch_size, timeout_ms, max_connections },
+                    )
                 })
                 .map_err(|e| {
                     HuginnNetHttpError::Misconfiguration(format!(
@@ -102,44 +127,96 @@ impl WorkerPool {
         }
 
         Ok(Arc::new(Self {
-            packet_senders: Arc::new(Mutex::new(packet_senders)),
-            result_sender: Arc::new(Mutex::new(Some(result_tx))),
+            packet_senders: Arc::new(packet_senders),
+            result_sender: Arc::new(Mutex::new(Some(result_sender))),
+            shutdown_flag,
             dispatched_count: Arc::new(AtomicU64::new(0)),
             dropped_count: Arc::new(AtomicU64::new(0)),
             worker_dropped,
             num_workers,
+            batch_size,
+            timeout_ms,
         }))
     }
 
-    /// Worker thread main loop.
+    /// Worker thread main loop with batching support.
     fn worker_loop(
+        worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
-        result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
+        result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
-        max_connections: usize,
         dropped: Arc<AtomicU64>,
+        shutdown_flag: Arc<AtomicBool>,
+        config: WorkerConfig,
     ) {
+        use crossbeam_channel::RecvTimeoutError;
+        use std::time::Duration;
+
+        debug!("HTTP worker {} started", worker_id);
+
         let matcher = database
             .as_ref()
             .map(|db| SignatureMatcher::new(db.as_ref()));
-        let mut http_flows = TtlCache::new(max_connections);
+        let mut http_flows = TtlCache::new(config.max_connections);
         let http_processors = HttpProcessors::new();
+        let timeout = Duration::from_millis(config.timeout_ms);
+        let mut batch = Vec::with_capacity(config.batch_size);
 
-        while let Ok(packet) = rx.recv() {
-            match Self::process_packet(&packet, &mut http_flows, &http_processors, matcher.as_ref())
-            {
-                Ok(result) => {
-                    if result_tx.send(result).is_err() {
-                        // Result channel closed, stop worker
-                        break;
+        loop {
+            if shutdown_flag.load(Ordering::Relaxed) {
+                debug!("HTTP worker {} received shutdown signal", worker_id);
+                break;
+            }
+
+            // Receive first packet with timeout (blocking)
+            match rx.recv_timeout(timeout) {
+                Ok(packet) => {
+                    batch.push(packet);
+
+                    // Try to fill the batch with additional packets (non-blocking)
+                    while batch.len() < config.batch_size {
+                        match rx.try_recv() {
+                            Ok(packet) => batch.push(packet),
+                            Err(_) => break,
+                        }
+                    }
+
+                    // Process all packets in the batch
+                    for packet in batch.drain(..) {
+                        match Self::process_packet(
+                            &packet,
+                            &mut http_flows,
+                            &http_processors,
+                            matcher.as_ref(),
+                        ) {
+                            Ok(result) => {
+                                if result_sender.send(result).is_err() {
+                                    debug!("HTTP worker {} result channel closed", worker_id);
+                                    return;
+                                }
+                            }
+                            Err(_) => {
+                                // Packet processing error, increment dropped count
+                                dropped.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
                     }
                 }
-                Err(_) => {
-                    // Packet processing error, increment dropped count
-                    dropped.fetch_add(1, Ordering::Relaxed);
+                Err(RecvTimeoutError::Timeout) => {
+                    if shutdown_flag.load(Ordering::Relaxed) {
+                        debug!("HTTP worker {} received shutdown signal", worker_id);
+                        break;
+                    }
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    debug!("HTTP worker {} channel disconnected", worker_id);
+                    break;
                 }
             }
         }
+
+        debug!("HTTP worker {} stopped", worker_id);
     }
 
     /// Processes a single packet within a worker thread.
@@ -151,46 +228,37 @@ impl WorkerPool {
     ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
         use crate::packet_parser::{parse_packet, IpPacket};
         use crate::process;
-        use pnet::packet::ipv4::Ipv4Packet;
-        use pnet::packet::ipv6::Ipv6Packet;
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher)
-                } else {
-                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
-                }
+            IpPacket::Ipv4(ipv4) => {
+                process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher)
             }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher)
-                } else {
-                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
-                }
+            IpPacket::Ipv6(ipv6) => {
+                process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher)
             }
             IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
         }
     }
 
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
+        // Don't accept new packets if shutting down
+        if self.shutdown_flag.load(Ordering::Relaxed) {
+            self.dropped_count.fetch_add(1, Ordering::Relaxed);
+            return DispatchResult::Dropped;
+        }
+
         let worker_id = packet_hash::hash_flow(&packet, self.num_workers);
 
         self.dispatched_count.fetch_add(1, Ordering::Relaxed);
 
-        if let Ok(senders) = self.packet_senders.lock() {
-            if let Some(sender) = senders.get(worker_id) {
-                match sender.try_send(packet) {
-                    Ok(()) => DispatchResult::Queued,
-                    Err(_) => {
-                        self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                        self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                        DispatchResult::Dropped
-                    }
+        if let Some(sender) = self.packet_senders.get(worker_id) {
+            match sender.try_send(packet) {
+                Ok(()) => DispatchResult::Queued,
+                Err(_) => {
+                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                    DispatchResult::Dropped
                 }
-            } else {
-                self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                DispatchResult::Dropped
             }
         } else {
             self.dropped_count.fetch_add(1, Ordering::Relaxed);
@@ -199,17 +267,16 @@ impl WorkerPool {
     }
 
     pub fn stats(&self) -> PoolStats {
-        let mut workers = Vec::new();
-
-        if let Ok(senders) = self.packet_senders.lock() {
-            for (id, sender) in senders.iter().enumerate() {
-                workers.push(WorkerStats {
-                    id,
-                    queue_size: sender.len(),
-                    dropped: self.worker_dropped[id].load(Ordering::Relaxed),
-                });
-            }
-        }
+        let workers = self
+            .packet_senders
+            .iter()
+            .enumerate()
+            .map(|(id, sender)| WorkerStats {
+                id,
+                queue_size: sender.len(),
+                dropped: self.worker_dropped[id].load(Ordering::Relaxed),
+            })
+            .collect();
 
         PoolStats {
             total_dispatched: self.dispatched_count.load(Ordering::Relaxed),
@@ -220,10 +287,8 @@ impl WorkerPool {
 
     /// Initiates graceful shutdown of the worker pool.
     pub fn shutdown(&self) {
-        // Clear all senders to signal workers to stop
-        if let Ok(mut senders) = self.packet_senders.lock() {
-            senders.clear();
-        }
+        // Set shutdown flag to stop workers on next timeout
+        self.shutdown_flag.store(true, Ordering::Relaxed);
 
         // Drop result sender to signal workers
         if let Ok(mut sender) = self.result_sender.lock() {
