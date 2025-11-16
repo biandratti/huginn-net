@@ -960,6 +960,8 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
                 let pool = match huginn_net_tcp::parallel::WorkerPool::new(
                     num_workers,
                     100,
+                    32,
+                    10,
                     tx,
                     Some(db.clone()),
                     1000,
@@ -989,12 +991,18 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
     let parallel_2_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool =
-                match huginn_net_tcp::parallel::WorkerPool::new(2, 100, tx, Some(db.clone()), 1000)
-                {
-                    Ok(p) => p,
-                    Err(e) => panic!("Failed to create worker pool: {e}"),
-                };
+            let pool = match huginn_net_tcp::parallel::WorkerPool::new(
+                2,
+                100,
+                32,
+                10,
+                tx,
+                Some(db.clone()),
+                1000,
+            ) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
             for packet in packets.iter() {
                 let _ = pool.dispatch(packet.clone());
             }
@@ -1007,12 +1015,18 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
     let parallel_4_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool =
-                match huginn_net_tcp::parallel::WorkerPool::new(4, 100, tx, Some(db.clone()), 1000)
-                {
-                    Ok(p) => p,
-                    Err(e) => panic!("Failed to create worker pool: {e}"),
-                };
+            let pool = match huginn_net_tcp::parallel::WorkerPool::new(
+                4,
+                100,
+                32,
+                10,
+                tx,
+                Some(db.clone()),
+                1000,
+            ) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
             for packet in packets.iter() {
                 let _ = pool.dispatch(packet.clone());
             }
@@ -1025,12 +1039,18 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
     let parallel_8_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool =
-                match huginn_net_tcp::parallel::WorkerPool::new(8, 100, tx, Some(db.clone()), 1000)
-                {
-                    Ok(p) => p,
-                    Err(e) => panic!("Failed to create worker pool: {e}"),
-                };
+            let pool = match huginn_net_tcp::parallel::WorkerPool::new(
+                8,
+                100,
+                32,
+                10,
+                tx,
+                Some(db.clone()),
+                1000,
+            ) {
+                Ok(p) => p,
+                Err(e) => panic!("Failed to create worker pool: {e}"),
+            };
             for packet in packets.iter() {
                 let _ = pool.dispatch(packet.clone());
             }

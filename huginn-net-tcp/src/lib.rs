@@ -50,6 +50,8 @@ use ttl_cache::TtlCache;
 pub struct ParallelConfig {
     pub num_workers: usize,
     pub queue_size: usize,
+    pub batch_size: usize,
+    pub timeout_ms: u64,
 }
 
 /// A TCP-focused passive fingerprinting analyzer.
@@ -91,6 +93,8 @@ impl HuginnNetTcp {
     /// - `max_connections`: Maximum number of connections to track per worker
     /// - `num_workers`: Number of worker threads for parallel processing
     /// - `queue_size`: Size of packet queue per worker
+    /// - `batch_size`: Number of packets to process before yielding (default: 32)
+    /// - `timeout_ms`: Timeout in milliseconds for blocking receive (default: 10)
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance configured for parallel processing.
@@ -99,11 +103,18 @@ impl HuginnNetTcp {
         max_connections: usize,
         num_workers: usize,
         queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
     ) -> Result<Self, HuginnNetTcpError> {
         Ok(Self {
             matcher: database,
             max_connections,
-            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size,
+                timeout_ms,
+            }),
             worker_pool: None,
         })
     }
@@ -134,6 +145,8 @@ impl HuginnNetTcp {
         let worker_pool = WorkerPool::new(
             config.num_workers,
             config.queue_size,
+            config.batch_size,
+            config.timeout_ms,
             sender,
             database_arc,
             self.max_connections,
