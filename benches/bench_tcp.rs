@@ -4,8 +4,6 @@ use huginn_net_tcp::{
     process_ipv4_packet, process_ipv6_packet, ConnectionKey, SignatureMatcher, TcpTimestamp,
 };
 use pcap_file::pcap::PcapReader;
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
 use std::error::Error;
 use std::fs::File;
 use std::sync::Mutex;
@@ -357,19 +355,11 @@ fn process_tcp_packet(
     matcher: Option<&SignatureMatcher>,
 ) -> Option<huginn_net_tcp::TcpAnalysisResult> {
     match huginn_net_tcp::packet_parser::parse_packet(packet) {
-        huginn_net_tcp::packet_parser::IpPacket::Ipv4(ip_data) => {
-            if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                process_ipv4_packet(&ipv4, connection_tracker, matcher).ok()
-            } else {
-                None
-            }
+        huginn_net_tcp::packet_parser::IpPacket::Ipv4(ipv4) => {
+            process_ipv4_packet(&ipv4, connection_tracker, matcher).ok()
         }
-        huginn_net_tcp::packet_parser::IpPacket::Ipv6(ip_data) => {
-            if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                process_ipv6_packet(&ipv6, connection_tracker, matcher).ok()
-            } else {
-                None
-            }
+        huginn_net_tcp::packet_parser::IpPacket::Ipv6(ipv6) => {
+            process_ipv6_packet(&ipv6, connection_tracker, matcher).ok()
         }
         huginn_net_tcp::packet_parser::IpPacket::None => None,
     }

@@ -36,8 +36,6 @@ pub use uptime::{
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
 use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -369,31 +367,11 @@ impl HuginnNetTcp {
             .map(|db| SignatureMatcher::new(db.as_ref()));
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4, connection_tracker, matcher.as_ref())
-                } else {
-                    Ok(TcpAnalysisResult {
-                        syn: None,
-                        syn_ack: None,
-                        mtu: None,
-                        client_uptime: None,
-                        server_uptime: None,
-                    })
-                }
+            IpPacket::Ipv4(ipv4) => {
+                process_ipv4_packet(&ipv4, connection_tracker, matcher.as_ref())
             }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6, connection_tracker, matcher.as_ref())
-                } else {
-                    Ok(TcpAnalysisResult {
-                        syn: None,
-                        syn_ack: None,
-                        mtu: None,
-                        client_uptime: None,
-                        server_uptime: None,
-                    })
-                }
+            IpPacket::Ipv6(ipv6) => {
+                process_ipv6_packet(&ipv6, connection_tracker, matcher.as_ref())
             }
             IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,

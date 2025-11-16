@@ -5,8 +5,6 @@ use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::signature_matcher::SignatureMatcher;
 use crossbeam_channel::{bounded, Sender, TrySendError};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -265,32 +263,8 @@ impl WorkerPool {
         result_sender: &std::sync::mpsc::Sender<TcpAnalysisResult>,
     ) -> bool {
         let result = match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4, connection_tracker, matcher)
-                } else {
-                    Ok(TcpAnalysisResult {
-                        syn: None,
-                        syn_ack: None,
-                        mtu: None,
-                        client_uptime: None,
-                        server_uptime: None,
-                    })
-                }
-            }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6, connection_tracker, matcher)
-                } else {
-                    Ok(TcpAnalysisResult {
-                        syn: None,
-                        syn_ack: None,
-                        mtu: None,
-                        client_uptime: None,
-                        server_uptime: None,
-                    })
-                }
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, connection_tracker, matcher),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, connection_tracker, matcher),
             IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,
                 syn_ack: None,
