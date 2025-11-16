@@ -68,11 +68,8 @@ fn create_observable_package_ipv4(
         };
 
         let syn_output = SynTCPOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             os_matched: os_quality,
             sig: tcp_request,
         };
@@ -96,11 +93,8 @@ fn create_observable_package_ipv4(
         };
 
         let syn_ack_output = SynAckTCPOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             os_matched: os_quality,
             sig: tcp_response,
         };
@@ -122,7 +116,7 @@ fn create_observable_package_ipv4(
         };
 
         let mtu_output = MTUOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
             destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             link: link_quality,
             mtu: mtu.value,
@@ -212,11 +206,8 @@ fn create_observable_package_ipv6(
         };
 
         let syn_output = SynTCPOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             os_matched: os_quality,
             sig: tcp_request,
         };
@@ -241,11 +232,8 @@ fn create_observable_package_ipv6(
         };
 
         let syn_ack_output = SynAckTCPOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             os_matched: os_quality,
             sig: tcp_response,
         };
@@ -268,11 +256,8 @@ fn create_observable_package_ipv6(
         };
 
         let mtu_output = MTUOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             link: link_quality,
             mtu: mtu.value,
         };
@@ -282,11 +267,8 @@ fn create_observable_package_ipv6(
     // Process client uptime
     if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             role: UptimeRole::Client,
             days: uptime.days,
             hours: uptime.hours,
@@ -300,11 +282,8 @@ fn create_observable_package_ipv6(
     // Process server uptime
     if let Some(uptime) = tcp_package.server_uptime {
         let uptime_output = UptimeOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             role: UptimeRole::Server,
             days: uptime.days,
             hours: uptime.hours,

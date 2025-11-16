@@ -87,11 +87,8 @@ fn create_observable_package_ipv4(
         );
 
         let request_output = HttpRequestOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             lang: http_request.lang.clone(),
             diagnosis,
             browser_matched: browser_quality,
@@ -123,11 +120,8 @@ fn create_observable_package_ipv4(
         };
 
         let response_output = HttpResponseOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V4(ipv4.get_destination()), tcp.get_destination()),
             diagnosis: HttpDiagnosis::None, // Default diagnosis for responses
             web_server_matched: web_server_quality,
             sig: http_response,
@@ -209,11 +203,8 @@ fn create_observable_package_ipv6(
         );
 
         let request_output = HttpRequestOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             lang: http_request.lang.clone(),
             diagnosis,
             browser_matched: browser_quality,
@@ -246,11 +237,8 @@ fn create_observable_package_ipv6(
         };
 
         let response_output = HttpResponseOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
+            destination: IpPort::new(IpAddr::V6(ipv6.get_destination()), tcp.get_destination()),
             diagnosis: HttpDiagnosis::None, // Default diagnosis for responses
             web_server_matched: web_server_quality,
             sig: http_response,
