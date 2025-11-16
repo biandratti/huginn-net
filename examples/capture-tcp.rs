@@ -93,7 +93,7 @@ fn main() {
         }
         Commands::Parallel { workers, queue_size, .. } => {
             info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
-            match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size) {
+            match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size, 32, 10) {
                 Ok(analyzer) => analyzer,
                 Err(e) => {
                     error!("Failed to create HuginnNetTcp analyzer: {e}");
