@@ -67,16 +67,12 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
 
 /// Detect TLS traffic based on packet content only
 /// This is more reliable than port-based detection since TLS can run on any port
+#[inline(always)]
 pub fn is_tls_traffic(payload: &[u8]) -> bool {
     // Check for TLS record header (0x16 = Handshake, followed by version)
-    if payload.len() >= 5 {
-        let content_type = payload[0];
+    payload.len() >= 5 && payload[0] == 0x16 && {
         let version = u16::from_be_bytes([payload[1], payload[2]]);
-
-        // TLS handshake (0x16) with valid TLS version (including SSL 3.0)
-        content_type == 0x16 && (0x0300..=0x0304).contains(&version)
-    } else {
-        false
+        (0x0300..=0x0304).contains(&version)
     }
 }
 
