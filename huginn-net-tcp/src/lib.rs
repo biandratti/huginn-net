@@ -112,7 +112,7 @@ impl HuginnNetTcp {
     /// use huginn_net_db::Database;
     /// use std::sync::Arc;
     ///
-    /// let db = Arc::new(Database::default());
+    /// let db = Arc::new(Database::load_default().expect("Failed to load database"));
     ///
     /// // Balanced configuration (recommended)
     /// let tcp = HuginnNetTcp::with_config(Some(db.clone()), 1000, 4, 100, 32, 10);
