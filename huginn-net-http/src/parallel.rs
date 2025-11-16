@@ -12,15 +12,24 @@ use crate::{HttpAnalysisResult, SignatureMatcher};
 use crossbeam_channel::{bounded, Sender};
 use huginn_net_db as db;
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use tracing::debug;
 use ttl_cache::TtlCache;
+
+/// Worker configuration parameters
+struct WorkerConfig {
+    batch_size: usize,
+    timeout_ms: u64,
+    max_connections: usize,
+}
 
 /// Worker pool for parallel HTTP packet processing.
 pub struct WorkerPool {
     packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<HttpAnalysisResult>>>>,
+    shutdown_flag: Arc<AtomicBool>,
     dispatched_count: Arc<AtomicU64>,
     dropped_count: Arc<AtomicU64>,
     worker_dropped: Vec<Arc<AtomicU64>>,
@@ -62,7 +71,7 @@ impl WorkerPool {
     /// - `queue_size`: Size of each worker's packet queue
     /// - `batch_size`: Maximum packets to process in one batch
     /// - `timeout_ms`: Worker receive timeout in milliseconds
-    /// - `result_tx`: Channel to send analysis results
+    /// - `result_sender`: Channel to send analysis results
     /// - `database`: Optional signature database for matching
     /// - `max_connections`: Maximum HTTP flows to track per worker
     ///
@@ -73,7 +82,7 @@ impl WorkerPool {
         queue_size: usize,
         batch_size: usize,
         timeout_ms: u64,
-        result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
+        result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
@@ -85,27 +94,29 @@ impl WorkerPool {
 
         let mut packet_senders = Vec::with_capacity(num_workers);
         let mut worker_dropped = Vec::with_capacity(num_workers);
+        let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         for worker_id in 0..num_workers {
             let (tx, rx) = bounded::<Vec<u8>>(queue_size);
             packet_senders.push(tx);
 
-            let result_tx_clone = result_tx.clone();
+            let result_sender_clone = result_sender.clone();
             let db_clone = database.clone();
             let dropped = Arc::new(AtomicU64::new(0));
             worker_dropped.push(Arc::clone(&dropped));
+            let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
             thread::Builder::new()
                 .name(format!("http-worker-{worker_id}"))
                 .spawn(move || {
                     Self::worker_loop(
+                        worker_id,
                         rx,
-                        result_tx_clone,
+                        result_sender_clone,
                         db_clone,
-                        max_connections,
                         dropped,
-                        batch_size,
-                        timeout_ms,
+                        shutdown_flag_clone,
+                        WorkerConfig { batch_size, timeout_ms, max_connections },
                     )
                 })
                 .map_err(|e| {
@@ -117,7 +128,8 @@ impl WorkerPool {
 
         Ok(Arc::new(Self {
             packet_senders: Arc::new(packet_senders),
-            result_sender: Arc::new(Mutex::new(Some(result_tx))),
+            result_sender: Arc::new(Mutex::new(Some(result_sender))),
+            shutdown_flag,
             dispatched_count: Arc::new(AtomicU64::new(0)),
             dropped_count: Arc::new(AtomicU64::new(0)),
             worker_dropped,
@@ -129,33 +141,40 @@ impl WorkerPool {
 
     /// Worker thread main loop with batching support.
     fn worker_loop(
+        worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
-        result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
+        result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
-        max_connections: usize,
         dropped: Arc<AtomicU64>,
-        batch_size: usize,
-        timeout_ms: u64,
+        shutdown_flag: Arc<AtomicBool>,
+        config: WorkerConfig,
     ) {
         use crossbeam_channel::RecvTimeoutError;
         use std::time::Duration;
 
+        debug!("HTTP worker {} started", worker_id);
+
         let matcher = database
             .as_ref()
             .map(|db| SignatureMatcher::new(db.as_ref()));
-        let mut http_flows = TtlCache::new(max_connections);
+        let mut http_flows = TtlCache::new(config.max_connections);
         let http_processors = HttpProcessors::new();
-        let timeout = Duration::from_millis(timeout_ms);
-        let mut batch = Vec::with_capacity(batch_size);
+        let timeout = Duration::from_millis(config.timeout_ms);
+        let mut batch = Vec::with_capacity(config.batch_size);
 
         loop {
+            if shutdown_flag.load(Ordering::Relaxed) {
+                debug!("HTTP worker {} received shutdown signal", worker_id);
+                break;
+            }
+
             // Receive first packet with timeout (blocking)
             match rx.recv_timeout(timeout) {
                 Ok(packet) => {
                     batch.push(packet);
 
                     // Try to fill the batch with additional packets (non-blocking)
-                    while batch.len() < batch_size {
+                    while batch.len() < config.batch_size {
                         match rx.try_recv() {
                             Ok(packet) => batch.push(packet),
                             Err(_) => break,
@@ -171,8 +190,8 @@ impl WorkerPool {
                             matcher.as_ref(),
                         ) {
                             Ok(result) => {
-                                if result_tx.send(result).is_err() {
-                                    // Result channel closed, stop worker
+                                if result_sender.send(result).is_err() {
+                                    debug!("HTTP worker {} result channel closed", worker_id);
                                     return;
                                 }
                             }
@@ -184,15 +203,20 @@ impl WorkerPool {
                     }
                 }
                 Err(RecvTimeoutError::Timeout) => {
-                    // Timeout, continue waiting
+                    if shutdown_flag.load(Ordering::Relaxed) {
+                        debug!("HTTP worker {} received shutdown signal", worker_id);
+                        break;
+                    }
                     continue;
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    // Channel closed, stop worker
+                    debug!("HTTP worker {} channel disconnected", worker_id);
                     break;
                 }
             }
         }
+
+        debug!("HTTP worker {} stopped", worker_id);
     }
 
     /// Processes a single packet within a worker thread.
@@ -217,6 +241,12 @@ impl WorkerPool {
     }
 
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
+        // Don't accept new packets if shutting down
+        if self.shutdown_flag.load(Ordering::Relaxed) {
+            self.dropped_count.fetch_add(1, Ordering::Relaxed);
+            return DispatchResult::Dropped;
+        }
+
         let worker_id = packet_hash::hash_flow(&packet, self.num_workers);
 
         self.dispatched_count.fetch_add(1, Ordering::Relaxed);
@@ -257,9 +287,10 @@ impl WorkerPool {
 
     /// Initiates graceful shutdown of the worker pool.
     pub fn shutdown(&self) {
+        // Set shutdown flag to stop workers on next timeout
+        self.shutdown_flag.store(true, Ordering::Relaxed);
+
         // Drop result sender to signal workers
-        // Note: packet_senders will be dropped when WorkerPool is dropped,
-        // which will close all channels and terminate workers
         if let Ok(mut sender) = self.result_sender.lock() {
             *sender = None;
         }
