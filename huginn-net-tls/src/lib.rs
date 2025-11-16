@@ -26,10 +26,20 @@ use std::sync::Arc;
 use tracing::{debug, error};
 
 /// Configuration for parallel processing
+///
+/// Controls the behavior of worker threads in parallel mode.
 #[derive(Debug, Clone)]
 struct ParallelConfig {
+    /// Number of worker threads to spawn
     num_workers: usize,
+    /// Size of packet queue per worker (affects memory usage and backpressure)
     queue_size: usize,
+    /// Maximum packets to process in one batch before checking for new work
+    /// Higher = better throughput, lower = better latency (typical: 16-64)
+    batch_size: usize,
+    /// Worker receive timeout in milliseconds
+    /// Lower = faster shutdown, higher = better throughput (typical: 5-50)
+    timeout_ms: u64,
 }
 
 /// A TLS-focused passive fingerprinting analyzer using JA4 methodology.
@@ -56,17 +66,55 @@ impl HuginnNetTls {
         Self { parallel_config: None, worker_pool: None }
     }
 
-    /// Creates a new instance with parallel configuration.
+    /// Creates a new instance with full parallel configuration.
     ///
     /// # Parameters
-    /// - `num_workers`: Number of worker threads
-    /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
+    /// - `num_workers`: Number of worker threads (recommended: 2-4 on 8-core systems)
+    /// - `queue_size`: Size of packet queue per worker (typical: 100-200)
+    /// - `batch_size`: Maximum packets to process in one batch (typical: 16-64, recommended: 32)
+    /// - `timeout_ms`: Worker receive timeout in milliseconds (typical: 5-50, recommended: 10)
+    ///
+    /// # Configuration Guide
+    ///
+    /// ## batch_size
+    /// - **Low (8-16)**: Lower latency, more responsive, higher overhead
+    /// - **Medium (32)**: Balanced throughput and latency *(recommended)*
+    /// - **High (64-128)**: Maximum throughput, higher latency
+    ///
+    /// ## timeout_ms
+    /// - **Low (5-10ms)**: Fast shutdown, slightly lower throughput *(recommended: 10)*
+    /// - **Medium (20-50ms)**: Better throughput, slower shutdown
+    /// - **High (100ms+)**: Maximum throughput, slow shutdown
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use huginn_net_tls::HuginnNetTls;
+    ///
+    /// // Balanced configuration (recommended)
+    /// let tls = HuginnNetTls::with_config(4, 100, 32, 10);
+    ///
+    /// // Low latency
+    /// let low_latency = HuginnNetTls::with_config(2, 100, 8, 5);
+    ///
+    /// // High throughput
+    /// let high_throughput = HuginnNetTls::with_config(4, 200, 64, 20);
+    /// ```
     ///
     /// # Returns
-    /// A new `HuginnNetTls` instance with custom parallel configuration.
-    pub fn with_config(num_workers: usize, queue_size: usize) -> Self {
+    /// A new `HuginnNetTls` instance with parallel configuration.
+    pub fn with_config(
+        num_workers: usize,
+        queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
+    ) -> Self {
         Self {
-            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size,
+                timeout_ms,
+            }),
             worker_pool: None,
         }
     }
@@ -97,8 +145,13 @@ impl HuginnNetTls {
     pub fn init_pool(&mut self, sender: Sender<TlsClientOutput>) -> Result<(), HuginnNetTlsError> {
         if let Some(config) = &self.parallel_config {
             if self.worker_pool.is_none() {
-                let worker_pool =
-                    Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+                let worker_pool = Arc::new(WorkerPool::new(
+                    config.num_workers,
+                    config.queue_size,
+                    config.batch_size,
+                    config.timeout_ms,
+                    sender,
+                )?);
                 self.worker_pool = Some(worker_pool);
             }
         }
@@ -136,8 +189,13 @@ impl HuginnNetTls {
             .ok_or_else(|| HuginnNetTlsError::Parse("Parallel config not found".to_string()))?;
 
         if self.worker_pool.is_none() {
-            let worker_pool =
-                Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+            let worker_pool = Arc::new(WorkerPool::new(
+                config.num_workers,
+                config.queue_size,
+                config.batch_size,
+                config.timeout_ms,
+                sender,
+            )?);
             self.worker_pool = Some(worker_pool);
         }
 
@@ -305,20 +363,8 @@ impl HuginnNetTls {
         packet: &[u8],
     ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = pnet::packet::ipv4::Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4)
-                } else {
-                    Ok(None)
-                }
-            }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = pnet::packet::ipv6::Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6)
-                } else {
-                    Ok(None)
-                }
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
             IpPacket::None => Ok(None),
         }
     }

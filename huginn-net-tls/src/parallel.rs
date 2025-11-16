@@ -2,14 +2,13 @@ use crate::output::TlsClientOutput;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::HuginnNetTlsError;
-use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError, TrySendError};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
+use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError, TrySendError};
 use std::fmt;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use tracing::debug;
 
 /// Result of dispatching a packet to a worker
@@ -70,9 +69,12 @@ impl fmt::Display for PoolStats {
 /// Worker pool for parallel TLS processing
 pub struct WorkerPool {
     _workers: Vec<thread::JoinHandle<()>>,
-    packet_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>,
+    packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<TlsClientOutput>>>>,
+    shutdown_flag: Arc<AtomicBool>,
     pub num_workers: NonZeroUsize,
+    pub batch_size: usize,
+    pub timeout_ms: u64,
     next_worker: AtomicUsize,
     queued_count: AtomicU64,
     dropped_count: AtomicU64,
@@ -88,18 +90,24 @@ impl WorkerPool {
     pub fn new(
         num_workers: usize,
         queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
     ) -> Result<Self, HuginnNetTlsError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or_else(|| {
             HuginnNetTlsError::Misconfiguration("Worker count must be greater than 0".to_string())
         })?;
 
-        debug!("Creating TLS worker pool: {} workers, queue size: {}", num_workers, queue_size);
+        debug!(
+            "Creating TLS worker pool: {} workers, queue size: {}, batch size: {}, timeout: {}ms",
+            num_workers, queue_size, batch_size, timeout_ms
+        );
 
         let num_workers_val = num_workers.get();
         let mut workers = Vec::with_capacity(num_workers_val);
         let mut packet_senders = Vec::with_capacity(num_workers_val);
         let mut worker_dropped = Vec::with_capacity(num_workers_val);
+        let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         for worker_id in 0..num_workers_val {
             worker_dropped.push(AtomicU64::new(0));
@@ -107,11 +115,19 @@ impl WorkerPool {
             packet_senders.push(tx);
 
             let result_sender_clone = result_sender.clone();
+            let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
             let handle = thread::Builder::new()
                 .name(format!("tls-worker-{worker_id}"))
                 .spawn(move || {
-                    Self::worker_loop(worker_id, rx, result_sender_clone);
+                    Self::worker_loop(
+                        worker_id,
+                        rx,
+                        result_sender_clone,
+                        shutdown_flag_clone,
+                        batch_size,
+                        timeout_ms,
+                    );
                 })
                 .map_err(|e| {
                     HuginnNetTlsError::Misconfiguration(format!(
@@ -124,9 +140,12 @@ impl WorkerPool {
 
         Ok(Self {
             _workers: workers,
-            packet_senders: Arc::new(Mutex::new(packet_senders)),
+            packet_senders: Arc::new(packet_senders),
             result_sender: Arc::new(Mutex::new(Some(result_sender))),
+            shutdown_flag,
             num_workers,
+            batch_size,
+            timeout_ms,
             next_worker: AtomicUsize::new(0),
             queued_count: AtomicU64::new(0),
             dropped_count: AtomicU64::new(0),
@@ -136,12 +155,7 @@ impl WorkerPool {
 
     /// Shutdown the worker pool by closing all channels
     pub fn shutdown(&self) {
-        // Drop all packet senders - workers will receive Disconnected
-        if let Ok(mut senders) = self.packet_senders.lock() {
-            senders.clear();
-        }
-
-        // Drop result sender - main loop will exit
+        self.shutdown_flag.store(true, Ordering::Relaxed);
         if let Ok(mut sender) = self.result_sender.lock() {
             *sender = None;
         }
@@ -149,48 +163,44 @@ impl WorkerPool {
 
     /// Dispatch packet to a worker (round-robin)
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
+        // Check if pool is shutting down
+        if self.shutdown_flag.load(Ordering::Relaxed) {
+            return DispatchResult::Dropped;
+        }
+
         let counter = self.next_worker.fetch_add(1, Ordering::Relaxed);
         let worker_id = counter.checked_rem(self.num_workers.get()).unwrap_or(0);
-
-        if let Ok(senders) = self.packet_senders.lock() {
-            if senders.is_empty() {
-                return DispatchResult::Dropped; // Pool is shutting down
+        match self.packet_senders[worker_id].try_send(packet) {
+            Ok(()) => {
+                self.queued_count.fetch_add(1, Ordering::Relaxed);
+                DispatchResult::Queued
             }
-
-            match senders[worker_id].try_send(packet) {
-                Ok(()) => {
-                    self.queued_count.fetch_add(1, Ordering::Relaxed);
-                    DispatchResult::Queued
-                }
-                Err(TrySendError::Full(_)) => {
-                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                    DispatchResult::Dropped
-                }
-                Err(TrySendError::Disconnected(_)) => {
-                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                    DispatchResult::Dropped
-                }
+            Err(TrySendError::Full(_)) => {
+                self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                DispatchResult::Dropped
             }
-        } else {
-            DispatchResult::Dropped
+            Err(TrySendError::Disconnected(_)) => {
+                self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                DispatchResult::Dropped
+            }
         }
     }
 
     /// Get current statistics
     pub fn stats(&self) -> PoolStats {
-        let workers = if let Ok(senders) = self.packet_senders.lock() {
-            (0..self.num_workers.get())
-                .map(|worker_id| WorkerStats {
-                    id: worker_id,
-                    queue_size: senders.get(worker_id).map(|s| s.len()).unwrap_or(0),
-                    dropped: self.worker_dropped[worker_id].load(Ordering::Relaxed),
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let workers = (0..self.num_workers.get())
+            .map(|worker_id| WorkerStats {
+                id: worker_id,
+                queue_size: self
+                    .packet_senders
+                    .get(worker_id)
+                    .map(|s| s.len())
+                    .unwrap_or(0),
+                dropped: self.worker_dropped[worker_id].load(Ordering::Relaxed),
+            })
+            .collect();
 
         PoolStats {
             total_dispatched: self.queued_count.load(Ordering::Relaxed),
@@ -203,25 +213,56 @@ impl WorkerPool {
         worker_id: usize,
         rx: Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
+        shutdown_flag: Arc<AtomicBool>,
+        batch_size: usize,
+        timeout_ms: u64,
     ) {
         debug!("TLS worker {} started", worker_id);
 
+        let mut batch = Vec::with_capacity(batch_size);
+
         loop {
-            match rx.try_recv() {
-                Ok(packet) => match Self::process_packet(&packet) {
+            // Check shutdown flag
+            if shutdown_flag.load(Ordering::Relaxed) {
+                debug!("TLS worker {} received shutdown signal", worker_id);
+                break;
+            }
+
+            // Blocking recv for first packet (waits if queue is empty)
+            let first_packet = match rx.recv_timeout(Duration::from_millis(timeout_ms)) {
+                Ok(packet) => packet,
+                Err(RecvTimeoutError::Timeout) => {
+                    batch.clear();
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    debug!("TLS worker {} channel disconnected", worker_id);
+                    break;
+                }
+            };
+
+            batch.push(first_packet);
+
+            // Try to fill batch with more packets (non-blocking)
+            while batch.len() < batch_size {
+                match rx.try_recv() {
+                    Ok(packet) => batch.push(packet),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => break,
+                }
+            }
+
+            // Process entire batch
+            for packet in batch.drain(..) {
+                match Self::process_packet(&packet) {
                     Ok(Some(result)) => {
                         if result_sender.send(result).is_err() {
-                            break;
+                            debug!("TLS worker {} result channel closed", worker_id);
+                            return;
                         }
                     }
                     Ok(None) => {}
                     Err(_) => {}
-                },
-                Err(TryRecvError::Empty) => {
-                    thread::yield_now();
-                }
-                Err(TryRecvError::Disconnected) => {
-                    break;
                 }
             }
         }
@@ -231,20 +272,8 @@ impl WorkerPool {
 
     fn process_packet(packet: &[u8]) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4)
-                } else {
-                    Ok(None)
-                }
-            }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6)
-                } else {
-                    Ok(None)
-                }
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
             IpPacket::None => Ok(None),
         }
     }

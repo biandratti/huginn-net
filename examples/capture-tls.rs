@@ -36,6 +36,12 @@ enum Commands {
 
         #[arg(short = 'q', long = "queue-size", default_value = "100")]
         queue_size: usize,
+
+        #[arg(short = 'b', long = "batch-size", default_value = "32")]
+        batch_size: usize,
+
+        #[arg(short = 't', long = "timeout-ms", default_value = "10")]
+        timeout_ms: u64,
     },
 }
 
@@ -83,9 +89,9 @@ fn main() {
             info!("Using sequential mode");
             HuginnNetTls::new()
         }
-        Commands::Parallel { workers, queue_size, .. } => {
-            info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
-            HuginnNetTls::with_config(*workers, *queue_size)
+        Commands::Parallel { workers, queue_size, batch_size, timeout_ms, .. } => {
+            info!("Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}");
+            HuginnNetTls::with_config(*workers, *queue_size, *batch_size, *timeout_ms)
         }
     };
 
