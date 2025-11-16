@@ -370,19 +370,11 @@ fn detect_tls_in_packet(packet: &[u8]) -> bool {
 /// Process a packet using the public TLS API
 fn process_tls_packet(packet: &[u8]) -> Option<huginn_net_tls::TlsClientOutput> {
     match huginn_net_tls::packet_parser::parse_packet(packet) {
-        huginn_net_tls::packet_parser::IpPacket::Ipv4(ip_data) => {
-            if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                process_ipv4_packet(&ipv4).ok().flatten()
-            } else {
-                None
-            }
+        huginn_net_tls::packet_parser::IpPacket::Ipv4(ipv4) => {
+            process_ipv4_packet(&ipv4).ok().flatten()
         }
-        huginn_net_tls::packet_parser::IpPacket::Ipv6(ip_data) => {
-            if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                process_ipv6_packet(&ipv6).ok().flatten()
-            } else {
-                None
-            }
+        huginn_net_tls::packet_parser::IpPacket::Ipv6(ipv6) => {
+            process_ipv6_packet(&ipv6).ok().flatten()
         }
         huginn_net_tls::packet_parser::IpPacket::None => None,
     }

@@ -3,8 +3,6 @@ use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::HuginnNetTlsError;
 use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError, TrySendError};
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
 use std::fmt;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -165,6 +163,11 @@ impl WorkerPool {
 
     /// Dispatch packet to a worker (round-robin)
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
+        // Check if pool is shutting down
+        if self.shutdown_flag.load(Ordering::Relaxed) {
+            return DispatchResult::Dropped;
+        }
+
         let counter = self.next_worker.fetch_add(1, Ordering::Relaxed);
         let worker_id = counter.checked_rem(self.num_workers.get()).unwrap_or(0);
         match self.packet_senders[worker_id].try_send(packet) {
@@ -269,20 +272,8 @@ impl WorkerPool {
 
     fn process_packet(packet: &[u8]) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4)
-                } else {
-                    Ok(None)
-                }
-            }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6)
-                } else {
-                    Ok(None)
-                }
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
             IpPacket::None => Ok(None),
         }
     }

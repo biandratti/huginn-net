@@ -349,20 +349,8 @@ impl HuginnNetTls {
         packet: &[u8],
     ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = pnet::packet::ipv4::Ipv4Packet::new(ip_data) {
-                    process_ipv4_packet(&ipv4)
-                } else {
-                    Ok(None)
-                }
-            }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = pnet::packet::ipv6::Ipv6Packet::new(ip_data) {
-                    process_ipv6_packet(&ipv6)
-                } else {
-                    Ok(None)
-                }
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
             IpPacket::None => Ok(None),
         }
     }
