@@ -125,12 +125,12 @@ pub fn extract_tls_signature_from_client_hello(
                     match extension {
                         TlsExtension::SNI(sni_list) => {
                             if let Some((_, hostname)) = sni_list.first() {
-                                sni = String::from_utf8(hostname.to_vec()).ok();
+                                sni = std::str::from_utf8(hostname).ok().map(str::to_owned);
                             }
                         }
                         TlsExtension::ALPN(alpn_list) => {
                             if let Some(protocol) = alpn_list.first() {
-                                alpn = String::from_utf8(protocol.to_vec()).ok();
+                                alpn = std::str::from_utf8(protocol).ok().map(str::to_owned);
                             }
                         }
                         TlsExtension::SignatureAlgorithms(sig_algs) => {
