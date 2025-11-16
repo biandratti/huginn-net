@@ -19,12 +19,14 @@ use ttl_cache::TtlCache;
 
 /// Worker pool for parallel HTTP packet processing.
 pub struct WorkerPool {
-    packet_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>,
+    packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<HttpAnalysisResult>>>>,
     dispatched_count: Arc<AtomicU64>,
     dropped_count: Arc<AtomicU64>,
     worker_dropped: Vec<Arc<AtomicU64>>,
     num_workers: usize,
+    pub batch_size: usize,
+    pub timeout_ms: u64,
 }
 
 /// Statistics for a single worker thread.
@@ -58,6 +60,8 @@ impl WorkerPool {
     /// # Parameters
     /// - `num_workers`: Number of worker threads
     /// - `queue_size`: Size of each worker's packet queue
+    /// - `batch_size`: Maximum packets to process in one batch
+    /// - `timeout_ms`: Worker receive timeout in milliseconds
     /// - `result_tx`: Channel to send analysis results
     /// - `database`: Optional signature database for matching
     /// - `max_connections`: Maximum HTTP flows to track per worker
@@ -67,6 +71,8 @@ impl WorkerPool {
     pub fn new(
         num_workers: usize,
         queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
         result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
@@ -92,7 +98,15 @@ impl WorkerPool {
             thread::Builder::new()
                 .name(format!("http-worker-{worker_id}"))
                 .spawn(move || {
-                    Self::worker_loop(rx, result_tx_clone, db_clone, max_connections, dropped)
+                    Self::worker_loop(
+                        rx,
+                        result_tx_clone,
+                        db_clone,
+                        max_connections,
+                        dropped,
+                        batch_size,
+                        timeout_ms,
+                    )
                 })
                 .map_err(|e| {
                     HuginnNetHttpError::Misconfiguration(format!(
@@ -102,41 +116,80 @@ impl WorkerPool {
         }
 
         Ok(Arc::new(Self {
-            packet_senders: Arc::new(Mutex::new(packet_senders)),
+            packet_senders: Arc::new(packet_senders),
             result_sender: Arc::new(Mutex::new(Some(result_tx))),
             dispatched_count: Arc::new(AtomicU64::new(0)),
             dropped_count: Arc::new(AtomicU64::new(0)),
             worker_dropped,
             num_workers,
+            batch_size,
+            timeout_ms,
         }))
     }
 
-    /// Worker thread main loop.
+    /// Worker thread main loop with batching support.
     fn worker_loop(
         rx: crossbeam_channel::Receiver<Vec<u8>>,
         result_tx: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
         dropped: Arc<AtomicU64>,
+        batch_size: usize,
+        timeout_ms: u64,
     ) {
+        use crossbeam_channel::RecvTimeoutError;
+        use std::time::Duration;
+
         let matcher = database
             .as_ref()
             .map(|db| SignatureMatcher::new(db.as_ref()));
         let mut http_flows = TtlCache::new(max_connections);
         let http_processors = HttpProcessors::new();
+        let timeout = Duration::from_millis(timeout_ms);
+        let mut batch = Vec::with_capacity(batch_size);
 
-        while let Ok(packet) = rx.recv() {
-            match Self::process_packet(&packet, &mut http_flows, &http_processors, matcher.as_ref())
-            {
-                Ok(result) => {
-                    if result_tx.send(result).is_err() {
-                        // Result channel closed, stop worker
-                        break;
+        loop {
+            // Receive first packet with timeout (blocking)
+            match rx.recv_timeout(timeout) {
+                Ok(packet) => {
+                    batch.push(packet);
+
+                    // Try to fill the batch with additional packets (non-blocking)
+                    while batch.len() < batch_size {
+                        match rx.try_recv() {
+                            Ok(packet) => batch.push(packet),
+                            Err(_) => break,
+                        }
+                    }
+
+                    // Process all packets in the batch
+                    for packet in batch.drain(..) {
+                        match Self::process_packet(
+                            &packet,
+                            &mut http_flows,
+                            &http_processors,
+                            matcher.as_ref(),
+                        ) {
+                            Ok(result) => {
+                                if result_tx.send(result).is_err() {
+                                    // Result channel closed, stop worker
+                                    return;
+                                }
+                            }
+                            Err(_) => {
+                                // Packet processing error, increment dropped count
+                                dropped.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
                     }
                 }
-                Err(_) => {
-                    // Packet processing error, increment dropped count
-                    dropped.fetch_add(1, Ordering::Relaxed);
+                Err(RecvTimeoutError::Timeout) => {
+                    // Timeout, continue waiting
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    // Channel closed, stop worker
+                    break;
                 }
             }
         }
@@ -151,23 +204,13 @@ impl WorkerPool {
     ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
         use crate::packet_parser::{parse_packet, IpPacket};
         use crate::process;
-        use pnet::packet::ipv4::Ipv4Packet;
-        use pnet::packet::ipv6::Ipv6Packet;
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ip_data) => {
-                if let Some(ipv4) = Ipv4Packet::new(ip_data) {
-                    process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher)
-                } else {
-                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
-                }
+            IpPacket::Ipv4(ipv4) => {
+                process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher)
             }
-            IpPacket::Ipv6(ip_data) => {
-                if let Some(ipv6) = Ipv6Packet::new(ip_data) {
-                    process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher)
-                } else {
-                    Ok(HttpAnalysisResult { http_request: None, http_response: None })
-                }
+            IpPacket::Ipv6(ipv6) => {
+                process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher)
             }
             IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
         }
@@ -178,19 +221,14 @@ impl WorkerPool {
 
         self.dispatched_count.fetch_add(1, Ordering::Relaxed);
 
-        if let Ok(senders) = self.packet_senders.lock() {
-            if let Some(sender) = senders.get(worker_id) {
-                match sender.try_send(packet) {
-                    Ok(()) => DispatchResult::Queued,
-                    Err(_) => {
-                        self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                        self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                        DispatchResult::Dropped
-                    }
+        if let Some(sender) = self.packet_senders.get(worker_id) {
+            match sender.try_send(packet) {
+                Ok(()) => DispatchResult::Queued,
+                Err(_) => {
+                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                    DispatchResult::Dropped
                 }
-            } else {
-                self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                DispatchResult::Dropped
             }
         } else {
             self.dropped_count.fetch_add(1, Ordering::Relaxed);
@@ -199,17 +237,16 @@ impl WorkerPool {
     }
 
     pub fn stats(&self) -> PoolStats {
-        let mut workers = Vec::new();
-
-        if let Ok(senders) = self.packet_senders.lock() {
-            for (id, sender) in senders.iter().enumerate() {
-                workers.push(WorkerStats {
-                    id,
-                    queue_size: sender.len(),
-                    dropped: self.worker_dropped[id].load(Ordering::Relaxed),
-                });
-            }
-        }
+        let workers = self
+            .packet_senders
+            .iter()
+            .enumerate()
+            .map(|(id, sender)| WorkerStats {
+                id,
+                queue_size: sender.len(),
+                dropped: self.worker_dropped[id].load(Ordering::Relaxed),
+            })
+            .collect();
 
         PoolStats {
             total_dispatched: self.dispatched_count.load(Ordering::Relaxed),
@@ -220,12 +257,9 @@ impl WorkerPool {
 
     /// Initiates graceful shutdown of the worker pool.
     pub fn shutdown(&self) {
-        // Clear all senders to signal workers to stop
-        if let Ok(mut senders) = self.packet_senders.lock() {
-            senders.clear();
-        }
-
         // Drop result sender to signal workers
+        // Note: packet_senders will be dropped when WorkerPool is dropped,
+        // which will close all channels and terminate workers
         if let Ok(mut sender) = self.result_sender.lock() {
             *sender = None;
         }
