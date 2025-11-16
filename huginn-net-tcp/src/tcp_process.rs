@@ -252,13 +252,8 @@ fn visit_tcp(
                 olayout.push(TcpOption::Mss);
                 if data.len() >= 2 {
                     let mss_value: u16 = u16::from_be_bytes([data[0], data[1]]);
-                    //quirks.push(Quirk::mss);
                     mss = Some(mss_value);
                 }
-
-                /*if data.len() != 4 {
-                    quirks.push(Quirk::OptBad);
-                }*/
             }
             WSCALE => {
                 olayout.push(TcpOption::Ws);
@@ -268,24 +263,12 @@ fn visit_tcp(
                 if data[0] > 14 {
                     quirks.push(Quirk::ExcessiveWindowScaling);
                 }
-                /*if data.len() != 3 {
-                    quirks.push(Quirk::OptBad);
-                }*/
             }
             SACK_PERMITTED => {
                 olayout.push(TcpOption::Sok);
-
-                /*if data.len() != 2 {
-                    quirks.push(Quirk::OptBad);
-                }*/
             }
             SACK => {
                 olayout.push(TcpOption::Sack);
-
-                /*match data.len() {
-                    10 | 18 | 26 | 34 => {}
-                    _ => quirks.push(Quirk::OptBad),
-                }*/
             }
             TIMESTAMPS => {
                 olayout.push(TcpOption::TS);
@@ -334,10 +317,6 @@ fn visit_tcp(
                     client_uptime = cli_uptime;
                     server_uptime = srv_uptime;
                 }
-
-                /*if data.len() != 10 {
-                    quirks.push(Quirk::OptBad);
-                }*/
             }
             _ => {
                 olayout.push(TcpOption::Unknown(opt.get_number().0));

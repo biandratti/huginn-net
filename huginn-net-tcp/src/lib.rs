@@ -88,11 +88,41 @@ impl HuginnNetTcp {
     ///
     /// # Parameters
     /// - `database`: Optional signature database for OS matching
-    /// - `max_connections`: Maximum number of connections to track per worker
-    /// - `num_workers`: Number of worker threads for parallel processing
-    /// - `queue_size`: Size of packet queue per worker
-    /// - `batch_size`: Number of packets to process before yielding (default: 32)
-    /// - `timeout_ms`: Timeout in milliseconds for blocking receive (default: 10)
+    /// - `max_connections`: Maximum number of connections to track per worker (typical: 1000)
+    /// - `num_workers`: Number of worker threads (recommended: 2-4 on 8-core systems)
+    /// - `queue_size`: Size of packet queue per worker (typical: 100-200)
+    /// - `batch_size`: Maximum packets to process in one batch (typical: 16-64, recommended: 32)
+    /// - `timeout_ms`: Worker receive timeout in milliseconds (typical: 5-50, recommended: 10)
+    ///
+    /// # Configuration Guide
+    ///
+    /// ## batch_size
+    /// - **Low (8-16)**: Lower latency, more responsive, higher overhead
+    /// - **Medium (32)**: Balanced throughput and latency *(recommended)*
+    /// - **High (64-128)**: Maximum throughput, higher latency
+    ///
+    /// ## timeout_ms
+    /// - **Low (5-10ms)**: Fast shutdown, slightly lower throughput *(recommended: 10)*
+    /// - **Medium (20-50ms)**: Better throughput, slower shutdown
+    /// - **High (100ms+)**: Maximum throughput, slow shutdown
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use huginn_net_tcp::HuginnNetTcp;
+    /// use huginn_net_db::Database;
+    /// use std::sync::Arc;
+    ///
+    /// let db = Arc::new(Database::default());
+    ///
+    /// // Balanced configuration (recommended)
+    /// let tcp = HuginnNetTcp::with_config(Some(db.clone()), 1000, 4, 100, 32, 10);
+    ///
+    /// // Low latency
+    /// let low_latency = HuginnNetTcp::with_config(Some(db.clone()), 1000, 2, 100, 8, 5);
+    ///
+    /// // High throughput
+    /// let high_throughput = HuginnNetTcp::with_config(Some(db), 1000, 4, 200, 64, 20);
+    /// ```
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance configured for parallel processing.
