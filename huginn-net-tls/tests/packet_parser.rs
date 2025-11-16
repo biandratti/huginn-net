@@ -87,9 +87,9 @@ fn test_parse_null_datalink_packet() {
 
     let result = parse_packet(&null_packet);
     match result {
-        IpPacket::Ipv6(ip_data) => {
-            // Should point to IPv6 data (after NULL header)
-            assert_eq!(ip_data[0] & 0xF0, 0x60); // IPv6 version
+        IpPacket::Ipv6(ipv6) => {
+            // Should have parsed IPv6 packet
+            assert_eq!(ipv6.get_version(), 6);
         }
         _ => panic!("Expected IPv6 packet"),
     }
@@ -105,8 +105,8 @@ fn test_parse_raw_ipv4_packet() {
 
     let result = parse_packet(&raw_ipv4);
     match result {
-        IpPacket::Ipv4(ip_data) => {
-            assert_eq!(ip_data[0] & 0xF0, 0x40); // IPv4 version
+        IpPacket::Ipv4(ipv4) => {
+            assert_eq!(ipv4.get_version(), 4);
         }
         _ => panic!("Expected IPv4 packet"),
     }
@@ -126,9 +126,9 @@ fn test_parse_ethernet_packet() {
 
     let result = parse_packet(&ethernet_ipv4);
     match result {
-        IpPacket::Ipv4(ip_data) => {
-            // Should point to IPv4 data (after Ethernet header)
-            assert_eq!(ip_data[0] & 0xF0, 0x40); // IPv4 version
+        IpPacket::Ipv4(ipv4) => {
+            // Should have parsed IPv4 packet
+            assert_eq!(ipv4.get_version(), 4);
         }
         _ => panic!("Expected IPv4 packet"),
     }

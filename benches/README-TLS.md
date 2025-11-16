@@ -12,17 +12,17 @@ PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1000 TLS Cl
 
 | Operation | Time | Throughput | Notes |
 |-----------|------|------------|-------|
-| TLS Detection | 14 ns | 71.4M pps | Packet validation |
-| Full TLS Processing | 20.1 µs | 49.7K pps | Complete JA4 fingerprinting |
-| Overhead Analysis | - | 839x | Detection → Full processing |
+| TLS Detection | 23 ns | 43.5M pps | Packet validation |
+| Full TLS Processing | 19.7 µs | 50.8K pps | Complete JA4 fingerprinting |
+| Overhead Analysis | - | 877x | Detection → Full processing |
 
 ### Parallel Mode (Multi-Worker)
 
 | Workers | Throughput | 1 Gbps CPU | 10 Gbps CPU | Notes |
 |---------|------------|------------|-------------|-------|
-| 2 | 200.7K pps | 40.5% | 404.9% | Good throughput |
-| 4 | 232.9K pps | 34.9% | 348.9% | **Best throughput** |
-| 8 | 137.1K pps | 59.3% | 593.0% | Diminishing returns |
+| 2 | 603.5K pps | 13.5% | 134.7% | Excellent efficiency |
+| 4 | 623.4K pps | 13.0% | 130.4% | **Best throughput** |
+| 8 | 323.1K pps | 25.2% | 251.5% | Diminishing returns |
 
 **Worker Architecture**: Round-robin dispatch (stateless processing)
 **Note**: Benchmarks include worker pool creation/dispatch/shutdown overhead
@@ -31,31 +31,32 @@ PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1000 TLS Cl
 
 | Scenario | Sequential (1 worker) | Parallel (2 workers) | Parallel (4 workers) |
 |----------|-----------------------|----------------------|----------------------|
-| 1 Gbps (81,274 pps) | 163.5% CPU [OVERLOAD] | 40.5% CPU [OK] | 34.9% CPU [OK] |
-| 10 Gbps (812,740 pps) | 1635.5% CPU [OVERLOAD] | 404.9% CPU [OVERLOAD] | 348.9% CPU [OVERLOAD] |
+| 1 Gbps (81,274 pps) | 160.0% CPU [OVERLOAD] | 13.5% CPU [OK] | 13.0% CPU [OK] |
+| 10 Gbps (812,740 pps) | 1599.6% CPU [OVERLOAD] | 134.7% CPU [OVERLOAD] | 130.4% CPU [OVERLOAD] |
 
-**Note**: Tested on 8-core system. TLS shows best throughput with **4 workers** (232.9K pps). 10 Gbps requires more optimization or hardware acceleration.
+**Note**: Tested on 8-core system. Maximum measured throughput is **623.4K pps** with 4 workers, which represents 77% of 10 Gbps packet rate.
 
-**Scaling on larger systems**: On server hardware with 32-64+ cores, optimal worker count would be higher (16-32 workers), potentially reaching 1M+ pps. The 4-worker optimum is specific to 8-core systems. TLS uses round-robin dispatch which scales better linearly with more cores than TCP's hash-based routing.
+**Scaling considerations**: The 4-worker optimum is specific to 8-core systems. On server hardware with more cores, higher worker counts may improve throughput, though actual performance will depend on workload characteristics and system configuration.
 
 ## Key Findings
 
 ### Performance Characteristics
 
-1. **Fast Detection**: TLS packet validation in 14 nanoseconds
-2. **JA4 Processing**: Complete fingerprinting in 20.1 microseconds per packet (sequential)
-3. **High Overhead**: 839x from detection to full processing (expected for cryptographic operations)
-4. **Optimal Workers**: Best throughput with 4 workers (232.9K pps, 34.9% CPU @ 1 Gbps)
-5. **Scaling Behavior**: Performance degrades with 8+ workers due to dispatch overhead
+1. **Fast Detection**: TLS packet validation in 23 nanoseconds
+2. **JA4 Processing**: Complete fingerprinting in 19.7 microseconds per packet (sequential)
+3. **High Overhead**: 877x from detection to full processing (expected for cryptographic operations)
+4. **Optimal Workers**: Best throughput with 4 workers (623.4K pps, 13.0% CPU @ 1 Gbps)
+5. **Excellent Scaling**: 2-4 workers provide 12x throughput improvement over sequential mode
+6. **10 Gbps Limit**: Maximum throughput of 623.4K pps is ~77% of 10 Gbps requirements (812K pps)
 
 ### Mode Selection
 
-| Workload | Mode | Configuration | Expected Throughput |
+| Workload | Mode | Configuration | Measured Throughput |
 |----------|------|---------------|---------------------|
-| < 1 Gbps | Parallel (2 workers) | `HuginnNetTls::with_config(2, 100)` | 200.7K pps |
-| 1-2 Gbps | Parallel (4 workers) | `HuginnNetTls::with_config(4, 100)` | 232.9K pps |
+| < 1 Gbps (< 81K pps) | Parallel (2 workers) | `HuginnNetTls::with_config(2, 100)` | 603.5K pps |
+| 1-7 Gbps (81K-620K pps) | Parallel (4 workers) | `HuginnNetTls::with_config(4, 100)` | 623.4K pps |
 
-**Note**: Parallel processing includes worker pool overhead. Results may vary on server-grade hardware.
+**Note**: Throughput measurements are from benchmarks on 8-core laptop. Results may vary with different hardware and network conditions.
 
 ## Running Benchmarks
 
@@ -75,6 +76,7 @@ The benchmark automatically generates a comprehensive report including:
 - Dataset repeated 1000x for statistical stability
 - Measured using Criterion.rs with statistical analysis
 - Parallel benchmarks include worker pool creation/dispatch/shutdown overhead
-- Throughput decreases with more workers (round-robin dispatch overhead)
+- Lock-free architecture enables excellent multi-core scaling
+- Batch processing (default: 32 packets, 10ms timeout) optimizes throughput vs. latency
 - Results measured on x86_64 architecture with 8 CPU cores
 - Testing environment: Standard laptop (non-server hardware)

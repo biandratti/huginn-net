@@ -18,15 +18,17 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 |----------|-----------|---------------|-----------------|----------|
 | **TCP** | 166.7M pps | 1.11M pps | 901 ns | OS fingerprinting, MTU detection |
 | **HTTP** | 200M pps | 797K pps | 1.254 μs | Browser/server detection, flow tracking |
-| **TLS** | 66.7M pps | 49.7K pps | 20.1 μs | JA4 fingerprinting, TLS analysis |
+| **TLS** | 43.5M pps | 50.8K pps | 19.7 μs | JA4 fingerprinting, TLS analysis |
 
 ### Parallel Mode Performance
 
 #### TLS (Round-Robin Dispatch)
 | Mode | Workers | Throughput | Speedup | 1 Gbps Support | 10 Gbps Support |
 |------|---------|------------|---------|----------------|-----------------|
-| Sequential | 1 | 84.6K pps | 1.0x | 96% CPU | Overload (961% CPU) |
-| Parallel | 8 | 608.8K pps | 7.2x | Sufficient | 75% coverage |
+| Sequential | 1 | 50.8K pps | 1.0x | 160% CPU [OVERLOAD] | 1600% CPU [OVERLOAD] |
+| Parallel | 2 | 603.5K pps | 11.9x | 13.5% CPU | 135% CPU [OVERLOAD] |
+| Parallel | 4 | 623.4K pps | 12.3x | 13.0% CPU | 130% CPU [OVERLOAD] |
+| Parallel | 8 | 323.1K pps | 6.4x | 25.2% CPU | 252% CPU [OVERLOAD] |
 
 #### TCP (Hash-Based Worker Assignment)
 | Mode | Workers | Throughput | 1 Gbps | 10 Gbps |
@@ -45,18 +47,14 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 | Parallel | 8 | 328K pps | 24.7% CPU | 247.2% CPU [OVERLOAD] |
 
 **Notes**: 
-- **TLS**: Round-robin dispatch (stateless) - scales linearly with more workers
+- **TLS**: Round-robin dispatch (stateless) - best throughput with 4 workers (623.4K pps)
 - **TCP**: Hash-based routing (source IP → worker) - maintains per-connection state consistency
 - **HTTP**: Flow-based routing (src_ip, dst_ip, src_port, dst_port → worker) - maintains request/response pairs
 - TCP shows best performance with 4 workers (3.56M pps, 22.8% CPU @ 10 Gbps)
 - HTTP shows best performance with 2 workers (1.07M pps, 76.1% CPU @ 10 Gbps)
+- TLS shows best performance with 4 workers (623.4K pps, 13.0% CPU @ 1 Gbps, 77% of 10 Gbps capacity)
 - HTTP's complex flow tracking limits parallel scaling beyond 2 workers
 - These benchmarks measured on laptop hardware (8 CPU cores)
-- **Server-class hardware (32-64+ cores) would show significantly better parallel performance**:
-  - TCP could reach 10-20M+ pps with 16-32 workers
-  - HTTP could benefit from 4+ workers on systems with 32+ cores
-  - TLS could reach 1M+ pps with 16-32 workers
-  - Optimal worker count typically 50-75% of available cores
 - Current optimal worker counts are specific to 8-core systems
 
 ## Key Performance Insights
@@ -64,7 +62,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 ### Protocol Efficiency Ranking
 1. **TCP**: Fastest (1.11M pps sequential, 3.56M pps parallel @ 4 workers) - excellent balance of speed and analysis depth
 2. **HTTP**: Fast (797K pps sequential, 1.07M pps parallel @ 2 workers) - comprehensive application-layer analysis with flow tracking
-3. **TLS**: Moderate (49.7K pps sequential, 232.9K pps parallel @ 4 workers) - cryptographic complexity
+3. **TLS**: Moderate (50.8K pps sequential, 623.4K pps parallel @ 4 workers) - cryptographic complexity
 
 ### Parallel Processing Support
 - **TCP**: Full parallel support with hash-based worker assignment
@@ -77,13 +75,13 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
   - Production ready: Handles 10 Gbps easily with parallel mode
   
 - **TLS**: Full parallel support with worker pool architecture
-  - Best throughput: 232.9K pps with 4 workers (34.9% CPU @ 1 Gbps)
-  - Sequential mode: 49.7K pps (163.5% CPU for 1 Gbps)
-  - Parallel (2 workers): 200.7K pps (40.5% CPU @ 1 Gbps)
-  - Parallel (4 workers): 232.9K pps (34.9% CPU @ 1 Gbps)
+  - Best throughput: 623.4K pps with 4 workers (13.0% CPU @ 1 Gbps)
+  - Sequential mode: 50.8K pps (160.0% CPU @ 1 Gbps [OVERLOAD])
+  - Parallel (2 workers): 603.5K pps (13.5% CPU @ 1 Gbps)
+  - Parallel (4 workers): 623.4K pps (13.0% CPU @ 1 Gbps, 77% of 10 Gbps capacity)
+  - Parallel (8 workers): 323.1K pps (25.2% CPU @ 1 Gbps)
   - Uses round-robin dispatch (stateless processing)
-  - Performance degrades with 8+ workers (dispatch overhead)
-  - 10 Gbps requires further optimization
+  - Maximum throughput is 77% of 10 Gbps packet rate (623.4K of 812K pps)
   
 - **HTTP**: Full parallel support with flow-based hash routing
   - Best performance at 2 workers (1.07M pps, 76.1% CPU @ 10 Gbps)
@@ -120,11 +118,11 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 - Hash-based routing ensures consistent per-connection state
 
 #### TLS Optimization
-- **Sequential Mode**: 49.7K pps throughput (163.5% CPU for 1 Gbps - requires parallel mode)
-- **Parallel Mode (4 workers)**: 232.9K pps throughput (34.9% CPU for 1 Gbps) - **Recommended**
-- **Parallel Mode (2 workers)**: 200.7K pps throughput (40.5% CPU for 1 Gbps)
+- **Sequential Mode**: 50.8K pps throughput (160.0% CPU @ 1 Gbps [OVERLOAD] - requires parallel mode)
+- **Parallel Mode (4 workers)**: 623.4K pps throughput (13.0% CPU @ 1 Gbps, 77% of 10 Gbps capacity) - **Recommended**
+- **Parallel Mode (2 workers)**: 603.5K pps throughput (13.5% CPU @ 1 Gbps)
 - Use `HuginnNetTls::with_config(4, 100)` for optimal throughput
-- Performance degrades with 8+ workers due to dispatch overhead
+- Best performance with 4 workers on 8-core systems
 - Pre-filter non-TLS packets for significant gains
 - JA4 calculation is front-loaded during processing
 
@@ -152,7 +150,7 @@ Each protocol has a dedicated analysis report with comprehensive performance dat
 - Timing measurements include complete analysis pipelines
 - PCAP effectiveness varies based on protocol handshake presence
 - Sequential mode results are single-thread measurements on x86_64 architecture
-- TLS parallel mode uses round-robin dispatch (best throughput with 4 workers: 232.9K pps)
+- TLS parallel mode uses round-robin dispatch (best throughput with 4 workers: 623.4K pps)
 - TCP parallel mode uses hash-based worker assignment (best throughput with 4 workers: 3.56M pps)
 - TLS, TCP, and HTTP benchmarks use repeated datasets (1000x) for statistical stability
 - Parallel benchmarks include worker pool creation/dispatch/shutdown overhead
