@@ -12,7 +12,7 @@
     <meta property="og:url" content="https://biandratti.github.io/huginn-net/" />
     <meta property="og:description" content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic" />
     <meta name="twitter:card" content="summary" />
-    <link rel="shortcut icon" href="/huginn-net/img/favicon.png" />
+    <link rel="shortcut icon" href="/huginn-net/img/favicon/favicon.ico" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
     <script src="/huginn-net/js/scrollSpy.js"></script>
     <link rel="stylesheet" href="/huginn-net/css/main.css" />
@@ -117,39 +117,33 @@
                                 </ul>
                                 
                                 <h3>Huginn Net Ecosystem</h3>
-                                <table style="min-width:700px;max-width:900px;text-align:left;margin:1em auto;border-collapse:collapse;border:1px solid #ddd;">
+                                <table style="width:100%;max-width:800px;text-align:left;margin:1em auto;border-collapse:collapse;border:1px solid #ddd;">
                                   <thead>
                                     <tr style="background-color:#f8f9fa;">
-                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;">Crate</th>
-                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;">Purpose</th>
-                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;">Use When</th>
+                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;width:30%;">Crate</th>
+                                      <th style="border:1px solid #ddd;padding:12px;font-weight:bold;width:70%;">Description</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     <tr>
                                       <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net">huginn-net</a></strong></td>
-                                      <td style="border:1px solid #ddd;padding:12px;">Complete multi-protocol analysis suite</td>
-                                      <td style="border:1px solid #ddd;padding:12px;">You need TCP + HTTP + TLS analysis</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">Complete multi-protocol analysis suite for TCP, HTTP, and TLS fingerprinting</td>
                                     </tr>
                                     <tr style="background-color:#f8f9fa;">
                                       <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-tcp">huginn-net-tcp</a></strong></td>
-                                      <td style="border:1px solid #ddd;padding:12px;">TCP fingerprinting & OS detection</td>
-                                      <td style="border:1px solid #ddd;padding:12px;">You only need TCP/OS analysis</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">TCP fingerprinting and OS detection when you only need TCP/OS analysis</td>
                                     </tr>
                                     <tr>
                                       <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-http">huginn-net-http</a></strong></td>
-                                      <td style="border:1px solid #ddd;padding:12px;">HTTP analysis & browser detection</td>
-                                      <td style="border:1px solid #ddd;padding:12px;">You only need HTTP analysis</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">HTTP analysis and browser detection when you only need HTTP analysis</td>
                                     </tr>
                                     <tr style="background-color:#f8f9fa;">
                                       <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-tls">huginn-net-tls</a></strong></td>
-                                      <td style="border:1px solid #ddd;padding:12px;">JA4 TLS client fingerprinting</td>
-                                      <td style="border:1px solid #ddd;padding:12px;">You only need TLS/JA4 analysis</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">JA4 TLS client fingerprinting when you only need TLS/JA4 analysis</td>
                                     </tr>
                                     <tr>
                                       <td style="border:1px solid #ddd;padding:12px;"><strong><a href="https://crates.io/crates/huginn-net-db">huginn-net-db</a></strong></td>
-                                      <td style="border:1px solid #ddd;padding:12px;">P0f database parser & matching engine</td>
-                                      <td style="border:1px solid #ddd;padding:12px;">Advanced custom signature parsing</td>
+                                      <td style="border:1px solid #ddd;padding:12px;">P0f database parser and matching engine for advanced custom signature parsing</td>
                                     </tr>
                                   </tbody>
                                 </table>
