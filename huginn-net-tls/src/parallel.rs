@@ -7,7 +7,7 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use std::fmt;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tracing::debug;
@@ -70,8 +70,9 @@ impl fmt::Display for PoolStats {
 /// Worker pool for parallel TLS processing
 pub struct WorkerPool {
     _workers: Vec<thread::JoinHandle<()>>,
-    packet_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>,
+    packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<TlsClientOutput>>>>,
+    shutdown_flag: Arc<AtomicBool>,
     pub num_workers: NonZeroUsize,
     next_worker: AtomicUsize,
     queued_count: AtomicU64,
@@ -100,6 +101,7 @@ impl WorkerPool {
         let mut workers = Vec::with_capacity(num_workers_val);
         let mut packet_senders = Vec::with_capacity(num_workers_val);
         let mut worker_dropped = Vec::with_capacity(num_workers_val);
+        let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         for worker_id in 0..num_workers_val {
             worker_dropped.push(AtomicU64::new(0));
@@ -107,11 +109,12 @@ impl WorkerPool {
             packet_senders.push(tx);
 
             let result_sender_clone = result_sender.clone();
+            let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
             let handle = thread::Builder::new()
                 .name(format!("tls-worker-{worker_id}"))
                 .spawn(move || {
-                    Self::worker_loop(worker_id, rx, result_sender_clone);
+                    Self::worker_loop(worker_id, rx, result_sender_clone, shutdown_flag_clone);
                 })
                 .map_err(|e| {
                     HuginnNetTlsError::Misconfiguration(format!(
@@ -124,8 +127,9 @@ impl WorkerPool {
 
         Ok(Self {
             _workers: workers,
-            packet_senders: Arc::new(Mutex::new(packet_senders)),
+            packet_senders: Arc::new(packet_senders),
             result_sender: Arc::new(Mutex::new(Some(result_sender))),
+            shutdown_flag,
             num_workers,
             next_worker: AtomicUsize::new(0),
             queued_count: AtomicU64::new(0),
@@ -136,12 +140,7 @@ impl WorkerPool {
 
     /// Shutdown the worker pool by closing all channels
     pub fn shutdown(&self) {
-        // Drop all packet senders - workers will receive Disconnected
-        if let Ok(mut senders) = self.packet_senders.lock() {
-            senders.clear();
-        }
-
-        // Drop result sender - main loop will exit
+        self.shutdown_flag.store(true, Ordering::Relaxed);
         if let Ok(mut sender) = self.result_sender.lock() {
             *sender = None;
         }
@@ -151,46 +150,37 @@ impl WorkerPool {
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
         let counter = self.next_worker.fetch_add(1, Ordering::Relaxed);
         let worker_id = counter.checked_rem(self.num_workers.get()).unwrap_or(0);
-
-        if let Ok(senders) = self.packet_senders.lock() {
-            if senders.is_empty() {
-                return DispatchResult::Dropped; // Pool is shutting down
+        match self.packet_senders[worker_id].try_send(packet) {
+            Ok(()) => {
+                self.queued_count.fetch_add(1, Ordering::Relaxed);
+                DispatchResult::Queued
             }
-
-            match senders[worker_id].try_send(packet) {
-                Ok(()) => {
-                    self.queued_count.fetch_add(1, Ordering::Relaxed);
-                    DispatchResult::Queued
-                }
-                Err(TrySendError::Full(_)) => {
-                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                    DispatchResult::Dropped
-                }
-                Err(TrySendError::Disconnected(_)) => {
-                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                    DispatchResult::Dropped
-                }
+            Err(TrySendError::Full(_)) => {
+                self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                DispatchResult::Dropped
             }
-        } else {
-            DispatchResult::Dropped
+            Err(TrySendError::Disconnected(_)) => {
+                self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                DispatchResult::Dropped
+            }
         }
     }
 
     /// Get current statistics
     pub fn stats(&self) -> PoolStats {
-        let workers = if let Ok(senders) = self.packet_senders.lock() {
-            (0..self.num_workers.get())
-                .map(|worker_id| WorkerStats {
-                    id: worker_id,
-                    queue_size: senders.get(worker_id).map(|s| s.len()).unwrap_or(0),
-                    dropped: self.worker_dropped[worker_id].load(Ordering::Relaxed),
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let workers = (0..self.num_workers.get())
+            .map(|worker_id| WorkerStats {
+                id: worker_id,
+                queue_size: self
+                    .packet_senders
+                    .get(worker_id)
+                    .map(|s| s.len())
+                    .unwrap_or(0),
+                dropped: self.worker_dropped[worker_id].load(Ordering::Relaxed),
+            })
+            .collect();
 
         PoolStats {
             total_dispatched: self.queued_count.load(Ordering::Relaxed),
@@ -203,10 +193,16 @@ impl WorkerPool {
         worker_id: usize,
         rx: Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
+        shutdown_flag: Arc<AtomicBool>,
     ) {
         debug!("TLS worker {} started", worker_id);
 
         loop {
+            if shutdown_flag.load(Ordering::Relaxed) {
+                debug!("TLS worker {} received shutdown signal", worker_id);
+                break;
+            }
+
             match rx.try_recv() {
                 Ok(packet) => match Self::process_packet(&packet) {
                     Ok(Some(result)) => {
