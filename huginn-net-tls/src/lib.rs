@@ -30,6 +30,8 @@ use tracing::{debug, error};
 struct ParallelConfig {
     num_workers: usize,
     queue_size: usize,
+    batch_size: usize,
+    timeout_ms: u64,
 }
 
 /// A TLS-focused passive fingerprinting analyzer using JA4 methodology.
@@ -66,7 +68,39 @@ impl HuginnNetTls {
     /// A new `HuginnNetTls` instance with custom parallel configuration.
     pub fn with_config(num_workers: usize, queue_size: usize) -> Self {
         Self {
-            parallel_config: Some(ParallelConfig { num_workers, queue_size }),
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size: 32, // Default: good balance
+                timeout_ms: 10, // Default: responsive shutdown
+            }),
+            worker_pool: None,
+        }
+    }
+
+    /// Creates a new instance with full parallel configuration.
+    ///
+    /// # Parameters
+    /// - `num_workers`: Number of worker threads
+    /// - `queue_size`: Size of packet queue per worker (smaller = lower latency)
+    /// - `batch_size`: Maximum packets to process together (higher = better throughput, typical: 16-64)
+    /// - `timeout_ms`: Worker timeout in milliseconds (lower = faster shutdown, typical: 5-50)
+    ///
+    /// # Returns
+    /// A new `HuginnNetTls` instance with full custom parallel configuration.
+    pub fn with_full_config(
+        num_workers: usize,
+        queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
+    ) -> Self {
+        Self {
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size,
+                timeout_ms,
+            }),
             worker_pool: None,
         }
     }
@@ -97,8 +131,13 @@ impl HuginnNetTls {
     pub fn init_pool(&mut self, sender: Sender<TlsClientOutput>) -> Result<(), HuginnNetTlsError> {
         if let Some(config) = &self.parallel_config {
             if self.worker_pool.is_none() {
-                let worker_pool =
-                    Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+                let worker_pool = Arc::new(WorkerPool::new(
+                    config.num_workers,
+                    config.queue_size,
+                    config.batch_size,
+                    config.timeout_ms,
+                    sender,
+                )?);
                 self.worker_pool = Some(worker_pool);
             }
         }
@@ -136,8 +175,13 @@ impl HuginnNetTls {
             .ok_or_else(|| HuginnNetTlsError::Parse("Parallel config not found".to_string()))?;
 
         if self.worker_pool.is_none() {
-            let worker_pool =
-                Arc::new(WorkerPool::new(config.num_workers, config.queue_size, sender)?);
+            let worker_pool = Arc::new(WorkerPool::new(
+                config.num_workers,
+                config.queue_size,
+                config.batch_size,
+                config.timeout_ms,
+                sender,
+            )?);
             self.worker_pool = Some(worker_pool);
         }
 

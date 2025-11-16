@@ -95,7 +95,6 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
 pub fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, HuginnNetTlsError> {
-    // Extract cipher suites (filter GREASE)
     let cipher_suites: Vec<u16> = client_hello
         .ciphers
         .iter()

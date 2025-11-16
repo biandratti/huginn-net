@@ -2,7 +2,7 @@ use crate::output::TlsClientOutput;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::HuginnNetTlsError;
-use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError, TrySendError};
+use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError, TrySendError};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use std::fmt;
@@ -10,6 +10,7 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use tracing::debug;
 
 /// Result of dispatching a packet to a worker
@@ -74,6 +75,8 @@ pub struct WorkerPool {
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<TlsClientOutput>>>>,
     shutdown_flag: Arc<AtomicBool>,
     pub num_workers: NonZeroUsize,
+    pub batch_size: usize,
+    pub timeout_ms: u64,
     next_worker: AtomicUsize,
     queued_count: AtomicU64,
     dropped_count: AtomicU64,
@@ -89,13 +92,18 @@ impl WorkerPool {
     pub fn new(
         num_workers: usize,
         queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
     ) -> Result<Self, HuginnNetTlsError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or_else(|| {
             HuginnNetTlsError::Misconfiguration("Worker count must be greater than 0".to_string())
         })?;
 
-        debug!("Creating TLS worker pool: {} workers, queue size: {}", num_workers, queue_size);
+        debug!(
+            "Creating TLS worker pool: {} workers, queue size: {}, batch size: {}, timeout: {}ms",
+            num_workers, queue_size, batch_size, timeout_ms
+        );
 
         let num_workers_val = num_workers.get();
         let mut workers = Vec::with_capacity(num_workers_val);
@@ -114,7 +122,14 @@ impl WorkerPool {
             let handle = thread::Builder::new()
                 .name(format!("tls-worker-{worker_id}"))
                 .spawn(move || {
-                    Self::worker_loop(worker_id, rx, result_sender_clone, shutdown_flag_clone);
+                    Self::worker_loop(
+                        worker_id,
+                        rx,
+                        result_sender_clone,
+                        shutdown_flag_clone,
+                        batch_size,
+                        timeout_ms,
+                    );
                 })
                 .map_err(|e| {
                     HuginnNetTlsError::Misconfiguration(format!(
@@ -131,6 +146,8 @@ impl WorkerPool {
             result_sender: Arc::new(Mutex::new(Some(result_sender))),
             shutdown_flag,
             num_workers,
+            batch_size,
+            timeout_ms,
             next_worker: AtomicUsize::new(0),
             queued_count: AtomicU64::new(0),
             dropped_count: AtomicU64::new(0),
@@ -194,30 +211,55 @@ impl WorkerPool {
         rx: Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
         shutdown_flag: Arc<AtomicBool>,
+        batch_size: usize,
+        timeout_ms: u64,
     ) {
         debug!("TLS worker {} started", worker_id);
 
+        let mut batch = Vec::with_capacity(batch_size);
+
         loop {
+            // Check shutdown flag
             if shutdown_flag.load(Ordering::Relaxed) {
                 debug!("TLS worker {} received shutdown signal", worker_id);
                 break;
             }
 
-            match rx.try_recv() {
-                Ok(packet) => match Self::process_packet(&packet) {
+            // Blocking recv for first packet (waits if queue is empty)
+            let first_packet = match rx.recv_timeout(Duration::from_millis(timeout_ms)) {
+                Ok(packet) => packet,
+                Err(RecvTimeoutError::Timeout) => {
+                    batch.clear();
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    debug!("TLS worker {} channel disconnected", worker_id);
+                    break;
+                }
+            };
+
+            batch.push(first_packet);
+
+            // Try to fill batch with more packets (non-blocking)
+            while batch.len() < batch_size {
+                match rx.try_recv() {
+                    Ok(packet) => batch.push(packet),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => break,
+                }
+            }
+
+            // Process entire batch
+            for packet in batch.drain(..) {
+                match Self::process_packet(&packet) {
                     Ok(Some(result)) => {
                         if result_sender.send(result).is_err() {
-                            break;
+                            debug!("TLS worker {} result channel closed", worker_id);
+                            return;
                         }
                     }
                     Ok(None) => {}
                     Err(_) => {}
-                },
-                Err(TryRecvError::Empty) => {
-                    thread::yield_now();
-                }
-                Err(TryRecvError::Disconnected) => {
-                    break;
                 }
             }
         }
