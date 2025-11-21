@@ -15,26 +15,26 @@ keywords = ["tls", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography"]
 
 [dependencies]
-tls-parser = { workspace = true }
-sha2 = { workspace = true }
-pnet = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-pcap-file = { workspace = true }
 crossbeam-channel = { workspace = true }
+pcap-file = { workspace = true }
+pnet = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tls-parser = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+clap = { workspace = true }
+criterion = { workspace = true }
+ctrlc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [[example]]
 name = "capture-tls"
 path = "../examples/capture-tls.rs"
-
-[dev-dependencies]
-clap = { workspace = true }
-ctrlc = { workspace = true }
-tracing-appender = { workspace = true }
-tracing-subscriber = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-criterion = { workspace = true }
 
 [[bench]]
 name = "bench_tls"

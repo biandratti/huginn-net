@@ -19,6 +19,7 @@ env:
   rust_min: '1.82'
 
 jobs:
+  
   build:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +30,7 @@ jobs:
           toolchain: ${{ env.rust_stable }}
       - name: Build workspace
         run: cargo build --verbose --workspace
+
   format:
     runs-on: ubuntu-latest
     steps:
@@ -40,6 +42,20 @@ jobs:
           components: rustfmt
       - name: Check code formatting
         run: cargo fmt --all -- --check
+
+  cargo-sort:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+      - name: Install cargo-sort
+        run: cargo install cargo-sort
+      - name: Check Cargo.toml sorting
+        run: cargo sort --workspace --check
+  
   lint:
     runs-on: ubuntu-latest
     steps:

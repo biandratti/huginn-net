@@ -14,26 +14,26 @@ keywords = ["tcp", "fingerprinting", "network", "security"]
 categories = ["network-programming"]
 
 [dependencies]
-huginn-net-db = { workspace = true }
-tracing = { workspace = true }
-thiserror = { workspace = true }
-pnet = { workspace = true }
-ttl_cache = { workspace = true }
-pcap-file = { workspace = true }
 crossbeam-channel = { workspace = true }
+huginn-net-db = { workspace = true }
+pcap-file = { workspace = true }
+pnet = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+ttl_cache = { workspace = true }
+
+[dev-dependencies]
+clap = { workspace = true }
+criterion = { workspace = true }
+ctrlc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [[example]]
 name = "capture-tcp"
 path = "../examples/capture-tcp.rs"
-
-[dev-dependencies]
-clap = { workspace = true }
-ctrlc = { workspace = true }
-tracing-appender = { workspace = true }
-tracing-subscriber = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-criterion = { workspace = true }
 
 [[bench]]
 name = "bench_tcp"

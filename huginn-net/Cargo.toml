@@ -16,21 +16,21 @@ categories = ["network-programming", "cryptography", "development-tools"]
 
 [dependencies]
 huginn-net-db = { workspace = true }
-huginn-net-tls = { workspace = true }
 huginn-net-http = { workspace = true }
 huginn-net-tcp = { workspace = true }
-tracing = { workspace = true }
-thiserror = { workspace = true }
-pnet = { workspace = true }
-ttl_cache = { workspace = true }
+huginn-net-tls = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
+pnet = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+ttl_cache = { workspace = true }
 
 [dev-dependencies]
 clap = { workspace = true }
-tracing-subscriber = { workspace = true }
-tracing-appender = { workspace = true }
 ctrlc = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [[example]]
 name = "capture"
