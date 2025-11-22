@@ -24,7 +24,7 @@ jobs:
       matrix:
         crate: [huginn-net-db, huginn-net-tls, huginn-net-tcp, huginn-net-http, huginn-net]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -57,7 +57,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   if: github.event_name == 'pull_request'
   #   steps:
-  #     - uses: actions/checkout@v5
+  #     - uses: actions/checkout@v6
   #     - name: Dependency Review
   #       uses: actions/dependency-review-action@v4
   #       with:
