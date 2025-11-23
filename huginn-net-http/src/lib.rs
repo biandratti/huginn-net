@@ -3,6 +3,8 @@
 pub use huginn_net_db as db;
 pub use huginn_net_db::http;
 
+pub mod akamai;
+pub mod akamai_extractor;
 pub mod http1_parser;
 pub mod http1_process;
 pub mod http2_parser;
@@ -23,7 +25,10 @@ pub mod process;
 pub mod signature_matcher;
 
 // Re-exports
+pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
+pub use akamai_extractor::extract_akamai_fingerprint;
 pub use error::*;
+pub use http2_parser::{Http2Frame, Http2FrameType};
 pub use http_process::*;
 pub use observable::*;
 pub use output::*;
@@ -35,11 +40,23 @@ use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
+
+/// Configuration for TLS certificate-based analysis
+///
+/// Used for scenarios where TLS traffic needs to be decrypted (e.g., passthrough proxy)
+#[derive(Debug, Clone)]
+pub struct TlsConfig {
+    /// Path to TLS certificate file (PEM format)
+    pub cert_path: PathBuf,
+    /// Path to TLS private key file (PEM format)
+    pub key_path: PathBuf,
+}
 
 /// Configuration for parallel processing
 ///
@@ -68,6 +85,8 @@ pub struct HuginnNetHttp {
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
     database: Option<Arc<db::Database>>,
+    #[allow(dead_code)] // TODO: Will be used for TLS decryption in Akamai fingerprinting
+    tls_config: Option<TlsConfig>,
     max_connections: usize,
 }
 
@@ -90,6 +109,49 @@ impl HuginnNetHttp {
             parallel_config: None,
             worker_pool: None,
             database,
+            tls_config: None,
+            max_connections,
+        })
+    }
+
+    /// Creates a new instance of `HuginnNetHttp` with TLS certificate support.
+    ///
+    /// Use this constructor when analyzing TLS-encrypted traffic (e.g., passthrough proxy scenarios)
+    /// where you need to decrypt HTTPS to extract HTTP/2 frames for Akamai fingerprinting.
+    ///
+    /// # Parameters
+    /// - `cert_path`: Path to TLS certificate file (PEM format)
+    /// - `key_path`: Path to TLS private key file (PEM format)
+    /// - `max_connections`: Maximum number of HTTP flows to track (default: 10000)
+    ///
+    /// # Returns
+    /// A new `HuginnNetHttp` instance with TLS decryption capabilities.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use huginn_net_http::HuginnNetHttp;
+    /// use std::path::PathBuf;
+    ///
+    /// // Create analyzer with certificates (for TLS passthrough scenarios)
+    /// let analyzer = HuginnNetHttp::with_tls_certificates(
+    ///     PathBuf::from("/etc/ssl/certs/server.crt"),
+    ///     PathBuf::from("/etc/ssl/private/server.key"),
+    ///     10000,
+    /// )?;
+    /// # Ok::<(), huginn_net_http::HuginnNetHttpError>(())
+    /// ```
+    pub fn with_tls_certificates(
+        cert_path: PathBuf,
+        key_path: PathBuf,
+        max_connections: usize,
+    ) -> Result<Self, HuginnNetHttpError> {
+        Ok(Self {
+            http_flows: TtlCache::new(max_connections),
+            http_processors: HttpProcessors::new(),
+            parallel_config: None,
+            worker_pool: None,
+            database: None, // No p0f database needed for Akamai fingerprinting
+            tls_config: Some(TlsConfig { cert_path, key_path }),
             max_connections,
         })
     }
@@ -151,6 +213,7 @@ impl HuginnNetHttp {
             }),
             worker_pool: None,
             database,
+            tls_config: None,
             max_connections,
         })
     }

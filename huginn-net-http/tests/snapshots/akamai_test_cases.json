@@ -1,0 +1,170 @@
+[
+  {
+    "name": "Chrome 120 Windows",
+    "description": "Google Chrome 120 on Windows 11 - typical settings",
+    "frames": [
+      {
+        "frame_type": 4,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 3, 0, 0, 0, 100, 0, 4, 0, 96, 0, 0]
+      },
+      {
+        "frame_type": 8,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 238, 255, 1]
+      },
+      {
+        "frame_type": 2,
+        "flags": 0,
+        "stream_id": 3,
+        "payload": [0, 0, 0, 0, 200]
+      }
+    ],
+    "expected_fingerprint": {
+      "signature": "3:100;4:6291456|15662849|3:0:0:201|",
+      "hash": "615d5e7e5f5dec88cdda5886e78b5964",
+      "settings_count": 2,
+      "window_update": 15662849,
+      "priority_frames_count": 1,
+      "pseudo_headers_count": 0
+    }
+  },
+  {
+    "name": "Firefox 121 Linux",
+    "description": "Mozilla Firefox 121 on Linux - typical settings",
+    "frames": [
+      {
+        "frame_type": 4,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 3, 0, 0, 16, 0, 0, 4, 0, 0, 0, 100, 0, 1, 0, 0, 0, 0]
+      },
+      {
+        "frame_type": 8,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 190, 255, 1]
+      }
+    ],
+    "expected_fingerprint": {
+      "signature": "3:4096;4:100;1:0|12517121|0|",
+      "hash": "642695b88c2e83c7c1bf82408c040641",
+      "settings_count": 3,
+      "window_update": 12517121,
+      "priority_frames_count": 0,
+      "pseudo_headers_count": 0
+    }
+  },
+  {
+    "name": "Safari 17 macOS",
+    "description": "Safari 17 on macOS Sonoma - typical settings",
+    "frames": [
+      {
+        "frame_type": 4,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 3, 0, 0, 0, 100, 0, 4, 0, 0, 255, 255, 0, 2, 0, 0, 0, 1]
+      },
+      {
+        "frame_type": 8,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 255, 0, 1]
+      },
+      {
+        "frame_type": 2,
+        "flags": 0,
+        "stream_id": 3,
+        "payload": [128, 0, 0, 0, 255]
+      },
+      {
+        "frame_type": 2,
+        "flags": 0,
+        "stream_id": 5,
+        "payload": [128, 0, 0, 3, 255]
+      }
+    ],
+    "expected_fingerprint": {
+      "signature": "3:100;4:65535;2:1|16711681|3:1:0:256,5:1:3:256|",
+      "hash": "0e0a2b0b7e83c46b825fab0157498da5",
+      "settings_count": 3,
+      "window_update": 16711681,
+      "priority_frames_count": 2,
+      "pseudo_headers_count": 0
+    }
+  },
+  {
+    "name": "Edge 120 Windows",
+    "description": "Microsoft Edge 120 on Windows 11 (Chromium-based, similar to Chrome)",
+    "frames": [
+      {
+        "frame_type": 4,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 3, 0, 0, 0, 100, 0, 4, 0, 96, 0, 0]
+      },
+      {
+        "frame_type": 8,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 238, 255, 1]
+      },
+      {
+        "frame_type": 2,
+        "flags": 0,
+        "stream_id": 3,
+        "payload": [0, 0, 0, 0, 200]
+      }
+    ],
+    "expected_fingerprint": {
+      "signature": "3:100;4:6291456|15662849|3:0:0:201|",
+      "hash": "615d5e7e5f5dec88cdda5886e78b5964",
+      "settings_count": 2,
+      "window_update": 15662849,
+      "priority_frames_count": 1,
+      "pseudo_headers_count": 0
+    }
+  },
+  {
+    "name": "curl 8.5",
+    "description": "curl command-line tool with HTTP/2 support",
+    "frames": [
+      {
+        "frame_type": 4,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 3, 0, 0, 16, 0, 0, 4, 0, 1, 0, 0]
+      },
+      {
+        "frame_type": 8,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 15, 0, 0]
+      }
+    ],
+    "expected_fingerprint": {
+      "signature": "3:4096;4:65536|983040|0|",
+      "hash": "a4c74a86c4145ef5208b7d3c191ef84e",
+      "settings_count": 2,
+      "window_update": 983040,
+      "priority_frames_count": 0,
+      "pseudo_headers_count": 0
+    }
+  },
+  {
+    "name": "No SETTINGS frame",
+    "description": "Invalid HTTP/2 - no SETTINGS frame (should return None)",
+    "frames": [
+      {
+        "frame_type": 8,
+        "flags": 0,
+        "stream_id": 0,
+        "payload": [0, 238, 255, 1]
+      }
+    ],
+    "expected_fingerprint": null
+  }
+]
+
