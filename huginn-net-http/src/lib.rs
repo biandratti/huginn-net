@@ -4,6 +4,7 @@ pub use huginn_net_db as db;
 pub use huginn_net_db::http;
 
 pub mod akamai;
+pub mod akamai_extractor;
 pub mod http1_parser;
 pub mod http1_process;
 pub mod http2_parser;
@@ -25,6 +26,7 @@ pub mod signature_matcher;
 
 // Re-exports
 pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
+pub use akamai_extractor::extract_akamai_fingerprint;
 pub use error::*;
 pub use http_process::*;
 pub use observable::*;
