@@ -50,6 +50,35 @@ pub struct Http2Frame {
     pub length: u32,
 }
 
+impl Http2Frame {
+    /// Creates a new HTTP/2 frame
+    ///
+    /// # Parameters
+    /// - `frame_type_byte`: Raw frame type byte (0x0-0x9 for standard types)
+    /// - `flags`: Frame flags byte
+    /// - `stream_id`: Stream identifier
+    /// - `payload`: Frame payload data
+    ///
+    /// # Example
+    /// ```no_run
+    /// use huginn_net_http::Http2Frame;
+    ///
+    /// // Create a SETTINGS frame (type 0x4)
+    /// let frame = Http2Frame::new(0x4, 0x0, 0, vec![0x00, 0x03, 0x00, 0x00, 0x00, 0x64]);
+    /// ```
+    #[must_use]
+    pub fn new(frame_type_byte: u8, flags: u8, stream_id: u32, payload: Vec<u8>) -> Self {
+        let length = payload.len() as u32;
+        Self {
+            frame_type: Http2FrameType::from(frame_type_byte),
+            stream_id,
+            flags,
+            payload,
+            length,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Http2Settings {
     pub header_table_size: Option<u32>,

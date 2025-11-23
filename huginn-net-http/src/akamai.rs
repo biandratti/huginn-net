@@ -207,7 +207,7 @@ impl AkamaiFingerprint {
                         p.stream_id,
                         u8::from(p.exclusive),
                         p.depends_on,
-                        p.weight.saturating_add(1) // Weight is 1-256, not 0-255
+                        u16::from(p.weight).saturating_add(1) // Weight is 1-256, RFC 7540 says byte+1
                     )
                 })
                 .collect::<Vec<_>>()
