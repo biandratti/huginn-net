@@ -157,6 +157,10 @@ The current signature database includes patterns for:
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
 - **Custom Signature Databases** with easy updates
 
+### Packet Filtering
+
+Optional packet filtering by port and/or IP address for improved performance. Filters are applied before full packet parsing, reducing CPU overhead. Available across all crates. See [Examples & Tutorials](examples/README.md) for usage.
+
 ### Matching Quality
 
 Huginn Net provides intelligent quality scoring for all fingerprint matches, helping you assess the reliability of each detection.
