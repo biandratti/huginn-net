@@ -865,7 +865,8 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
         group.bench_function(&bench_name, |b| {
             b.iter(|| {
                 let (tx, rx) = std::sync::mpsc::channel();
-                let pool = match huginn_net_tls::WorkerPool::new(num_workers, 100, 32, 10, tx) {
+                let pool = match huginn_net_tls::WorkerPool::new(num_workers, 100, 32, 10, tx, None)
+                {
                     Ok(p) => p,
                     Err(e) => panic!("Failed to create worker pool: {e}"),
                 };
@@ -891,7 +892,7 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
     let parallel_2_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_tls::WorkerPool::new(2, 100, 32, 10, tx) {
+            let pool = match huginn_net_tls::WorkerPool::new(2, 100, 32, 10, tx, None) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };
@@ -907,7 +908,7 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
     let parallel_4_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_tls::WorkerPool::new(4, 100, 32, 10, tx) {
+            let pool = match huginn_net_tls::WorkerPool::new(4, 100, 32, 10, tx, None) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };
@@ -923,7 +924,7 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
     let parallel_8_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_tls::WorkerPool::new(8, 100, 32, 10, tx) {
+            let pool = match huginn_net_tls::WorkerPool::new(8, 100, 32, 10, tx, None) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };

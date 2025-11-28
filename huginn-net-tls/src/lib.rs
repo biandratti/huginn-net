@@ -1,14 +1,17 @@
 pub mod error;
+pub mod filter;
 pub mod observable;
 pub mod output;
 pub mod packet_parser;
 pub mod parallel;
 pub mod process;
+pub mod raw_filter;
 pub mod tls;
 pub mod tls_process;
 
 // Re-exports
 pub use error::*;
+pub use filter::*;
 pub use observable::*;
 pub use output::*;
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
@@ -49,6 +52,7 @@ struct ParallelConfig {
 pub struct HuginnNetTls {
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
+    filter_config: Option<FilterConfig>,
 }
 
 impl Default for HuginnNetTls {
@@ -63,7 +67,13 @@ impl HuginnNetTls {
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
-        Self { parallel_config: None, worker_pool: None }
+        Self { parallel_config: None, worker_pool: None, filter_config: None }
+    }
+
+    /// Configure packet filtering (builder pattern)
+    pub fn with_filter(mut self, config: FilterConfig) -> Self {
+        self.filter_config = Some(config);
+        self
     }
 
     /// Creates a new instance with full parallel configuration.
@@ -116,6 +126,7 @@ impl HuginnNetTls {
                 timeout_ms,
             }),
             worker_pool: None,
+            filter_config: None,
         }
     }
 
@@ -151,6 +162,7 @@ impl HuginnNetTls {
                     config.batch_size,
                     config.timeout_ms,
                     sender,
+                    self.filter_config.clone(),
                 )?);
                 self.worker_pool = Some(worker_pool);
             }
@@ -195,6 +207,7 @@ impl HuginnNetTls {
                 config.batch_size,
                 config.timeout_ms,
                 sender,
+                self.filter_config.clone(),
             )?);
             self.worker_pool = Some(worker_pool);
         }
@@ -362,6 +375,13 @@ impl HuginnNetTls {
         &mut self,
         packet: &[u8],
     ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
+        if let Some(ref filter) = self.filter_config {
+            if !raw_filter::apply(packet, filter) {
+                debug!("Filtered out packet before parsing");
+                return Ok(None);
+            }
+        }
+
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
             IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
