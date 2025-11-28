@@ -6,8 +6,10 @@
 //! to ensure requests and responses from the same connection are processed by the same worker.
 
 use crate::error::HuginnNetHttpError;
+use crate::filter::FilterConfig;
 use crate::http_process::{FlowKey, HttpProcessors, TcpFlow};
 use crate::packet_hash;
+use crate::raw_filter;
 use crate::{HttpAnalysisResult, SignatureMatcher};
 use crossbeam_channel::{bounded, Sender};
 use huginn_net_db as db;
@@ -74,9 +76,11 @@ impl WorkerPool {
     /// - `result_sender`: Channel to send analysis results
     /// - `database`: Optional signature database for matching
     /// - `max_connections`: Maximum HTTP flows to track per worker
+    /// - `filter_config`: Optional filter configuration for packet filtering
     ///
     /// # Returns
     /// A new `WorkerPool` or an error if creation fails.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         num_workers: usize,
         queue_size: usize,
@@ -85,6 +89,7 @@ impl WorkerPool {
         result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         database: Option<Arc<db::Database>>,
         max_connections: usize,
+        filter_config: Option<FilterConfig>,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
         if num_workers == 0 {
             return Err(HuginnNetHttpError::Misconfiguration(
@@ -105,6 +110,7 @@ impl WorkerPool {
             let dropped = Arc::new(AtomicU64::new(0));
             worker_dropped.push(Arc::clone(&dropped));
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
+            let worker_filter = filter_config.clone();
 
             thread::Builder::new()
                 .name(format!("http-worker-{worker_id}"))
@@ -117,6 +123,7 @@ impl WorkerPool {
                         dropped,
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
+                        worker_filter,
                     )
                 })
                 .map_err(|e| {
@@ -140,6 +147,7 @@ impl WorkerPool {
     }
 
     /// Worker thread main loop with batching support.
+    #[allow(clippy::too_many_arguments)]
     fn worker_loop(
         worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
@@ -148,6 +156,7 @@ impl WorkerPool {
         dropped: Arc<AtomicU64>,
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
+        filter_config: Option<FilterConfig>,
     ) {
         use crossbeam_channel::RecvTimeoutError;
         use std::time::Duration;
@@ -188,6 +197,7 @@ impl WorkerPool {
                             &mut http_flows,
                             &http_processors,
                             matcher.as_ref(),
+                            filter_config.as_ref(),
                         ) {
                             Ok(result) => {
                                 if result_sender.send(result).is_err() {
@@ -225,7 +235,15 @@ impl WorkerPool {
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
         matcher: Option<&SignatureMatcher>,
+        filter: Option<&FilterConfig>,
     ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
+        if let Some(filter_cfg) = filter {
+            if !raw_filter::apply(packet, filter_cfg) {
+                debug!("Filtered out packet before parsing");
+                return Ok(HttpAnalysisResult { http_request: None, http_response: None });
+            }
+        }
+
         use crate::packet_parser::{parse_packet, IpPacket};
         use crate::process;
 
