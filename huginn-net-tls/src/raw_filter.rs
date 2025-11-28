@@ -1,5 +1,6 @@
 use crate::filter::FilterConfig;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use tracing::debug;
 
 /// Apply raw filter check on raw packet bytes
 ///
@@ -14,7 +15,7 @@ pub fn apply(packet: &[u8], filter: &FilterConfig) -> bool {
     if let Some((src_ip, dst_ip, src_port, dst_port)) = extract_quick_info(packet) {
         filter.should_process(&src_ip, &dst_ip, src_port, dst_port)
     } else {
-        // If we can't extract info, let it through (will fail later in parsing)
+        debug!("Could not extract quick info from packet");
         true
     }
 }

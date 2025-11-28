@@ -1,13 +1,13 @@
 use pnet::ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-/// Filter mode: Allow (whitelist) or Deny (blacklist)
+/// Filter mode: Allow (allowlist) or Deny (denylist)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FilterMode {
-    /// Allow only matching packets (whitelist mode)
+    /// Allow only matching packets (allowlist mode)
     #[default]
     Allow,
-    /// Deny matching packets (blacklist mode)
+    /// Deny matching packets (denylist mode)
     Deny,
 }
 
@@ -95,6 +95,15 @@ impl PortFilter {
     }
 
     /// Add a source port range (inclusive)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::PortFilter;
+    ///
+    /// let filter = PortFilter::new().source_range(10000..20000);
+    /// // Matches ports 10000 through 19999
+    /// ```
     pub fn source_range(mut self, range: std::ops::Range<u16>) -> Self {
         self.source_ranges
             .push((range.start, range.end.saturating_sub(1)));
@@ -116,6 +125,14 @@ impl PortFilter {
     }
 
     /// Add multiple source ports
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::PortFilter;
+    ///
+    /// let filter = PortFilter::new().source_list(vec![12345, 54321, 9999]);
+    /// ```
     pub fn source_list(mut self, ports: Vec<u16>) -> Self {
         self.source_ports.extend(ports);
         self
@@ -243,6 +260,16 @@ impl IpFilter {
     /// # Errors
     ///
     /// Returns an error if any IP address string is invalid
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::IpFilter;
+    ///
+    /// let filter = IpFilter::new()
+    ///     .allow_list(vec!["8.8.8.8", "1.1.1.1", "2001:4860:4860::8888"])
+    ///     .unwrap();
+    /// ```
     pub fn allow_list(mut self, ips: Vec<&str>) -> Result<Self, String> {
         for ip in ips {
             self = self.allow(ip)?;
@@ -360,6 +387,16 @@ impl SubnetFilter {
     /// # Errors
     ///
     /// Returns an error if any CIDR notation is invalid
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::SubnetFilter;
+    ///
+    /// let filter = SubnetFilter::new()
+    ///     .allow_list(vec!["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"])
+    ///     .unwrap();
+    /// ```
     pub fn allow_list(mut self, cidrs: Vec<&str>) -> Result<Self, String> {
         for cidr in cidrs {
             self = self.allow(cidr)?;
@@ -446,17 +483,6 @@ impl FilterConfig {
         Self::default()
     }
 
-    /// Convert to BPF (Berkeley Packet Filter) expression
-    ///
-    /// Generates a BPF filter string that can be applied at the kernel level
-    /// for efficient packet filtering. This is much faster than userspace filtering
-    /// as it prevents irrelevant packets from being copied to userspace.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(String)`: BPF filter expression if filters are configured
-    /// - `None`: No BPF-compatible filters configured
-    ///
     /// Set filter mode (Allow/Deny)
     ///
     /// # Examples
@@ -464,10 +490,10 @@ impl FilterConfig {
     /// ```
     /// use huginn_net_tls::{FilterConfig, FilterMode};
     ///
-    /// // Whitelist mode (default)
+    /// // Allowlist mode (default) - only matching packets pass
     /// let filter = FilterConfig::new().mode(FilterMode::Allow);
     ///
-    /// // Blacklist mode
+    /// // Denylist mode - matching packets are blocked
     /// let filter = FilterConfig::new().mode(FilterMode::Deny);
     /// ```
     pub fn mode(mut self, mode: FilterMode) -> Self {
@@ -476,18 +502,53 @@ impl FilterConfig {
     }
 
     /// Add port filter
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::{FilterConfig, PortFilter};
+    ///
+    /// let filter = FilterConfig::new()
+    ///     .with_port_filter(PortFilter::new().destination(443));
+    /// ```
     pub fn with_port_filter(mut self, filter: PortFilter) -> Self {
         self.port_filter = Some(filter);
         self
     }
 
     /// Add IP filter
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::{FilterConfig, IpFilter};
+    ///
+    /// let filter = FilterConfig::new()
+    ///     .with_ip_filter(
+    ///         IpFilter::new()
+    ///             .allow("8.8.8.8")
+    ///             .unwrap()
+    ///     );
+    /// ```
     pub fn with_ip_filter(mut self, filter: IpFilter) -> Self {
         self.ip_filter = Some(filter);
         self
     }
 
     /// Add subnet filter
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use huginn_net_tls::{FilterConfig, SubnetFilter};
+    ///
+    /// let filter = FilterConfig::new()
+    ///     .with_subnet_filter(
+    ///         SubnetFilter::new()
+    ///             .allow("192.168.0.0/16")
+    ///             .unwrap()
+    ///     );
+    /// ```
     pub fn with_subnet_filter(mut self, filter: SubnetFilter) -> Self {
         self.subnet_filter = Some(filter);
         self
@@ -495,9 +556,9 @@ impl FilterConfig {
 
     /// Check if packet should be processed based on filters (userspace filtering)
     ///
-    /// This method performs filtering in userspace (after packets reach the application).
-    /// It's only used with pnet datalink mode where packets aren't pre-filtered by BPF.
-    /// When using pcap+BPF, this method is skipped to avoid redundant filtering.
+    /// This method performs filtering in userspace after packets reach the application.
+    /// It extracts IP addresses and ports from packet headers and applies the configured
+    /// filters (port, IP, subnet) according to the filter mode (Allow/Deny).
     ///
     /// # Returns
     ///
