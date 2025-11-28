@@ -172,10 +172,10 @@ impl PortFilter {
                 || all_ports.contains(&dst_port)
                 || all_ranges
                     .iter()
-                    .any(|(start, end)| (src_port >= *start && src_port <= *end))
+                    .any(|(start, end)| src_port >= *start && src_port <= *end)
                 || all_ranges
                     .iter()
-                    .any(|(start, end)| (dst_port >= *start && dst_port <= *end));
+                    .any(|(start, end)| dst_port >= *start && dst_port <= *end);
 
             port_match
         } else {
