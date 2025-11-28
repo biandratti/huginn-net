@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use huginn_net_db::Database;
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult};
+use huginn_net_tcp::{FilterConfig, HuginnNetTcp, IpFilter, PortFilter, TcpAnalysisResult};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -18,8 +18,21 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 
+    #[command(flatten)]
+    filter: FilterOptions,
+
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+}
+
+#[derive(Parser, Debug)]
+struct FilterOptions {
+    /// Filter by destination port (e.g., 443 for HTTPS)
+    #[arg(short = 'p', long = "port")]
+    port: Option<u16>,
+    /// Filter by source or destination IP address
+    #[arg(short = 'I', long = "ip")]
+    ip: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -64,6 +77,37 @@ fn initialize_logging(log_file: Option<String>) {
     }
 }
 
+fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
+    let has_port = filter_options.port.is_some();
+    let has_ip = filter_options.ip.is_some();
+
+    if !has_port && !has_ip {
+        return None;
+    }
+
+    let mut filter = FilterConfig::new();
+
+    if let Some(dst_port) = filter_options.port {
+        filter = filter.with_port_filter(PortFilter::new().destination(dst_port));
+        info!("Filter: destination port {}", dst_port);
+    }
+
+    if let Some(ip_str) = &filter_options.ip {
+        match IpFilter::new().allow(ip_str) {
+            Ok(ip_filter) => {
+                filter = filter.with_ip_filter(ip_filter);
+                info!("Filter: IP address {}", ip_str);
+            }
+            Err(e) => {
+                error!("Invalid IP address '{}': {}", ip_str, e);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    Some(filter)
+}
+
 fn main() {
     let args = Args::parse();
     initialize_logging(args.log_file);
@@ -80,26 +124,38 @@ fn main() {
     };
     debug!("Loaded p0f database successfully");
 
+    let filter_config = build_filter(&args.filter);
+
     let mut analyzer = match &args.command {
         Commands::Single { .. } => {
             info!("Using sequential mode");
-            match HuginnNetTcp::new(Some(db), 1000) {
+            let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
                 Ok(analyzer) => analyzer,
                 Err(e) => {
                     error!("Failed to create HuginnNetTcp analyzer: {e}");
                     return;
                 }
+            };
+            if let Some(ref filter_cfg) = filter_config {
+                analyzer = analyzer.with_filter(filter_cfg.clone());
+                info!("Packet filtering enabled");
             }
+            analyzer
         }
         Commands::Parallel { workers, queue_size, .. } => {
             info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
-            match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size, 32, 10) {
+            let mut analyzer = match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size, 32, 10) {
                 Ok(analyzer) => analyzer,
                 Err(e) => {
                     error!("Failed to create HuginnNetTcp analyzer: {e}");
                     return;
                 }
+            };
+            if let Some(ref filter_cfg) = filter_config {
+                analyzer = analyzer.with_filter(filter_cfg.clone());
+                info!("Packet filtering enabled");
             }
+            analyzer
         }
     };
 
