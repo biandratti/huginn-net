@@ -374,7 +374,7 @@ impl HuginnNetTls {
     fn process_packet(
         &mut self,
         packet: &[u8],
-    ) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
+    ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         if let Some(ref filter) = self.filter_config {
             if !raw_filter::apply(packet, filter) {
                 debug!("Filtered out packet before parsing");
