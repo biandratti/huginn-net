@@ -86,6 +86,16 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l ht
 
 # Example for 10 Gbps traffic (2 workers recommended)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i <INTERFACE> -w 2 -q 100
+
+# Filtering examples
+# Filter by destination port (HTTP on port 80)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 single -i <INTERFACE>
+
+# Filter by IP address
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -I 192.168.1.100 single -i <INTERFACE>
+
+# Filter by both port and IP (both conditions must match)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 -I 192.168.1.100 parallel -i <INTERFACE> -w 2
 ```
 
 #### Differences between examples:
