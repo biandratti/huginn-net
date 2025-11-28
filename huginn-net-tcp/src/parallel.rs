@@ -1,8 +1,10 @@
 use crate::error::HuginnNetTcpError;
+use crate::filter::FilterConfig;
 use crate::output::TcpAnalysisResult;
 use crate::packet_hash;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
+use crate::raw_filter;
 use crate::signature_matcher::SignatureMatcher;
 use crossbeam_channel::{bounded, Sender, TrySendError};
 use std::num::NonZeroUsize;
@@ -99,9 +101,11 @@ impl WorkerPool {
     /// - `result_sender`: Channel to send TCP analysis results
     /// - `database`: Optional database for OS fingerprinting (wrapped in Arc for thread sharing)
     /// - `max_connections`: Maximum connections to track per worker
+    /// - `filter_config`: Optional filter configuration for packet filtering
     ///
     /// # Errors
     /// Returns error if `num_workers` is 0 or thread creation fails.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         num_workers: usize,
         queue_size: usize,
@@ -110,6 +114,7 @@ impl WorkerPool {
         result_sender: std::sync::mpsc::Sender<TcpAnalysisResult>,
         database: Option<Arc<crate::db::Database>>,
         max_connections: usize,
+        filter_config: Option<FilterConfig>,
     ) -> Result<Self, HuginnNetTcpError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or(
             HuginnNetTcpError::Misconfiguration("Worker count must be greater than 0".to_string()),
@@ -130,6 +135,7 @@ impl WorkerPool {
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
             let worker_database = database.as_ref().map(Arc::clone);
+            let worker_filter = filter_config.clone();
 
             let handle = thread::Builder::new()
                 .name(format!("tcp-worker-{worker_id}"))
@@ -141,6 +147,7 @@ impl WorkerPool {
                         worker_database,
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
+                        worker_filter,
                     );
                 })
                 .map_err(|e| {
@@ -178,6 +185,7 @@ impl WorkerPool {
         database: Option<Arc<crate::db::Database>>,
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
+        filter_config: Option<FilterConfig>,
     ) {
         use crossbeam_channel::RecvTimeoutError;
         use std::time::Duration;
@@ -224,6 +232,7 @@ impl WorkerPool {
                 &mut connection_tracker,
                 matcher.as_ref(),
                 &result_sender,
+                filter_config.as_ref(),
             ) {
                 tracing::debug!("TCP worker {worker_id}: result channel closed");
                 break;
@@ -238,6 +247,7 @@ impl WorkerPool {
                             &mut connection_tracker,
                             matcher.as_ref(),
                             &result_sender,
+                            filter_config.as_ref(),
                         ) {
                             tracing::debug!("TCP worker {worker_id}: result channel closed");
                             return;
@@ -261,7 +271,15 @@ impl WorkerPool {
         >,
         matcher: Option<&SignatureMatcher>,
         result_sender: &std::sync::mpsc::Sender<TcpAnalysisResult>,
+        filter: Option<&FilterConfig>,
     ) -> bool {
+        if let Some(filter_cfg) = filter {
+            if !raw_filter::apply(packet, filter_cfg) {
+                tracing::debug!("Filtered out packet before parsing");
+                return true;
+            }
+        }
+
         let result = match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, connection_tracker, matcher),
             IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, connection_tracker, matcher),

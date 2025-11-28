@@ -3,11 +3,13 @@
 pub use huginn_net_db as db;
 pub use huginn_net_db::tcp;
 
+pub mod filter;
 pub mod ip_options;
 pub mod mtu;
 pub mod packet_hash;
 pub mod packet_parser;
 pub mod parallel;
+pub mod raw_filter;
 pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
@@ -22,6 +24,7 @@ pub mod signature_matcher;
 
 // Re-exports
 pub use error::*;
+pub use filter::*;
 pub use observable::*;
 pub use output::*;
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
@@ -63,6 +66,7 @@ pub struct HuginnNetTcp {
     max_connections: usize,
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
+    filter_config: Option<FilterConfig>,
 }
 
 impl HuginnNetTcp {
@@ -78,7 +82,13 @@ impl HuginnNetTcp {
         database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Self, HuginnNetTcpError> {
-        Ok(Self { matcher: database, max_connections, parallel_config: None, worker_pool: None })
+        Ok(Self {
+            matcher: database,
+            max_connections,
+            parallel_config: None,
+            worker_pool: None,
+            filter_config: None,
+        })
     }
 
     /// Creates a new instance of `HuginnNetTcp` configured for parallel processing.
@@ -144,7 +154,14 @@ impl HuginnNetTcp {
                 timeout_ms,
             }),
             worker_pool: None,
+            filter_config: None,
         })
+    }
+
+    /// Configure packet filtering (builder pattern)
+    pub fn with_filter(mut self, config: FilterConfig) -> Self {
+        self.filter_config = Some(config);
+        self
     }
 
     /// Initializes the worker pool for parallel processing.
@@ -178,6 +195,7 @@ impl HuginnNetTcp {
             sender,
             database_arc,
             self.max_connections,
+            self.filter_config.clone(),
         )?;
 
         self.worker_pool = Some(Arc::new(worker_pool));
@@ -391,6 +409,19 @@ impl HuginnNetTcp {
         packet: &[u8],
         connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
+        if let Some(ref filter) = self.filter_config {
+            if !raw_filter::apply(packet, filter) {
+                debug!("Filtered out packet before parsing");
+                return Ok(TcpAnalysisResult {
+                    syn: None,
+                    syn_ack: None,
+                    mtu: None,
+                    client_uptime: None,
+                    server_uptime: None,
+                });
+            }
+        }
+
         let matcher = self
             .matcher
             .as_ref()
