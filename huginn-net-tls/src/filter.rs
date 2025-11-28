@@ -581,23 +581,45 @@ impl FilterConfig {
             return true;
         }
 
-        let mut matches = true;
-
-        if let Some(ref filter) = self.port_filter {
-            matches = matches && filter.matches(src_port, dst_port);
-        }
-
-        if let Some(ref filter) = self.ip_filter {
-            matches = matches && filter.matches(src_ip, dst_ip);
-        }
-
-        if let Some(ref filter) = self.subnet_filter {
-            matches = matches && filter.matches(src_ip, dst_ip);
-        }
-
         match self.mode {
-            FilterMode::Allow => matches,
-            FilterMode::Deny => !matches,
+            FilterMode::Allow => {
+                if let Some(ref filter) = self.port_filter {
+                    if !filter.matches(src_port, dst_port) {
+                        return false;
+                    }
+                }
+
+                if let Some(ref filter) = self.ip_filter {
+                    if !filter.matches(src_ip, dst_ip) {
+                        return false;
+                    }
+                }
+
+                if let Some(ref filter) = self.subnet_filter {
+                    if !filter.matches(src_ip, dst_ip) {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            FilterMode::Deny => {
+                let mut all_match = true;
+
+                if let Some(ref filter) = self.port_filter {
+                    all_match = all_match && filter.matches(src_port, dst_port);
+                }
+
+                if let Some(ref filter) = self.ip_filter {
+                    all_match = all_match && filter.matches(src_ip, dst_ip);
+                }
+
+                if let Some(ref filter) = self.subnet_filter {
+                    all_match = all_match && filter.matches(src_ip, dst_ip);
+                }
+
+                !all_match
+            }
         }
     }
 }
