@@ -1,6 +1,8 @@
+use crate::filter::FilterConfig;
 use crate::output::TlsClientOutput;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
+use crate::raw_filter;
 use crate::HuginnNetTlsError;
 use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError, TrySendError};
 use std::fmt;
@@ -72,7 +74,7 @@ impl fmt::Display for PoolStats {
     }
 }
 
-/// Worker pool for parallel TLS processing
+/// Worker pool for parallel TLS processing with early filtering
 pub struct WorkerPool {
     _workers: Vec<thread::JoinHandle<()>>,
     packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
@@ -99,6 +101,7 @@ impl WorkerPool {
         batch_size: usize,
         timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
+        filter_config: Option<FilterConfig>,
     ) -> Result<Self, HuginnNetTlsError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or_else(|| {
             HuginnNetTlsError::Misconfiguration("Worker count must be greater than 0".to_string())
@@ -114,6 +117,7 @@ impl WorkerPool {
         let mut packet_senders = Vec::with_capacity(num_workers_val);
         let mut worker_dropped = Vec::with_capacity(num_workers_val);
         let shutdown_flag = Arc::new(AtomicBool::new(false));
+        let filter_arc = filter_config.map(Arc::new);
 
         for worker_id in 0..num_workers_val {
             worker_dropped.push(AtomicU64::new(0));
@@ -122,6 +126,7 @@ impl WorkerPool {
 
             let result_sender_clone = result_sender.clone();
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
+            let filter_clone = filter_arc.clone();
 
             let handle = thread::Builder::new()
                 .name(format!("tls-worker-{worker_id}"))
@@ -131,6 +136,7 @@ impl WorkerPool {
                         rx,
                         result_sender_clone,
                         shutdown_flag_clone,
+                        filter_clone,
                         WorkerConfig { batch_size, timeout_ms },
                     );
                 })
@@ -219,6 +225,7 @@ impl WorkerPool {
         rx: Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
         shutdown_flag: Arc<AtomicBool>,
+        filter_config: Option<Arc<FilterConfig>>,
         config: WorkerConfig,
     ) {
         debug!("TLS worker {} started", worker_id);
@@ -261,7 +268,7 @@ impl WorkerPool {
 
             // Process entire batch
             for packet in batch.drain(..) {
-                match Self::process_packet(&packet) {
+                match Self::process_packet(&packet, filter_config.as_deref()) {
                     Ok(Some(result)) => {
                         if result_sender.send(result).is_err() {
                             debug!("TLS worker {} result channel closed", worker_id);
@@ -277,7 +284,17 @@ impl WorkerPool {
         debug!("TLS worker {} stopped", worker_id);
     }
 
-    fn process_packet(packet: &[u8]) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
+    fn process_packet(
+        packet: &[u8],
+        filter: Option<&FilterConfig>,
+    ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
+        if let Some(filter_cfg) = filter {
+            if !raw_filter::apply(packet, filter_cfg) {
+                debug!("Filtered out packet before parsing");
+                return Ok(None);
+            }
+        }
+
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
             IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),

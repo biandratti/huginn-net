@@ -5,3 +5,4 @@ cobertura.xml
 *.log
 **/Cargo.lock
 !Cargo.lock
+/data

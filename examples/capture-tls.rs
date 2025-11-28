@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput};
+use huginn_net_tls::{FilterConfig, HuginnNetTls, IpFilter, PortFilter, TlsClientOutput};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -17,8 +17,20 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 
+    #[command(flatten)]
+    filter: FilterOptions,
+
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+}
+
+#[derive(Parser, Debug)]
+struct FilterOptions {
+    #[arg(short = 'p', long = "port")]
+    port: Option<u16>,
+
+    #[arg(short = 'I', long = "ip")]
+    ip: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -69,6 +81,37 @@ fn initialize_logging(log_file: Option<String>) {
     }
 }
 
+fn build_filter(port: Option<u16>, ip: Option<String>) -> Option<FilterConfig> {
+    let has_port = port.is_some();
+    let has_ip = ip.is_some();
+
+    if !has_port && !has_ip {
+        return None;
+    }
+
+    let mut filter = FilterConfig::new();
+
+    if let Some(dst_port) = port {
+        filter = filter.with_port_filter(PortFilter::new().destination(dst_port));
+        info!("Filter: destination port {}", dst_port);
+    }
+
+    if let Some(ip_str) = ip {
+        match IpFilter::new().allow(&ip_str) {
+            Ok(ip_filter) => {
+                filter = filter.with_ip_filter(ip_filter);
+                info!("Filter: IP address {}", ip_str);
+            }
+            Err(e) => {
+                error!("Invalid IP address '{}': {}", ip_str, e);
+                return None;
+            }
+        }
+    }
+
+    Some(filter)
+}
+
 fn main() {
     let args = Args::parse();
     initialize_logging(args.log_file.clone());
@@ -87,11 +130,22 @@ fn main() {
     let mut analyzer = match &args.command {
         Commands::Single { .. } => {
             info!("Using sequential mode");
-            HuginnNetTls::new()
+            let mut analyzer = HuginnNetTls::new();
+            if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone()) {
+                analyzer = analyzer.with_filter(filter_config);
+                info!("Packet filtering enabled");
+            }
+            analyzer
         }
         Commands::Parallel { workers, queue_size, batch_size, timeout_ms, .. } => {
             info!("Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}");
-            HuginnNetTls::with_config(*workers, *queue_size, *batch_size, *timeout_ms)
+            let mut analyzer =
+                HuginnNetTls::with_config(*workers, *queue_size, *batch_size, *timeout_ms);
+            if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone()) {
+                analyzer = analyzer.with_filter(filter_config);
+                info!("Packet filtering enabled");
+            }
+            analyzer
         }
     };
 
@@ -125,7 +179,7 @@ fn main() {
 
     thread::spawn(move || {
         let interface = match &args.command {
-            Commands::Single { interface } => interface.clone(),
+            Commands::Single { interface, .. } => interface.clone(),
             Commands::Parallel { interface, .. } => interface.clone(),
         };
 
