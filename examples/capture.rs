@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use huginn_net::output::FingerprintResult;
-use huginn_net::Database;
-use huginn_net::HuginnNet;
+use huginn_net::{Database, FilterConfig, HuginnNet, IpFilter, PortFilter};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -19,9 +18,21 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 
+    #[command(flatten)]
+    filter: FilterOptions,
+
     /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+}
+
+#[derive(Parser, Debug)]
+struct FilterOptions {
+    #[arg(short = 'p', long = "port")]
+    port: Option<u16>,
+
+    #[arg(short = 'I', long = "ip")]
+    ip: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -62,6 +73,36 @@ fn initialize_logging(log_file: Option<String>) {
     }
 }
 
+fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
+    let has_port = filter_options.port.is_some();
+    let has_ip = filter_options.ip.is_some();
+
+    if !has_port && !has_ip {
+        return None;
+    }
+
+    let mut filter = FilterConfig::new();
+
+    if let Some(dst_port) = filter_options.port {
+        filter = filter.with_port_filter(PortFilter::new().destination(dst_port));
+        info!("Filter: destination port {}", dst_port);
+    }
+
+    if let Some(ip_str) = &filter_options.ip {
+        match IpFilter::new().allow(ip_str) {
+            Ok(ip_filter) => {
+                filter = filter.with_ip_filter(ip_filter);
+                info!("Filter: IP address {}", ip_str);
+            }
+            Err(e) => {
+                error!("Invalid IP address '{}': {}", ip_str, e);
+                std::process::exit(1); // Exit on invalid IP
+            }
+        }
+    }
+    Some(filter)
+}
+
 fn main() {
     let args = Args::parse();
     initialize_logging(args.log_file);
@@ -91,6 +132,8 @@ fn main() {
         };
         debug!("Loaded database: {:?}", db);
 
+        let filter_config = build_filter(&args.filter);
+
         let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
             Ok(analyzer) => analyzer,
             Err(e) => {
@@ -98,6 +141,10 @@ fn main() {
                 return;
             }
         };
+
+        if let Some(ref filter_cfg) = filter_config {
+            analyzer = analyzer.with_filter(filter_cfg.clone());
+        }
 
         let result = match args.command {
             Commands::Live { interface } => {

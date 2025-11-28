@@ -15,6 +15,19 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FI
 
 # PCAP analysis
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> pcap -f <TCP_TRAFFIC>.pcap
+
+# Filtering examples
+# Filter by destination port (e.g., HTTPS on port 443)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -p 443 live -i <INTERFACE>
+
+# Filter by IP address
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -I 192.168.1.100 live -i <INTERFACE>
+
+# Filter by both port and IP (both conditions must match)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -p 443 -I 192.168.1.100 live -i <INTERFACE>
+
+# Filter PCAP file by port
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -p 80 pcap -f traffic.pcap
 ```
 
 #### TLS-Only Analysis
