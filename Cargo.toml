@@ -38,6 +38,6 @@ sha2 = "0.10.9"
 thiserror = "2.0.17"
 tls-parser = "0.12.2"
 tracing = "0.1.43"
-tracing-appender = "0.2.3"
+tracing-appender = "0.2.4"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 ttl_cache = "0.5.1"
