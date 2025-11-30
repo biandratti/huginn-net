@@ -1,4 +1,4 @@
-use huginn_net_tls::{FilterConfig, FilterMode, IpFilter, PortFilter, SubnetFilter};
+use huginn_net_http::{FilterConfig, FilterMode, IpFilter, PortFilter, SubnetFilter};
 use std::net::IpAddr;
 
 #[test]
