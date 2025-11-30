@@ -9,7 +9,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "1.6.1"
+version = "1.7.0"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT OR Apache-2.0"
@@ -19,14 +19,14 @@ homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
-criterion = { version = "0.7.0", features = ["html_reports"] }
+criterion = { version = "0.8.0", features = ["html_reports"] }
 crossbeam-channel = "0.5.15"
 ctrlc = "3.5.1"
 hpack-patched = "0.3.0"
-huginn-net-db = { path = "huginn-net-db", version = "1.6.1" }
-huginn-net-http = { path = "huginn-net-http", version = "1.6.1" }
-huginn-net-tcp = { path = "huginn-net-tcp", version = "1.6.1" }
-huginn-net-tls = { path = "huginn-net-tls", version = "1.6.1" }
+huginn-net-db = { path = "huginn-net-db", version = "1.7.0" }
+huginn-net-http = { path = "huginn-net-http", version = "1.7.0" }
+huginn-net-tcp = { path = "huginn-net-tcp", version = "1.7.0" }
+huginn-net-tls = { path = "huginn-net-tls", version = "1.7.0" }
 lazy_static = "1.5.0"
 
 nom = "8.0.0"
@@ -39,5 +39,5 @@ thiserror = "2.0.17"
 tls-parser = "0.12.2"
 tracing = "0.1.43"
 tracing-appender = "0.2.4"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 ttl_cache = "0.5.1"
