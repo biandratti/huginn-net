@@ -53,26 +53,57 @@ huginn-net-tls = "1.6.1"
 ### Basic Usage
 
 ```rust
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput};
+use huginn_net_tls::{FilterConfig, HuginnNetTls, HuginnNetTlsError, IpFilter, PortFilter, TlsClientOutput};
 use std::sync::mpsc;
 
-fn main() {
+fn main() -> Result<(), HuginnNetTlsError> {
+    // Create analyzer
     let mut analyzer = HuginnNetTls::new();
+    
+    // Optional: Configure filters (can be combined)
+    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+        let filter = FilterConfig::new()
+            .with_port_filter(PortFilter::new().destination(443))
+            .with_ip_filter(ip_filter);
+        analyzer = analyzer.with_filter(filter);
+    }
+    
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
     
     // Live capture (use parallel mode for high throughput)
-    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
     
     // Or PCAP analysis (always use sequential mode)
-    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
+    // std::thread::spawn(move || {
+    //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
+    //         eprintln!("Analysis error: {e}");
+    //     }
+    // });
     
     for tls in receiver {
         println!("{tls}");
     }
+    
+    Ok(())
 }
 ```
 
-For a complete working example with signal handling and error management, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+
+### Filtering
+
+The library supports packet filtering to reduce processing overhead and focus on specific traffic. Filters can be combined using AND logic (all conditions must match):
+
+**Filter Types:**
+- **Port Filter**: Filter by TCP source/destination ports (supports single ports, lists, and ranges)
+- **IP Filter**: Filter by specific IPv4/IPv6 addresses (supports source-only, destination-only, or both)
+- **Subnet Filter**: Filter by CIDR subnets (supports IPv4 and IPv6)
+
+All filters support both Allow (allowlist) and Deny (denylist) modes. See the [filter documentation](https://docs.rs/huginn-net-tls/latest/huginn_net_tls/filter/index.html) for complete details.
 
 ### Example Output
 
