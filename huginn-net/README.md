@@ -25,6 +25,8 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 - **Same accuracy as p0f** - Validated against extensive device testing
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
 - **Production-ready parallel processing** - Use protocol-specific crates with multi-threaded worker pools for high-throughput live capture
+- **Typed observable data access** - Access to typed TCP signatures, HTTP headers, TLS extensions, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTcp`, `ObservableHttpRequest/Response`, `ObservableTlsClient`) without being limited to predefined signatures
 
 ## Quick Start
 
@@ -34,6 +36,7 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net = "1.6.1"
+huginn-net-db = "1.6.1"
 ```
 
 ### Examples & Tutorials
@@ -46,19 +49,51 @@ huginn-net = "1.6.1"
 ### Basic Usage
 
 ```rust
-use huginn_net::{Database, HuginnNet};
-use std::sync::mpsc;
+use huginn_net::{Database, FilterConfig, HuginnNet, HuginnNetError, IpFilter, PortFilter};
+use std::sync::{Arc, mpsc};
 
-fn main() {
-    let db = Database::load_default().unwrap();
-    let mut analyzer = HuginnNet::new(Some(&db), 1000, None).unwrap();
+fn main() -> Result<(), HuginnNetError> {
+    // Load database for fingerprinting
+    let db = match Database::load_default() {
+        Ok(db) => Arc::new(db),
+        Err(e) => {
+            eprintln!("Failed to load database: {e}");
+            return Err(HuginnNetError::Parse(format!("Database error: {e}")));
+        }
+    };
+    
+    // Create analyzer
+    let mut analyzer = match HuginnNet::new(Some(db), 1000, None) {
+        Ok(analyzer) => analyzer,
+        Err(e) => {
+            eprintln!("Failed to create analyzer: {e}");
+            return Err(e);
+        }
+    };
+    
+    // Optional: Configure filters (can be combined)
+    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+        let filter = FilterConfig::new()
+            .with_port_filter(PortFilter::new().destination(443))
+            .with_ip_filter(ip_filter);
+        analyzer = analyzer.with_filter(filter);
+    }
+    
     let (sender, receiver) = mpsc::channel();
     
     // Live capture
-    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
     
     // Or PCAP analysis
-    // std::thread::spawn(move || analyzer.analyze_pcap("traffic.pcap", sender, None));
+    // std::thread::spawn(move || {
+    //     if let Err(e) = analyzer.analyze_pcap("traffic.pcap", sender, None) {
+    //         eprintln!("Analysis error: {e}");
+    //     }
+    // });
     
     for result in receiver {
         if let Some(tcp_syn) = result.tcp_syn { println!("{tcp_syn}"); }
@@ -70,10 +105,23 @@ fn main() {
         if let Some(http_response) = result.http_response { println!("{http_response}"); }
         if let Some(tls_client) = result.tls_client { println!("{tls_client}"); }
     }
+    
+    Ok(())
 }
 ```
 
-For complete working examples with signal handling and error management, see [`examples/capture.rs`](../examples/capture.rs).
+For complete working examples with signal handling, error management, and CLI options, see [`examples/capture.rs`](../examples/capture.rs).
+
+### Filtering
+
+The library supports packet filtering to reduce processing overhead and focus on specific traffic. Filters can be combined using AND logic (all conditions must match):
+
+**Filter Types:**
+- **Port Filter**: Filter by TCP source/destination ports (supports single ports, lists, and ranges)
+- **IP Filter**: Filter by specific IPv4/IPv6 addresses (supports source-only, destination-only, or both)
+- **Subnet Filter**: Filter by CIDR subnets (supports IPv4 and IPv6)
+
+All filters support both Allow (allowlist) and Deny (denylist) modes. See the [filter documentation](https://docs.rs/huginn-net/latest/huginn_net/filter/index.html) for complete details.
 
 > **Note:** This crate provides sequential (single-threaded) analysis for all protocols. For production high-throughput scenarios, use the protocol-specific crates (`huginn-net-tcp`, `huginn-net-http`, `huginn-net-tls`) with their optimized parallel processing modes.
 

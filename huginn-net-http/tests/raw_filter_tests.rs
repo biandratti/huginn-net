@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use huginn_net_tls::filter::{FilterConfig, FilterMode, IpFilter, PortFilter};
+use huginn_net_http::filter::{FilterConfig, FilterMode, IpFilter, PortFilter};
 
 /// Helper to create an IPv4 TCP packet (minimal: IP header + TCP ports)
 fn create_ipv4_tcp_packet(
@@ -41,8 +41,6 @@ fn create_ethernet_ipv4_tcp_packet(
 fn test_raw_filter_ipv4_raw_packet() {
     let packet = create_ipv4_tcp_packet([192, 168, 1, 100], [8, 8, 8, 8], 12345, 443);
 
-    // The raw filter should work on raw bytes
-    // We test indirectly by checking that the packet format is correct
     assert_eq!(packet.len(), 40);
     assert_eq!(packet[0], 0x45); // IPv4, IHL=5
     assert_eq!(packet[9], 6); // TCP protocol
@@ -52,7 +50,6 @@ fn test_raw_filter_ipv4_raw_packet() {
 fn test_raw_filter_ethernet_frame() {
     let packet = create_ethernet_ipv4_tcp_packet([192, 168, 1, 100], [8, 8, 8, 8], 12345, 443);
 
-    // Test Ethernet frame structure
     assert_eq!(packet.len(), 54);
     assert_eq!(&packet[12..14], &[0x08, 0x00]); // IPv4 EtherType
     assert_eq!(packet[14], 0x45); // IPv4, IHL=5
@@ -65,7 +62,6 @@ fn test_raw_filter_allows_matching_destination_port() {
         .mode(FilterMode::Allow)
         .with_port_filter(PortFilter::new().destination(443));
 
-    // Raw filter should allow packets matching destination port
     let src_ip: IpAddr = "192.168.1.100"
         .parse()
         .unwrap_or_else(|e| panic!("Invalid IP: {e}"));
@@ -89,7 +85,6 @@ fn test_raw_filter_blocks_non_matching_destination_port() {
         .parse()
         .unwrap_or_else(|e| panic!("Invalid IP: {e}"));
 
-    // Different port should be blocked
     assert!(!filter.should_process(&src_ip, &dst_ip, 12345, 80));
 }
 

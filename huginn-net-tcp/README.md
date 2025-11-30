@@ -26,6 +26,8 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 - **Exceptional performance** - 1.25M pps for full analysis, 166.7M pps detection
 - **Comprehensive testing** - Full unit and integration test coverage
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
+- **Typed observable data access** - Access to typed TCP signatures, MTU values, uptime data, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTcp`, `ObservableMtu`, `ObservableUptime`) without being limited to predefined p0f signatures
 
 ## Features
 
@@ -49,25 +51,58 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net-tcp = "1.6.1"
+huginn-net-db = "1.6.1"
 ```
 
 ### Basic Usage
 
 ```rust
-use huginn_net_tcp::{HuginnNetTcp, TcpAnalysisResult};
 use huginn_net_db::Database;
-use std::sync::mpsc;
+use huginn_net_tcp::{FilterConfig, HuginnNetTcp, HuginnNetTcpError, IpFilter, PortFilter, TcpAnalysisResult};
+use std::sync::{Arc, mpsc};
 
-fn main() {
-    let db = Database::load_default().unwrap();
-    let mut analyzer = HuginnNetTcp::new(Some(&db), 1000).unwrap();
+fn main() -> Result<(), HuginnNetTcpError> {
+    // Load database for OS fingerprinting
+    let db = match Database::load_default() {
+        Ok(db) => Arc::new(db),
+        Err(e) => {
+            eprintln!("Failed to load database: {e}");
+            return Err(HuginnNetTcpError::Parse(format!("Database error: {e}")));
+        }
+    };
+    
+    // Create analyzer
+    let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
+        Ok(analyzer) => analyzer,
+        Err(e) => {
+            eprintln!("Failed to create analyzer: {e}");
+            return Err(e);
+        }
+    };
+    
+    // Optional: Configure filters (can be combined)
+    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+        let filter = FilterConfig::new()
+            .with_port_filter(PortFilter::new().destination(443))
+            .with_ip_filter(ip_filter);
+        analyzer = analyzer.with_filter(filter);
+    }
+    
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
     
     // Live capture (use parallel mode for high throughput)
-    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
     
     // Or PCAP analysis (always use sequential mode)
-    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
+    // std::thread::spawn(move || {
+    //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
+    //         eprintln!("Analysis error: {e}");
+    //     }
+    // });
     
     for result in receiver {
         if let Some(syn) = result.syn { println!("{syn}"); }
@@ -76,10 +111,23 @@ fn main() {
         if let Some(client_uptime) = result.client_uptime { println!("{client_uptime}"); }
         if let Some(server_uptime) = result.server_uptime { println!("{server_uptime}"); }
     }
+    
+    Ok(())
 }
 ```
 
-For a complete working example with signal handling and error management, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
+
+### Filtering
+
+The library supports packet filtering to reduce processing overhead and focus on specific traffic. Filters can be combined using AND logic (all conditions must match):
+
+**Filter Types:**
+- **Port Filter**: Filter by TCP source/destination ports (supports single ports, lists, and ranges)
+- **IP Filter**: Filter by specific IPv4/IPv6 addresses (supports source-only, destination-only, or both)
+- **Subnet Filter**: Filter by CIDR subnets (supports IPv4 and IPv6)
+
+All filters support both Allow (allowlist) and Deny (denylist) modes. See the [filter documentation](https://docs.rs/huginn-net-tcp/latest/huginn_net_tcp/filter/index.html) for complete details.
 
 ### Example Output
 
@@ -110,6 +158,12 @@ For a complete working example with signal handling and error management, see [`
 ```
 
 **Note on Uptime Estimation:** Modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy, making uptime estimation unreliable. This feature works best on legacy systems, embedded devices, and network equipment.
+
+## Huginn Net Ecosystem
+
+This crate is part of the Huginn Net ecosystem. For multi-protocol analysis, see **[huginn-net](../huginn-net/README.md)**. For protocol-specific analysis:
+- **[huginn-net-http](../huginn-net-http/README.md)** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting
+- **[huginn-net-tls](../huginn-net-tls/README.md)** - JA4 fingerprinting, TLS version detection
 
 ## Documentation
 
