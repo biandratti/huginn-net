@@ -25,6 +25,8 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 - **Same accuracy as p0f** - Validated against extensive device testing
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
 - **Production-ready parallel processing** - Use protocol-specific crates with multi-threaded worker pools for high-throughput live capture
+- **Typed observable data access** - Access to typed TCP signatures, HTTP headers, TLS extensions, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTcp`, `ObservableHttpRequest/Response`, `ObservableTlsClient`) without being limited to predefined signatures
 
 ## Quick Start
 

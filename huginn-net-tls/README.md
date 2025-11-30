@@ -26,6 +26,8 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 - **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores)
 - **Parallel processing** - Multi-threaded worker pool for production workloads
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
+- **Typed observable data access** - Access to typed TLS extensions, cipher suites, SNI, ALPN, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTlsClient`) without being limited to predefined JA4 fingerprints
 
 ## Features
 
@@ -116,6 +118,12 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
   JA4_o:   t13d1516h2_8daaf6152771_b0da82dd1658
   JA4_or:  t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
 ```
+
+## Huginn Net Ecosystem
+
+This crate is part of the Huginn Net ecosystem. For multi-protocol analysis, see **[huginn-net](../huginn-net/README.md)**. For protocol-specific analysis:
+- **[huginn-net-tcp](../huginn-net-tcp/README.md)** - OS fingerprinting, MTU detection, uptime estimation
+- **[huginn-net-http](../huginn-net-http/README.md)** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting
 
 ## Documentation
 

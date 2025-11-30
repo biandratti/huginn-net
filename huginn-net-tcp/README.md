@@ -26,6 +26,8 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 - **Exceptional performance** - 1.25M pps for full analysis, 166.7M pps detection
 - **Comprehensive testing** - Full unit and integration test coverage
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
+- **Typed observable data access** - Access to typed TCP signatures, MTU values, uptime data, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTcp`, `ObservableMtu`, `ObservableUptime`) without being limited to predefined p0f signatures
 
 ## Features
 
@@ -156,6 +158,12 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
 ```
 
 **Note on Uptime Estimation:** Modern operating systems (Windows 10+, Linux 4.10+, macOS 10.12+) randomize TCP timestamps for privacy, making uptime estimation unreliable. This feature works best on legacy systems, embedded devices, and network equipment.
+
+## Huginn Net Ecosystem
+
+This crate is part of the Huginn Net ecosystem. For multi-protocol analysis, see **[huginn-net](../huginn-net/README.md)**. For protocol-specific analysis:
+- **[huginn-net-http](../huginn-net-http/README.md)** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting
+- **[huginn-net-tls](../huginn-net-tls/README.md)** - JA4 fingerprinting, TLS version detection
 
 ## Documentation
 

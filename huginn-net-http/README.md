@@ -26,6 +26,8 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **High performance** - 562.1K pps for full analysis, 200M pps detection
 - **HTTP/1.x & HTTP/2** - Support for both major protocol versions
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
+- **Typed observable data access** - Access to typed HTTP headers, header ordering, language preferences, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableHttpRequest`, `ObservableHttpResponse`) without being limited to predefined p0f signatures
 
 ## Features
 
@@ -137,6 +139,12 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
   Params:  anonymous
   Sig:     server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
 ```
+
+## Huginn Net Ecosystem
+
+This crate is part of the Huginn Net ecosystem. For multi-protocol analysis, see **[huginn-net](../huginn-net/README.md)**. For protocol-specific analysis:
+- **[huginn-net-tcp](../huginn-net-tcp/README.md)** - OS fingerprinting, MTU detection, uptime estimation
+- **[huginn-net-tls](../huginn-net-tls/README.md)** - JA4 fingerprinting, TLS version detection
 
 ## Documentation
 
