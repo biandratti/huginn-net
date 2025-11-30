@@ -48,34 +48,80 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net-http = "1.6.1"
+huginn-net-db = "1.6.1"
 ```
 
 ### Basic Usage
 
 ```rust
-use huginn_net_http::{HuginnNetHttp, HttpAnalysisResult};
 use huginn_net_db::Database;
-use std::sync::mpsc;
+use huginn_net_http::{FilterConfig, HuginnNetHttp, HuginnNetHttpError, IpFilter, PortFilter, HttpAnalysisResult};
+use std::sync::{Arc, mpsc};
 
-fn main() {
-    let db = Database::load_default().unwrap();
-    let mut analyzer = HuginnNetHttp::new(Some(&db), 1000).unwrap();
+fn main() -> Result<(), HuginnNetHttpError> {
+    // Load database for browser/server fingerprinting
+    let db = match Database::load_default() {
+        Ok(db) => Arc::new(db),
+        Err(e) => {
+            eprintln!("Failed to load database: {e}");
+            return Err(HuginnNetHttpError::Parse(format!("Database error: {e}")));
+        }
+    };
+    
+    // Create analyzer
+    let mut analyzer = match HuginnNetHttp::new(Some(db), 1000) {
+        Ok(analyzer) => analyzer,
+        Err(e) => {
+            eprintln!("Failed to create analyzer: {e}");
+            return Err(e);
+        }
+    };
+    
+    // Optional: Configure filters (can be combined)
+    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+        let filter = FilterConfig::new()
+            .with_port_filter(PortFilter::new().destination(80))
+            .with_ip_filter(ip_filter);
+        analyzer = analyzer.with_filter(filter);
+    }
+    
     let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
     
     // Live capture (use parallel mode for high throughput)
-    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
     
     // Or PCAP analysis (always use sequential mode)
-    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
+    // std::thread::spawn(move || {
+    //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
+    //         eprintln!("Analysis error: {e}");
+    //     }
+    // });
     
     for result in receiver {
         if let Some(http_request) = result.http_request { println!("{http_request}"); }
         if let Some(http_response) = result.http_response { println!("{http_response}"); }
     }
+    
+    Ok(())
 }
 ```
 
-For a complete working example with signal handling and error management, see [`examples/capture-http.rs`](../examples/capture-http.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-http.rs`](../examples/capture-http.rs).
+
+### Filtering
+
+The library supports packet filtering to reduce processing overhead and focus on specific traffic. Filters can be combined using AND logic (all conditions must match):
+
+**Filter Types:**
+- **Port Filter**: Filter by TCP source/destination ports (supports single ports, lists, and ranges)
+- **IP Filter**: Filter by specific IPv4/IPv6 addresses (supports source-only, destination-only, or both)
+- **Subnet Filter**: Filter by CIDR subnets (supports IPv4 and IPv6)
+
+All filters support both Allow (allowlist) and Deny (denylist) modes. See the [filter documentation](https://docs.rs/huginn-net-http/latest/huginn_net_http/filter/index.html) for complete details.
 
 ### Example Output
 
