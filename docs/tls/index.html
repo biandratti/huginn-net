@@ -158,14 +158,40 @@
                                     TLS Signature (JA4)
                                 </h2>
                                 <p>Huginn Net based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the structure of the ClientHello message into a compact signature. This allows for identification of client software and detection of anomalies or evasion techniques.</p>
-                                <p><span class="hljs-title">ja4 = version:ciphers:extensions:groups:point_formats</span></p>
-                                <ul>
-                                    <li><p><span class="hljs-title">version</span>: TLS version used in the handshake (e.g., 771 for TLS 1.2).</p></li>
-                                    <li><p><span class="hljs-title">ciphers</span>: Ordered list of cipher suites offered by the client.</p></li>
-                                    <li><p><span class="hljs-title">extensions</span>: Ordered list of TLS extensions present in the ClientHello.</p></li>
-                                    <li><p><span class="hljs-title">groups</span>: Supported groups (elliptic curves, etc.).</p></li>
-                                    <li><p><span class="hljs-title">point_formats</span>: Supported EC point formats.</p></li>
-                                </ul>
+                                <pre class="signature-code"><code>ja4 = version:ciphers:extensions:groups:point_formats</code></pre>
+                                
+                                <div class="table-responsive">
+                                <table class="signature-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Key</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>version</code></td>
+                                            <td>TLS version used in the handshake (e.g., 771 for TLS 1.2).</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>ciphers</code></td>
+                                            <td>Ordered list of cipher suites offered by the client.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>extensions</code></td>
+                                            <td>Ordered list of TLS extensions present in the ClientHello.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>groups</code></td>
+                                            <td>Supported groups (elliptic curves, etc.).</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>point_formats</code></td>
+                                            <td>Supported EC point formats.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                </div>
 
                                 <h2>
                                     <a class="anchor" aria-hidden="true" id="tls-analyzed"></a>

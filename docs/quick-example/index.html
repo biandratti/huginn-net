@@ -154,12 +154,21 @@
 
         <h2 id="complete-multi-protocol">Complete Multi-Protocol Analysis</h2>
         <p>Use <code>huginn-net</code> when you need comprehensive analysis across all protocols:</p>
-        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net::{Database, HuginnNet};
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net::{Database, FilterConfig, HuginnNet, IpFilter, PortFilter};
 <span class="hljs-keyword">use</span> std::sync::mpsc;
 
 <span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() {
     <span class="hljs-keyword">let</span> db = Database::load_default().unwrap();
     <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNet::new(Some(&amp;db), <span class="hljs-number">1000</span>, None).unwrap();
+    
+    <span class="hljs-comment">// Optional: Configure filters (can be combined)</span>
+    <span class="hljs-comment">// if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {</span>
+    <span class="hljs-comment">//     let filter = FilterConfig::new()</span>
+    <span class="hljs-comment">//         .with_port_filter(PortFilter::new().destination(443))</span>
+    <span class="hljs-comment">//         .with_ip_filter(ip_filter);</span>
+    <span class="hljs-comment">//     analyzer = analyzer.with_filter(filter);</span>
+    <span class="hljs-comment">// }</span>
+    
     <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     
     <span class="hljs-comment">// Live capture</span>
@@ -183,15 +192,20 @@
 
         <h2 id="tcp-only">TCP-Only Analysis (huginn-net-tcp)</h2>
         <p>Use <code>huginn-net-tcp</code> for OS detection, MTU calculation, and uptime estimation:</p>
-        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_tcp::HuginnNetTcp;
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_tcp::{FilterConfig, HuginnNetTcp, PortFilter};
 <span class="hljs-keyword">use</span> huginn_net_db::Database;
 <span class="hljs-keyword">use</span> std::sync::mpsc;
 
 <span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() {
     <span class="hljs-keyword">let</span> db = Database::load_default().unwrap();
     <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNetTcp::new(Some(&amp;db), <span class="hljs-number">1000</span>).unwrap();
-    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     
+    <span class="hljs-comment">// Optional: Filter by destination port (e.g., SSH on port 22)</span>
+    <span class="hljs-comment">// let filter = FilterConfig::new()</span>
+    <span class="hljs-comment">//     .with_port_filter(PortFilter::new().destination(22));</span>
+    <span class="hljs-comment">// analyzer = analyzer.with_filter(filter);</span>
+    
+    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     std::thread::spawn(<span class="hljs-keyword">move</span> || analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None));
     
     <span class="hljs-keyword">for</span> result <span class="hljs-keyword">in</span> receiver {
@@ -206,15 +220,20 @@
 
         <h2 id="http-only">HTTP-Only Analysis (huginn-net-http)</h2>
         <p>Use <code>huginn-net-http</code> for browser detection and web server identification:</p>
-        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_http::HuginnNetHttp;
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_http::{FilterConfig, HuginnNetHttp, PortFilter};
 <span class="hljs-keyword">use</span> huginn_net_db::Database;
 <span class="hljs-keyword">use</span> std::sync::mpsc;
 
 <span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() {
     <span class="hljs-keyword">let</span> db = Database::load_default().unwrap();
     <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNetHttp::new(Some(&amp;db), <span class="hljs-number">1000</span>).unwrap();
-    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     
+    <span class="hljs-comment">// Optional: Filter by HTTP port (port 80)</span>
+    <span class="hljs-comment">// let filter = FilterConfig::new()</span>
+    <span class="hljs-comment">//     .with_port_filter(PortFilter::new().destination(80));</span>
+    <span class="hljs-comment">// analyzer = analyzer.with_filter(filter);</span>
+    
+    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     std::thread::spawn(<span class="hljs-keyword">move</span> || analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None));
     
     <span class="hljs-keyword">for</span> result <span class="hljs-keyword">in</span> receiver {
@@ -226,13 +245,18 @@
 
         <h2 id="tls-only">TLS-Only Analysis (huginn-net-tls)</h2>
         <p>Use <code>huginn-net-tls</code> for JA4 fingerprinting and TLS client identification:</p>
-        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_tls::HuginnNetTls;
+        <pre><code class="hljs css language-rust"><span class="hljs-keyword">use</span> huginn_net_tls::{FilterConfig, HuginnNetTls, PortFilter};
 <span class="hljs-keyword">use</span> std::sync::mpsc;
 
 <span class="hljs-keyword">fn</span> <span class="hljs-title">main</span>() {
     <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> analyzer = HuginnNetTls::new();
-    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     
+    <span class="hljs-comment">// Optional: Filter HTTPS traffic only (port 443)</span>
+    <span class="hljs-comment">// let filter = FilterConfig::new()</span>
+    <span class="hljs-comment">//     .with_port_filter(PortFilter::new().destination(443));</span>
+    <span class="hljs-comment">// analyzer = analyzer.with_filter(filter);</span>
+    
+    <span class="hljs-keyword">let</span> (sender, receiver) = mpsc::channel();
     std::thread::spawn(<span class="hljs-keyword">move</span> || analyzer.analyze_network(<span class="hljs-string">"eth0"</span>, sender, None));
     
     <span class="hljs-keyword">for</span> tls <span class="hljs-keyword">in</span> receiver {

@@ -161,45 +161,186 @@
                                             TCP Signature
                                         </h2>
                                         <p>For TCP traffic, signature layout is as follows:</p>
-                                        <p><span class="hljs-title">sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass</span></p>
-                                        <ul>
-                                            <li><p><span class="hljs-title">ver</span>: signature for IPv4 ('4'), IPv6 ('6'), or both ('*').</p></li>
-                                            <li><p><span class="hljs-title">ittl</span>: initial TTL used by the OS. Almost all operating systems use 64, 128, or 255; ancient versions of Windows sometimes used 32, and several obscure systems sometimes resort to odd values such as 60.</p></li>
-                                            <li><p><span class="hljs-title">olen</span>: length of IPv4 options or IPv6 extension headers.</p></li>
-                                            <li><p><span class="hljs-title">mss</span>: maximum segment size, if specified in TCP options. Special value of '*' can be used to denote that MSS varies depending on the parameters of sender's network link, and should not be a part of the signature. In this case, MSS will be used to guess the type of network hookup according to the [mtu] rules.</p></li>
-                                            <li><p><span class="hljs-title">wsize</span>: window size. Can be expressed as a fixed value, but many operating systems set it to a multiple of MSS or MTU, or a multiple of some random integer. P0f automatically detects these cases, and allows notation such as 'mss*4', 'mtu*4', or '%8192' to be used. Wilcard ('*') is possible too.</p></li>
-                                            <li><p><span class="hljs-title">scale</span>: window scaling factor, if specified in TCP options. Fixed value or '*'.</p></li>
-                                            <li><p><span class="hljs-title">olayout</span>: comma-delimited layout and ordering of TCP options, if any. This is one of the most valuable TCP fingerprinting signals. Supported values:</p>
-                                                <p><span class="hljs-type">eol+n</span> explicit end of options, followed by n bytes of padding.</p>
-                                                <p><span class="hljs-type">nop</span> no-op option.</p>
-                                                <p><span class="hljs-type">mss</span> maximum segment size.</p>
-                                                <p><span class="hljs-type">ws</span> window scaling.</p>
-                                                <p><span class="hljs-type">sok</span> selective ACK permitted.</p>
-                                                <p><span class="hljs-type">sack</span> selective ACK (should not be seen).</p>
-                                                <p><span class="hljs-type">ts</span> timestamp.</p>
-                                                <p><span class="hljs-type">?n</span> unknown option ID n.</p>
-                                            </li>
-                                            <li><p><span class="hljs-title">quirks</span>: comma-delimited properties and quirks observed in IP or TCP headers:</p>
-                                                <p><span class="hljs-type">df</span>"don't fragment" set (probably PMTUD); ignored for IPv6</p>
-                                                <p><span class="hljs-type">id+</span> DF set but IPID non-zero; ignored for IPv6</p>
-                                                <p><span class="hljs-type">id-</span> DF not set but IPID is zero; ignored for IPv6</p>
-                                                <p><span class="hljs-type">ecn</span> explicit congestion notification support</p>
-                                                <p><span class="hljs-type">0+</span> "must be zero" field not zero; ignored for IPv6</p>
-                                                <p><span class="hljs-type">flow</span> non-zero IPv6 flow ID; ignored for IPv4</p>
-                                                <p><span class="hljs-type">seq-</span> sequence number is zero</p>
-                                                <p><span class="hljs-type">ack+</span> ACK number is non-zero, but ACK flag not set</p>
-                                                <p><span class="hljs-type">ack-</span> ACK number is zero, but ACK flag set</p>
-                                                <p><span class="hljs-type">uptr+</span> URG pointer is non-zero, but URG flag not set</p>
-                                                <p><span class="hljs-type">urgf+</span> URG flag used</p>
-                                                <p><span class="hljs-type">pushf+</span> PUSH flag used</p>
-                                                <p><span class="hljs-type">ts1-</span> own timestamp specified as zero</p>
-                                                <p><span class="hljs-type">ts2+</span> non-zero peer timestamp on initial SYN</p>
-                                                <p><span class="hljs-type">opt+</span> trailing non-zero data in options segment</p>
-                                                <p><span class="hljs-type">exws</span> excessive window scaling factor (> 14)</p>
-                                                <p><span class="hljs-type">bad</span> malformed TCP options</p>
-                                            </li>
-                                            <li><p><span class="hljs-title">pclass</span>: payload size classification: '0' for zero, '+' for non-zero, '*' for any. The packets we fingerprint right now normally have no payloads, but some corner cases exist.</p></li>
-                                        </ul>
+                                        <pre class="signature-code"><code>sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass</code></pre>
+                                        
+                                        <div class="table-responsive">
+                                        <table class="signature-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Key</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>ver</code></td>
+                                                    <td>Signature for IPv4 ('4'), IPv6 ('6'), or both ('*').</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ittl</code></td>
+                                                    <td>Initial TTL used by the OS. Almost all operating systems use 64, 128, or 255; ancient versions of Windows sometimes used 32, and several obscure systems sometimes resort to odd values such as 60.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>olen</code></td>
+                                                    <td>Length of IPv4 options or IPv6 extension headers.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>mss</code></td>
+                                                    <td>Maximum segment size, if specified in TCP options. Special value of '*' can be used to denote that MSS varies depending on the parameters of sender's network link, and should not be a part of the signature. In this case, MSS will be used to guess the type of network hookup according to the [mtu] rules.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>wsize</code></td>
+                                                    <td>Window size. Can be expressed as a fixed value, but many operating systems set it to a multiple of MSS or MTU, or a multiple of some random integer. P0f automatically detects these cases, and allows notation such as 'mss*4', 'mtu*4', or '%8192' to be used. Wildcard ('*') is possible too.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>scale</code></td>
+                                                    <td>Window scaling factor, if specified in TCP options. Fixed value or '*'.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>olayout</code></td>
+                                                    <td>Comma-delimited layout and ordering of TCP options, if any. This is one of the most valuable TCP fingerprinting signals. See supported values below.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>quirks</code></td>
+                                                    <td>Comma-delimited properties and quirks observed in IP or TCP headers. See supported values below.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>pclass</code></td>
+                                                    <td>Payload size classification: '0' for zero, '+' for non-zero, '*' for any. The packets we fingerprint right now normally have no payloads, but some corner cases exist.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        </div>
+                                        
+                                        <h4>TCP Options (olayout)</h4>
+                                        <p>Supported values for the <code>olayout</code> field:</p>
+                                        <div class="table-responsive">
+                                        <table class="options-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Value</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>eol+n</code></td>
+                                                    <td>Explicit end of options, followed by n bytes of padding</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>nop</code></td>
+                                                    <td>No-op option</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>mss</code></td>
+                                                    <td>Maximum segment size</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ws</code></td>
+                                                    <td>Window scaling</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>sok</code></td>
+                                                    <td>Selective ACK permitted</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>sack</code></td>
+                                                    <td>Selective ACK (should not be seen)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ts</code></td>
+                                                    <td>Timestamp</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>?n</code></td>
+                                                    <td>Unknown option ID n</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        </div>
+                                        
+                                        <h4>Quirks</h4>
+                                        <p>Supported values for the <code>quirks</code> field:</p>
+                                        <div class="table-responsive">
+                                        <table class="options-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Value</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>df</code></td>
+                                                    <td>"Don't fragment" set (probably PMTUD); ignored for IPv6</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>id+</code></td>
+                                                    <td>DF set but IPID non-zero; ignored for IPv6</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>id-</code></td>
+                                                    <td>DF not set but IPID is zero; ignored for IPv6</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ecn</code></td>
+                                                    <td>Explicit congestion notification support</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>0+</code></td>
+                                                    <td>"Must be zero" field not zero; ignored for IPv6</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>flow</code></td>
+                                                    <td>Non-zero IPv6 flow ID; ignored for IPv4</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>seq-</code></td>
+                                                    <td>Sequence number is zero</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ack+</code></td>
+                                                    <td>ACK number is non-zero, but ACK flag not set</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ack-</code></td>
+                                                    <td>ACK number is zero, but ACK flag set</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>uptr+</code></td>
+                                                    <td>URG pointer is non-zero, but URG flag not set</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>urgf+</code></td>
+                                                    <td>URG flag used</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>pushf+</code></td>
+                                                    <td>PUSH flag used</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ts1-</code></td>
+                                                    <td>Own timestamp specified as zero</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>ts2+</code></td>
+                                                    <td>Non-zero peer timestamp on initial SYN</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>opt+</code></td>
+                                                    <td>Trailing non-zero data in options segment</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>exws</code></td>
+                                                    <td>Excessive window scaling factor (> 14)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>bad</code></td>
+                                                    <td>Malformed TCP options</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        </div>
 
                                         <h2>
                                             <a class="anchor" aria-hidden="true" id="syn-package"></a>
