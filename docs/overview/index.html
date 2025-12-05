@@ -259,8 +259,8 @@
                                 <pre><code class="hljs css language-scala"><span class="hljs-type">[dependencies]</span><br />huginn-net-tcp = "<span class="huginn_net_tcp_version"></span>"   # TCP/OS fingerprinting only<br />huginn-net-http = "<span class="huginn_net_http_version"></span>"  # HTTP analysis only<br />huginn-net-tls = "<span class="huginn_net_tls_version"></span>"   # TLS/JA4 analysis only</code></pre>
 
                                 <h3>
-                                    <a class="anchor" aria-hidden="true" id="features"></a>
-                                    <a href="#features" aria-hidden="true" class="hash-link">
+                                    <a class="anchor" aria-hidden="true" id="why-choose"></a>
+                                    <a href="#why-choose" aria-hidden="true" class="hash-link">
                                         <svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16">
                                             <path
                                                     fill-rule="evenodd"
@@ -268,13 +268,20 @@
                                             ></path>
                                         </svg>
                                     </a>
-                                    Features
+                                    Why choose Huginn Net?
                                 </h3>
                                 <ul>
-                                    <li><p>Passive Analysis: Unlike active fingerprinting tools, huginn-net does not send any packets to the target host, making it less intrusive and more stealthy.</p></li>
-                                    <li><p>Modern Rust Implementation: Leveraging Rust's safety and concurrency features, huginn-net provides a reliable and efficient library for passive fingerprinting.</p></li>
-                                    <li><p>Extensibility: Designed with modularity in mind, allowing for easy addition of new fingerprinting signatures and heuristics.</p></li>
-                                    <li><p>Integration-Friendly: Can be integrated into various Rust-based network analysis tools and applications.</p></li>
+                                    <li><p>No third-party tools - No tshark, wireshark, or external tools required</p></li>
+                                    <li><p>Same accuracy as p0f - Validated against extensive device testing</p></li>
+                                    <li><p>Modern Rust implementation - Memory safety and zero-cost abstractions</p></li>
+                                    <li><p>Production performance - Processes packets in ~3.1ms with comparable speed to original p0f</p></li>
+                                    <li><p>Type-safe architecture - Prevents entire classes of bugs at compile time</p></li>
+                                    <li><p>Comprehensive testing - Full unit and integration test coverage</p></li>
+                                    <li><p>Simple integration - Pure Rust implementation, no system libraries required</p></li>
+                                    <li><p>Multi-protocol support - TCP, HTTP/1.x, HTTP/2, and TLS analysis in one unified interface</p></li>
+                                    <li><p>Optional packet filtering - Filter by port, IP address, or subnet to reduce processing overhead</p></li>
+                                    <li><p>Parallel processing - Multi-threaded worker pools for high-throughput live capture</p></li>
+                                    <li><p>Active development - Continuously improved and maintained</p></li>
                                 </ul>
 
                                 <h3>
@@ -290,9 +297,12 @@
                                     Use Cases
                                 </h3>
                                 <ul>
-                                    <li><p>Network Monitoring: Identify operating systems and network devices on your network without active scanning.</p></li>
-                                    <li><p>Security Analysis: Detect potentially unauthorized devices or unexpected changes in your network's landscape.</p></li>
-                                    <li><p>Research: Study the distribution of operating systems and network stacks in different environments.</p></li>
+                                    <li><p>Network Security Analysis - Identify devices, applications, and TLS clients without active scanning</p></li>
+                                    <li><p>Asset Discovery - Map network infrastructure and application stack passively and safely</p></li>
+                                    <li><p>Threat Detection - Detect hidden systems, suspicious TLS clients, and malicious applications</p></li>
+                                    <li><p>Application Monitoring - Track browser types, versions, and TLS capabilities across networks</p></li>
+                                    <li><p>Research & Forensics - Analyze traffic patterns, TLS usage, and improve security posture</p></li>
+                                    <li><p>Compliance Monitoring - Track device types, OS versions, and TLS configurations</p></li>
                                 </ul>
 
                                 <h2>
@@ -338,16 +348,12 @@
         </div>
         <nav class="onPageNav">
             <ul class="toc-headings">
+                <li><a href="#why-choose">Why choose Huginn Net?</a></li>
                 <li>
                     <a href="#getting-started">Passive Fingerprinting introduction</a>
                 </li>
                 <li><a href="#ecosystem-overview">Huginn Net Ecosystem</a></li>
-                <li>
-                    <a href="#features">Features</a>
-                    <ul class="toc-headings">
-                        <li><a href="#use_cases">Use cases</a></li>
-                    </ul>
-                </li>
+                <li><a href="#use_cases">Use Cases</a></li>
                 <li><a href="#inspiration">Inspiration</a></li>
                 <li><a href="#license">License</a></li>
             </ul>
