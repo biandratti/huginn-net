@@ -159,13 +159,36 @@
                                             HTTP signature
                                         </h2>
                                         <p>For HTTP traffic, signature layout is as follows:</p>
-                                        <p><span class="hljs-title">sig = ver:horder:habsent:expsw</span></p>
-                                        <ul>
-                                            <li><p><span class="hljs-title">ver</span>: 0 for HTTP/1.0, 1 for HTTP/1.1, or '*' for any.</p></li>
-                                            <li><p><span class="hljs-title">horder</span>: comma-separated, ordered list of headers that should appear in matching traffic. Substrings to match within each of these headers may be specified using a name=[value] notation. The signature will be matched even if other headers appear in between, as long as the list itself is matched in the specified sequence.<br /> Headers that usually do appear in the traffic, but may go away (e.g. Accept-Language if the user has no languages defined, or Referer if no referring site exists) should be prefixed with '?', e.g. "?Referer". P0f will accept their disappearance, but will not allow them to appear at any other location.</p></li>
-                                            <li><p><span class="hljs-title">habsent</span>: comma-separated list of headers that must *not* appear in matching traffic. This is particularly useful for noting the absence of standard headers (e.g. 'Host'), or for differentiating between otherwise very similar signatures.</p></li>
-                                            <li><p><span class="hljs-title">expsw</span>: expected substring in 'User-Agent' or 'Server'. This is not used to match traffic, and merely serves to detect dishonest software. If you want to explicitly match User-Agent, you need to do this in the 'horder' section.</p></li>
-                                        </ul>
+                                        <pre class="signature-code"><code>sig = ver:horder:habsent:expsw</code></pre>
+                                        
+                                        <div class="table-responsive">
+                                        <table class="signature-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Key</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>ver</code></td>
+                                                    <td>0 for HTTP/1.0, 1 for HTTP/1.1, or '*' for any.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>horder</code></td>
+                                                    <td>Comma-separated, ordered list of headers that should appear in matching traffic. Substrings to match within each of these headers may be specified using a name=[value] notation. The signature will be matched even if other headers appear in between, as long as the list itself is matched in the specified sequence.<br />Headers that usually do appear in the traffic, but may go away (e.g. Accept-Language if the user has no languages defined, or Referer if no referring site exists) should be prefixed with '?', e.g. "?Referer". P0f will accept their disappearance, but will not allow them to appear at any other location.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>habsent</code></td>
+                                                    <td>Comma-separated list of headers that must *not* appear in matching traffic. This is particularly useful for noting the absence of standard headers (e.g. 'Host'), or for differentiating between otherwise very similar signatures.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>expsw</code></td>
+                                                    <td>Expected substring in 'User-Agent' or 'Server'. This is not used to match traffic, and merely serves to detect dishonest software. If you want to explicitly match User-Agent, you need to do this in the 'horder' section.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        </div>
 
                                         <h2>
                                             <a class="anchor" aria-hidden="true" id="http-request"></a>
