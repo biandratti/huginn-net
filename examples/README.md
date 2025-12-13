@@ -15,6 +15,19 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FI
 
 # PCAP analysis
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> pcap -f <TCP_TRAFFIC>.pcap
+
+# Filtering examples
+# Filter by destination port (e.g., HTTPS on port 443)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -p 443 live -i <INTERFACE>
+
+# Filter by IP address
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -I 192.168.1.100 live -i <INTERFACE>
+
+# Filter by both port and IP (both conditions must match)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -p 443 -I 192.168.1.100 live -i <INTERFACE>
+
+# Filter PCAP file by port
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log -p 80 pcap -f traffic.pcap
 ```
 
 #### TLS-Only Analysis
@@ -23,15 +36,25 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FI
 cargo build --release --examples -p huginn-net-tls
 
 # Sequential mode (single-threaded)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log single -i eth0
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log single -i <INTERFACE>
 
 # Parallel mode (multi-threaded)
 # -w: number of worker threads
 # -q: queue size per worker (default: 100, lower = lower latency)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i eth0 -w 4 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i <INTERFACE> -w 4 -q 100
 
 # Example for high load scenarios (more workers, larger queues)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i eth0 -w 8 -q 200
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i <INTERFACE> -w 8 -q 200
+
+# Filtering examples
+# Filter by destination port (HTTPS only)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 single -i <INTERFACE>
+
+# Filter by IP address
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -I 192.168.1.100 single -i <INTERFACE>
+
+# Filter by both port and IP (both conditions must match)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 -I 192.168.1.100 parallel -i <INTERFACE> -w 4
 ```
 
 #### TCP-Only Analysis
@@ -40,15 +63,25 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls
 cargo build --release --examples -p huginn-net-tcp
 
 # Sequential mode (single-threaded)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log single -i eth0
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log single -i <INTERFACE>
 
 # Parallel mode (multi-threaded, hash-based worker assignment)
 # -w: number of worker threads
 # -q: queue size per worker (default: 100, lower = lower latency)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i eth0 -w 4 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i <INTERFACE> -w 4 -q 100
 
 # Example for high load scenarios (more workers, larger queues)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i eth0 -w 8 -q 200
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i <INTERFACE> -w 8 -q 200
+
+# Filtering examples
+# Filter by destination port (e.g., SSH on port 22)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 22 single -i <INTERFACE>
+
+# Filter by IP address
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -I 192.168.1.100 single -i <INTERFACE>
+
+# Filter by both port and IP (both conditions must match)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 443 -I 192.168.1.100 parallel -i <INTERFACE> -w 4
 ```
 
 #### HTTP-Only Analysis
@@ -57,15 +90,25 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp
 cargo build --release --examples -p huginn-net-http
 
 # Sequential mode (single-threaded)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log single -i eth0
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log single -i <INTERFACE>
 
 # Parallel mode (multi-threaded, flow-based routing)
 # -w: number of worker threads (recommended: 2 for optimal performance)
 # -q: queue size per worker (default: 100, lower = lower latency)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i eth0 -w 2 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i <INTERFACE> -w 2 -q 100
 
 # Example for 10 Gbps traffic (2 workers recommended)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i eth0 -w 2 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i <INTERFACE> -w 2 -q 100
+
+# Filtering examples
+# Filter by destination port (HTTP on port 80)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 single -i <INTERFACE>
+
+# Filter by IP address
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -I 192.168.1.100 single -i <INTERFACE>
+
+# Filter by both port and IP (both conditions must match)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 -I 192.168.1.100 parallel -i <INTERFACE> -w 2
 ```
 
 #### Differences between examples:

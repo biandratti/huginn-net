@@ -1041,6 +1041,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                     tx,
                     Some(db.clone()),
                     1000,
+                    None,
                 ) {
                     Ok(p) => p,
                     Err(e) => panic!("Failed to create worker pool: {e}"),
@@ -1075,6 +1076,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 tx,
                 Some(db.clone()),
                 1000,
+                None,
             ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
@@ -1099,6 +1101,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 tx,
                 Some(db.clone()),
                 1000,
+                None,
             ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
@@ -1123,6 +1126,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 tx,
                 Some(db.clone()),
                 1000,
+                None,
             ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),

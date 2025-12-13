@@ -5,5 +5,4 @@ cobertura.xml
 *.log
 **/Cargo.lock
 !Cargo.lock
-p0f/
-TrackMe/
+/data

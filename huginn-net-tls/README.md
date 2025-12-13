@@ -26,6 +26,8 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 - **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores)
 - **Parallel processing** - Multi-threaded worker pool for production workloads
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
+- **Typed observable data access** - Access to typed TLS extensions, cipher suites, SNI, ALPN, and other observable signals for custom fingerprinting and analysis
+- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTlsClient`) without being limited to predefined JA4 fingerprints
 
 ## Features
 
@@ -47,32 +49,63 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tls = "1.6.1"
+huginn-net-tls = "1.7.0"
 ```
 
 ### Basic Usage
 
 ```rust
-use huginn_net_tls::{HuginnNetTls, TlsClientOutput};
+use huginn_net_tls::{FilterConfig, HuginnNetTls, HuginnNetTlsError, IpFilter, PortFilter, TlsClientOutput};
 use std::sync::mpsc;
 
-fn main() {
+fn main() -> Result<(), HuginnNetTlsError> {
+    // Create analyzer
     let mut analyzer = HuginnNetTls::new();
+    
+    // Optional: Configure filters (can be combined)
+    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+        let filter = FilterConfig::new()
+            .with_port_filter(PortFilter::new().destination(443))
+            .with_ip_filter(ip_filter);
+        analyzer = analyzer.with_filter(filter);
+    }
+    
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
     
     // Live capture (use parallel mode for high throughput)
-    std::thread::spawn(move || analyzer.analyze_network("eth0", sender, None));
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
     
     // Or PCAP analysis (always use sequential mode)
-    // std::thread::spawn(move || analyzer.analyze_pcap("capture.pcap", sender, None));
+    // std::thread::spawn(move || {
+    //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
+    //         eprintln!("Analysis error: {e}");
+    //     }
+    // });
     
     for tls in receiver {
         println!("{tls}");
     }
+    
+    Ok(())
 }
 ```
 
-For a complete working example with signal handling and error management, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+
+### Filtering
+
+The library supports packet filtering to reduce processing overhead and focus on specific traffic. Filters can be combined using AND logic (all conditions must match):
+
+**Filter Types:**
+- **Port Filter**: Filter by TCP source/destination ports (supports single ports, lists, and ranges)
+- **IP Filter**: Filter by specific IPv4/IPv6 addresses (supports source-only, destination-only, or both)
+- **Subnet Filter**: Filter by CIDR subnets (supports IPv4 and IPv6)
+
+All filters support both Allow (allowlist) and Deny (denylist) modes. See the [filter documentation](https://docs.rs/huginn-net-tls/latest/huginn_net_tls/filter/index.html) for complete details.
 
 ### Example Output
 
@@ -85,6 +118,12 @@ For a complete working example with signal handling and error management, see [`
   JA4_o:   t13d1516h2_8daaf6152771_b0da82dd1658
   JA4_or:  t13d1516h2_002f,0035,009c,009d,1301,1302,1303_0005,000a,000b,000d,0012,0015,002b,0033,002d
 ```
+
+## Huginn Net Ecosystem
+
+This crate is part of the Huginn Net ecosystem. For multi-protocol analysis, see **[huginn-net](../huginn-net/README.md)**. For protocol-specific analysis:
+- **[huginn-net-tcp](../huginn-net-tcp/README.md)** - OS fingerprinting, MTU detection, uptime estimation
+- **[huginn-net-http](../huginn-net-http/README.md)** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting
 
 ## Documentation
 

@@ -5,6 +5,7 @@ pub use huginn_net_db::http;
 
 pub mod akamai;
 pub mod akamai_extractor;
+pub mod filter;
 pub mod http1_parser;
 pub mod http1_process;
 pub mod http2_parser;
@@ -13,6 +14,7 @@ pub mod http_common;
 pub mod http_languages;
 pub mod http_process;
 pub mod packet_parser;
+pub mod raw_filter;
 
 pub mod packet_hash;
 
@@ -29,6 +31,7 @@ pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, Sett
 pub use akamai_extractor::extract_akamai_fingerprint;
 pub use error::*;
 pub use http2_parser::{Http2Frame, Http2FrameType};
+pub use filter::*;
 pub use http_process::*;
 pub use observable::*;
 pub use output::*;
@@ -88,6 +91,7 @@ pub struct HuginnNetHttp {
     #[allow(dead_code)] // TODO: Will be used for TLS decryption in Akamai fingerprinting
     tls_config: Option<TlsConfig>,
     max_connections: usize,
+    filter_config: Option<FilterConfig>,
 }
 
 impl HuginnNetHttp {
@@ -153,6 +157,7 @@ impl HuginnNetHttp {
             database: None, // No p0f database needed for Akamai fingerprinting
             tls_config: Some(TlsConfig { cert_path, key_path }),
             max_connections,
+            filter_config: None,
         })
     }
 
@@ -215,7 +220,14 @@ impl HuginnNetHttp {
             database,
             tls_config: None,
             max_connections,
+            filter_config: None,
         })
+    }
+
+    /// Configure packet filtering (builder pattern)
+    pub fn with_filter(mut self, config: FilterConfig) -> Self {
+        self.filter_config = Some(config);
+        self
     }
 
     /// Initializes the worker pool for parallel processing.
@@ -240,6 +252,7 @@ impl HuginnNetHttp {
                 result_tx,
                 self.database.clone(),
                 self.max_connections,
+                self.filter_config.clone(),
             )?;
             self.worker_pool = Some(pool);
             Ok(())
@@ -435,6 +448,13 @@ impl HuginnNetHttp {
     /// # Returns
     /// A `Result` containing an `HttpAnalysisResult` or an error.
     fn process_packet(&mut self, packet: &[u8]) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
+        if let Some(ref filter) = self.filter_config {
+            if !raw_filter::apply(packet, filter) {
+                debug!("Filtered out packet before parsing");
+                return Ok(HttpAnalysisResult { http_request: None, http_response: None });
+            }
+        }
+
         let matcher = self
             .database
             .as_ref()

@@ -72,17 +72,25 @@ pub mod output;
 // TCP PROTOCOL MODULES (external crate)
 // ============================================================================
 pub use huginn_net_tcp;
+use huginn_net_tcp::raw_filter;
+pub use huginn_net_tcp::{FilterConfig, IpFilter, PortFilter};
 
 // ============================================================================
 // HTTP PROTOCOL MODULES (external crate)
 // ============================================================================
 pub use huginn_net_http;
+pub use huginn_net_http::{
+    FilterConfig as HttpFilterConfig, IpFilter as HttpIpFilter, PortFilter as HttpPortFilter,
+};
 
 // ============================================================================
 // TLS PROTOCOL MODULES (external crate)
 // ============================================================================
 use crate::error::HuginnNetError;
 pub use huginn_net_tls;
+pub use huginn_net_tls::{
+    FilterConfig as TlsFilterConfig, IpFilter as TlsIpFilter, PortFilter as TlsPortFilter,
+};
 
 // ============================================================================
 // SHARED PROCESSING MODULES (used by multiple protocols)
@@ -120,6 +128,7 @@ pub struct HuginnNet<'a> {
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: huginn_net_http::http_process::HttpProcessors,
     config: AnalysisConfig,
+    filter_config: Option<FilterConfig>,
 }
 
 impl<'a> HuginnNet<'a> {
@@ -184,7 +193,23 @@ impl<'a> HuginnNet<'a> {
             http_flows: TtlCache::new(http_flows_size),
             http_processors: huginn_net_http::http_process::HttpProcessors::new(),
             config,
+            filter_config: None,
         })
+    }
+
+    /// Configure packet filtering for this analyzer.
+    ///
+    /// Filters packets by IP address and/or port before processing.
+    /// This is more efficient than processing all packets and filtering later.
+    ///
+    /// # Parameters
+    /// - `filter`: The `FilterConfig` to apply to incoming packets.
+    ///
+    /// # Returns
+    /// A new `HuginnNet` instance with the filter configured.
+    pub fn with_filter(mut self, filter: FilterConfig) -> Self {
+        self.filter_config = Some(filter);
+        self
     }
 
     fn process_with<F>(
@@ -206,6 +231,13 @@ impl<'a> HuginnNet<'a> {
 
             match packet_result {
                 Ok(packet) => {
+                    if let Some(ref filter) = self.filter_config {
+                        if !raw_filter::apply(&packet, filter) {
+                            debug!("Filtered out packet before parsing");
+                            continue;
+                        }
+                    }
+
                     let output = self.analyze_tcp(&packet);
                     if sender.send(output).is_err() {
                         error!("Receiver dropped, stopping packet processing");

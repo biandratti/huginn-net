@@ -1,6 +1,6 @@
 use crate::tls::{Ja4Payload, TlsVersion};
 
-// Observable TLS Client signals
+/// Observable TLS Client signals
 #[derive(Debug, Clone)]
 pub struct ObservableTlsClient {
     /// TLS version from ClientHello
