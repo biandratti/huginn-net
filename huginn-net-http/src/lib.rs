@@ -30,8 +30,8 @@ pub mod signature_matcher;
 pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
 pub use akamai_extractor::extract_akamai_fingerprint;
 pub use error::*;
-pub use http2_parser::{Http2Frame, Http2FrameType};
 pub use filter::*;
+pub use http2_parser::{Http2Frame, Http2FrameType};
 pub use http_process::*;
 pub use observable::*;
 pub use output::*;
@@ -115,6 +115,7 @@ impl HuginnNetHttp {
             database,
             tls_config: None,
             max_connections,
+            filter_config: None,
         })
     }
 
