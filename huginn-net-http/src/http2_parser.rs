@@ -361,7 +361,11 @@ impl<'a> Http2Parser<'a> {
         data.starts_with(HTTP2_CONNECTION_PREFACE)
     }
 
-    fn parse_frames(&self, data: &[u8]) -> Result<Vec<Http2Frame>, Http2ParseError> {
+    /// Parse HTTP/2 frames from raw data
+    ///
+    /// Parses all frames from the given data, handling connection preface if present.
+    /// Returns a vector of parsed frames or an error if parsing fails.
+    pub fn parse_frames(&self, data: &[u8]) -> Result<Vec<Http2Frame>, Http2ParseError> {
         let mut frames = Vec::new();
         let mut remaining = data;
 

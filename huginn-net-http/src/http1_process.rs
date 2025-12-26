@@ -189,7 +189,9 @@ fn convert_http1_response_to_observable(
     }
 }
 
-fn convert_headers_to_http_format(
+/// Convert HTTP headers to fingerprint format
+/// Formats headers according to p0f-style fingerprinting rules.
+pub fn convert_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<Header> {
@@ -219,11 +221,13 @@ fn convert_headers_to_http_format(
     headers_in_order
 }
 
-fn build_absent_headers_from_new_parser(
+/// Build list of absent common headers for fingerprinting
+/// Returns a list of common headers that are expected but not present in the request/response.
+pub fn build_absent_headers_from_new_parser(
     headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<Header> {
-    let mut headers_absent: Vec<http::Header> = Vec::new();
+    let mut headers_absent: Vec<Header> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
     } else {
@@ -233,7 +237,7 @@ fn build_absent_headers_from_new_parser(
 
     for header in &common_list {
         if !current_headers.contains(&header.to_lowercase()) {
-            headers_absent.push(http::Header::new(header));
+            headers_absent.push(Header::new(header));
         }
     }
     headers_absent

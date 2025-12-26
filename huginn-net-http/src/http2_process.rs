@@ -190,7 +190,11 @@ fn build_absent_headers_from_http2(
     headers_absent
 }
 
-fn parse_http2_request(
+/// Parse HTTP/2 request and convert to ObservableHttpRequest
+///
+/// This function parses HTTP/2 request data and converts it to an ObservableHttpRequest
+/// that can be used for fingerprinting and analysis.
+pub fn parse_http2_request(
     data: &[u8],
     parser: &http2_parser::Http2Parser,
 ) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {

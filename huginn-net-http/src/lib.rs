@@ -31,7 +31,13 @@ pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, Sett
 pub use akamai_extractor::extract_akamai_fingerprint;
 pub use error::*;
 pub use filter::*;
-pub use http2_parser::{Http2Frame, Http2FrameType};
+pub use http1_process::{
+    build_absent_headers_from_new_parser, convert_headers_to_http_format, parse_http1_request,
+    Http1Processor,
+};
+pub use http2_parser::{Http2Frame, Http2FrameType, Http2Parser, HTTP2_CONNECTION_PREFACE};
+pub use http2_process::{parse_http2_request, Http2Processor};
+pub use http_common::HttpProcessor;
 pub use http_process::*;
 pub use observable::*;
 pub use output::*;
