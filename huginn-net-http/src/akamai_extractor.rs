@@ -3,6 +3,30 @@ use crate::http2_parser::{Http2Frame, Http2FrameType};
 use crate::http_common::HttpHeader;
 use hpack_patched::Decoder;
 
+/// Calculate the total number of bytes consumed by parsing the given frames
+///
+/// This helper function calculates the total size of all frames (including headers),
+/// which is useful for tracking parsing progress when processing incremental data.
+///
+/// # Parameters
+/// - `frames`: Slice of HTTP/2 frames
+///
+/// # Returns
+/// The total number of bytes consumed (sum of `total_size()` for all frames)
+///
+/// # Example
+/// ```no_run
+/// use huginn_net_http::akamai_extractor::calculate_frames_bytes_consumed;
+/// # use huginn_net_http::http2_parser::Http2Frame;
+/// # let frames: Vec<Http2Frame> = vec![];
+/// let bytes_consumed = calculate_frames_bytes_consumed(&frames);
+/// println!("Consumed {} bytes", bytes_consumed);
+/// ```
+#[must_use]
+pub fn calculate_frames_bytes_consumed(frames: &[Http2Frame]) -> usize {
+    frames.iter().map(|f| f.total_size()).sum()
+}
+
 /// Extract Akamai HTTP/2 fingerprint from HTTP/2 frames
 ///
 /// This function analyzes HTTP/2 connection frames (SETTINGS, WINDOW_UPDATE, PRIORITY, HEADERS)

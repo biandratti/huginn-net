@@ -17,7 +17,9 @@ pub use output::*;
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::*;
 pub use tls::*;
-pub use tls_process::*;
+pub use tls_process::{
+    parse_tls_client_hello, parse_tls_client_hello_ja4, process_tls_ipv4, process_tls_ipv6,
+};
 
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;

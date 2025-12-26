@@ -77,6 +77,26 @@ impl Http2Frame {
             length,
         }
     }
+
+    /// Returns the total size of the frame in bytes (header + payload)
+    ///
+    /// HTTP/2 frames have a 9-byte header (3 bytes length + 1 byte type + 1 byte flags + 4 bytes stream ID)
+    /// followed by the payload.
+    ///
+    /// # Returns
+    /// The total size of the frame: 9 bytes (header) + payload length
+    ///
+    /// # Example
+    /// ```no_run
+    /// use huginn_net_http::Http2Frame;
+    ///
+    /// let frame = Http2Frame::new(0x4, 0x0, 0, vec![0x00, 0x03, 0x00, 0x00, 0x00, 0x64]);
+    /// assert_eq!(frame.total_size(), 9 + 6); // 9 bytes header + 6 bytes payload
+    /// ```
+    #[must_use]
+    pub fn total_size(&self) -> usize {
+        9_usize.saturating_add(self.length as usize)
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -395,6 +415,41 @@ impl<'a> Http2Parser<'a> {
         }
 
         Ok(frames)
+    }
+
+    /// Parse HTTP/2 frames from raw data and return the number of bytes consumed
+    ///
+    /// This is a convenience method that returns both the parsed frames and the number of bytes
+    /// consumed from the input buffer. Useful for tracking parsing progress when processing
+    /// incremental data.
+    ///
+    /// # Parameters
+    /// - `data`: Raw HTTP/2 frame data (may include connection preface)
+    ///
+    /// # Returns
+    /// - `Ok((frames, bytes_consumed))` on success
+    /// - `Err(Http2ParseError)` on parsing failure
+    ///
+    /// # Example
+    /// ```no_run
+    /// use huginn_net_http::http2_parser::Http2Parser;
+    ///
+    /// let parser = Http2Parser::new();
+    /// let data = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x06\x04\x00\x00\x00\x00\x00";
+    /// match parser.parse_frames_with_offset(data) {
+    ///     Ok((frames, bytes_consumed)) => {
+    ///         println!("Parsed {} frames, consumed {} bytes", frames.len(), bytes_consumed);
+    ///     }
+    ///     Err(e) => eprintln!("Parsing error: {:?}", e),
+    /// }
+    /// ```
+    pub fn parse_frames_with_offset(
+        &self,
+        data: &[u8],
+    ) -> Result<(Vec<Http2Frame>, usize), Http2ParseError> {
+        let frames = self.parse_frames(data)?;
+        let bytes_consumed: usize = frames.iter().map(|f| f.total_size()).sum();
+        Ok((frames, bytes_consumed))
     }
 
     fn parse_single_frame<'b>(

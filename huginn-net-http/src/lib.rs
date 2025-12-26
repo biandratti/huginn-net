@@ -28,7 +28,7 @@ pub mod signature_matcher;
 
 // Re-exports
 pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
-pub use akamai_extractor::extract_akamai_fingerprint;
+pub use akamai_extractor::{calculate_frames_bytes_consumed, extract_akamai_fingerprint};
 pub use error::*;
 pub use filter::*;
 pub use http1_process::{

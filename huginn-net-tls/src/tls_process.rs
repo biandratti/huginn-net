@@ -92,6 +92,34 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
     }
 }
 
+/// Parse TLS ClientHello and extract JA4 fingerprint string directly
+///
+/// This is a convenience function that combines parsing and fingerprint generation
+/// into a single call, returning the JA4 fingerprint string directly.
+///
+/// # Parameters
+/// - `data`: Raw TLS ClientHello bytes
+///
+/// # Returns
+/// - `Some(String)` containing the JA4 fingerprint if parsing succeeds
+/// - `None` if parsing fails or no ClientHello is found
+///
+/// # Example
+/// ```no_run
+/// use huginn_net_tls::tls_process::parse_tls_client_hello_ja4;
+///
+/// let client_hello_bytes = b"\x16\x03\x01\x00\x4a...";
+/// if let Some(ja4) = parse_tls_client_hello_ja4(client_hello_bytes) {
+///     println!("JA4 fingerprint: {}", ja4);
+/// }
+/// ```
+#[must_use]
+pub fn parse_tls_client_hello_ja4(data: &[u8]) -> Option<String> {
+    parse_tls_client_hello(data)
+        .ok()
+        .map(|sig| sig.generate_ja4().full.value().to_string())
+}
+
 pub fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, HuginnNetTlsError> {
