@@ -84,8 +84,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-http = "1.7.0"
-huginn-net-db = "1.7.0"
+huginn-net-http = "1.7.1"
+huginn-net-db = "1.7.1"
 ```
 
 ### Basic Usage
