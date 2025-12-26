@@ -35,8 +35,8 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-huginn-net = "1.7.0"
-huginn-net-db = "1.7.0"
+huginn-net = "1.7.1"
+huginn-net-db = "1.7.1"
 ```
 
 ### Examples & Tutorials
