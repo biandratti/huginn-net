@@ -93,7 +93,6 @@ impl Http2FingerprintExtractor {
                         // Update parsed_offset based on actual bytes consumed
                         self.parsed_offset = start_offset.saturating_add(bytes_consumed);
 
-                        // Try to extract fingerprint
                         if let Some(fingerprint) = extract_akamai_fingerprint(&frames) {
                             self.fingerprint = Some(fingerprint.clone());
                             return Ok(Some(fingerprint));

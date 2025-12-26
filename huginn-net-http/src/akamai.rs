@@ -257,7 +257,7 @@ impl AkamaiFingerprint {
         let mut hasher = Sha256::new();
         hasher.update(fingerprint.as_bytes());
         let result = hasher.finalize();
-        // Truncate to first 16 bytes (32 hex chars) like JA3
+        // Truncate to first 16 bytes (32 hex chars)
         format!("{result:x}").chars().take(32).collect::<String>()
     }
 }

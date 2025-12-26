@@ -217,8 +217,4 @@ fn test_paper_safari_11() {
         fingerprint.priority_frames.iter().all(|p| p.exclusive),
         "Safari 11 PRIORITY frames should be exclusive"
     );
-
-    println!("✅ Safari 11 (Paper) validated:");
-    println!("   Signature: {}", fingerprint.fingerprint);
-    println!("   Hash:      {}", fingerprint.hash);
 }

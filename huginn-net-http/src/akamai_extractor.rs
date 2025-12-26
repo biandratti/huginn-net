@@ -1,4 +1,5 @@
 use crate::akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
+use crate::http2_parser::Http2Parser;
 use crate::http2_parser::{Http2Frame, Http2FrameType};
 use crate::http_common::HttpHeader;
 use hpack_patched::Decoder;
@@ -51,8 +52,6 @@ pub fn calculate_frames_bytes_consumed(frames: &[Http2Frame]) -> usize {
 /// ```
 #[must_use]
 pub fn extract_akamai_fingerprint_from_bytes(data: &[u8]) -> Option<AkamaiFingerprint> {
-    use crate::http2_parser::Http2Parser;
-
     let parser = Http2Parser::new();
     parser
         .parse_frames_skip_preface(data)
