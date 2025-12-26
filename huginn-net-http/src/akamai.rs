@@ -217,7 +217,7 @@ impl AkamaiFingerprint {
         // Pseudo-headers: m,p,a,s
         let pseudo_str = pseudo_header_order
             .iter()
-            .map(std::string::ToString::to_string)
+            .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join(",");
 
@@ -227,10 +227,10 @@ impl AkamaiFingerprint {
     /// Create a new Akamai fingerprint
     ///
     /// # Parameters
-    /// - `settings`: SETTINGS frame parameters
+    /// - `settings`: SETTINGS frame parameters (order matters)
     /// - `window_update`: WINDOW_UPDATE value
     /// - `priority_frames`: PRIORITY frames
-    /// - `pseudo_header_order`: Pseudo-header order from HEADERS frame
+    /// - `pseudo_header_order`: Order in which pseudo-headers (`:method`, `:path`, `:authority`, `:scheme`) appear in the HEADERS frame. This order is extracted from the first HEADERS frame with stream_id > 0 and is critical for fingerprint accuracy.
     #[must_use]
     pub fn new(
         settings: Vec<SettingParameter>,
@@ -289,7 +289,7 @@ impl fmt::Display for AkamaiFingerprint {
             "  Pseudo-headers: {}",
             self.pseudo_header_order
                 .iter()
-                .map(std::string::ToString::to_string)
+                .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
         )
