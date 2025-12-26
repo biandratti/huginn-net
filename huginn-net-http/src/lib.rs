@@ -3,9 +3,12 @@
 pub use huginn_net_db as db;
 pub use huginn_net_db::http;
 
+pub mod akamai;
+pub mod akamai_extractor;
 pub mod filter;
 pub mod http1_parser;
 pub mod http1_process;
+pub mod http2_fingerprint_extractor;
 pub mod http2_parser;
 pub mod http2_process;
 pub mod http_common;
@@ -25,8 +28,21 @@ pub mod process;
 pub mod signature_matcher;
 
 // Re-exports
+pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
+pub use akamai_extractor::{
+    calculate_frames_bytes_consumed, extract_akamai_fingerprint,
+    extract_akamai_fingerprint_from_bytes,
+};
 pub use error::*;
 pub use filter::*;
+pub use http1_process::{
+    build_absent_headers_from_new_parser, convert_headers_to_http_format, parse_http1_request,
+    Http1Processor,
+};
+pub use http2_fingerprint_extractor::Http2FingerprintExtractor;
+pub use http2_parser::{Http2Frame, Http2FrameType, Http2Parser, HTTP2_CONNECTION_PREFACE};
+pub use http2_process::{parse_http2_request, Http2Processor};
+pub use http_common::HttpProcessor;
 pub use http_process::*;
 pub use observable::*;
 pub use output::*;

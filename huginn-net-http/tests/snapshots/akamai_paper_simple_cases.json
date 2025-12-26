@@ -1,0 +1,59 @@
+[
+  {
+    "name": "Chrome 58 Mac (Paper Simple Example)",
+    "description": "Chrome Browser 58 on Mac OS X - Simple fingerprint from paper",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "1:65536;3:1000;4:6291456|15663105|0",
+    "notes": "No PRIORITY frames, simpler than detailed example"
+  },
+  {
+    "name": "Microsoft Edge 14 Windows (Paper)",
+    "description": "Microsoft Edge 14 on Windows 10",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "3:1024;4:10485760|10420225|0",
+    "notes": "Different SETTINGS than Chrome"
+  },
+  {
+    "name": "OkHttp 3.6.0 (Paper)",
+    "description": "OkHttp library client (Java/Android)",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "4:16777216|16711681|0",
+    "notes": "Minimal settings - only INITIAL_WINDOW_SIZE"
+  },
+  {
+    "name": "Firefox 53 Mac (Paper Simple)",
+    "description": "Firefox 53.0 on Mac OS X 10.11",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "1:65536;4:131072;5:16384|12517377|3:0:0:201,5:0:0:101,7:0:0:1,9:0:7:1,11:0:3:1",
+    "notes": "Includes MAX_HEADER_LIST_SIZE (5:16384)"
+  },
+  {
+    "name": "Firefox 53 Android (Paper)",
+    "description": "Firefox 53.0 on Android 7.1.2",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "1:4096;4:32768;5:16384|12517377|3:0:0:201,5:0:0:101,7:0:0:1,9:0:7:1,11:0:3:1",
+    "notes": "Different window sizes than desktop Firefox"
+  },
+  {
+    "name": "Go http client (Paper)",
+    "description": "Go-http-client/2.0",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "2:0;4:4194304;6:10485760|1073741824|0",
+    "notes": "Go's HTTP/2 implementation signature"
+  },
+  {
+    "name": "Curl 7.54 (Paper)",
+    "description": "curl/7.54.0 command-line tool",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "3:100;4:1073741824;2:0|1073676289|0",
+    "notes": "Very large INITIAL_WINDOW_SIZE (1GB)"
+  },
+  {
+    "name": "nghttp2 CLI (Paper)",
+    "description": "nghttp2/1.22.0 CLI client",
+    "paper_reference": "https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf",
+    "expected_signature": "3:100;4:65535|00|3:0:0:201,5:0:0:101,7:0:0:1,9:0:7:1,11:0:3:1",
+    "notes": "Window update is 00 (no update sent)"
+  }
+]
+

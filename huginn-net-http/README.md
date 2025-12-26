@@ -38,6 +38,41 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **Quality Scoring** - Confidence metrics for all matches
 - **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
 - **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
+- **Akamai HTTP/2 Fingerprinting** - Extract Akamai fingerprints from HTTP/2 ClientHello frames (see [Akamai Fingerprinting](#akamai-http2-fingerprinting) section)
+
+### Akamai HTTP/2 Fingerprinting
+
+This crate includes an **Akamai HTTP/2 fingerprint parser** that extracts fingerprints from HTTP/2 connection frames (SETTINGS, WINDOW_UPDATE, PRIORITY, HEADERS) following the [Blackhat EU 2017 specification](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf).
+
+**Important Design Consideration:**
+
+Unlike p0f HTTP fingerprinting (which normalizes header order), **Akamai fingerprinting requires preserving the original header order** from the HTTP/2 frames. This is because:
+
+1. The pseudo-header order (`:method`, `:path`, `:authority`, `:scheme`) is a critical component of the Akamai fingerprint
+2. The order of SETTINGS parameters matters for fingerprint accuracy
+3. This original ordering is essential when using Akamai fingerprints in **TLS termination scenarios** where headers must be reconstructed exactly as they appeared in the original connection
+
+**Why it's not integrated into the main processing pipeline:**
+
+Due to this requirement for preserving original header order, the Akamai fingerprint extractor is provided as a **standalone utility** (`Http2FingerprintExtractor`) rather than being integrated into the main HTTP processing pipeline. The main pipeline normalizes and processes headers for p0f-style fingerprinting, which would corrupt the original ordering needed for Akamai fingerprints.
+
+**Usage:**
+
+```rust
+use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
+
+let mut extractor = Http2FingerprintExtractor::new();
+
+// Add HTTP/2 data incrementally (handles connection preface automatically)
+extractor.add_bytes(&http2_data)?;
+
+if let Some(fingerprint) = extractor.get_fingerprint() {
+    println!("Akamai fingerprint: {}", fingerprint.fingerprint);
+    println!("Fingerprint hash: {}", fingerprint.hash);
+}
+```
+
+This design allows you to extract Akamai fingerprints **before TLS termination** or in scenarios where you need to preserve the exact original frame structure, while still using the main pipeline for standard HTTP/1.x and HTTP/2 analysis with p0f-style fingerprinting.
 
 ## Quick Start
 

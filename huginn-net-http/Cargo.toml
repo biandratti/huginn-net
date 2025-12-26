@@ -20,6 +20,7 @@ huginn-net-db = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true }
