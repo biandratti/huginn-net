@@ -27,6 +27,39 @@ pub fn calculate_frames_bytes_consumed(frames: &[Http2Frame]) -> usize {
     frames.iter().map(|f| f.total_size()).sum()
 }
 
+/// Extract Akamai HTTP/2 fingerprint directly from raw bytes
+///
+/// This is a convenience function that combines parsing HTTP/2 frames and extracting
+/// the Akamai fingerprint in a single call. Automatically handles the HTTP/2 connection
+/// preface if present.
+///
+/// # Parameters
+/// - `data`: Raw HTTP/2 frame data (may include connection preface)
+///
+/// # Returns
+/// - `Some(AkamaiFingerprint)` if enough frames are present and fingerprint can be extracted
+/// - `None` if insufficient data, parsing errors, or fingerprint cannot be generated
+///
+/// # Example
+/// ```no_run
+/// use huginn_net_http::akamai_extractor::extract_akamai_fingerprint_from_bytes;
+///
+/// let data = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x06\x04\x00\x00\x00\x00\x00";
+/// if let Some(fingerprint) = extract_akamai_fingerprint_from_bytes(data) {
+///     println!("Akamai: {}", fingerprint.fingerprint);
+/// }
+/// ```
+#[must_use]
+pub fn extract_akamai_fingerprint_from_bytes(data: &[u8]) -> Option<AkamaiFingerprint> {
+    use crate::http2_parser::Http2Parser;
+
+    let parser = Http2Parser::new();
+    parser
+        .parse_frames_skip_preface(data)
+        .ok()
+        .and_then(|(frames, _)| extract_akamai_fingerprint(&frames))
+}
+
 /// Extract Akamai HTTP/2 fingerprint from HTTP/2 frames
 ///
 /// This function analyzes HTTP/2 connection frames (SETTINGS, WINDOW_UPDATE, PRIORITY, HEADERS)

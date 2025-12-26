@@ -452,6 +452,44 @@ impl<'a> Http2Parser<'a> {
         Ok((frames, bytes_consumed))
     }
 
+    /// Parse HTTP/2 frames from raw data, automatically skipping the connection preface if present
+    ///
+    /// This is a convenience method that handles the HTTP/2 connection preface automatically,
+    /// making it easier to parse frames from raw connection data.
+    ///
+    /// # Parameters
+    /// - `data`: Raw HTTP/2 frame data (may include connection preface)
+    ///
+    /// # Returns
+    /// - `Ok((frames, bytes_consumed))` on success, where `bytes_consumed` includes the preface if present
+    /// - `Err(Http2ParseError)` on parsing failure
+    ///
+    /// # Example
+    /// ```no_run
+    /// use huginn_net_http::http2_parser::Http2Parser;
+    ///
+    /// let parser = Http2Parser::new();
+    /// let data = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x06\x04\x00\x00\x00\x00\x00";
+    /// match parser.parse_frames_skip_preface(data) {
+    ///     Ok((frames, bytes_consumed)) => {
+    ///         println!("Parsed {} frames, consumed {} bytes (including preface)", frames.len(), bytes_consumed);
+    ///     }
+    ///     Err(e) => eprintln!("Parsing error: {:?}", e),
+    /// }
+    /// ```
+    pub fn parse_frames_skip_preface(
+        &self,
+        data: &[u8],
+    ) -> Result<(Vec<Http2Frame>, usize), Http2ParseError> {
+        let start = if data.starts_with(HTTP2_CONNECTION_PREFACE) {
+            HTTP2_CONNECTION_PREFACE.len()
+        } else {
+            0
+        };
+        let (frames, bytes_consumed) = self.parse_frames_with_offset(&data[start..])?;
+        Ok((frames, start.saturating_add(bytes_consumed)))
+    }
+
     fn parse_single_frame<'b>(
         &self,
         data: &'b [u8],

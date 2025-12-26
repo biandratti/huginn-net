@@ -7,6 +7,7 @@ pub mod parallel;
 pub mod process;
 pub mod raw_filter;
 pub mod tls;
+pub mod tls_client_hello_reader;
 pub mod tls_process;
 
 // Re-exports
@@ -17,6 +18,7 @@ pub use output::*;
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::*;
 pub use tls::*;
+pub use tls_client_hello_reader::TlsClientHelloReader;
 pub use tls_process::{
     parse_tls_client_hello, parse_tls_client_hello_ja4, process_tls_ipv4, process_tls_ipv6,
 };
