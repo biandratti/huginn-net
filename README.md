@@ -178,7 +178,9 @@ To achieve the best quality in matching, a rich database will be needed.
 
 This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS client fingerprinting. For full attribution and licensing details, please see the [Licensing & Attribution](#-licensing--attribution) section. We do not implement JA4+ components which are under FoxIO License 1.1.
 
-## Interactive Testing
+## Companion Projects
+
+### Network Scanning & Testing
 
 For visual analysis and experimentation, use our companion web application:
 
@@ -188,6 +190,18 @@ Features:
 - Real-time fingerprint visualization
 - Interactive signature database exploration
 - Custom pattern testing and validation
+
+### Reverse Proxy
+
+**Experimental**, Not yet ready for production use:
+
+**[huginn-proxy: High-Performance Reverse Proxy with Fingerprinting](https://github.com/biandratti/huginn-proxy)** *(Currently in active development)*
+
+Features:
+- TLS termination with ALPN support
+- Automatic fingerprint extraction (JA4, Akamai HTTP/2)
+- Fingerprint injection as HTTP headers (`x-huginn-net-ja4`, `x-huginn-net-akamai`)
+- Load balancing and path-based routing
 
 ## 🤝 Contributing
 
