@@ -6,10 +6,6 @@ pub enum HuginnNetTlsError {
     #[error("Parse error: {0}")]
     Parse(String),
 
-    /// An unsupported protocol was encountered.
-    #[error("Unsupported protocol: {0}")]
-    UnsupportedProtocol(String),
-
     /// Misconfiguration error.
     #[error("Misconfiguration: {0}")]
     Misconfiguration(String),

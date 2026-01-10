@@ -26,7 +26,9 @@ pub use tls_process::{
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
+use std::collections::HashMap;
 use std::fs::File;
+use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -49,20 +51,21 @@ struct ParallelConfig {
     timeout_ms: u64,
 }
 
+/// FlowKey: (Source IP, Destination IP, Source Port, Destination Port)
+/// Used for tracking TCP flows across fragmented packets.
+pub type FlowKey = (IpAddr, IpAddr, u16, u16);
+
 /// A TLS-focused passive fingerprinting analyzer using JA4 methodology.
 ///
 /// The `HuginnNetTls` struct handles TLS packet analysis and JA4 fingerprinting
 /// following the official FoxIO specification.
+#[derive(Default)]
 pub struct HuginnNetTls {
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
     filter_config: Option<FilterConfig>,
-}
-
-impl Default for HuginnNetTls {
-    fn default() -> Self {
-        Self::new()
-    }
+    // TCP reassembly for fragmented ClientHello packets
+    tcp_flows: HashMap<FlowKey, TlsClientHelloReader>, // TODO: move to TtlCache
 }
 
 impl HuginnNetTls {
@@ -71,7 +74,12 @@ impl HuginnNetTls {
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
-        Self { parallel_config: None, worker_pool: None, filter_config: None }
+        Self { 
+            parallel_config: None, 
+            worker_pool: None, 
+            filter_config: None,
+            tcp_flows: HashMap::new(),
+        }
     }
 
     /// Configure packet filtering (builder pattern)
@@ -131,6 +139,7 @@ impl HuginnNetTls {
             }),
             worker_pool: None,
             filter_config: None,
+            tcp_flows: HashMap::new(),
         }
     }
 
@@ -272,7 +281,7 @@ impl HuginnNetTls {
                         debug!("No TLS found, continuing packet processing");
                     }
                     Err(tls_error) => {
-                        debug!("Skipping non-TLS packet: {tls_error}");
+                        debug!("Error processing packet: {tls_error}");
                     }
                 },
                 Err(e) => {
@@ -280,7 +289,6 @@ impl HuginnNetTls {
                 }
             }
         }
-
         Ok(())
     }
 
@@ -387,9 +395,10 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
-            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
+            IpPacket::Ipv4(ipv4) => crate::process::process_ipv4_with_reassembly(&ipv4, &mut self.tcp_flows),
+            IpPacket::Ipv6(ipv6) => crate::process::process_ipv6_with_reassembly(&ipv6, &mut self.tcp_flows),
             IpPacket::None => Ok(None),
         }
     }
+    
 }
