@@ -35,6 +35,18 @@ struct FilterOptions {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    Live {
+        #[command(subcommand)]
+        mode: LiveMode,
+    },
+    Pcap {
+        #[arg(short = 'f', long = "file")]
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum LiveMode {
     Single {
         #[arg(short = 'i', long)]
         interface: String,
@@ -125,7 +137,7 @@ fn main() {
     let filter_config = build_filter(&args.filter);
 
     let mut analyzer = match &args.command {
-        Commands::Single { .. } => {
+        Commands::Live { mode: LiveMode::Single { .. } } => {
             info!("Using sequential mode");
             let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
                 Ok(analyzer) => analyzer,
@@ -140,7 +152,7 @@ fn main() {
             }
             analyzer
         }
-        Commands::Parallel { workers, queue_size, .. } => {
+        Commands::Live { mode: LiveMode::Parallel { workers, queue_size, .. } } => {
             info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
             let mut analyzer =
                 match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size, 32, 10) {
@@ -156,10 +168,25 @@ fn main() {
             }
             analyzer
         }
+        Commands::Pcap { .. } => {
+            info!("Using sequential mode for PCAP analysis");
+            let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
+                Ok(analyzer) => analyzer,
+                Err(e) => {
+                    error!("Failed to create HuginnNetTcp analyzer: {e}");
+                    return;
+                }
+            };
+            if let Some(ref filter_cfg) = filter_config {
+                analyzer = analyzer.with_filter(filter_cfg.clone());
+                info!("Packet filtering enabled");
+            }
+            analyzer
+        }
     };
 
     // Initialize pool if parallel mode
-    if matches!(&args.command, Commands::Parallel { .. }) {
+    if matches!(&args.command, Commands::Live { mode: LiveMode::Parallel { .. } }) {
         if let Err(e) = analyzer.init_pool(sender.clone()) {
             error!("Failed to initialize worker pool: {e}");
             return;
@@ -191,11 +218,6 @@ fn main() {
     let analyzer_shared = Arc::new(std::sync::Mutex::new(analyzer));
 
     thread::spawn(move || {
-        let interface = match &args.command {
-            Commands::Single { interface } => interface.clone(),
-            Commands::Parallel { interface, .. } => interface.clone(),
-        };
-
         let result = {
             let mut analyzer = match analyzer_shared.lock() {
                 Ok(a) => a,
@@ -204,7 +226,20 @@ fn main() {
                     return;
                 }
             };
-            analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
+            match &args.command {
+                Commands::Live { mode: LiveMode::Single { interface } } => {
+                    info!("Starting live capture on interface: {interface}");
+                    analyzer.analyze_network(interface, sender, Some(thread_cancel_signal))
+                }
+                Commands::Live { mode: LiveMode::Parallel { interface, .. } } => {
+                    info!("Starting live capture on interface: {interface}");
+                    analyzer.analyze_network(interface, sender, Some(thread_cancel_signal))
+                }
+                Commands::Pcap { file } => {
+                    info!("Analyzing PCAP file: {file}");
+                    analyzer.analyze_pcap(file, sender, Some(thread_cancel_signal))
+                }
+            }
         };
 
         if let Err(e) = result {

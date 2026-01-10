@@ -35,6 +35,18 @@ struct FilterOptions {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    Live {
+        #[command(subcommand)]
+        mode: LiveMode,
+    },
+    Pcap {
+        #[arg(short = 'f', long = "file")]
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum LiveMode {
     Single {
         #[arg(short = 'i', long)]
         interface: String,
@@ -128,19 +140,32 @@ fn main() {
     let thread_cancel_signal = cancel_signal.clone();
 
     let mut analyzer = match &args.command {
-        Commands::Single { .. } => {
-            info!("Using sequential mode");
-            let mut analyzer = HuginnNetTls::new();
-            if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone()) {
-                analyzer = analyzer.with_filter(filter_config);
-                info!("Packet filtering enabled");
+        Commands::Live { mode } => match mode {
+            LiveMode::Single { .. } => {
+                info!("Using sequential mode");
+                let mut analyzer = HuginnNetTls::new();
+                if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone())
+                {
+                    analyzer = analyzer.with_filter(filter_config);
+                    info!("Packet filtering enabled");
+                }
+                analyzer
             }
-            analyzer
-        }
-        Commands::Parallel { workers, queue_size, batch_size, timeout_ms, .. } => {
-            info!("Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}");
-            let mut analyzer =
-                HuginnNetTls::with_config(*workers, *queue_size, *batch_size, *timeout_ms);
+            LiveMode::Parallel { workers, queue_size, batch_size, timeout_ms, .. } => {
+                info!("Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}");
+                let mut analyzer =
+                    HuginnNetTls::with_config(*workers, *queue_size, *batch_size, *timeout_ms);
+                if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone())
+                {
+                    analyzer = analyzer.with_filter(filter_config);
+                    info!("Packet filtering enabled");
+                }
+                analyzer
+            }
+        },
+        Commands::Pcap { .. } => {
+            info!("Using sequential mode for PCAP");
+            let mut analyzer = HuginnNetTls::new();
             if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone()) {
                 analyzer = analyzer.with_filter(filter_config);
                 info!("Packet filtering enabled");
@@ -150,7 +175,7 @@ fn main() {
     };
 
     // Initialize pool if parallel mode (before moving analyzer to thread)
-    if matches!(&args.command, Commands::Parallel { .. }) {
+    if matches!(&args.command, Commands::Live { mode: LiveMode::Parallel { .. } }) {
         if let Err(e) = analyzer.init_pool(sender.clone()) {
             error!("Failed to initialize worker pool: {e}");
             return;
@@ -175,29 +200,45 @@ fn main() {
         return;
     }
 
-    let analyzer_shared = Arc::new(std::sync::Mutex::new(analyzer));
-
-    thread::spawn(move || {
-        let interface = match &args.command {
-            Commands::Single { interface, .. } => interface.clone(),
-            Commands::Parallel { interface, .. } => interface.clone(),
-        };
-
-        let result = {
-            let mut analyzer = match analyzer_shared.lock() {
-                Ok(a) => a,
-                Err(_) => {
-                    error!("Failed to lock analyzer");
-                    return;
-                }
-            };
-            analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
-        };
-
-        if let Err(e) = result {
-            error!("TLS analysis failed: {e}");
+    // Handle PCAP mode separately (synchronous)
+    if let Commands::Pcap { file } = &args.command {
+        info!("Processing PCAP file: {}", file);
+        match analyzer.analyze_pcap(file, sender, None) {
+            Ok(_) => {
+                info!("PCAP analysis completed successfully");
+            }
+            Err(e) => {
+                error!("PCAP analysis failed: {e}");
+                return;
+            }
         }
-    });
+    } else if let Commands::Live { mode } = &args.command {
+        // Network capture modes (asynchronous)
+        let analyzer_shared = Arc::new(std::sync::Mutex::new(analyzer));
+
+        // Clone interface before moving to thread
+        let interface = match mode {
+            LiveMode::Single { interface, .. } => interface.clone(),
+            LiveMode::Parallel { interface, .. } => interface.clone(),
+        };
+
+        thread::spawn(move || {
+            let result = {
+                let mut analyzer = match analyzer_shared.lock() {
+                    Ok(a) => a,
+                    Err(_) => {
+                        error!("Failed to lock analyzer");
+                        return;
+                    }
+                };
+                analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
+            };
+
+            if let Err(e) = result {
+                error!("TLS analysis failed: {e}");
+            }
+        });
+    }
 
     for output in receiver {
         if cancel_signal.load(Ordering::Relaxed) {
