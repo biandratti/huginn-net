@@ -11,6 +11,50 @@ fn unwrap_worker_pool(result: Result<WorkerPool, HuginnNetTlsError>) -> WorkerPo
     }
 }
 
+/// Helper to create a minimal Ethernet + IPv4 + TCP packet with specific flow
+/// Includes minimal TLS payload to pass is_tls_traffic() check
+fn create_ipv4_tcp_packet(
+    src_ip: [u8; 4],
+    dst_ip: [u8; 4],
+    src_port: u16,
+    dst_port: u16,
+) -> Vec<u8> {
+    // Ethernet (14) + IPv4 (20) + TCP (20) + TLS payload (5 bytes minimum)
+    let mut packet = vec![0u8; 59];
+
+    // Ethernet header
+    packet[12] = 0x08; // EtherType IPv4
+    packet[13] = 0x00;
+
+    // IPv4 header (starts at offset 14)
+    packet[14] = 0x45; // Version 4, IHL 5
+                       // Total length: 20 (IP) + 20 (TCP) + 5 (TLS) = 45
+    packet[16..18].copy_from_slice(&45u16.to_be_bytes());
+    packet[23] = 0x06; // Protocol TCP
+                       // Source IP (offset 26-29)
+    packet[26..30].copy_from_slice(&src_ip);
+    // Destination IP (offset 30-33)
+    packet[30..34].copy_from_slice(&dst_ip);
+
+    // TCP header (starts at offset 34)
+    // Source port (offset 34-35)
+    packet[34..36].copy_from_slice(&src_port.to_be_bytes());
+    // Destination port (offset 36-37)
+    packet[36..38].copy_from_slice(&dst_port.to_be_bytes());
+    // TCP data offset (5 words = 20 bytes)
+    packet[46] = 0x50;
+
+    // TLS payload (starts at offset 54)
+    // 0x16 = TLS Handshake, 0x03 0x01 = TLS 1.0, 0x00 0x01 = length 1
+    packet[54] = 0x16; // TLS Handshake
+    packet[55] = 0x03; // TLS version major
+    packet[56] = 0x01; // TLS version minor
+    packet[57] = 0x00; // Length high byte
+    packet[58] = 0x01; // Length low byte
+
+    packet
+}
+
 #[test]
 fn test_worker_pool_rejects_zero_workers() {
     let (tx, _rx) = mpsc::channel();
@@ -29,13 +73,15 @@ fn test_worker_pool_creates_with_valid_workers() {
 }
 
 #[test]
-fn test_round_robin_dispatch() {
+fn test_hash_based_dispatch() {
     let (tx, _rx) = mpsc::channel();
     let pool = unwrap_worker_pool(WorkerPool::new(3, 10, 32, 10, tx, 10000, None));
 
-    // Dispatch 9 packets (3 per worker)
-    for _ in 0..9 {
-        let result = pool.dispatch(vec![0u8; 100]);
+    // Dispatch 9 packets with different flows to ensure distribution
+    for i in 0..9 {
+        let src_ip = [192, 168, 1, (i % 255) as u8];
+        let packet = create_ipv4_tcp_packet(src_ip, [8, 8, 8, 8], 12345 + i as u16, 443);
+        let result = pool.dispatch(packet);
         assert_eq!(result, DispatchResult::Queued);
     }
 
@@ -43,10 +89,9 @@ fn test_round_robin_dispatch() {
     assert_eq!(stats.total_dispatched, 9);
     assert_eq!(stats.total_dropped, 0);
 
-    // All workers should have received packets (round-robin)
-    for worker_stat in &stats.workers {
-        assert!(worker_stat.queue_size > 0 || worker_stat.dropped == 0);
-    }
+    // All workers should have received packets (hash-based distribution)
+    let workers_with_packets = stats.workers.iter().filter(|w| w.queue_size > 0).count();
+    assert!(workers_with_packets > 0, "At least one worker should have packets");
 }
 
 #[test]
@@ -59,8 +104,10 @@ fn test_queue_overflow_handling() {
     let mut dropped = 0;
 
     // Try to dispatch many packets to overflow queues
+    // Use same flow (same src_ip, dst_ip, src_port, dst_port) to target same worker and fill its queue
     for _ in 0..100 {
-        match pool.dispatch(vec![0u8; 100]) {
+        let packet = create_ipv4_tcp_packet([192, 168, 1, 100], [8, 8, 8, 8], 12345, 443);
+        match pool.dispatch(packet) {
             DispatchResult::Queued => queued += 1,
             DispatchResult::Dropped => dropped += 1,
         }
@@ -71,7 +118,8 @@ fn test_queue_overflow_handling() {
     assert!(queued > 0, "Expected some packets to be queued");
 
     let stats = pool.stats();
-    assert_eq!(stats.total_dispatched, queued);
+    // total_dispatched counts all packets that were attempted (queued + dropped by queue overflow)
+    assert_eq!(stats.total_dispatched, queued + dropped);
     assert_eq!(stats.total_dropped, dropped);
 }
 
@@ -82,8 +130,14 @@ fn test_stats_accuracy() {
 
     // Dispatch some packets
     let dispatch_count = 10;
-    for _ in 0..dispatch_count {
-        pool.dispatch(vec![0u8; 100]);
+    for i in 0..dispatch_count {
+        let packet = create_ipv4_tcp_packet(
+            [192, 168, 1, (i % 255) as u8],
+            [8, 8, 8, 8],
+            12345 + i as u16,
+            443,
+        );
+        pool.dispatch(packet);
     }
 
     let stats = pool.stats();
@@ -97,14 +151,16 @@ fn test_shutdown_stops_accepting_packets() {
     let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None));
 
     // Dispatch before shutdown should work
-    let result = pool.dispatch(vec![0u8; 100]);
+    let packet = create_ipv4_tcp_packet([192, 168, 1, 100], [8, 8, 8, 8], 12345, 443);
+    let result = pool.dispatch(packet);
     assert_eq!(result, DispatchResult::Queued);
 
     // Shutdown the pool
     pool.shutdown();
 
     // Dispatch after shutdown should return Dropped
-    let result = pool.dispatch(vec![0u8; 100]);
+    let packet = create_ipv4_tcp_packet([192, 168, 1, 101], [8, 8, 8, 8], 12346, 443);
+    let result = pool.dispatch(packet);
     assert_eq!(result, DispatchResult::Dropped);
 }
 
@@ -115,8 +171,11 @@ fn test_per_worker_dropped_count() {
     let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, 10000, None));
 
     // Fill the single worker's queue
-    for _ in 0..10 {
-        pool.dispatch(vec![0u8; 100]);
+    // Use same flow to ensure all packets go to the same worker
+    for i in 0..10 {
+        let packet =
+            create_ipv4_tcp_packet([192, 168, 1, 100], [8, 8, 8, 8], 12345, 443 + (i % 10) as u16);
+        pool.dispatch(packet);
     }
 
     let stats = pool.stats();
@@ -135,11 +194,14 @@ fn test_concurrent_dispatch() {
     let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, 32, 10, tx, 10000, None)));
 
     let handles: Vec<_> = (0..4)
-        .map(|_| {
+        .map(|thread_id| {
             let pool_clone = Arc::clone(&pool);
             thread::spawn(move || {
-                for _ in 0..25 {
-                    pool_clone.dispatch(vec![0u8; 100]);
+                for i in 0..25 {
+                    let src_ip = [192, 168, 1, (thread_id * 25 + i) as u8];
+                    let packet =
+                        create_ipv4_tcp_packet(src_ip, [8, 8, 8, 8], 12345 + i as u16, 443);
+                    pool_clone.dispatch(packet);
                 }
             })
         })

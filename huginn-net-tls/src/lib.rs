@@ -444,8 +444,8 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => crate::process::process_ipv4_packet(&ipv4, &mut self.tcp_flows),
-            IpPacket::Ipv6(ipv6) => crate::process::process_ipv6_packet(&ipv6, &mut self.tcp_flows),
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, &mut self.tcp_flows),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, &mut self.tcp_flows),
             IpPacket::None => Ok(None),
         }
     }

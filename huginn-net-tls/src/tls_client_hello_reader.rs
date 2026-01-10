@@ -104,12 +104,17 @@ impl TlsClientHelloReader {
 
         // Parse ClientHello
         match parse_tls_client_hello(&self.buffer[..needed]) {
-            Ok(signature) => {
+            Ok(Some(signature)) => {
                 debug!("Successfully parsed TLS ClientHello from reassembled buffer");
                 self.signature = Some(signature.clone());
                 // Clear buffer after successful parse to prepare for next ClientHello
                 self.buffer.drain(..needed);
                 Ok(Some(signature))
+            }
+            Ok(None) => {
+                debug!("TLS record is not a ClientHello (likely ServerHello or Application Data), ignoring");
+                self.reset();
+                Ok(None)
             }
             Err(e) => {
                 error!("Failed to parse TLS ClientHello from reassembled buffer: {:?}", e);
@@ -120,7 +125,6 @@ impl TlsClientHelloReader {
                         .map(|s| s.to_vec())
                         .unwrap_or_default()
                 );
-                // Don't reset on error - might be a parsing issue we can debug
                 Err(e)
             }
         }

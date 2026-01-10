@@ -184,7 +184,6 @@ impl WorkerPool {
             return DispatchResult::Dropped;
         }
 
-        // Hash-based flow assignment to ensure same flow goes to same worker
         let worker_id = match packet_hash::hash_flow(&packet, self.num_workers.get()) {
             Some(id) => id,
             None => {

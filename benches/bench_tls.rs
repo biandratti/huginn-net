@@ -1,5 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use huginn_net_tls::{process_ipv4_packet, process_ipv6_packet, tls_process::is_tls_traffic};
+use huginn_net_tls::TlsClientHelloReader;
+use huginn_net_tls::{
+    process_ipv4_packet, process_ipv6_packet, tls_process::is_tls_traffic, FlowKey,
+};
 use pcap_file::pcap::PcapReader;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -11,6 +14,7 @@ use std::error::Error;
 use std::fs::File;
 use std::sync::Mutex;
 use std::time::Duration;
+use ttl_cache::TtlCache;
 
 /// Number of times to repeat the PCAP dataset for stable benchmarks
 const REPEAT_COUNT: usize = 1000;
@@ -368,13 +372,16 @@ fn detect_tls_in_packet(packet: &[u8]) -> bool {
 }
 
 /// Process a packet using the public TLS API
-fn process_tls_packet(packet: &[u8]) -> Option<huginn_net_tls::TlsClientOutput> {
+fn process_tls_packet(
+    packet: &[u8],
+    tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
+) -> Option<huginn_net_tls::TlsClientOutput> {
     match huginn_net_tls::packet_parser::parse_packet(packet) {
         huginn_net_tls::packet_parser::IpPacket::Ipv4(ipv4) => {
-            process_ipv4_packet(&ipv4).ok().flatten()
+            process_ipv4_packet(&ipv4, tcp_flows).ok().flatten()
         }
         huginn_net_tls::packet_parser::IpPacket::Ipv6(ipv6) => {
-            process_ipv6_packet(&ipv6).ok().flatten()
+            process_ipv6_packet(&ipv6, tcp_flows).ok().flatten()
         }
         huginn_net_tls::packet_parser::IpPacket::None => None,
     }
@@ -400,9 +407,10 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
+    let mut tcp_flows = TtlCache::new(10000);
 
     for packet in &packets {
-        if process_tls_packet(packet).is_some() {
+        if process_tls_packet(packet, &mut tcp_flows).is_some() {
             tls_packet_count = tls_packet_count.saturating_add(1);
         }
     }
@@ -435,8 +443,9 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
     // Benchmark TLS processing
     group.bench_function("tls_processing", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         })
     });
@@ -465,8 +474,9 @@ fn bench_tls_ja4_fingerprinting_tls12(c: &mut Criterion) {
 
     let tls_processing_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         },
         10,
@@ -516,9 +526,10 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
+    let mut tcp_flows = TtlCache::new(10000);
 
     for packet in &packets {
-        if process_tls_packet(packet).is_some() {
+        if process_tls_packet(packet, &mut tcp_flows).is_some() {
             tls_packet_count = tls_packet_count.saturating_add(1);
         }
     }
@@ -531,8 +542,9 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
     // Benchmark TLS processing
     group.bench_function("tls_processing", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         })
     });
@@ -540,8 +552,9 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
     // Benchmark with TLS extensions analysis
     group.bench_function("tls_extensions_analysis", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     // Access JA4 fingerprint to ensure full processing
                     let _ = &result.sig.ja4.full;
                     let _ = &result.sig.ja4.raw;
@@ -555,8 +568,9 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
     // Measure and store ALPN H2 times
     let tls_alpn_processing_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         },
         10,
@@ -564,8 +578,9 @@ fn bench_tls_ja4_fingerprinting_alpn_h2(c: &mut Criterion) {
 
     let tls_extensions_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     let _ = &result.sig.ja4.full;
                     let _ = &result.sig.ja4.raw;
                 }
@@ -606,9 +621,10 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
 
     // Count TLS packets for analysis
     let mut tls_packet_count: u32 = 0;
+    let mut tcp_flows = TtlCache::new(10000);
 
     for packet in &packets {
-        if process_tls_packet(packet).is_some() {
+        if process_tls_packet(packet, &mut tcp_flows).is_some() {
             tls_packet_count = tls_packet_count.saturating_add(1);
         }
     }
@@ -630,8 +646,9 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
     // Benchmark full TLS processing with JA4 fingerprinting
     group.bench_function("full_tls_processing", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         })
     });
@@ -639,8 +656,9 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
     // Benchmark TLS processing with result extraction
     group.bench_function("tls_with_result_extraction", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     // Force evaluation of JA4 fingerprints
                     let _ = &result.sig.ja4.full;
                     let _ = &result.sig.ja4.raw;
@@ -664,8 +682,9 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
 
     let full_tls_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         },
         10,
@@ -673,8 +692,9 @@ fn bench_tls_packet_parsing_performance(c: &mut Criterion) {
 
     let extraction_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     let _ = &result.sig.ja4.full;
                     let _ = &result.sig.ja4.raw;
                     let _ = &result.sig.version;
@@ -721,8 +741,9 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     let mut tls_packet_count: u32 = 0;
     let mut ja4_count: u32 = 0;
 
+    let mut tcp_flows = TtlCache::new(10000);
     for packet in &packets {
-        if let Some(_result) = process_tls_packet(packet) {
+        if let Some(_result) = process_tls_packet(packet, &mut tcp_flows) {
             tls_packet_count = tls_packet_count.saturating_add(1);
             // JA4 is always generated if we have a TLS result
             ja4_count = ja4_count.saturating_add(1);
@@ -738,8 +759,9 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     // Benchmark basic TLS processing
     group.bench_function("basic_tls_processing", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         })
     });
@@ -747,8 +769,9 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     // Benchmark with JA4 fingerprint access (forces calculation)
     group.bench_function("ja4_fingerprint_access", |b| {
         b.iter(|| {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     // Access JA4 fingerprints to force calculation
                     let _ = result.sig.ja4.full.to_string();
                     let _ = result.sig.ja4.raw.to_string();
@@ -761,9 +784,10 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     group.bench_function("full_result_analysis", |b| {
         b.iter(|| {
             let mut results = Vec::new();
+            let mut tcp_flows = TtlCache::new(10000);
 
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     // Collect all TLS information
                     results.push((
                         result.sig.version,
@@ -785,8 +809,9 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     // Measure and store JA4 overhead times
     let basic_tls_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                let _ = process_tls_packet(packet);
+                let _ = process_tls_packet(packet, &mut tcp_flows);
             }
         },
         10,
@@ -794,8 +819,9 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
 
     let ja4_access_time = measure_average_time(
         || {
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     let _ = result.sig.ja4.full.to_string();
                     let _ = result.sig.ja4.raw.to_string();
                 }
@@ -807,8 +833,9 @@ fn bench_tls_ja4_calculation_overhead(c: &mut Criterion) {
     let full_analysis_time = measure_average_time(
         || {
             let mut results = Vec::new();
+            let mut tcp_flows = TtlCache::new(10000);
             for packet in packets.iter() {
-                if let Some(result) = process_tls_packet(packet) {
+                if let Some(result) = process_tls_packet(packet, &mut tcp_flows) {
                     results.push((
                         result.sig.version,
                         result.sig.ja4.full.clone(),

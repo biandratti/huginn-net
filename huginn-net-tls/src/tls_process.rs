@@ -75,7 +75,7 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
 
     debug!("Attempting to parse TLS ClientHello...");
     match parse_tls_client_hello(payload) {
-        Ok(signature) => {
+        Ok(Some(signature)) => {
             debug!(
                 "Successfully parsed TLS ClientHello! Version={:?}, SNI={:?}, ALPN={:?}",
                 signature.version, signature.sni, signature.alpn
@@ -95,6 +95,10 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
                     ja4_original,
                 }),
             })
+        }
+        Ok(None) => {
+            debug!("No ClientHello found in TLS record, ignoring");
+            Ok(ObservableTlsPackage { tls_client: None })
         }
         Err(e) => {
             debug!("Could not parse TLS ClientHello from {src_port}->{dst_port}: {:?}", e);
@@ -142,7 +146,13 @@ pub fn is_tls_traffic(payload: &[u8]) -> bool {
     false
 }
 
-pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsError> {
+/// Parse TLS ClientHello from raw bytes
+///
+/// # Returns
+/// - `Ok(Some(Signature))` if ClientHello was found and parsed successfully
+/// - `Ok(None)` if TLS record is valid but doesn't contain ClientHello (e.g., ServerHello, Alert)
+/// - `Err(HuginnNetTlsError)` if parsing failed
+pub fn parse_tls_client_hello(data: &[u8]) -> Result<Option<Signature>, HuginnNetTlsError> {
     debug!("Parsing TLS ClientHello, data_len={}", data.len());
 
     // Try to extract only the first complete TLS record if data is fragmented
@@ -183,7 +193,7 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
                     match extract_tls_signature_from_client_hello(client_hello) {
                         Ok(sig) => {
                             debug!("  Signature extracted successfully!");
-                            return Ok(sig);
+                            return Ok(Some(sig));
                         }
                         Err(e) => {
                             error!("Failed to extract signature from ClientHello: {:?}", e);
@@ -202,7 +212,7 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
                     .map(|m| format!("{:?}", std::mem::discriminant(m)))
                     .collect::<Vec<_>>()
             );
-            Err(HuginnNetTlsError::Parse("No ClientHello found in TLS record".to_string()))
+            Ok(None)
         }
         Err(e) => {
             error!("TLS plaintext parsing failed: {:?}", e);
@@ -244,6 +254,7 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
 pub fn parse_tls_client_hello_ja4(data: &[u8]) -> Option<String> {
     parse_tls_client_hello(data)
         .ok()
+        .flatten()
         .map(|sig| sig.generate_ja4().full.value().to_string())
 }
 
