@@ -60,7 +60,7 @@ use std::sync::mpsc;
 
 fn main() -> Result<(), HuginnNetTlsError> {
     // Create analyzer
-    let mut analyzer = HuginnNetTls::new();
+    let mut analyzer = HuginnNetTls::new(10000);
     
     // Optional: Configure filters (can be combined)
     if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {

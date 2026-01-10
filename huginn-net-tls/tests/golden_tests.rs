@@ -60,7 +60,7 @@ fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
 fn analyze_pcap_file(pcap_path: &str) -> Vec<TlsClientOutput> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
-    let mut analyzer = HuginnNetTls::new();
+    let mut analyzer = HuginnNetTls::new(10000);
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
 
     let pcap_file = pcap_path.to_string();

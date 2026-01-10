@@ -70,16 +70,13 @@ pub struct HuginnNetTls {
 impl HuginnNetTls {
     /// Creates a new instance of `HuginnNetTls` in sequential mode (single-threaded).
     ///
+    /// # Parameters
+    /// - `max_connections`: Maximum number of TCP flows to track
+    ///
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
-    pub fn new() -> Self {
-        Self::with_max_connections(10000)
-    }
-}
-
-impl Default for HuginnNetTls {
-    fn default() -> Self {
-        Self::new()
+    pub fn new(max_connections: usize) -> Self {
+        Self::with_max_connections(max_connections)
     }
 }
 

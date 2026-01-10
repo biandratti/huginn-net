@@ -143,7 +143,7 @@ fn main() {
         Commands::Live { mode } => match mode {
             LiveMode::Single { .. } => {
                 info!("Using sequential mode");
-                let mut analyzer = HuginnNetTls::new();
+                let mut analyzer = HuginnNetTls::new(10000);
                 if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone())
                 {
                     analyzer = analyzer.with_filter(filter_config);
@@ -165,7 +165,7 @@ fn main() {
         },
         Commands::Pcap { .. } => {
             info!("Using sequential mode for PCAP");
-            let mut analyzer = HuginnNetTls::new();
+            let mut analyzer = HuginnNetTls::new(10000);
             if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone()) {
                 analyzer = analyzer.with_filter(filter_config);
                 info!("Packet filtering enabled");
