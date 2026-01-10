@@ -174,7 +174,6 @@ fn main() {
         }
     };
 
-    // Initialize pool if parallel mode (before moving analyzer to thread)
     if matches!(&args.command, Commands::Live { mode: LiveMode::Parallel { .. } }) {
         if let Err(e) = analyzer.init_pool(sender.clone()) {
             error!("Failed to initialize worker pool: {e}");
@@ -182,7 +181,6 @@ fn main() {
         }
     }
 
-    // Get pool reference before moving analyzer
     let worker_pool_monitor = analyzer.worker_pool();
     let worker_pool_shutdown = worker_pool_monitor.clone();
 
@@ -200,7 +198,6 @@ fn main() {
         return;
     }
 
-    // Handle PCAP mode separately (synchronous)
     if let Commands::Pcap { file } = &args.command {
         info!("Processing PCAP file: {}", file);
         match analyzer.analyze_pcap(file, sender, None) {
@@ -213,10 +210,8 @@ fn main() {
             }
         }
     } else if let Commands::Live { mode } = &args.command {
-        // Network capture modes (asynchronous)
         let analyzer_shared = Arc::new(std::sync::Mutex::new(analyzer));
 
-        // Clone interface before moving to thread
         let interface = match mode {
             LiveMode::Single { interface, .. } => interface.clone(),
             LiveMode::Parallel { interface, .. } => interface.clone(),

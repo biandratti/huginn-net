@@ -185,7 +185,6 @@ fn main() {
         }
     };
 
-    // Initialize pool if parallel mode
     if matches!(&args.command, Commands::Live { mode: LiveMode::Parallel { .. } }) {
         if let Err(e) = analyzer.init_pool(sender.clone()) {
             error!("Failed to initialize worker pool: {e}");
@@ -193,7 +192,6 @@ fn main() {
         }
     }
 
-    // Get pool reference before moving analyzer
     let worker_pool_monitor = analyzer.worker_pool();
     let worker_pool_shutdown = worker_pool_monitor.clone();
 
@@ -206,7 +204,6 @@ fn main() {
         info!("Received signal, initiating graceful shutdown...");
         ctrl_c_signal.store(true, Ordering::Relaxed);
 
-        // Shutdown worker pool if it exists
         if let Some(ref pool) = worker_pool_shutdown {
             pool.shutdown();
         }
