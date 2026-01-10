@@ -77,15 +77,15 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 **For multi-protocol analysis:**
 ```toml
 [dependencies]
-huginn-net = "1.7.1"  # Complete analysis suite
+huginn-net = "1.7.2"  # Complete analysis suite
 ```
 
 **For specific protocols:**
 ```toml
 [dependencies]
-huginn-net-tcp = "1.7.1"   # TCP/OS fingerprinting only
-huginn-net-http = "1.7.1"  # HTTP analysis only  
-huginn-net-tls = "1.7.1"   # TLS/JA4 analysis only
+huginn-net-tcp = "1.7.2"   # TCP/OS fingerprinting only
+huginn-net-http = "1.7.2"  # HTTP analysis only  
+huginn-net-tls = "1.7.2"   # TLS/JA4 analysis only
 ```
 
 ### Usage & Examples

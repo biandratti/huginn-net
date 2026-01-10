@@ -49,7 +49,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tls = "1.7.1"
+huginn-net-tls = "1.7.2"
 ```
 
 ### Basic Usage
