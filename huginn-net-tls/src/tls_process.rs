@@ -45,17 +45,21 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
     let payload = tcp.payload();
     let src_port = tcp.get_source();
     let dst_port = tcp.get_destination();
-    
+
     if payload.is_empty() {
         debug!("TCP packet {src_port}->{dst_port}: Empty payload, skipping");
         return Ok(ObservableTlsPackage { tls_client: None });
     }
-    
+
     let first_byte = payload[0];
     let is_tls = is_tls_traffic(payload);
-    
-    debug!("TCP packet {src_port}->{dst_port}: payload_len={}, first_byte=0x{:02x}, is_tls={}", 
-           payload.len(), first_byte, is_tls);
+
+    debug!(
+        "TCP packet {src_port}->{dst_port}: payload_len={}, first_byte=0x{:02x}, is_tls={}",
+        payload.len(),
+        first_byte,
+        is_tls
+    );
 
     if !is_tls {
         // Log first few non-TLS packets for debugging
@@ -69,12 +73,13 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
         return Ok(ObservableTlsPackage { tls_client: None });
     }
 
-    
     debug!("Attempting to parse TLS ClientHello...");
     match parse_tls_client_hello(payload) {
         Ok(signature) => {
-            debug!("Successfully parsed TLS ClientHello! Version={:?}, SNI={:?}, ALPN={:?}", 
-                  signature.version, signature.sni, signature.alpn);
+            debug!(
+                "Successfully parsed TLS ClientHello! Version={:?}, SNI={:?}, ALPN={:?}",
+                signature.version, signature.sni, signature.alpn
+            );
             let ja4 = signature.generate_ja4();
             let ja4_original = signature.generate_ja4_original();
             Ok(ObservableTlsPackage {
@@ -93,8 +98,13 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
         }
         Err(e) => {
             debug!("Could not parse TLS ClientHello from {src_port}->{dst_port}: {:?}", e);
-            debug!("Payload (first 30 bytes): {:02x?}", 
-                   payload.get(0..30.min(payload.len())).map(|s| s.to_vec()).unwrap_or_default());
+            debug!(
+                "Payload (first 30 bytes): {:02x?}",
+                payload
+                    .get(0..30.min(payload.len()))
+                    .map(|s| s.to_vec())
+                    .unwrap_or_default()
+            );
             Ok(ObservableTlsPackage { tls_client: None })
         }
     }
@@ -108,37 +118,45 @@ pub fn is_tls_traffic(payload: &[u8]) -> bool {
     if payload.len() < 5 {
         return false;
     }
-    
+
     let content_type = payload[0];
     let is_handshake = content_type == 0x16; // TLS Handshake
-    
+
     if is_handshake {
         let version = u16::from_be_bytes([payload[1], payload[2]]);
         let is_valid_version = (0x0300..=0x0304).contains(&version);
         if is_valid_version {
-            debug!("TLS detected: content_type=0x{:02x} (Handshake), version=0x{:04x}", 
-                   content_type, version);
+            debug!(
+                "TLS detected: content_type=0x{:02x} (Handshake), version=0x{:04x}",
+                content_type, version
+            );
         } else {
-            debug!("Looks like TLS but invalid version: content_type=0x{:02x}, version=0x{:04x}", 
-                   content_type, version);
+            debug!(
+                "Looks like TLS but invalid version: content_type=0x{:02x}, version=0x{:04x}",
+                content_type, version
+            );
         }
         return is_valid_version;
     }
-    
+
     false
 }
 
 pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsError> {
     debug!("Parsing TLS ClientHello, data_len={}", data.len());
-    
+
     // Try to extract only the first complete TLS record if data is fragmented
     let data_to_parse = if data.len() >= 5 {
         // Read TLS record length from bytes 3-4
         let record_len = u16::from_be_bytes([data[3], data[4]]) as usize;
         let needed = record_len.saturating_add(5);
-        
+
         if data.len() >= needed {
-            debug!("Complete TLS record detected: record_len={}, total_available={}", record_len, data.len());
+            debug!(
+                "Complete TLS record detected: record_len={}, total_available={}",
+                record_len,
+                data.len()
+            );
             &data[..needed]
         } else {
             debug!("Incomplete TLS record: need {} bytes, have {} bytes", needed, data.len());
@@ -147,11 +165,14 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
     } else {
         return Err(HuginnNetTlsError::Parse("Not enough data for TLS record header".to_string()));
     };
-    
+
     match parse_tls_plaintext(data_to_parse) {
         Ok((remaining, tls_record)) => {
-            debug!("TLS record parsed successfully! {} messages, {} bytes remaining", 
-                  tls_record.msg.len(), remaining.len());
+            debug!(
+                "TLS record parsed successfully! {} messages, {} bytes remaining",
+                tls_record.msg.len(),
+                remaining.len()
+            );
             for (i, message) in tls_record.msg.iter().enumerate() {
                 let msg_type = format!("{:?}", std::mem::discriminant(message));
                 debug!("Message {}: {}", i, msg_type);
@@ -172,16 +193,27 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
                 }
             }
             // Not an error - record is valid TLS but doesn't contain ClientHello (e.g., ServerHello, Alert)
-            debug!("No ClientHello found in TLS record ({} messages, types: {:?})", 
-                   tls_record.msg.len(),
-                   tls_record.msg.iter().map(|m| format!("{:?}", std::mem::discriminant(m))).collect::<Vec<_>>());
+            debug!(
+                "No ClientHello found in TLS record ({} messages, types: {:?})",
+                tls_record.msg.len(),
+                tls_record
+                    .msg
+                    .iter()
+                    .map(|m| format!("{:?}", std::mem::discriminant(m)))
+                    .collect::<Vec<_>>()
+            );
             Err(HuginnNetTlsError::Parse("No ClientHello found in TLS record".to_string()))
         }
         Err(e) => {
             error!("TLS plaintext parsing failed: {:?}", e);
-            debug!("Data length: {}, first 50 bytes: {:02x?}", 
-                   data_to_parse.len(),
-                   data_to_parse.get(0..50.min(data_to_parse.len())).map(|s| s.to_vec()).unwrap_or_default());
+            debug!(
+                "Data length: {}, first 50 bytes: {:02x?}",
+                data_to_parse.len(),
+                data_to_parse
+                    .get(0..50.min(data_to_parse.len()))
+                    .map(|s| s.to_vec())
+                    .unwrap_or_default()
+            );
             Err(HuginnNetTlsError::Parse(format!("TLS parsing failed: {e:?}")))
         }
     }

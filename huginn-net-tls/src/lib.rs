@@ -74,9 +74,9 @@ impl HuginnNetTls {
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
-        Self { 
-            parallel_config: None, 
-            worker_pool: None, 
+        Self {
+            parallel_config: None,
+            worker_pool: None,
             filter_config: None,
             tcp_flows: HashMap::new(),
         }
@@ -395,10 +395,13 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => crate::process::process_ipv4_with_reassembly(&ipv4, &mut self.tcp_flows),
-            IpPacket::Ipv6(ipv6) => crate::process::process_ipv6_with_reassembly(&ipv6, &mut self.tcp_flows),
+            IpPacket::Ipv4(ipv4) => {
+                crate::process::process_ipv4_with_reassembly(&ipv4, &mut self.tcp_flows)
+            }
+            IpPacket::Ipv6(ipv6) => {
+                crate::process::process_ipv6_with_reassembly(&ipv6, &mut self.tcp_flows)
+            }
             IpPacket::None => Ok(None),
         }
     }
-    
 }

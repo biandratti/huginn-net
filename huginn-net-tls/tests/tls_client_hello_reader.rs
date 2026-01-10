@@ -516,7 +516,7 @@ fn test_tcp_segmentation_realistic() {
     // - Large ClientHello (similar to real browsers, ~2000 bytes)
     // - Split into TCP segments of ~1448 bytes (typical MSS)
     // - First segment has TLS header, subsequent segments are continuation
-    
+
     let mut reader = TlsClientHelloReader::new();
 
     // Create a large ClientHello similar to real browsers
@@ -528,7 +528,7 @@ fn test_tcp_segmentation_realistic() {
 
     // Create extensions to make it larger (SNI, ALPN, etc.)
     let mut extensions = Vec::new();
-    
+
     // Extension: server_name (0x0000)
     let hostname = b"example.com";
     let hostname_len = hostname.len() as u16;
@@ -553,7 +553,10 @@ fn test_tcp_segmentation_realistic() {
     extensions.extend_from_slice(alpn_protocol); // Protocol name
 
     // Add many extensions with data to make it large enough to fragment
-    for ext_type in [0x0005u16, 0x000au16, 0x000bu16, 0x000du16, 0x0012u16, 0x0017u16, 0x001bu16, 0x0023u16, 0x002bu16, 0x002du16, 0x0033u16] {
+    for ext_type in [
+        0x0005u16, 0x000au16, 0x000bu16, 0x000du16, 0x0012u16, 0x0017u16, 0x001bu16, 0x0023u16,
+        0x002bu16, 0x002du16, 0x0033u16,
+    ] {
         extensions.extend_from_slice(&ext_type.to_be_bytes());
         // Add extension with some data (not empty) to increase size
         let ext_data_len = 200u16; // Add 200 bytes of data per extension
@@ -565,27 +568,39 @@ fn test_tcp_segmentation_realistic() {
     let record = create_tls_client_hello_record((0x03, 0x03), &handshake);
 
     // Verify the record is large enough to be segmented (should be > 1448 bytes)
-    assert!(record.len() > 1448, "Record should be large enough to test segmentation (got {} bytes)", record.len());
+    assert!(
+        record.len() > 1448,
+        "Record should be large enough to test segmentation (got {} bytes)",
+        record.len()
+    );
 
     // Simulate TCP segmentation: split into segments of ~1448 bytes (typical MSS)
     const TCP_MSS: usize = 1448;
     let mut segments = Vec::new();
     let mut offset = 0;
-    
+
     while offset < record.len() {
         let segment_end = (offset + TCP_MSS).min(record.len());
         segments.push(&record[offset..segment_end]);
         offset = segment_end;
     }
 
-    assert!(segments.len() >= 2, "Record should be split into at least 2 segments (got {})", segments.len());
+    assert!(
+        segments.len() >= 2,
+        "Record should be split into at least 2 segments (got {})",
+        segments.len()
+    );
 
     // First segment should start with TLS header (0x16)
     assert_eq!(segments[0][0], 0x16, "First segment should start with TLS handshake (0x16)");
-    
+
     // Subsequent segments should NOT start with 0x16 (they're continuation)
     for (i, segment) in segments.iter().enumerate().skip(1) {
-        assert_ne!(segment[0], 0x16, "Segment {} should not start with 0x16 (it's continuation data)", i);
+        assert_ne!(
+            segment[0], 0x16,
+            "Segment {} should not start with 0x16 (it's continuation data)",
+            i
+        );
     }
 
     // Add segments incrementally (simulating TCP packet arrival)
@@ -593,7 +608,7 @@ fn test_tcp_segmentation_realistic() {
     for (i, segment) in segments.iter().enumerate() {
         let result = reader.add_bytes(segment);
         assert!(result.is_ok(), "Failed to add segment {}: {:?}", i, result);
-        
+
         if let Ok(Some(signature)) = result {
             // Should parse successfully on the last segment
             assert_eq!(i, segments.len() - 1, "Should only parse on the last segment");
@@ -625,7 +640,7 @@ fn test_tcp_segmentation_three_segments_reassembly() {
     }
 
     let mut extensions = Vec::new();
-    
+
     // Add many extensions to reach target size
     for ext_type in 0..50 {
         extensions.extend_from_slice(&(ext_type as u16).to_be_bytes());
@@ -670,7 +685,10 @@ fn test_tcp_segmentation_three_segments_reassembly() {
                 assert!(result2_value.is_some() || reader.signature_parsed());
             } else {
                 // If 3 segments, should not parse yet
-                assert!(result2_value.is_none(), "Second segment should not complete parsing if there's a third");
+                assert!(
+                    result2_value.is_none(),
+                    "Second segment should not complete parsing if there's a third"
+                );
                 assert!(!reader.signature_parsed());
             }
         }
@@ -684,7 +702,7 @@ fn test_tcp_segmentation_three_segments_reassembly() {
             assert!(value.is_some(), "Third segment should complete parsing");
         }
         assert!(reader.signature_parsed());
-        
+
         if let Some(signature) = reader.get_signature() {
             assert_eq!(signature.version, huginn_net_tls::tls::TlsVersion::V1_2);
             assert!(!signature.cipher_suites.is_empty());

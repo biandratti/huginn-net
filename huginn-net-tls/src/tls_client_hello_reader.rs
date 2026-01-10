@@ -72,14 +72,20 @@ impl TlsClientHelloReader {
 
         // Check if it's a TLS handshake record (0x16)
         if content_type != 0x16 {
-            debug!("First byte is not TLS Handshake (0x16), got 0x{:02x}. Might be continuation data.", content_type);
+            debug!(
+                "First byte is not TLS Handshake (0x16), got 0x{:02x}. Might be continuation data.",
+                content_type
+            );
             return Ok(None);
         }
 
         // Check if we have complete TLS record
         if self.buffer.len() < needed {
-            debug!("Incomplete TLS record: have {} bytes, need {} bytes. Accumulating...", 
-                   self.buffer.len(), needed);
+            debug!(
+                "Incomplete TLS record: have {} bytes, need {} bytes. Accumulating...",
+                self.buffer.len(),
+                needed
+            );
             return Ok(None);
         }
 
@@ -90,8 +96,11 @@ impl TlsClientHelloReader {
             return Err(crate::error::HuginnNetTlsError::Parse("TLS record too large".to_string()));
         }
 
-        debug!("Complete TLS record detected: record_len={}, total_available={}", 
-              record_len, self.buffer.len());
+        debug!(
+            "Complete TLS record detected: record_len={}, total_available={}",
+            record_len,
+            self.buffer.len()
+        );
 
         // Parse ClientHello
         match parse_tls_client_hello(&self.buffer[..needed]) {
@@ -104,8 +113,13 @@ impl TlsClientHelloReader {
             }
             Err(e) => {
                 error!("Failed to parse TLS ClientHello from reassembled buffer: {:?}", e);
-                debug!("Buffer (first 200 bytes): {:02x?}", 
-                       self.buffer.get(0..200.min(needed)).map(|s| s.to_vec()).unwrap_or_default());
+                debug!(
+                    "Buffer (first 200 bytes): {:02x?}",
+                    self.buffer
+                        .get(0..200.min(needed))
+                        .map(|s| s.to_vec())
+                        .unwrap_or_default()
+                );
                 // Don't reset on error - might be a parsing issue we can debug
                 Err(e)
             }
