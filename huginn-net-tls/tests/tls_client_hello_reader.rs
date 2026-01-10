@@ -709,3 +709,156 @@ fn test_tcp_segmentation_three_segments_reassembly() {
         }
     }
 }
+
+/// Helper to create a TLS ServerHello record (handshake type 0x02)
+fn create_tls_server_hello_record() -> Vec<u8> {
+    let mut record = Vec::new();
+    // Content Type: Handshake (0x16)
+    record.push(0x16);
+    // Version: TLS 1.2 (0x03 0x03)
+    record.push(0x03);
+    record.push(0x03);
+    // Record length: minimal ServerHello (about 80 bytes)
+    let handshake_len = 80u16;
+    record.extend_from_slice(&handshake_len.to_be_bytes());
+
+    // Handshake message
+    // Handshake Type: ServerHello (0x02)
+    record.push(0x02);
+    // Handshake length (3 bytes)
+    record.extend_from_slice(&[0x00, 0x00, 0x4C]); // 76 bytes
+                                                   // Version: TLS 1.2
+    record.push(0x03);
+    record.push(0x03);
+    // Random (32 bytes)
+    record.extend_from_slice(&[0u8; 32]);
+    // Session ID length (0)
+    record.push(0x00);
+    // Cipher suite (2 bytes)
+    record.extend_from_slice(&0x1301u16.to_be_bytes());
+    // Compression method (1 byte)
+    record.push(0x00);
+    // Extensions length (2 bytes)
+    record.extend_from_slice(&0x0000u16.to_be_bytes());
+    // Fill remaining to match declared length
+    let target_len = 5usize.saturating_add(handshake_len as usize);
+    while record.len() < target_len {
+        record.push(0x00);
+    }
+
+    record
+}
+
+/// Helper to create a TLS Application Data record (content type 0x17)
+fn create_tls_application_data_record() -> Vec<u8> {
+    let mut record = Vec::new();
+    // Content Type: Application Data (0x17)
+    record.push(0x17);
+    // Version: TLS 1.2 (0x03 0x03)
+    record.push(0x03);
+    record.push(0x03);
+    // Record length: 10 bytes
+    record.extend_from_slice(&10u16.to_be_bytes());
+    // Application data
+    record.extend_from_slice(&[0u8; 10]);
+    record
+}
+
+#[test]
+fn test_mixed_packet_types_after_client_hello() {
+    // Test that validates parsing behavior when we receive:
+    // 1. ClientHello (should parse successfully)
+    // 2. ServerHello (should return Ok(None), not an error)
+    // 3. Application Data (should return Ok(None), not an error)
+    // 4. Another ClientHello (should parse successfully after reset)
+
+    let mut reader = TlsClientHelloReader::new();
+
+    // 1. Process ClientHello - should succeed
+    let cipher_suites = vec![0x1301u16, 0x1302u16];
+    let handshake = create_client_hello_handshake((0x03, 0x03), &cipher_suites, None);
+    let client_hello_record = create_tls_client_hello_record((0x03, 0x03), &handshake);
+
+    let result1 = reader.add_bytes(&client_hello_record);
+    assert!(result1.is_ok(), "ClientHello should parse successfully");
+    if let Ok(Some(signature)) = result1 {
+        assert_eq!(signature.cipher_suites.len(), 2);
+        assert!(signature.cipher_suites.contains(&0x1301));
+        assert!(signature.cipher_suites.contains(&0x1302));
+    } else {
+        panic!("Expected ClientHello to parse successfully");
+    }
+    assert!(reader.signature_parsed(), "Signature should be marked as parsed");
+
+    // 2. Process ServerHello - should return Ok(None), not error
+    // Note: After ClientHello is parsed, reader should ignore subsequent data
+    // But if we reset, we can test ServerHello handling
+    reader.reset();
+
+    let server_hello_record = create_tls_server_hello_record();
+    let result2 = reader.add_bytes(&server_hello_record);
+    assert!(result2.is_ok(), "ServerHello should not cause an error");
+    if let Ok(value) = result2 {
+        assert!(value.is_none(), "ServerHello should return None (not a ClientHello)");
+    }
+    assert!(!reader.signature_parsed(), "ServerHello should not be parsed as ClientHello");
+
+    // 3. Process Application Data - should return Ok(None), not error
+    reader.reset();
+
+    let app_data_record = create_tls_application_data_record();
+    let result3 = reader.add_bytes(&app_data_record);
+    assert!(result3.is_ok(), "Application Data should not cause an error");
+    if let Ok(value) = result3 {
+        assert!(value.is_none(), "Application Data should return None (not a handshake)");
+    }
+    assert!(!reader.signature_parsed(), "Application Data should not be parsed");
+
+    // 4. Process another ClientHello - should succeed after reset
+    reader.reset();
+
+    let result4 = reader.add_bytes(&client_hello_record);
+    assert!(result4.is_ok(), "Second ClientHello should parse successfully");
+    if let Ok(Some(signature)) = result4 {
+        assert_eq!(signature.cipher_suites.len(), 2);
+    } else {
+        panic!("Expected second ClientHello to parse successfully");
+    }
+    assert!(reader.signature_parsed(), "Second signature should be marked as parsed");
+}
+
+#[test]
+fn test_sequence_client_hello_then_server_hello() {
+    // Test realistic sequence: ClientHello followed by ServerHello
+    // This simulates what happens in a real TLS handshake
+
+    let mut reader = TlsClientHelloReader::new();
+
+    // First packet: ClientHello
+    let cipher_suites = vec![0x1301u16];
+    let handshake = create_client_hello_handshake((0x03, 0x03), &cipher_suites, None);
+    let client_hello = create_tls_client_hello_record((0x03, 0x03), &handshake);
+
+    let result1 = reader.add_bytes(&client_hello);
+    assert!(result1.is_ok());
+    if let Ok(Some(_sig)) = result1 {
+        // ClientHello parsed successfully
+        // In real scenario, flow would be removed from cache here
+        // Subsequent packets from same flow would be ignored
+    } else {
+        panic!("ClientHello should parse successfully");
+    }
+
+    // Second packet: ServerHello (simulating server response)
+    // After ClientHello is parsed, reader is reset or flow is removed
+    // If a new reader is created for subsequent packets, ServerHello should return None
+    reader.reset();
+
+    let server_hello = create_tls_server_hello_record();
+    let result2 = reader.add_bytes(&server_hello);
+    assert!(result2.is_ok(), "ServerHello should not cause an error");
+    if let Ok(value) = result2 {
+        assert!(value.is_none(), "ServerHello should return None (not a ClientHello)");
+    }
+    assert!(!reader.signature_parsed(), "ServerHello should not be parsed as ClientHello");
+}
