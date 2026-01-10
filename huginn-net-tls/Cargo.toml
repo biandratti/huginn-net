@@ -22,6 +22,7 @@ sha2 = { workspace = true }
 thiserror = { workspace = true }
 tls-parser = { workspace = true }
 tracing = { workspace = true }
+ttl_cache = { workspace = true }
 
 [dev-dependencies]
 clap = { workspace = true }

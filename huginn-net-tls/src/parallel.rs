@@ -1,22 +1,26 @@
 use crate::filter::FilterConfig;
 use crate::output::TlsClientOutput;
+use crate::packet_hash;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::raw_filter;
-use crate::HuginnNetTlsError;
-use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError, TrySendError};
+use crate::tls_client_hello_reader::TlsClientHelloReader;
+use crate::{FlowKey, HuginnNetTlsError};
+use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::fmt;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tracing::debug;
+use ttl_cache::TtlCache;
 
 /// Worker configuration parameters
 struct WorkerConfig {
     batch_size: usize,
     timeout_ms: u64,
+    max_connections: usize,
 }
 
 /// Result of dispatching a packet to a worker
@@ -83,10 +87,9 @@ pub struct WorkerPool {
     pub num_workers: NonZeroUsize,
     pub batch_size: usize,
     pub timeout_ms: u64,
-    next_worker: AtomicUsize,
-    queued_count: AtomicU64,
-    dropped_count: AtomicU64,
-    worker_dropped: Vec<AtomicU64>,
+    dispatched_count: Arc<AtomicU64>,
+    dropped_count: Arc<AtomicU64>,
+    worker_dropped: Vec<Arc<AtomicU64>>,
 }
 
 impl WorkerPool {
@@ -101,6 +104,7 @@ impl WorkerPool {
         batch_size: usize,
         timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
+        max_connections: usize,
         filter_config: Option<FilterConfig>,
     ) -> Result<Self, HuginnNetTlsError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or_else(|| {
@@ -118,9 +122,11 @@ impl WorkerPool {
         let mut worker_dropped = Vec::with_capacity(num_workers_val);
         let shutdown_flag = Arc::new(AtomicBool::new(false));
         let filter_arc = filter_config.map(Arc::new);
+        let dispatched_count = Arc::new(AtomicU64::new(0));
+        let dropped_count = Arc::new(AtomicU64::new(0));
 
         for worker_id in 0..num_workers_val {
-            worker_dropped.push(AtomicU64::new(0));
+            worker_dropped.push(Arc::new(AtomicU64::new(0)));
             let (tx, rx) = bounded::<Vec<u8>>(queue_size);
             packet_senders.push(tx);
 
@@ -137,7 +143,7 @@ impl WorkerPool {
                         result_sender_clone,
                         shutdown_flag_clone,
                         filter_clone,
-                        WorkerConfig { batch_size, timeout_ms },
+                        WorkerConfig { batch_size, timeout_ms, max_connections },
                     );
                 })
                 .map_err(|e| {
@@ -157,9 +163,8 @@ impl WorkerPool {
             num_workers,
             batch_size,
             timeout_ms,
-            next_worker: AtomicUsize::new(0),
-            queued_count: AtomicU64::new(0),
-            dropped_count: AtomicU64::new(0),
+            dispatched_count,
+            dropped_count,
             worker_dropped,
         })
     }
@@ -179,23 +184,29 @@ impl WorkerPool {
             return DispatchResult::Dropped;
         }
 
-        let counter = self.next_worker.fetch_add(1, Ordering::Relaxed);
-        let worker_id = counter.checked_rem(self.num_workers.get()).unwrap_or(0);
-        match self.packet_senders[worker_id].try_send(packet) {
-            Ok(()) => {
-                self.queued_count.fetch_add(1, Ordering::Relaxed);
-                DispatchResult::Queued
-            }
-            Err(TrySendError::Full(_)) => {
+        let worker_id = match packet_hash::hash_flow(&packet, self.num_workers.get()) {
+            Some(id) => id,
+            None => {
+                // Packet too malformed to extract flow, discard it
                 self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                DispatchResult::Dropped
+                return DispatchResult::Dropped;
             }
-            Err(TrySendError::Disconnected(_)) => {
-                self.dropped_count.fetch_add(1, Ordering::Relaxed);
-                self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
-                DispatchResult::Dropped
+        };
+
+        self.dispatched_count.fetch_add(1, Ordering::Relaxed);
+
+        if let Some(sender) = self.packet_senders.get(worker_id) {
+            match sender.try_send(packet) {
+                Ok(()) => DispatchResult::Queued,
+                Err(_) => {
+                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                    self.worker_dropped[worker_id].fetch_add(1, Ordering::Relaxed);
+                    DispatchResult::Dropped
+                }
             }
+        } else {
+            self.dropped_count.fetch_add(1, Ordering::Relaxed);
+            DispatchResult::Dropped
         }
     }
 
@@ -214,7 +225,7 @@ impl WorkerPool {
             .collect();
 
         PoolStats {
-            total_dispatched: self.queued_count.load(Ordering::Relaxed),
+            total_dispatched: self.dispatched_count.load(Ordering::Relaxed),
             total_dropped: self.dropped_count.load(Ordering::Relaxed),
             workers,
         }
@@ -230,6 +241,8 @@ impl WorkerPool {
     ) {
         debug!("TLS worker {} started", worker_id);
 
+        let mut tcp_flows: TtlCache<FlowKey, TlsClientHelloReader> =
+            TtlCache::new(config.max_connections);
         let mut batch = Vec::with_capacity(config.batch_size);
         let timeout = Duration::from_millis(config.timeout_ms);
 
@@ -268,7 +281,7 @@ impl WorkerPool {
 
             // Process entire batch
             for packet in batch.drain(..) {
-                match Self::process_packet(&packet, filter_config.as_deref()) {
+                match Self::process_packet(&packet, &mut tcp_flows, filter_config.as_deref()) {
                     Ok(Some(result)) => {
                         if result_sender.send(result).is_err() {
                             debug!("TLS worker {} result channel closed", worker_id);
@@ -286,6 +299,7 @@ impl WorkerPool {
 
     fn process_packet(
         packet: &[u8],
+        tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
         filter: Option<&FilterConfig>,
     ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         if let Some(filter_cfg) = filter {
@@ -296,8 +310,8 @@ impl WorkerPool {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4),
-            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6),
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, tcp_flows),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, tcp_flows),
             IpPacket::None => Ok(None),
         }
     }

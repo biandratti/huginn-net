@@ -35,26 +35,32 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture
 # Build TLS example
 cargo build --release --examples -p huginn-net-tls
 
-# Sequential mode (single-threaded)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log single -i <INTERFACE>
+# Live capture - Sequential mode (single-threaded)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live single -i <INTERFACE>
 
-# Parallel mode (multi-threaded)
+# Live capture - Parallel mode (multi-threaded)
 # -w: number of worker threads
 # -q: queue size per worker (default: 100, lower = lower latency)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i <INTERFACE> -w 4 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live parallel -i <INTERFACE> -w 4 -q 100
 
 # Example for high load scenarios (more workers, larger queues)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log parallel -i <INTERFACE> -w 8 -q 200
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live parallel -i <INTERFACE> -w 8 -q 200
+
+# PCAP file analysis
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log pcap -f <PCAP_FILE>
 
 # Filtering examples
 # Filter by destination port (HTTPS only)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 single -i <INTERFACE>
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 live single -i <INTERFACE>
 
 # Filter by IP address
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -I 192.168.1.100 single -i <INTERFACE>
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -I 192.168.1.100 live single -i <INTERFACE>
 
 # Filter by both port and IP (both conditions must match)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 -I 192.168.1.100 parallel -i <INTERFACE> -w 4
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 -I 192.168.1.100 live parallel -i <INTERFACE> -w 4
+
+# PCAP with filtering
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log pcap -f <PCAP_FILE>
 ```
 
 #### TCP-Only Analysis
@@ -62,26 +68,32 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls
 # Build TCP example
 cargo build --release --examples -p huginn-net-tcp
 
-# Sequential mode (single-threaded)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log single -i <INTERFACE>
+# Live capture - Sequential mode (single-threaded)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live single -i <INTERFACE>
 
-# Parallel mode (multi-threaded, hash-based worker assignment)
+# Live capture - Parallel mode (multi-threaded, hash-based worker assignment)
 # -w: number of worker threads
 # -q: queue size per worker (default: 100, lower = lower latency)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i <INTERFACE> -w 4 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live parallel -i <INTERFACE> -w 4 -q 100
 
 # Example for high load scenarios (more workers, larger queues)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log parallel -i <INTERFACE> -w 8 -q 200
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live parallel -i <INTERFACE> -w 8 -q 200
+
+# PCAP file analysis
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log pcap -f <PCAP_FILE>
 
 # Filtering examples
 # Filter by destination port (e.g., SSH on port 22)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 22 single -i <INTERFACE>
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 22 live single -i <INTERFACE>
 
 # Filter by IP address
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -I 192.168.1.100 single -i <INTERFACE>
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -I 192.168.1.100 live single -i <INTERFACE>
 
 # Filter by both port and IP (both conditions must match)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 443 -I 192.168.1.100 parallel -i <INTERFACE> -w 4
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 443 -I 192.168.1.100 live parallel -i <INTERFACE> -w 4
+
+# PCAP with filtering
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 22 pcap -f <PCAP_FILE>
 ```
 
 #### HTTP-Only Analysis
@@ -89,26 +101,32 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp
 # Build HTTP example
 cargo build --release --examples -p huginn-net-http
 
-# Sequential mode (single-threaded)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log single -i <INTERFACE>
+# Live capture - Sequential mode (single-threaded)
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live single -i <INTERFACE>
 
-# Parallel mode (multi-threaded, flow-based routing)
+# Live capture - Parallel mode (multi-threaded, flow-based routing)
 # -w: number of worker threads (recommended: 2 for optimal performance)
 # -q: queue size per worker (default: 100, lower = lower latency)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i <INTERFACE> -w 2 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live parallel -i <INTERFACE> -w 2 -q 100
 
 # Example for 10 Gbps traffic (2 workers recommended)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log parallel -i <INTERFACE> -w 2 -q 100
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live parallel -i <INTERFACE> -w 2 -q 100
+
+# PCAP file analysis
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log pcap -f <PCAP_FILE>
 
 # Filtering examples
 # Filter by destination port (HTTP on port 80)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 single -i <INTERFACE>
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 live single -i <INTERFACE>
 
 # Filter by IP address
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -I 192.168.1.100 single -i <INTERFACE>
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -I 192.168.1.100 live single -i <INTERFACE>
 
 # Filter by both port and IP (both conditions must match)
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 -I 192.168.1.100 parallel -i <INTERFACE> -w 2
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 -I 192.168.1.100 live parallel -i <INTERFACE> -w 2
+
+# PCAP with filtering
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 pcap -f <PCAP_FILE>
 ```
 
 #### Differences between examples:

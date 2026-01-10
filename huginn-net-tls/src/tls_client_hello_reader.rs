@@ -1,5 +1,6 @@
 use crate::tls::Signature;
 use crate::tls_process::parse_tls_client_hello;
+use tracing::{debug, error};
 
 /// TLS ClientHello reader with incremental parsing support
 ///
@@ -51,40 +52,81 @@ impl TlsClientHelloReader {
         &mut self,
         data: &[u8],
     ) -> Result<Option<Signature>, crate::error::HuginnNetTlsError> {
-        // If signature already parsed, don't process more data
         if self.signature.is_some() {
+            debug!("Signature already parsed, skipping new bytes.");
             return Ok(None);
         }
 
         // Check if we have enough data to determine TLS record length
         self.buffer.extend_from_slice(data);
 
-        // Need at least 5 bytes to read TLS record header
         if self.buffer.len() < 5 {
+            debug!("Not enough bytes for TLS record header (have {}, need 5)", self.buffer.len());
             return Ok(None);
         }
 
-        // Read TLS record length from bytes 3-4
+        let content_type = self.buffer[0];
+        // Skip version bytes (buffer[1] and buffer[2]) - not needed for length calculation
         let record_len = u16::from_be_bytes([self.buffer[3], self.buffer[4]]) as usize;
-        let needed = record_len.saturating_add(5);
+        let needed = record_len.saturating_add(5); // 5 bytes for header + record_len
+
+        // Check if it's a TLS handshake record (0x16)
+        if content_type != 0x16 {
+            debug!(
+                "First byte is not TLS Handshake (0x16), got 0x{:02x}. Might be continuation data.",
+                content_type
+            );
+            return Ok(None);
+        }
 
         // Check if we have complete TLS record
         if self.buffer.len() < needed {
+            debug!(
+                "Incomplete TLS record: have {} bytes, need {} bytes. Accumulating...",
+                self.buffer.len(),
+                needed
+            );
             return Ok(None);
         }
 
         // Safety limit: don't process records larger than 64KB
         if needed > 64 * 1024 {
+            error!("TLS record too large ({} bytes), resetting buffer.", needed);
+            self.reset(); // Clear buffer to avoid processing malicious large records
             return Err(crate::error::HuginnNetTlsError::Parse("TLS record too large".to_string()));
         }
 
+        debug!(
+            "Complete TLS record detected: record_len={}, total_available={}",
+            record_len,
+            self.buffer.len()
+        );
+
         // Parse ClientHello
         match parse_tls_client_hello(&self.buffer[..needed]) {
-            Ok(signature) => {
+            Ok(Some(signature)) => {
+                debug!("Successfully parsed TLS ClientHello from reassembled buffer");
                 self.signature = Some(signature.clone());
+                // Clear buffer after successful parse to prepare for next ClientHello
+                self.buffer.drain(..needed);
                 Ok(Some(signature))
             }
-            Err(e) => Err(e),
+            Ok(None) => {
+                debug!("TLS record is not a ClientHello (likely ServerHello or Application Data), ignoring");
+                self.reset();
+                Ok(None)
+            }
+            Err(e) => {
+                error!("Failed to parse TLS ClientHello from reassembled buffer: {:?}", e);
+                debug!(
+                    "Buffer (first 200 bytes): {:02x?}",
+                    self.buffer
+                        .get(0..200.min(needed))
+                        .map(|s| s.to_vec())
+                        .unwrap_or_default()
+                );
+                Err(e)
+            }
         }
     }
 
@@ -113,6 +155,14 @@ impl TlsClientHelloReader {
     pub fn reset(&mut self) {
         self.buffer.clear();
         self.signature = None;
+    }
+
+    /// Get the current buffer size
+    ///
+    /// Returns the number of bytes currently accumulated in the buffer.
+    #[must_use]
+    pub fn buffer_len(&self) -> usize {
+        self.buffer.len()
     }
 }
 

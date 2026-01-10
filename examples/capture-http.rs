@@ -35,6 +35,18 @@ struct FilterOptions {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    Live {
+        #[command(subcommand)]
+        mode: LiveMode,
+    },
+    Pcap {
+        #[arg(short = 'f', long = "file")]
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum LiveMode {
     Single {
         #[arg(short = 'i', long)]
         interface: String,
@@ -140,7 +152,7 @@ fn main() {
         let filter_config = build_filter(&args.filter);
 
         match args.command {
-            Commands::Single { interface } => {
+            Commands::Live { mode: LiveMode::Single { interface } } => {
                 info!("Initializing HTTP analyzer in sequential mode");
                 let mut analyzer = match HuginnNetHttp::new(db_option, 1000) {
                     Ok(analyzer) => analyzer,
@@ -161,7 +173,7 @@ fn main() {
                     error!("HTTP analysis failed: {e}");
                 }
             }
-            Commands::Parallel { interface, workers, queue_size } => {
+            Commands::Live { mode: LiveMode::Parallel { interface, workers, queue_size } } => {
                 info!(
                     "Initializing HTTP analyzer with {workers} worker threads (flow-based routing)"
                 );
@@ -188,6 +200,25 @@ fn main() {
                 if let Err(e) =
                     analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
                 {
+                    error!("HTTP analysis failed: {e}");
+                }
+            }
+            Commands::Pcap { file } => {
+                info!("Initializing HTTP analyzer in sequential mode for PCAP analysis");
+                let mut analyzer = match HuginnNetHttp::new(db_option, 1000) {
+                    Ok(analyzer) => analyzer,
+                    Err(e) => {
+                        error!("Failed to create HuginnNetHttp analyzer: {e}");
+                        return;
+                    }
+                };
+                if let Some(ref filter_cfg) = filter_config {
+                    analyzer = analyzer.with_filter(filter_cfg.clone());
+                    info!("Packet filtering enabled");
+                }
+
+                info!("Analyzing PCAP file: {file}");
+                if let Err(e) = analyzer.analyze_pcap(&file, sender, Some(thread_cancel_signal)) {
                     error!("HTTP analysis failed: {e}");
                 }
             }
