@@ -2,6 +2,7 @@ pub mod error;
 pub mod filter;
 pub mod observable;
 pub mod output;
+pub mod packet_hash;
 pub mod packet_parser;
 pub mod parallel;
 pub mod process;
@@ -26,13 +27,13 @@ pub use tls_process::{
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
-use std::collections::HashMap;
 use std::fs::File;
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tracing::{debug, error};
+use ttl_cache::TtlCache;
 
 /// Configuration for parallel processing
 ///
@@ -52,20 +53,18 @@ struct ParallelConfig {
 }
 
 /// FlowKey: (Source IP, Destination IP, Source Port, Destination Port)
-/// Used for tracking TCP flows across fragmented packets.
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
 /// A TLS-focused passive fingerprinting analyzer using JA4 methodology.
 ///
 /// The `HuginnNetTls` struct handles TLS packet analysis and JA4 fingerprinting
 /// following the official FoxIO specification.
-#[derive(Default)]
 pub struct HuginnNetTls {
+    tcp_flows: TtlCache<FlowKey, TlsClientHelloReader>,
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
     filter_config: Option<FilterConfig>,
-    // TCP reassembly for fragmented ClientHello packets
-    tcp_flows: HashMap<FlowKey, TlsClientHelloReader>, // TODO: move to TtlCache
+    max_connections: usize,
 }
 
 impl HuginnNetTls {
@@ -74,11 +73,31 @@ impl HuginnNetTls {
     /// # Returns
     /// A new `HuginnNetTls` instance ready for TLS analysis.
     pub fn new() -> Self {
+        Self::with_max_connections(10000)
+    }
+}
+
+impl Default for HuginnNetTls {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HuginnNetTls {
+    /// Creates a new instance with a specified maximum number of connections.
+    ///
+    /// # Parameters
+    /// - `max_connections`: Maximum number of TCP flows to track
+    ///
+    /// # Returns
+    /// A new `HuginnNetTls` instance ready for TLS analysis.
+    pub fn with_max_connections(max_connections: usize) -> Self {
         Self {
+            tcp_flows: TtlCache::new(max_connections),
             parallel_config: None,
             worker_pool: None,
             filter_config: None,
-            tcp_flows: HashMap::new(),
+            max_connections,
         }
     }
 
@@ -130,7 +149,35 @@ impl HuginnNetTls {
         batch_size: usize,
         timeout_ms: u64,
     ) -> Self {
+        Self::with_config_and_max_connections(
+            num_workers,
+            queue_size,
+            batch_size,
+            timeout_ms,
+            10000,
+        )
+    }
+
+    /// Creates a new instance with full parallel configuration and max connections.
+    ///
+    /// # Parameters
+    /// - `num_workers`: Number of worker threads
+    /// - `queue_size`: Size of packet queue per worker
+    /// - `batch_size`: Maximum packets to process in one batch
+    /// - `timeout_ms`: Worker receive timeout in milliseconds
+    /// - `max_connections`: Maximum number of TCP flows to track
+    ///
+    /// # Returns
+    /// A new `HuginnNetTls` instance with parallel configuration.
+    pub fn with_config_and_max_connections(
+        num_workers: usize,
+        queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
+        max_connections: usize,
+    ) -> Self {
         Self {
+            tcp_flows: TtlCache::new(max_connections),
             parallel_config: Some(ParallelConfig {
                 num_workers,
                 queue_size,
@@ -139,7 +186,7 @@ impl HuginnNetTls {
             }),
             worker_pool: None,
             filter_config: None,
-            tcp_flows: HashMap::new(),
+            max_connections,
         }
     }
 
@@ -175,6 +222,7 @@ impl HuginnNetTls {
                     config.batch_size,
                     config.timeout_ms,
                     sender,
+                    self.max_connections,
                     self.filter_config.clone(),
                 )?);
                 self.worker_pool = Some(worker_pool);
@@ -220,6 +268,7 @@ impl HuginnNetTls {
                 config.batch_size,
                 config.timeout_ms,
                 sender,
+                self.max_connections,
                 self.filter_config.clone(),
             )?);
             self.worker_pool = Some(worker_pool);
@@ -395,12 +444,8 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => {
-                crate::process::process_ipv4_with_reassembly(&ipv4, &mut self.tcp_flows)
-            }
-            IpPacket::Ipv6(ipv6) => {
-                crate::process::process_ipv6_with_reassembly(&ipv6, &mut self.tcp_flows)
-            }
+            IpPacket::Ipv4(ipv4) => crate::process::process_ipv4_packet(&ipv4, &mut self.tcp_flows),
+            IpPacket::Ipv6(ipv6) => crate::process::process_ipv6_packet(&ipv6, &mut self.tcp_flows),
             IpPacket::None => Ok(None),
         }
     }

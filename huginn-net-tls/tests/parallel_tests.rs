@@ -14,14 +14,14 @@ fn unwrap_worker_pool(result: Result<WorkerPool, HuginnNetTlsError>) -> WorkerPo
 #[test]
 fn test_worker_pool_rejects_zero_workers() {
     let (tx, _rx) = mpsc::channel();
-    let result = WorkerPool::new(0, 100, 32, 10, tx, None);
+    let result = WorkerPool::new(0, 100, 32, 10, tx, 10000, None);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_worker_pool_creates_with_valid_workers() {
     let (tx, _rx) = mpsc::channel();
-    let result = WorkerPool::new(4, 100, 32, 10, tx, None);
+    let result = WorkerPool::new(4, 100, 32, 10, tx, 10000, None);
     assert!(result.is_ok());
 
     let pool = unwrap_worker_pool(result);
@@ -31,7 +31,7 @@ fn test_worker_pool_creates_with_valid_workers() {
 #[test]
 fn test_round_robin_dispatch() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(3, 10, 32, 10, tx, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(3, 10, 32, 10, tx, 10000, None));
 
     // Dispatch 9 packets (3 per worker)
     for _ in 0..9 {
@@ -53,7 +53,7 @@ fn test_round_robin_dispatch() {
 fn test_queue_overflow_handling() {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 5;
-    let pool = unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, 10000, None));
 
     let mut queued = 0;
     let mut dropped = 0;
@@ -78,7 +78,7 @@ fn test_queue_overflow_handling() {
 #[test]
 fn test_stats_accuracy() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None));
 
     // Dispatch some packets
     let dispatch_count = 10;
@@ -94,7 +94,7 @@ fn test_stats_accuracy() {
 #[test]
 fn test_shutdown_stops_accepting_packets() {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None));
 
     // Dispatch before shutdown should work
     let result = pool.dispatch(vec![0u8; 100]);
@@ -112,7 +112,7 @@ fn test_shutdown_stops_accepting_packets() {
 fn test_per_worker_dropped_count() {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 2;
-    let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, 10000, None));
 
     // Fill the single worker's queue
     for _ in 0..10 {
@@ -132,7 +132,7 @@ fn test_per_worker_dropped_count() {
 #[test]
 fn test_concurrent_dispatch() {
     let (tx, _rx) = mpsc::channel();
-    let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, 32, 10, tx, None)));
+    let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, 32, 10, tx, 10000, None)));
 
     let handles: Vec<_> = (0..4)
         .map(|_| {

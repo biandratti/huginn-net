@@ -7,9 +7,9 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use tracing::debug;
+use ttl_cache::TtlCache;
 
 #[derive(Clone)]
 pub struct ObservablePackage {
@@ -18,131 +18,13 @@ pub struct ObservablePackage {
     pub tls_client: Option<ObservableTlsClient>,
 }
 
-pub fn process_ipv4_packet(
-    ipv4: &Ipv4Packet,
-) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
-    if ipv4.get_next_level_protocol() != pnet::packet::ip::IpNextHeaderProtocols::Tcp {
-        debug!("Not TCP, silently ignore (not an error for TLS analyzer)");
-        return Ok(None);
-    }
-
-    let observable_package = match create_observable_package_ipv4(ipv4) {
-        Ok(pkg) => pkg,
-        Err(e) => {
-            // If it fails for non-TCP, return None (already checked above, so this is a different error)
-            let error_str = format!("{}", e);
-            if error_str.contains("non-TCP protocol") {
-                return Ok(None);
-            }
-            return Err(e);
-        }
-    };
-
-    let tls_output = observable_package
-        .tls_client
-        .map(|observable_tls| TlsClientOutput {
-            source: IpPort::new(observable_package.source.ip, observable_package.source.port),
-            destination: IpPort::new(
-                observable_package.destination.ip,
-                observable_package.destination.port,
-            ),
-            sig: observable_tls,
-        });
-
-    Ok(tls_output)
-}
-
-fn create_observable_package_ipv4(
-    ipv4: &Ipv4Packet,
-) -> std::result::Result<ObservablePackage, HuginnNetTlsError> {
-    debug!(
-        "IPv4 packet: src={}, dst={}, protocol={}",
-        ipv4.get_source(),
-        ipv4.get_destination(),
-        ipv4.get_next_level_protocol()
-    );
-
-    let tcp = TcpPacket::new(ipv4.payload()).ok_or_else(|| {
-        debug!("Failed to parse TCP packet from IPv4 payload (len={})", ipv4.payload().len());
-        HuginnNetTlsError::Parse("Invalid TCP packet".to_string())
-    })?;
-
-    let source = IpPort { ip: IpAddr::V4(ipv4.get_source()), port: tcp.get_source() };
-    let destination =
-        IpPort { ip: IpAddr::V4(ipv4.get_destination()), port: tcp.get_destination() };
-
-    let tls_package = crate::tls_process::process_tls_ipv4(ipv4)?;
-
-    Ok(ObservablePackage { source, destination, tls_client: tls_package.tls_client })
-}
-
-pub fn process_ipv6_packet(
-    ipv6: &Ipv6Packet,
-) -> std::result::Result<Option<TlsClientOutput>, HuginnNetTlsError> {
-    if ipv6.get_next_header() != pnet::packet::ip::IpNextHeaderProtocols::Tcp {
-        debug!("Not TCP, silently ignore (not an error for TLS analyzer)");
-        return Ok(None);
-    }
-
-    let observable_package = match create_observable_package_ipv6(ipv6) {
-        Ok(pkg) => pkg,
-        Err(e) => {
-            // If it fails for non-TCP, return None (already checked above, so this is a different error)
-            let error_str = format!("{}", e);
-            if error_str.contains("non-TCP protocol") {
-                return Ok(None);
-            }
-            return Err(e);
-        }
-    };
-
-    let tls_output = observable_package
-        .tls_client
-        .map(|observable_tls| TlsClientOutput {
-            source: IpPort::new(observable_package.source.ip, observable_package.source.port),
-            destination: IpPort::new(
-                observable_package.destination.ip,
-                observable_package.destination.port,
-            ),
-            sig: observable_tls,
-        });
-
-    Ok(tls_output)
-}
-
-fn create_observable_package_ipv6(
-    ipv6: &Ipv6Packet,
-) -> std::result::Result<ObservablePackage, HuginnNetTlsError> {
-    use tracing::debug;
-
-    debug!(
-        "IPv6 packet: src={}, dst={}, next_header={}",
-        ipv6.get_source(),
-        ipv6.get_destination(),
-        ipv6.get_next_header()
-    );
-
-    let tcp = TcpPacket::new(ipv6.payload()).ok_or_else(|| {
-        debug!("Failed to parse TCP packet from IPv6 payload (len={})", ipv6.payload().len());
-        HuginnNetTlsError::Parse("Invalid TCP packet".to_string())
-    })?;
-
-    let source = IpPort { ip: IpAddr::V6(ipv6.get_source()), port: tcp.get_source() };
-    let destination =
-        IpPort { ip: IpAddr::V6(ipv6.get_destination()), port: tcp.get_destination() };
-
-    let tls_package = crate::tls_process::process_tls_ipv6(ipv6)?;
-
-    Ok(ObservablePackage { source, destination, tls_client: tls_package.tls_client })
-}
-
 /// Process IPv4 packet with TCP reassembly for fragmented ClientHello
-pub fn process_ipv4_with_reassembly(
+pub fn process_ipv4_packet(
     ipv4: &pnet::packet::ipv4::Ipv4Packet,
-    tcp_flows: &mut HashMap<FlowKey, TlsClientHelloReader>,
+    tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     if ipv4.get_next_level_protocol() != pnet::packet::ip::IpNextHeaderProtocols::Tcp {
-        return Ok(None);
+        return Err(HuginnNetTlsError::UnsupportedProtocol("IPv4".to_string()));
     }
 
     let tcp = match TcpPacket::new(ipv4.payload()) {
@@ -185,7 +67,21 @@ pub fn process_ipv4_with_reassembly(
     }
 
     // Get or create reader for this flow
-    let reader = tcp_flows.entry(flow_key).or_default();
+    use std::time::Duration;
+    let reader = tcp_flows.get_mut(&flow_key);
+    let reader = if let Some(reader) = reader {
+        reader
+    } else {
+        // Create new reader for this flow
+        // TTL of 20 seconds: fragmented ClientHello packets should arrive within milliseconds.
+        // If no activity for 20s, the connection likely failed or ClientHello won't complete.
+        let new_reader = TlsClientHelloReader::new();
+        tcp_flows.insert(flow_key, new_reader, Duration::new(20, 0));
+        // After insert, the entry should exist. If get_mut returns None, it's a TtlCache ttl issue.
+        tcp_flows.get_mut(&flow_key).ok_or_else(|| {
+            HuginnNetTlsError::Parse("Failed to retrieve flow after insert".to_string())
+        })?
+    };
 
     match reader.add_bytes(payload) {
         Ok(Some(signature)) => {
@@ -225,12 +121,12 @@ pub fn process_ipv4_with_reassembly(
 }
 
 /// Process IPv6 packet with TCP reassembly for fragmented ClientHello
-pub fn process_ipv6_with_reassembly(
+pub fn process_ipv6_packet(
     ipv6: &pnet::packet::ipv6::Ipv6Packet,
-    tcp_flows: &mut HashMap<FlowKey, TlsClientHelloReader>,
+    tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     if ipv6.get_next_header() != pnet::packet::ip::IpNextHeaderProtocols::Tcp {
-        return Ok(None);
+        return Err(HuginnNetTlsError::UnsupportedProtocol("IPv6".to_string()));
     }
 
     let tcp = match TcpPacket::new(ipv6.payload()) {
@@ -273,7 +169,21 @@ pub fn process_ipv6_with_reassembly(
     }
 
     // Get or create reader for this flow
-    let reader = tcp_flows.entry(flow_key).or_default();
+    use std::time::Duration;
+    let reader = tcp_flows.get_mut(&flow_key);
+    let reader = if let Some(reader) = reader {
+        reader
+    } else {
+        // Create new reader for this flow
+        // TTL of 20 seconds: fragmented ClientHello packets should arrive within milliseconds.
+        // If no activity for 20s, the connection likely failed or ClientHello won't complete.
+        let new_reader = TlsClientHelloReader::new();
+        tcp_flows.insert(flow_key, new_reader, Duration::new(20, 0));
+        // After insert, the entry should exist. If get_mut returns None, it's a TtlCache ttl issue.
+        tcp_flows.get_mut(&flow_key).ok_or_else(|| {
+            HuginnNetTlsError::Parse("Failed to retrieve flow after insert".to_string())
+        })?
+    };
 
     match reader.add_bytes(payload) {
         Ok(Some(signature)) => {

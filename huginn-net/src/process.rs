@@ -149,6 +149,9 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_tls::process_tls_ipv4(&packet).map_err(|e| match e {
                 huginn_net_tls::error::HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
+                huginn_net_tls::error::HuginnNetTlsError::UnsupportedProtocol(msg) => {
+                    HuginnNetError::UnsupportedProtocol(msg)
+                }
                 huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
                     HuginnNetError::Parse(msg)
                 }
@@ -231,6 +234,9 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_tls::process_tls_ipv6(&packet).map_err(|e| match e {
                 huginn_net_tls::error::HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
+                huginn_net_tls::error::HuginnNetTlsError::UnsupportedProtocol(msg) => {
+                    HuginnNetError::UnsupportedProtocol(msg)
+                }
                 huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
                     HuginnNetError::Parse(msg)
                 }
