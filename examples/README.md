@@ -47,7 +47,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live parallel -i <INTERFACE> -w 8 -q 200
 
 # PCAP file analysis
-./target/release/examples/capture-tls -l tls-capture.log pcap -f <PCAP_FILE>
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log pcap -f <PCAP_FILE>
 
 # Filtering examples
 # Filter by destination port (HTTPS only)
@@ -60,7 +60,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log -p 443 -I 192.168.1.100 live parallel -i <INTERFACE> -w 4
 
 # PCAP with filtering
-./target/release/examples/capture-tls -l tls-capture.log -p 443 pcap -f <PCAP_FILE>
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log pcap -f <PCAP_FILE>
 ```
 
 #### TCP-Only Analysis
@@ -80,7 +80,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live parallel -i <INTERFACE> -w 8 -q 200
 
 # PCAP file analysis
-./target/release/examples/capture-tcp -l tcp-capture.log pcap -f <PCAP_FILE>
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log pcap -f <PCAP_FILE>
 
 # Filtering examples
 # Filter by destination port (e.g., SSH on port 22)
@@ -93,7 +93,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 443 -I 192.168.1.100 live parallel -i <INTERFACE> -w 4
 
 # PCAP with filtering
-./target/release/examples/capture-tcp -l tcp-capture.log -p 22 pcap -f <PCAP_FILE>
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log -p 22 pcap -f <PCAP_FILE>
 ```
 
 #### HTTP-Only Analysis
@@ -113,7 +113,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l ht
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live parallel -i <INTERFACE> -w 2 -q 100
 
 # PCAP file analysis
-./target/release/examples/capture-http -l http-capture.log pcap -f <PCAP_FILE>
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log pcap -f <PCAP_FILE>
 
 # Filtering examples
 # Filter by destination port (HTTP on port 80)
@@ -126,7 +126,7 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l ht
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 -I 192.168.1.100 live parallel -i <INTERFACE> -w 2
 
 # PCAP with filtering
-./target/release/examples/capture-http -l http-capture.log -p 80 pcap -f <PCAP_FILE>
+RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log -p 80 pcap -f <PCAP_FILE>
 ```
 
 #### Differences between examples:
