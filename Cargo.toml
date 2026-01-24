@@ -35,7 +35,7 @@ pnet = "0.35.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sha2 = "0.10.9"
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 tls-parser = "0.12.2"
 tracing = "0.1.44"
 tracing-appender = "0.2.4"
