@@ -18,7 +18,7 @@ repository = "https://github.com/biandratti/huginn-net"
 homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
-clap = { version = "4.5.56", features = ["derive"] }
+clap = { version = "4.5.57", features = ["derive"] }
 criterion = { version = "0.8.2", features = ["html_reports"] }
 crossbeam-channel = "0.5.15"
 ctrlc = "3.5.1"
