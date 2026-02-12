@@ -30,13 +30,10 @@ impl<'a> SignatureMatcher<'a> {
             .find_best_match(&signature.matching)
     }
 
-    pub fn matching_by_user_agent(
-        &self,
-        user_agent: String,
-    ) -> Option<(&'a String, &'a Option<String>)> {
+    pub fn matching_by_user_agent(&self, user_agent: String) -> Option<(&'a str, Option<&'a str>)> {
         for (ua, ua_family) in &self.database.ua_os {
             if user_agent.contains(ua) {
-                return Some((ua, ua_family));
+                return Some((ua.as_str(), ua_family.as_ref().map(|s| s.as_str())));
             }
         }
         None

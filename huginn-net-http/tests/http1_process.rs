@@ -97,9 +97,9 @@ fn test_get_diagnostic_for_empty_sw() {
 #[test]
 fn test_get_diagnostic_with_existing_signature_matcher() {
     let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
-    let os = "Linux".to_string();
-    let browser = Some("Firefox".to_string());
-    let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
+    let os = "Linux";
+    let browser = Some("Firefox");
+    let ua_matcher: Option<(&str, Option<&str>)> = Some((os, browser));
     let label = huginn_net_db::Label {
         ty: huginn_net_db::Type::Specified,
         class: None,
@@ -115,9 +115,9 @@ fn test_get_diagnostic_with_existing_signature_matcher() {
 #[test]
 fn test_get_diagnostic_with_dishonest_user_agent() {
     let user_agent = Some("Mozilla/5.0".to_string());
-    let os = "Windows".to_string();
-    let browser = Some("Firefox".to_string());
-    let ua_matcher: Option<(&String, &Option<String>)> = Some((&os, &browser));
+    let os = "Windows";
+    let browser = Some("Firefox");
+    let ua_matcher: Option<(&str, Option<&str>)> = Some((os, browser));
     let label = huginn_net_db::Label {
         ty: huginn_net_db::Type::Specified,
         class: None,
