@@ -18,10 +18,10 @@ repository = "https://github.com/biandratti/huginn-net"
 homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
-clap = { version = "4.5.57", features = ["derive"] }
+clap = { version = "4.5.58", features = ["derive"] }
 criterion = { version = "0.8.2", features = ["html_reports"] }
 crossbeam-channel = "0.5.15"
-ctrlc = "3.5.1"
+ctrlc = "3.5.2"
 hpack-patched = "0.3.0"
 huginn-net-db = { path = "huginn-net-db", version = "1.7.2" }
 huginn-net-http = { path = "huginn-net-http", version = "1.7.2" }
