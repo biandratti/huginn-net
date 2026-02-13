@@ -147,7 +147,7 @@ pub trait HttpProcessor {
 /// * `HttpDiagnosis::None` - Insufficient data for comparison
 pub fn get_diagnostic(
     user_agent: Option<String>,
-    ua_matcher: Option<(&String, &Option<String>)>,
+    ua_matcher: Option<(&str, Option<&str>)>,
     signature_os_matcher: Option<&huginn_net_db::Label>,
 ) -> http::HttpDiagnosis {
     match user_agent {
