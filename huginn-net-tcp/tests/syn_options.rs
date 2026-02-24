@@ -14,6 +14,7 @@ fn linux_syn_options() -> Vec<u8> {
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_obs(
     version: IpVersion,
     ip_hdr_len: u16,
