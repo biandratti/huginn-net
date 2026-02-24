@@ -5,15 +5,19 @@ use huginn_net_tcp::tcp::{IpVersion, PayloadSize, TcpOption};
 fn linux_syn_options() -> Vec<u8> {
     vec![
         2, 4, 0x05, 0xb4, // MSS = 1460
-        1,                 // NOP
-        3, 3, 6,           // WS = 6
-        1, 1,              // NOP NOP
+        1,    // NOP
+        3, 3, 6, // WS = 6
+        1, 1, // NOP NOP
         8, 10, 0, 0, 0, 1, 0, 0, 0, 0, // Timestamps
-        4, 2,              // SACK permitted
+        4, 2, // SACK permitted
     ]
 }
 
-fn ipv4_obs(raw_ttl: u8, window: u16, options: &[u8]) -> huginn_net_db::observable_signals::TcpObservation {
+fn ipv4_obs(
+    raw_ttl: u8,
+    window: u16,
+    options: &[u8],
+) -> huginn_net_db::observable_signals::TcpObservation {
     observation_from_raw(IpVersion::V4, 20, raw_ttl, window, 0, options, vec![], PayloadSize::Zero)
 }
 
@@ -89,7 +93,14 @@ fn test_windows_syn_options() {
     assert_eq!(obs.wscale, Some(8));
     assert_eq!(
         obs.olayout,
-        vec![TcpOption::Mss, TcpOption::Nop, TcpOption::Ws, TcpOption::Nop, TcpOption::Nop, TcpOption::Sok]
+        vec![
+            TcpOption::Mss,
+            TcpOption::Nop,
+            TcpOption::Ws,
+            TcpOption::Nop,
+            TcpOption::Nop,
+            TcpOption::Sok
+        ]
     );
 }
 
@@ -114,9 +125,8 @@ fn test_ipv4_fields_set_correctly() {
 fn test_ipv6_observation() {
     // IPv6: ip_hdr_len=40, hop_limit=128
     let buf: &[u8] = &[2, 4, 0x05, 0xb4, 1, 3, 3, 6]; // MSS=1460, NOP, WS=6
-    let obs = observation_from_raw(
-        IpVersion::V6, 40, 128, 65535, 0, buf, vec![], PayloadSize::Zero,
-    );
+    let obs =
+        observation_from_raw(IpVersion::V6, 40, 128, 65535, 0, buf, vec![], PayloadSize::Zero);
     assert_eq!(obs.version, IpVersion::V6);
     assert_eq!(obs.mss, Some(1460));
     assert_eq!(obs.wscale, Some(6));
