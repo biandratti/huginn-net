@@ -1,57 +1,52 @@
-//! TCP observation builder from raw bytes.
+//! Raw TCP options parser.
 //!
-//! The existing [`crate::tcp_process`] module builds [`TcpObservation`]s via `pnet`,
-//! which requires a full parsed packet. This module provides [`observation_from_raw`]
+//! Provides [`parse_options_raw`] for decoding TCP options from raw bytes (TLV encoding, RFC 793).
+//! Pair it with [`crate::ttl::calculate_ttl`] and [`crate::window_size::detect_win_multiplicator`]
+//! to assemble a complete [`huginn_net_db::observable_signals::TcpObservation`].
 
-use crate::tcp::{IpVersion, PayloadSize, TcpOption};
-use huginn_net_db::observable_signals::TcpObservation;
-use huginn_net_db::tcp::Quirk;
+use crate::tcp::TcpOption;
 
-/// Build a [`TcpObservation`] from raw SYN packet fields.
-///
-/// This is the entry point for OS matching via [`crate::SignatureMatcher`].
-/// It combines [`parse_options_raw`] with the library's TTL normalisation
-/// and window-size detection to produce a complete observation.
-///
-/// # Parameters
-///
-/// | Parameter    | Description |
-/// |--------------|-------------|
-/// | `version`    | IP version (`V4` or `V6`). |
-/// | `ip_hdr_len` | IP header length in bytes (20 for plain IPv4, 40 for IPv6, more with options). |
-/// | `raw_ttl`    | IP TTL / hop limit as read from the packet (host byte order). |
-/// | `window`     | TCP window size in **host byte order**. |
-/// | `olen`       | IP options / extension header length in bytes. Pass `0` when unavailable. |
-/// | `options`    | Raw TCP options bytes, already trimmed to `optlen` bytes. |
-/// | `quirks`     | Observed IP/TCP quirks. Pass `vec![]` when unavailable. |
-/// | `pclass`     | Payload size classification. Use [`PayloadSize::Zero`] for SYN packets. |
-/// ```
-#[allow(clippy::too_many_arguments)]
-pub fn observation_from_raw(
-    version: IpVersion,
-    ip_hdr_len: u16,
-    raw_ttl: u8,
-    window: u16,
-    olen: u8,
-    options: &[u8],
-    quirks: Vec<Quirk>,
-    pclass: PayloadSize,
-) -> TcpObservation {
-    let (olayout, mss, wscale) = parse_options_raw(options);
-    let ittl = crate::ttl::calculate_ttl(raw_ttl);
-    let wsize = crate::window_size::detect_win_multiplicator(
-        window,
-        mss.unwrap_or(0),
-        ip_hdr_len,
-        olayout.contains(&TcpOption::TS),
-        &version,
-    );
-    TcpObservation { version, ittl, olen, mss, wsize, wscale, olayout, quirks, pclass }
+/// Decoded TCP options extracted from a raw SYN packet.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedTcpOptions {
+    /// Ordered list of options (used for fingerprint matching).
+    pub olayout: Vec<TcpOption>,
+    /// Maximum Segment Size, if the MSS option was present.
+    pub mss: Option<u16>,
+    /// Window Scale factor, if the WS option was present.
+    pub wscale: Option<u8>,
 }
 
 /// Parses raw TCP options bytes (TLV encoding, RFC 793) into layout, MSS, and wscale.
-/// `buf` must be pre-trimmed to the valid option bytes length.
-pub(crate) fn parse_options_raw(buf: &[u8]) -> (Vec<TcpOption>, Option<u16>, Option<u8>) {
+///
+/// `buf` must be pre-trimmed to the valid option bytes length (i.e. `tcp_data_offset * 4 - 20`).
+///
+/// # Returns
+/// `(olayout, mss, wscale)` where:
+/// - `olayout` — ordered list of options found (used for fingerprint matching).
+/// - `mss`     — Maximum Segment Size if the MSS option was present.
+/// - `wscale`  — Window Scale factor if the WS option was present.
+///
+/// # Example
+///
+/// ```rust
+/// use huginn_net_tcp::syn_options::parse_options_raw;
+/// use huginn_net_tcp::tcp::TcpOption;
+///
+/// let options: &[u8] = &[
+///     2, 4, 0x05, 0xb4,               // MSS = 1460
+///     1,                              // NOP
+///     3, 3, 6,                        // WS = 6
+///     1, 1,                           // NOP NOP
+///     8, 10, 0, 0, 0, 1, 0, 0, 0, 0,  // Timestamps
+///     4, 2,                           // SACK permitted
+/// ];
+/// let parsed = parse_options_raw(options);
+/// assert_eq!(parsed.mss, Some(1460));
+/// assert_eq!(parsed.wscale, Some(6));
+/// assert!(parsed.olayout.contains(&TcpOption::TS));
+/// ```
+pub fn parse_options_raw(buf: &[u8]) -> ParsedTcpOptions {
     let mut olayout: Vec<TcpOption> = Vec::new();
     let mut mss: Option<u16> = None;
     let mut wscale: Option<u8> = None;
@@ -107,5 +102,5 @@ pub(crate) fn parse_options_raw(buf: &[u8]) -> (Vec<TcpOption>, Option<u16>, Opt
         }
     }
 
-    (olayout, mss, wscale)
+    ParsedTcpOptions { olayout, mss, wscale }
 }

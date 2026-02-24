@@ -1,4 +1,5 @@
-use huginn_net_tcp::syn_options::observation_from_raw;
+use huginn_net_db::observable_signals::TcpObservation;
+use huginn_net_tcp::syn_options::parse_options_raw;
 use huginn_net_tcp::tcp::{IpVersion, PayloadSize, TcpOption};
 
 /// Common Linux SYN options: MSS(1460), NOP, WS(6), NOP, NOP, TS, SACK-permitted
@@ -13,12 +14,40 @@ fn linux_syn_options() -> Vec<u8> {
     ]
 }
 
-fn ipv4_obs(
+fn build_obs(
+    version: IpVersion,
+    ip_hdr_len: u16,
     raw_ttl: u8,
     window: u16,
+    olen: u8,
     options: &[u8],
-) -> huginn_net_db::observable_signals::TcpObservation {
-    observation_from_raw(IpVersion::V4, 20, raw_ttl, window, 0, options, vec![], PayloadSize::Zero)
+    quirks: Vec<huginn_net_db::tcp::Quirk>,
+    pclass: PayloadSize,
+) -> TcpObservation {
+    let parsed = parse_options_raw(options);
+    let ittl = huginn_net_tcp::ttl::calculate_ttl(raw_ttl);
+    let wsize = huginn_net_tcp::window_size::detect_win_multiplicator(
+        window,
+        parsed.mss.unwrap_or(0),
+        ip_hdr_len,
+        parsed.olayout.contains(&TcpOption::TS),
+        &version,
+    );
+    TcpObservation {
+        version,
+        ittl,
+        olen,
+        mss: parsed.mss,
+        wsize,
+        wscale: parsed.wscale,
+        olayout: parsed.olayout,
+        quirks,
+        pclass,
+    }
+}
+
+fn ipv4_obs(raw_ttl: u8, window: u16, options: &[u8]) -> TcpObservation {
+    build_obs(IpVersion::V4, 20, raw_ttl, window, 0, options, vec![], PayloadSize::Zero)
 }
 
 #[test]
@@ -125,8 +154,7 @@ fn test_ipv4_fields_set_correctly() {
 fn test_ipv6_observation() {
     // IPv6: ip_hdr_len=40, hop_limit=128
     let buf: &[u8] = &[2, 4, 0x05, 0xb4, 1, 3, 3, 6]; // MSS=1460, NOP, WS=6
-    let obs =
-        observation_from_raw(IpVersion::V6, 40, 128, 65535, 0, buf, vec![], PayloadSize::Zero);
+    let obs = build_obs(IpVersion::V6, 40, 128, 65535, 0, buf, vec![], PayloadSize::Zero);
     assert_eq!(obs.version, IpVersion::V6);
     assert_eq!(obs.mss, Some(1460));
     assert_eq!(obs.wscale, Some(6));
