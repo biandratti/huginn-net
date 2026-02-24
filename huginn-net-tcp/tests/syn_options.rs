@@ -1,0 +1,123 @@
+use huginn_net_tcp::syn_options::observation_from_raw;
+use huginn_net_tcp::tcp::{IpVersion, PayloadSize, TcpOption};
+
+/// Common Linux SYN options: MSS(1460), NOP, WS(6), NOP, NOP, TS, SACK-permitted
+fn linux_syn_options() -> Vec<u8> {
+    vec![
+        2, 4, 0x05, 0xb4, // MSS = 1460
+        1,                 // NOP
+        3, 3, 6,           // WS = 6
+        1, 1,              // NOP NOP
+        8, 10, 0, 0, 0, 1, 0, 0, 0, 0, // Timestamps
+        4, 2,              // SACK permitted
+    ]
+}
+
+fn ipv4_obs(raw_ttl: u8, window: u16, options: &[u8]) -> huginn_net_db::observable_signals::TcpObservation {
+    observation_from_raw(IpVersion::V4, 20, raw_ttl, window, 0, options, vec![], PayloadSize::Zero)
+}
+
+#[test]
+fn test_extracts_mss() {
+    let obs = ipv4_obs(64, 65535, &linux_syn_options());
+    assert_eq!(obs.mss, Some(1460));
+}
+
+#[test]
+fn test_extracts_wscale() {
+    let obs = ipv4_obs(64, 65535, &linux_syn_options());
+    assert_eq!(obs.wscale, Some(6));
+}
+
+#[test]
+fn test_olayout_order_and_contents() {
+    let obs = ipv4_obs(64, 65535, &linux_syn_options());
+    assert_eq!(
+        obs.olayout,
+        vec![
+            TcpOption::Mss,
+            TcpOption::Nop,
+            TcpOption::Ws,
+            TcpOption::Nop,
+            TcpOption::Nop,
+            TcpOption::TS,
+            TcpOption::Sok,
+        ]
+    );
+}
+
+#[test]
+fn test_empty_options() {
+    let obs = ipv4_obs(64, 8192, &[]);
+    assert!(obs.olayout.is_empty());
+    assert!(obs.mss.is_none());
+    assert!(obs.wscale.is_none());
+}
+
+#[test]
+fn test_eol_stops_parsing() {
+    // MSS, EOL, then a NOP that should be ignored
+    let buf: &[u8] = &[2, 4, 0x05, 0xb4, 0, 1];
+    let obs = ipv4_obs(64, 65535, buf);
+    assert_eq!(obs.mss, Some(1460));
+    assert!(obs.olayout.contains(&TcpOption::Eol(1)));
+    assert!(!obs.olayout.contains(&TcpOption::Nop));
+}
+
+#[test]
+fn test_unknown_option_kind() {
+    let buf: &[u8] = &[254, 4, 0xde, 0xad];
+    let obs = ipv4_obs(64, 65535, buf);
+    assert_eq!(obs.olayout, vec![TcpOption::Unknown(254)]);
+}
+
+#[test]
+fn test_truncated_tlv_stops_gracefully() {
+    // Kind 2 (MSS) with declared length 4 but only 2 bytes available
+    let buf: &[u8] = &[2, 4, 0x05];
+    let obs = ipv4_obs(64, 65535, buf);
+    assert!(obs.olayout.is_empty());
+    assert!(obs.mss.is_none());
+}
+
+#[test]
+fn test_windows_syn_options() {
+    // Typical Windows SYN: MSS(1460), NOP, WS(8), NOP, NOP, SACK-permitted
+    let buf: &[u8] = &[2, 4, 0x05, 0xb4, 1, 3, 3, 8, 1, 1, 4, 2];
+    let obs = ipv4_obs(128, 65535, buf);
+    assert_eq!(obs.mss, Some(1460));
+    assert_eq!(obs.wscale, Some(8));
+    assert_eq!(
+        obs.olayout,
+        vec![TcpOption::Mss, TcpOption::Nop, TcpOption::Ws, TcpOption::Nop, TcpOption::Nop, TcpOption::Sok]
+    );
+}
+
+#[test]
+fn test_macos_syn_options() {
+    let obs = ipv4_obs(64, 65535, &linux_syn_options());
+    assert_eq!(obs.mss, Some(1460));
+    assert_eq!(obs.wscale, Some(6));
+    assert!(obs.olayout.contains(&TcpOption::TS));
+}
+
+#[test]
+fn test_ipv4_fields_set_correctly() {
+    let obs = ipv4_obs(64, 65535, &linux_syn_options());
+    assert_eq!(obs.version, IpVersion::V4);
+    assert_eq!(obs.olen, 0);
+    assert!(obs.quirks.is_empty());
+    assert_eq!(obs.pclass, PayloadSize::Zero);
+}
+
+#[test]
+fn test_ipv6_observation() {
+    // IPv6: ip_hdr_len=40, hop_limit=128
+    let buf: &[u8] = &[2, 4, 0x05, 0xb4, 1, 3, 3, 6]; // MSS=1460, NOP, WS=6
+    let obs = observation_from_raw(
+        IpVersion::V6, 40, 128, 65535, 0, buf, vec![], PayloadSize::Zero,
+    );
+    assert_eq!(obs.version, IpVersion::V6);
+    assert_eq!(obs.mss, Some(1460));
+    assert_eq!(obs.wscale, Some(6));
+}
