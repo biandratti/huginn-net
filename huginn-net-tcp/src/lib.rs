@@ -10,6 +10,7 @@ pub mod packet_hash;
 pub mod packet_parser;
 pub mod parallel;
 pub mod raw_filter;
+pub mod syn_options;
 pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
