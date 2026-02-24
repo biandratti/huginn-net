@@ -107,11 +107,37 @@ fn test_unknown_option_kind() {
 
 #[test]
 fn test_truncated_tlv_stops_gracefully() {
-    // Kind 2 (MSS) with declared length 4 but only 2 bytes available
-    let buf: &[u8] = &[2, 4, 0x05];
-    let obs = ipv4_obs(64, 65535, buf);
-    assert!(obs.olayout.is_empty());
-    assert!(obs.mss.is_none());
+    // MSS option declares length=4 but only 3 bytes are available — truncated.
+    // Parser stops at the bad entry, returns what came before, and sets malformed=true.
+    let buf: &[u8] = &[1, 2, 4, 0x05]; // NOP, then truncated MSS
+    let parsed = parse_options_raw(buf);
+    assert_eq!(parsed.olayout, vec![TcpOption::Nop]);
+    assert!(parsed.mss.is_none());
+    assert!(parsed.wscale.is_none());
+    assert!(parsed.malformed);
+}
+
+#[test]
+fn test_valid_options_not_malformed() {
+    let parsed = parse_options_raw(&linux_syn_options());
+    assert!(!parsed.malformed);
+}
+
+#[test]
+fn test_partial_data_returned_on_malformed() {
+    // MSS(1460) + NOP + WS(6) parsed correctly, then a Timestamps option that
+    // declares length=10 but only 4 bytes of data are present (truncated).
+    let buf: &[u8] = &[
+        2, 4, 0x05, 0xb4, // MSS = 1460
+        1,    // NOP
+        3, 3, 6, // WS = 6
+        8, 10, 0, 0, 0, 1, // Timestamps declares length=10, only 4 data bytes present
+    ];
+    let parsed = parse_options_raw(buf);
+    assert_eq!(parsed.mss, Some(1460));
+    assert_eq!(parsed.wscale, Some(6));
+    assert_eq!(parsed.olayout, vec![TcpOption::Mss, TcpOption::Nop, TcpOption::Ws]);
+    assert!(parsed.malformed);
 }
 
 #[test]
