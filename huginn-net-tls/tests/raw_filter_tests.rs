@@ -191,3 +191,70 @@ fn test_raw_filter_no_filter_allows_all() {
     assert!(filter.should_process(&src_ip, &dst_ip, 12345, 443));
     assert!(filter.should_process(&src_ip, &dst_ip, 54321, 80));
 }
+
+fn build_raw_ipv4_packet_with_ihl(ihl: u8, src_port: u16, dst_port: u16) -> Vec<u8> {
+    let ip_header_len = (ihl as usize).saturating_mul(4);
+    let total_len = ip_header_len.max(20).saturating_add(4);
+    let mut packet = vec![0u8; total_len];
+    packet[0] = (4 << 4) | (ihl & 0x0F);
+    packet[9] = 6;
+    packet[12..16].copy_from_slice(&[192, 168, 1, 1]);
+    packet[16..20].copy_from_slice(&[8, 8, 8, 8]);
+    let tcp_end = ip_header_len.saturating_add(4);
+    if tcp_end <= total_len {
+        let src = ip_header_len.saturating_add(2);
+        packet[ip_header_len..src].copy_from_slice(&src_port.to_be_bytes());
+        packet[src..tcp_end].copy_from_slice(&dst_port.to_be_bytes());
+    }
+    packet
+}
+
+#[test]
+fn test_raw_filter_malformed_ihl_zero_is_rejected() {
+    let filter = FilterConfig::new()
+        .mode(FilterMode::Deny)
+        .with_port_filter(PortFilter::new().destination(443));
+
+    let packet = build_raw_ipv4_packet_with_ihl(0, 12345, 443);
+    assert!(huginn_net_tls::raw_filter::apply(&packet, &filter));
+}
+
+#[test]
+fn test_raw_filter_malformed_ihl_one_is_rejected() {
+    let filter = FilterConfig::new()
+        .mode(FilterMode::Deny)
+        .with_port_filter(PortFilter::new().destination(80));
+
+    let packet = build_raw_ipv4_packet_with_ihl(1, 12345, 80);
+    assert!(huginn_net_tls::raw_filter::apply(&packet, &filter));
+}
+
+#[test]
+fn test_raw_filter_malformed_ihl_four_is_rejected() {
+    let filter = FilterConfig::new()
+        .mode(FilterMode::Deny)
+        .with_port_filter(PortFilter::new().destination(22));
+
+    let packet = build_raw_ipv4_packet_with_ihl(4, 12345, 22);
+    assert!(huginn_net_tls::raw_filter::apply(&packet, &filter));
+}
+
+#[test]
+fn test_raw_filter_valid_ihl_five_is_processed() {
+    let filter = FilterConfig::new()
+        .mode(FilterMode::Deny)
+        .with_port_filter(PortFilter::new().destination(22));
+
+    let packet = build_raw_ipv4_packet_with_ihl(5, 12345, 22);
+    assert!(!huginn_net_tls::raw_filter::apply(&packet, &filter));
+}
+
+#[test]
+fn test_raw_filter_valid_ihl_five_passes_non_matching_port() {
+    let filter = FilterConfig::new()
+        .mode(FilterMode::Deny)
+        .with_port_filter(PortFilter::new().destination(22));
+
+    let packet = build_raw_ipv4_packet_with_ihl(5, 12345, 443);
+    assert!(huginn_net_tls::raw_filter::apply(&packet, &filter));
+}

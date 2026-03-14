@@ -112,6 +112,9 @@ fn extract_ipv4_info(packet: &[u8]) -> Option<(IpAddr, IpAddr, u16, u16)> {
 
     // Get IP header length (first 4 bits of byte 0, in 32-bit words)
     let ihl = (packet[0] & 0x0F) as usize;
+    if ihl < 5 {
+        return None;
+    }
     let ip_header_len = ihl.saturating_mul(4);
 
     // TCP header starts after IP header
