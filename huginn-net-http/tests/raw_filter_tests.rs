@@ -188,16 +188,18 @@ fn test_raw_filter_no_filter_allows_all() {
 }
 
 fn build_raw_ipv4_packet_with_ihl(ihl: u8, src_port: u16, dst_port: u16) -> Vec<u8> {
-    let ip_header_len = (ihl as usize) * 4;
-    let total_len = ip_header_len.max(20) + 4;
+    let ip_header_len = (ihl as usize).saturating_mul(4);
+    let total_len = ip_header_len.max(20).saturating_add(4);
     let mut packet = vec![0u8; total_len];
     packet[0] = (4 << 4) | (ihl & 0x0F);
     packet[9] = 6;
     packet[12..16].copy_from_slice(&[192, 168, 1, 1]);
     packet[16..20].copy_from_slice(&[8, 8, 8, 8]);
-    if ip_header_len + 1 < total_len {
-        packet[ip_header_len..ip_header_len + 2].copy_from_slice(&src_port.to_be_bytes());
-        packet[ip_header_len + 2..ip_header_len + 4].copy_from_slice(&dst_port.to_be_bytes());
+    let tcp_end = ip_header_len.saturating_add(4);
+    if tcp_end <= total_len {
+        let src = ip_header_len.saturating_add(2);
+        packet[ip_header_len..src].copy_from_slice(&src_port.to_be_bytes());
+        packet[src..tcp_end].copy_from_slice(&dst_port.to_be_bytes());
     }
     packet
 }
