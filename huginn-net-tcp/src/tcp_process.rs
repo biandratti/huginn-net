@@ -258,10 +258,12 @@ fn visit_tcp(
             WSCALE => {
                 olayout.push(TcpOption::Ws);
 
-                wscale = Some(data[0]);
+                if !data.is_empty() {
+                    wscale = Some(data[0]);
 
-                if data[0] > 14 {
-                    quirks.push(Quirk::ExcessiveWindowScaling);
+                    if data[0] > 14 {
+                        quirks.push(Quirk::ExcessiveWindowScaling);
+                    }
                 }
             }
             SACK_PERMITTED => {
