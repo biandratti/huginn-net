@@ -258,7 +258,7 @@ fn visit_tcp(
             WSCALE => {
                 olayout.push(TcpOption::Ws);
 
-                if data.len() >= 1 {
+                if !data.is_empty() {
                     wscale = Some(data[0]);
 
                     if data[0] > 14 {
