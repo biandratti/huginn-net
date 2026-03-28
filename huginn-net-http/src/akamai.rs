@@ -1,5 +1,5 @@
-use std::fmt;
 use sha2::{Digest, Sha256};
+use std::fmt;
 use std::fmt::Write;
 
 /// HTTP/2 Setting parameter ID
@@ -259,10 +259,12 @@ impl AkamaiFingerprint {
         hasher.update(fingerprint.as_bytes());
         let result = hasher.finalize();
         // Take only the first 16 bytes (= 32 hex chars)
-        result[..16].iter().fold(String::with_capacity(32), |mut acc, b| {
-            let _ = write!(acc, "{b:02x}");
-            acc
-        })
+        result[..16]
+            .iter()
+            .fold(String::with_capacity(32), |mut acc, b| {
+                let _ = write!(acc, "{b:02x}");
+                acc
+            })
     }
 }
 
