@@ -170,7 +170,14 @@ pub fn first_last_alpn(s: &str) -> (char, char) {
 
 /// Generate 12-character hash (first 12 chars of SHA256)
 pub fn hash12(input: &str) -> String {
-    format!("{:x}", Sha256::digest(input.as_bytes()))[..12].to_string()
+    // 12 hex chars = 6 bytes
+    use std::fmt::Write;
+    Sha256::digest(input.as_bytes())[..6]
+        .iter()
+        .fold(String::with_capacity(12), |mut acc, b| {
+            let _ = write!(acc, "{b:02x}");
+            acc
+        })
 }
 
 impl Signature {

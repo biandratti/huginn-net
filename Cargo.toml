@@ -11,7 +11,7 @@ resolver = "2"
 [workspace.package]
 version = "1.7.3"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 authors = ["Maximiliano Biandratti"]
 repository = "https://github.com/biandratti/huginn-net"
@@ -34,7 +34,7 @@ pcap-file = "3.0.0-rc1"
 pnet = "0.35.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 thiserror = "2.0.18"
 tls-parser = "0.12.2"
 tracing = "0.1.44"
