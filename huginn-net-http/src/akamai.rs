@@ -1,4 +1,6 @@
 use std::fmt;
+use sha2::{Digest, Sha256};
+use std::fmt::Write;
 
 /// HTTP/2 Setting parameter ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -253,12 +255,14 @@ impl AkamaiFingerprint {
     /// Hash the fingerprint for database lookup (SHA-256 truncated)
     #[must_use]
     pub fn hash_fingerprint(fingerprint: &str) -> String {
-        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(fingerprint.as_bytes());
         let result = hasher.finalize();
-        // Truncate to first 16 bytes (32 hex chars)
-        format!("{result:x}").chars().take(32).collect::<String>()
+        // Take only the first 16 bytes (= 32 hex chars)
+        result[..16].iter().fold(String::with_capacity(32), |mut acc, b| {
+            let _ = write!(acc, "{b:02x}");
+            acc
+        })
     }
 }
 
