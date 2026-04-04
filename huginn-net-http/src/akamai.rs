@@ -102,9 +102,10 @@ impl fmt::Display for Http2Priority {
 
 /// Pseudo-header order in HTTP/2 HEADERS frame
 ///
-/// Common orders:
-/// - Chrome: :method, :path, :authority, :scheme
-/// - Firefox: :method, :path, :authority, :scheme
+/// Common orders observed in practice:
+/// - Chrome/Edge: `:method`, `:authority`, `:scheme`, `:path`  → `m,a,s,p`
+/// - Firefox:     `:method`, `:path`, `:authority`, `:scheme`  → `m,p,a,s`
+/// - curl (no FLAG_PRIORITY): `:method`, `:scheme`, `:authority`, `:path` → `m,s,a,p`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PseudoHeader {
     Method,
