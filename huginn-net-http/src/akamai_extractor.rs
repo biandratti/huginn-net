@@ -187,6 +187,10 @@ pub fn parse_priority_payload(stream_id: u32, payload: &[u8]) -> Option<Http2Pri
     Some(Http2Priority { stream_id, exclusive, depends_on, weight })
 }
 
+// RFC 7540 §6.2 HEADERS flags relevant for payload layout
+const FLAG_PADDED: u8 = 0x08;
+const FLAG_PRIORITY: u8 = 0x20;
+
 /// Extract pseudo-header order from HEADERS frame
 ///
 /// Pseudo-headers in HTTP/2:
@@ -196,13 +200,45 @@ pub fn parse_priority_payload(stream_id: u32, payload: &[u8]) -> Option<Http2Pri
 /// - `:scheme`
 /// - `:status` (responses only)
 fn extract_pseudo_header_order(frames: &[Http2Frame]) -> Vec<PseudoHeader> {
-    // Find first HEADERS frame
+    // Find first HEADERS frame on a request stream (stream_id > 0)
     let headers_frame = frames
         .iter()
         .find(|f| f.frame_type == Http2FrameType::Headers && f.stream_id > 0);
 
     if let Some(frame) = headers_frame {
-        if let Ok(headers) = decode_headers(&frame.payload) {
+        // RFC 7540 §6.2: strip optional leading fields before the HPACK block.
+        // The payload layout is:
+        //   [Pad Length (1B, if PADDED)]
+        //   [Exclusive(1b) + Stream Dependency(31b) + Weight(1B) = 5B, if PRIORITY]
+        //   <Header Block Fragment>
+        //   [Padding]
+        let mut hpack_payload = frame.payload.as_slice();
+
+        if frame.flags & FLAG_PADDED != 0 {
+            // First byte is pad length; skip it and the trailing padding.
+            if let Some((&pad_len, rest)) = hpack_payload.split_first() {
+                let total_with_pad = rest.len();
+                let pad = pad_len as usize;
+                if let Some(end) = total_with_pad.checked_sub(pad) {
+                    hpack_payload = &rest[..end];
+                } else {
+                    return Vec::new(); // malformed
+                }
+            } else {
+                return Vec::new();
+            }
+        }
+
+        if frame.flags & FLAG_PRIORITY != 0 {
+            // 5 bytes: [E(1b)+StreamDep(31b)][Weight(8b)]
+            if hpack_payload.len() >= 5 {
+                hpack_payload = &hpack_payload[5..];
+            } else {
+                return Vec::new(); // malformed
+            }
+        }
+
+        if let Ok(headers) = decode_headers(hpack_payload) {
             return headers
                 .iter()
                 .filter(|h| h.name.starts_with(':'))
