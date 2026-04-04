@@ -227,13 +227,18 @@ impl AkamaiFingerprint {
         format!("{settings_str}|{window_str}|{priority_str}|{pseudo_str}")
     }
 
-    /// Create a new Akamai fingerprint
+    /// Create a new Akamai fingerprint directly from its components.
+    ///
+    /// For production use, prefer
+    /// [`extract_akamai_fingerprint`](crate::akamai_extractor::extract_akamai_fingerprint) or
+    /// [`extract_akamai_fingerprint_from_bytes`](crate::akamai_extractor::extract_akamai_fingerprint_from_bytes),
+    /// which parse and validate HTTP/2 frames and return a typed error on failure.
     ///
     /// # Parameters
     /// - `settings`: SETTINGS frame parameters (order matters)
     /// - `window_update`: WINDOW_UPDATE value
     /// - `priority_frames`: PRIORITY frames
-    /// - `pseudo_header_order`: Order in which pseudo-headers (`:method`, `:path`, `:authority`, `:scheme`) appear in the HEADERS frame. This order is extracted from the first HEADERS frame with stream_id > 0 and is critical for fingerprint accuracy.
+    /// - `pseudo_header_order`: pseudo-header order decoded from the HEADERS frame
     #[must_use]
     pub fn new(
         settings: Vec<SettingParameter>,

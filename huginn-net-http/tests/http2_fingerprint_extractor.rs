@@ -1,5 +1,5 @@
 use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
-use huginn_net_http::http2_parser::{Http2ParseError, HTTP2_CONNECTION_PREFACE};
+use huginn_net_http::http2_parser::HTTP2_CONNECTION_PREFACE;
 
 /// Helper function to create an HTTP/2 frame
 ///
@@ -219,8 +219,8 @@ fn test_add_bytes_invalid_frame() {
     // The parser may handle incomplete frames differently
     match result {
         Err(err) => {
-            // If it's an error, check that it's a parsing error
-            assert!(matches!(err, Http2ParseError::IncompleteFrame));
+            // If it's an error, it must be a Parse error (wrapping the Http2ParseError)
+            assert!(matches!(err, huginn_net_http::HuginnNetHttpError::Parse(_)));
         }
         Ok(value) => {
             // If it's Ok, it should be None (need more data)

@@ -148,9 +148,8 @@ fn test_headers_priority_flag_pseudo_headers_not_empty_regression() {
     ];
     let headers_frame = Http2Frame::new(0x1, 0x24, 1, headers_payload);
 
-    let Some(fp) = extract_akamai_fingerprint(&[settings_frame, headers_frame]) else {
-        panic!("fingerprint must be produced from SETTINGS + HEADERS");
-    };
+    let fp = extract_akamai_fingerprint(&[settings_frame, headers_frame])
+        .unwrap_or_else(|e| panic!("fingerprint must be produced from SETTINGS + HEADERS: {e}"));
 
     assert!(
         !fp.pseudo_header_order.is_empty(),
@@ -187,9 +186,8 @@ fn test_headers_no_priority_flag_pseudo_headers_decoded() {
         vec![0x82, 0x84, 0x86], // :method GET, :path /, :scheme https
     );
 
-    let Some(fp) = extract_akamai_fingerprint(&[settings_frame, headers_frame]) else {
-        panic!("fingerprint must be produced");
-    };
+    let fp = extract_akamai_fingerprint(&[settings_frame, headers_frame])
+        .unwrap_or_else(|e| panic!("fingerprint must be produced: {e}"));
 
     assert!(!fp.pseudo_header_order.is_empty(), "fingerprint='{}'", fp.fingerprint);
     assert!(!fp.fingerprint.ends_with('|'), "fingerprint='{}'", fp.fingerprint);
@@ -199,16 +197,18 @@ fn test_headers_no_priority_flag_pseudo_headers_decoded() {
 }
 
 #[test]
-fn test_headers_priority_flag_truncated_payload_no_panic() {
+fn test_headers_priority_flag_truncated_payload_returns_error() {
+    use huginn_net_http::HuginnNetHttpError;
     let settings_frame = Http2Frame::new(0x4, 0x00, 0, vec![0x00, 0x03, 0x00, 0x00, 0x00, 0x64]);
 
-    let headers_frame = Http2Frame::new(0x1, 0x24, 1, vec![0x00, 0x00]); // only 2 bytes
+    // FLAG_PRIORITY (0x20) set but only 2 bytes — needs 5 for the priority block
+    let headers_frame = Http2Frame::new(0x1, 0x24, 1, vec![0x00, 0x00]);
 
-    let Some(fp) = extract_akamai_fingerprint(&[settings_frame, headers_frame]) else {
-        panic!("fingerprint must still be produced from SETTINGS alone");
-    };
-
-    assert!(fp.pseudo_header_order.is_empty(), "truncated payload → no pseudo-headers");
+    let result = extract_akamai_fingerprint(&[settings_frame, headers_frame]);
+    assert!(
+        matches!(result, Err(HuginnNetHttpError::MalformedPseudoHeaders(_))),
+        "truncated PRIORITY block must return MalformedPseudoHeaders, got: {result:?}"
+    );
 }
 
 #[test]

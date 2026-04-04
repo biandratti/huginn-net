@@ -110,7 +110,7 @@ fn test_paper_golden_snapshots() {
         let fingerprint = extract_akamai_fingerprint(&frames);
 
         match (&fingerprint, &test_case.expected_fingerprint) {
-            (Some(actual_fp), Some(expected)) => {
+            (Ok(actual_fp), Some(expected)) => {
                 let actual = ActualFingerprint {
                     signature: &actual_fp.fingerprint,
                     hash: &actual_fp.hash,
@@ -122,18 +122,15 @@ fn test_paper_golden_snapshots() {
 
                 assert_paper_fingerprint_matches(&actual, expected, &test_case.name);
             }
-            (None, None) => { /* expected */ }
-            (Some(actual), None) => {
+            (Err(_), None) => { /* expected: no fingerprint */ }
+            (Ok(actual), None) => {
                 panic!(
                     "[{}] Expected no fingerprint, but got: {}",
                     test_case.name, actual.fingerprint
                 );
             }
-            (None, Some(_)) => {
-                panic!(
-                    "[{}] Expected fingerprint from paper, but none was generated",
-                    test_case.name
-                );
+            (Err(e), Some(_)) => {
+                panic!("[{}] Expected fingerprint from paper, but got error: {e}", test_case.name);
             }
         }
     }
@@ -153,11 +150,8 @@ fn test_paper_chrome_61() {
         Http2Frame::new(0x2, 0x0, 13, vec![0, 0, 0, 0, 240]),
     ];
 
-    let fingerprint = if let Some(fp) = extract_akamai_fingerprint(&frames) {
-        fp
-    } else {
-        panic!("Failed to extract Chrome 61 fingerprint from paper");
-    };
+    let fingerprint = extract_akamai_fingerprint(&frames)
+        .unwrap_or_else(|e| panic!("Failed to extract Chrome 61 fingerprint from paper: {e}"));
 
     // Verify structure
     assert_eq!(fingerprint.settings.len(), 3, "Chrome 61 should have 3 SETTINGS");
@@ -177,11 +171,8 @@ fn test_paper_firefox_55() {
         Http2Frame::new(0x8, 0x0, 0, vec![0, 190, 255, 1]),
     ];
 
-    let fingerprint = if let Some(fp) = extract_akamai_fingerprint(&frames) {
-        fp
-    } else {
-        panic!("Failed to extract Firefox 55 fingerprint from paper");
-    };
+    let fingerprint = extract_akamai_fingerprint(&frames)
+        .unwrap_or_else(|e| panic!("Failed to extract Firefox 55 fingerprint from paper: {e}"));
 
     assert_eq!(fingerprint.settings.len(), 3, "Firefox 55 should have 3 SETTINGS");
     assert_eq!(fingerprint.window_update, 12517121, "Firefox 55 WINDOW_UPDATE");
@@ -202,11 +193,8 @@ fn test_paper_safari_11() {
         Http2Frame::new(0x2, 0x0, 5, vec![128, 0, 0, 3, 255]),
     ];
 
-    let fingerprint = if let Some(fp) = extract_akamai_fingerprint(&frames) {
-        fp
-    } else {
-        panic!("Failed to extract Safari 11 fingerprint from paper");
-    };
+    let fingerprint = extract_akamai_fingerprint(&frames)
+        .unwrap_or_else(|e| panic!("Failed to extract Safari 11 fingerprint from paper: {e}"));
 
     assert_eq!(fingerprint.settings.len(), 3, "Safari 11 should have 3 SETTINGS");
     assert_eq!(fingerprint.window_update, 16711681, "Safari 11 WINDOW_UPDATE");
