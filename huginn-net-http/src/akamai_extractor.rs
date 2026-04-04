@@ -83,15 +83,12 @@ pub fn extract_akamai_fingerprint_from_bytes(data: &[u8]) -> Option<AkamaiFinger
 #[must_use]
 pub fn extract_akamai_fingerprint(frames: &[Http2Frame]) -> Option<AkamaiFingerprint> {
     let settings = extract_settings_parameters(frames);
-    let window_update = extract_window_update(frames);
-    let priority_frames = extract_priority_frames(frames);
-    let pseudo_header_order = extract_pseudo_header_order(frames);
-
-    // Require at least SETTINGS frame to generate fingerprint
     if settings.is_empty() {
         return None;
     }
-
+    let window_update = extract_window_update(frames);
+    let priority_frames = extract_priority_frames(frames);
+    let pseudo_header_order = extract_pseudo_header_order(frames);
     Some(AkamaiFingerprint::new(
         settings,
         window_update,
