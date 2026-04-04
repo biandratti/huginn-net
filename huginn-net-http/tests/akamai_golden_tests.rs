@@ -94,7 +94,7 @@ fn test_akamai_golden_snapshots() {
         let fingerprint = extract_akamai_fingerprint(&frames);
 
         match (&fingerprint, &test_case.expected_fingerprint) {
-            (Some(actual_fp), Some(expected)) => {
+            (Ok(actual_fp), Some(expected)) => {
                 let actual = ActualFingerprint {
                     signature: &actual_fp.fingerprint,
                     hash: &actual_fp.hash,
@@ -105,15 +105,15 @@ fn test_akamai_golden_snapshots() {
                 };
                 assert_fingerprint_matches(&actual, expected, &test_case.name);
             }
-            (None, None) => { /* expected */ }
-            (Some(actual), None) => {
+            (Err(_), None) => { /* expected: no fingerprint */ }
+            (Ok(actual), None) => {
                 panic!(
                     "[{}] Expected no fingerprint, but got: {}",
                     test_case.name, actual.fingerprint
                 );
             }
-            (None, Some(_)) => {
-                panic!("[{}] Expected fingerprint, but none was generated", test_case.name);
+            (Err(e), Some(_)) => {
+                panic!("[{}] Expected fingerprint, but got error: {e}", test_case.name);
             }
         }
     }
@@ -148,11 +148,8 @@ fn test_chrome_fingerprint() {
         ),
     ];
 
-    let fingerprint = if let Some(fp) = extract_akamai_fingerprint(&chrome_frames) {
-        fp
-    } else {
-        panic!("Failed to extract Chrome fingerprint");
-    };
+    let fingerprint = extract_akamai_fingerprint(&chrome_frames)
+        .unwrap_or_else(|e| panic!("Failed to extract Chrome fingerprint: {e}"));
 
     assert_eq!(fingerprint.settings.len(), 2);
     assert_eq!(fingerprint.window_update, 15662849);
@@ -185,11 +182,8 @@ fn test_firefox_fingerprint() {
         ),
     ];
 
-    let fingerprint = if let Some(fp) = extract_akamai_fingerprint(&firefox_frames) {
-        fp
-    } else {
-        panic!("Failed to extract Firefox fingerprint");
-    };
+    let fingerprint = extract_akamai_fingerprint(&firefox_frames)
+        .unwrap_or_else(|e| panic!("Failed to extract Firefox fingerprint: {e}"));
 
     assert_eq!(fingerprint.settings.len(), 3);
     assert_eq!(fingerprint.window_update, 12517121);
@@ -208,17 +202,10 @@ fn test_fingerprint_deterministic() {
         Http2Frame::new(0x8, 0x0, 0, vec![0x00, 0xEE, 0xFF, 0x01]),
     ];
 
-    let fp1 = if let Some(fp) = extract_akamai_fingerprint(&frames) {
-        fp
-    } else {
-        panic!("First fingerprint extraction failed");
-    };
-
-    let fp2 = if let Some(fp) = extract_akamai_fingerprint(&frames) {
-        fp
-    } else {
-        panic!("Second fingerprint extraction failed");
-    };
+    let fp1 = extract_akamai_fingerprint(&frames)
+        .unwrap_or_else(|e| panic!("First fingerprint extraction failed: {e}"));
+    let fp2 = extract_akamai_fingerprint(&frames)
+        .unwrap_or_else(|e| panic!("Second fingerprint extraction failed: {e}"));
 
     assert_eq!(fp1.fingerprint, fp2.fingerprint, "Signatures must be deterministic");
     assert_eq!(fp1.hash, fp2.hash, "Hashes must be deterministic");
@@ -236,17 +223,10 @@ fn test_different_browsers_different_fingerprints() {
         Http2Frame::new(0x8, 0x0, 0, vec![0x00, 0xBE, 0xFF, 0x01]),
     ];
 
-    let chrome_fp = if let Some(fp) = extract_akamai_fingerprint(&chrome_frames) {
-        fp
-    } else {
-        panic!("Chrome fingerprint failed");
-    };
-
-    let firefox_fp = if let Some(fp) = extract_akamai_fingerprint(&firefox_frames) {
-        fp
-    } else {
-        panic!("Firefox fingerprint failed");
-    };
+    let chrome_fp = extract_akamai_fingerprint(&chrome_frames)
+        .unwrap_or_else(|e| panic!("Chrome fingerprint failed: {e}"));
+    let firefox_fp = extract_akamai_fingerprint(&firefox_frames)
+        .unwrap_or_else(|e| panic!("Firefox fingerprint failed: {e}"));
 
     assert_ne!(
         chrome_fp.fingerprint, firefox_fp.fingerprint,
@@ -264,11 +244,8 @@ fn test_minimal_frames() {
     let minimal_frames =
         vec![Http2Frame::new(0x4, 0x0, 0, vec![0x00, 0x03, 0x00, 0x00, 0x00, 0x64])];
 
-    let fingerprint = if let Some(fp) = extract_akamai_fingerprint(&minimal_frames) {
-        fp
-    } else {
-        panic!("Should generate fingerprint with minimal frames");
-    };
+    let fingerprint = extract_akamai_fingerprint(&minimal_frames)
+        .unwrap_or_else(|e| panic!("Should generate fingerprint with minimal frames: {e}"));
 
     assert_eq!(fingerprint.settings.len(), 1);
     assert_eq!(fingerprint.window_update, 0);
@@ -276,12 +253,16 @@ fn test_minimal_frames() {
 }
 
 #[test]
-fn test_no_settings_frame_returns_none() {
+fn test_no_settings_frame_returns_error() {
+    use huginn_net_http::HuginnNetHttpError;
     let no_settings_frames = vec![
         Http2Frame::new(0x8, 0x0, 0, vec![0x00, 0xEE, 0xFF, 0x01]),
         Http2Frame::new(0x2, 0x0, 3, vec![0x00, 0x00, 0x00, 0x00, 0xC8]),
     ];
 
-    let fingerprint = extract_akamai_fingerprint(&no_settings_frames);
-    assert!(fingerprint.is_none(), "Should return None without SETTINGS frame");
+    let result = extract_akamai_fingerprint(&no_settings_frames);
+    assert!(
+        matches!(result, Err(HuginnNetHttpError::NoSettingsFrame)),
+        "Should return NoSettingsFrame error without SETTINGS frame"
+    );
 }

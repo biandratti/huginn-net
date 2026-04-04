@@ -1,4 +1,5 @@
 use crate::akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
+use crate::error::HuginnNetHttpError;
 use crate::http2_parser::Http2Parser;
 use crate::http2_parser::{Http2Frame, Http2FrameType};
 use crate::http_common::HttpHeader;
@@ -38,25 +39,29 @@ pub fn calculate_frames_bytes_consumed(frames: &[Http2Frame]) -> usize {
 /// - `data`: Raw HTTP/2 frame data (may include connection preface)
 ///
 /// # Returns
-/// - `Some(AkamaiFingerprint)` if enough frames are present and fingerprint can be extracted
-/// - `None` if insufficient data, parsing errors, or fingerprint cannot be generated
+/// - `Ok(AkamaiFingerprint)` if enough frames are present and fingerprint can be extracted
+/// - `Err(NoSettingsFrame)` if no SETTINGS frame was found
+/// - `Err(MalformedPseudoHeaders)` if a HEADERS frame was present but its payload is corrupt
+/// - `Err(Parse)` if the raw bytes could not be parsed as HTTP/2 frames
 ///
 /// # Example
 /// ```no_run
 /// use huginn_net_http::akamai_extractor::extract_akamai_fingerprint_from_bytes;
 ///
 /// let data = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x06\x04\x00\x00\x00\x00\x00";
-/// if let Some(fingerprint) = extract_akamai_fingerprint_from_bytes(data) {
-///     println!("Akamai: {}", fingerprint.fingerprint);
+/// match extract_akamai_fingerprint_from_bytes(data) {
+///     Ok(fingerprint) => println!("Akamai: {}", fingerprint.fingerprint),
+///     Err(e) => eprintln!("Extraction failed: {e}"),
 /// }
 /// ```
-#[must_use]
-pub fn extract_akamai_fingerprint_from_bytes(data: &[u8]) -> Option<AkamaiFingerprint> {
+pub fn extract_akamai_fingerprint_from_bytes(
+    data: &[u8],
+) -> Result<AkamaiFingerprint, HuginnNetHttpError> {
     let parser = Http2Parser::new();
-    parser
+    let (frames, _) = parser
         .parse_frames_skip_preface(data)
-        .ok()
-        .and_then(|(frames, _)| extract_akamai_fingerprint(&frames))
+        .map_err(|e| HuginnNetHttpError::Parse(e.to_string()))?;
+    extract_akamai_fingerprint(&frames)
 }
 
 /// Extract Akamai HTTP/2 fingerprint from HTTP/2 frames
@@ -68,28 +73,32 @@ pub fn extract_akamai_fingerprint_from_bytes(data: &[u8]) -> Option<AkamaiFinger
 /// - `frames`: Slice of HTTP/2 frames captured from the connection start
 ///
 /// # Returns
-/// - `Some(AkamaiFingerprint)` if enough frames are present
-/// - `None` if insufficient data or parsing errors
+/// - `Ok(AkamaiFingerprint)` if enough frames are present and all fields are valid
+/// - `Err(NoSettingsFrame)` if no SETTINGS frame was found (insufficient data)
+/// - `Err(MalformedPseudoHeaders)` if a HEADERS frame was present but its payload is corrupt —
+///   this is a strong indicator of spoofed or bot-generated traffic
 ///
 /// # Example
 /// ```no_run
 /// use huginn_net_http::akamai_extractor::extract_akamai_fingerprint;
 /// # use huginn_net_http::http2_parser::Http2Frame;
 /// # let frames: Vec<Http2Frame> = vec![];
-/// if let Some(fingerprint) = extract_akamai_fingerprint(&frames) {
-///     println!("Akamai: {}", fingerprint.fingerprint);
+/// match extract_akamai_fingerprint(&frames) {
+///     Ok(fingerprint) => println!("Akamai: {}", fingerprint.fingerprint),
+///     Err(e) => eprintln!("Extraction failed: {e}"),
 /// }
 /// ```
-#[must_use]
-pub fn extract_akamai_fingerprint(frames: &[Http2Frame]) -> Option<AkamaiFingerprint> {
+pub fn extract_akamai_fingerprint(
+    frames: &[Http2Frame],
+) -> Result<AkamaiFingerprint, HuginnNetHttpError> {
     let settings = extract_settings_parameters(frames);
     if settings.is_empty() {
-        return None;
+        return Err(HuginnNetHttpError::NoSettingsFrame);
     }
     let window_update = extract_window_update(frames);
     let priority_frames = extract_priority_frames(frames);
-    let pseudo_header_order = extract_pseudo_header_order(frames);
-    Some(AkamaiFingerprint::new(
+    let pseudo_header_order = extract_pseudo_header_order(frames)?;
+    Ok(AkamaiFingerprint::new(
         settings,
         window_update,
         priority_frames,
@@ -188,63 +197,71 @@ pub fn parse_priority_payload(stream_id: u32, payload: &[u8]) -> Option<Http2Pri
 const FLAG_PADDED: u8 = 0x08;
 const FLAG_PRIORITY: u8 = 0x20;
 
-/// Extract pseudo-header order from HEADERS frame
+/// Extract pseudo-header order from HEADERS frame.
 ///
-/// Pseudo-headers in HTTP/2:
-/// - `:method`
-/// - `:path`
-/// - `:authority`
-/// - `:scheme`
-/// - `:status` (responses only)
-fn extract_pseudo_header_order(frames: &[Http2Frame]) -> Vec<PseudoHeader> {
+/// Returns:
+/// - `Ok(vec![])` if no HEADERS frame is present yet (legitimate — data may arrive later).
+/// - `Ok(headers)` if decoded successfully.
+/// - `Err(MalformedPseudoHeaders)` if a HEADERS frame is present but its payload is corrupt.
+///
+/// Pseudo-headers in HTTP/2: `:method`, `:path`, `:authority`, `:scheme`, `:status` (responses).
+fn extract_pseudo_header_order(
+    frames: &[Http2Frame],
+) -> Result<Vec<PseudoHeader>, HuginnNetHttpError> {
     // Find first HEADERS frame on a request stream (stream_id > 0)
     let headers_frame = frames
         .iter()
         .find(|f| f.frame_type == Http2FrameType::Headers && f.stream_id > 0);
 
-    if let Some(frame) = headers_frame {
-        // RFC 7540 §6.2: strip optional leading fields before the HPACK block.
-        // The payload layout is:
-        //   [Pad Length (1B, if PADDED)]
-        //   [Exclusive(1b) + Stream Dependency(31b) + Weight(1B) = 5B, if PRIORITY]
-        //   <Header Block Fragment>
-        //   [Padding]
-        let mut hpack_payload = frame.payload.as_slice();
+    let Some(frame) = headers_frame else {
+        return Ok(Vec::new()); // no HEADERS frame yet — legitimate, not an error
+    };
 
-        if frame.flags & FLAG_PADDED != 0 {
-            // First byte is pad length; skip it and the trailing padding.
-            if let Some((&pad_len, rest)) = hpack_payload.split_first() {
-                let total_with_pad = rest.len();
-                let pad = pad_len as usize;
-                if let Some(end) = total_with_pad.checked_sub(pad) {
-                    hpack_payload = &rest[..end];
-                } else {
-                    return Vec::new(); // malformed
-                }
-            } else {
-                return Vec::new();
-            }
+    // RFC 7540 §6.2: strip optional leading fields before the HPACK block.
+    // The payload layout is:
+    //   [Pad Length (1B, if PADDED)]
+    //   [Exclusive(1b) + Stream Dependency(31b) + Weight(1B) = 5B, if PRIORITY]
+    //   <Header Block Fragment>
+    //   [Padding]
+    let mut hpack_payload = frame.payload.as_slice();
+
+    if frame.flags & FLAG_PADDED != 0 {
+        let Some((&pad_len, rest)) = hpack_payload.split_first() else {
+            return Err(HuginnNetHttpError::MalformedPseudoHeaders(
+                "PADDED flag set but payload is empty".into(),
+            ));
+        };
+        let pad = pad_len as usize;
+        let end = rest.len().checked_sub(pad).ok_or_else(|| {
+            HuginnNetHttpError::MalformedPseudoHeaders(format!(
+                "pad length {pad} exceeds remaining payload of {} bytes",
+                rest.len()
+            ))
+        })?;
+        hpack_payload = &rest[..end];
+    }
+
+    if frame.flags & FLAG_PRIORITY != 0 {
+        if hpack_payload.len() < 5 {
+            return Err(HuginnNetHttpError::MalformedPseudoHeaders(format!(
+                "PRIORITY flag set but only {} bytes remain (need 5)",
+                hpack_payload.len()
+            )));
         }
+        hpack_payload = &hpack_payload[5..];
+    }
 
-        if frame.flags & FLAG_PRIORITY != 0 {
-            // 5 bytes: [E(1b)+StreamDep(31b)][Weight(8b)]
-            if hpack_payload.len() >= 5 {
-                hpack_payload = &hpack_payload[5..];
-            } else {
-                return Vec::new(); // malformed
-            }
-        }
-
-        if let Ok(headers) = decode_headers(hpack_payload) {
-            return headers
+    decode_headers(hpack_payload)
+        .map(|headers| {
+            headers
                 .iter()
                 .filter(|h| h.name.starts_with(':'))
                 .map(|h| PseudoHeader::from(h.name.as_str()))
-                .collect();
-        }
-    }
-
-    Vec::new()
+                .collect()
+        })
+        .map_err(|e| {
+            HuginnNetHttpError::MalformedPseudoHeaders(format!("HPACK decode error: {e:?}"))
+        })
 }
 
 /// Decode HPACK-encoded headers

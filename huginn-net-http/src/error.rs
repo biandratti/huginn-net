@@ -10,4 +10,10 @@ pub enum HuginnNetHttpError {
 
     #[error("Unacceptable configuration: {0}")]
     Misconfiguration(String),
+
+    #[error("No SETTINGS frame found in captured frames")]
+    NoSettingsFrame,
+
+    #[error("Malformed pseudo-headers in HEADERS frame: {0}")]
+    MalformedPseudoHeaders(String),
 }

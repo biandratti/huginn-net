@@ -1,6 +1,7 @@
 use crate::akamai::AkamaiFingerprint;
 use crate::akamai_extractor::extract_akamai_fingerprint;
-use crate::http2_parser::{Http2ParseError, Http2Parser, HTTP2_CONNECTION_PREFACE};
+use crate::error::HuginnNetHttpError;
+use crate::http2_parser::{Http2Parser, HTTP2_CONNECTION_PREFACE};
 
 /// HTTP/2 fingerprint extractor with incremental parsing support
 ///
@@ -54,8 +55,9 @@ impl Http2FingerprintExtractor {
     ///
     /// # Returns
     /// - `Ok(Some(AkamaiFingerprint))` if fingerprint was successfully extracted
-    /// - `Ok(None)` if more data is needed or fingerprint already extracted
-    /// - `Err(Http2ParseError)` if parsing fails
+    /// - `Ok(None)` if more data is needed, fingerprint already extracted, or no SETTINGS yet
+    /// - `Err(MalformedPseudoHeaders)` if a HEADERS frame is present but its payload is corrupt
+    /// - `Err(Parse)` if the raw bytes could not be parsed as HTTP/2 frames
     ///
     /// # Example
     /// ```no_run
@@ -65,18 +67,19 @@ impl Http2FingerprintExtractor {
     /// match extractor.add_bytes(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x06\x04\x00\x00\x00\x00\x00") {
     ///     Ok(Some(fingerprint)) => println!("Got fingerprint: {}", fingerprint.fingerprint),
     ///     Ok(None) => println!("Need more data"),
-    ///     Err(e) => eprintln!("Error: {:?}", e),
+    ///     Err(e) => eprintln!("Error: {e}"),
     /// }
     /// ```
-    pub fn add_bytes(&mut self, data: &[u8]) -> Result<Option<AkamaiFingerprint>, Http2ParseError> {
-        // If fingerprint already extracted, don't process more data
+    pub fn add_bytes(
+        &mut self,
+        data: &[u8],
+    ) -> Result<Option<AkamaiFingerprint>, HuginnNetHttpError> {
         if self.fingerprint.is_some() {
             return Ok(None);
         }
 
         self.buffer.extend_from_slice(data);
 
-        // Skip HTTP/2 connection preface
         let start_offset =
             if self.parsed_offset == 0 && self.buffer.starts_with(HTTP2_CONNECTION_PREFACE) {
                 HTTP2_CONNECTION_PREFACE.len()
@@ -87,21 +90,21 @@ impl Http2FingerprintExtractor {
         let frame_data = &self.buffer[start_offset..];
 
         if frame_data.len() >= 9 {
-            match self.parser.parse_frames_with_offset(frame_data) {
-                Ok((frames, bytes_consumed)) => {
-                    if !frames.is_empty() {
-                        // Update parsed_offset based on actual bytes consumed
-                        self.parsed_offset = start_offset.saturating_add(bytes_consumed);
+            let (frames, bytes_consumed) = self
+                .parser
+                .parse_frames_with_offset(frame_data)
+                .map_err(|e| HuginnNetHttpError::Parse(e.to_string()))?;
 
-                        if let Some(fingerprint) = extract_akamai_fingerprint(&frames) {
-                            self.fingerprint = Some(fingerprint.clone());
-                            return Ok(Some(fingerprint));
-                        }
+            if !frames.is_empty() {
+                self.parsed_offset = start_offset.saturating_add(bytes_consumed);
+
+                match extract_akamai_fingerprint(&frames) {
+                    Ok(fingerprint) => {
+                        self.fingerprint = Some(fingerprint.clone());
+                        return Ok(Some(fingerprint));
                     }
-                }
-                Err(e) => {
-                    // Parsing error, might need more data
-                    return Err(e);
+                    Err(HuginnNetHttpError::NoSettingsFrame) => {}
+                    Err(e) => return Err(e),
                 }
             }
         }
