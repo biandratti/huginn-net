@@ -174,7 +174,7 @@ impl AkamaiFingerprint {
     ///
     /// Format: `settings|window_update|priorities|pseudo_headers`
     #[must_use]
-    pub(crate) fn generate_fingerprint_string(
+    pub fn generate_fingerprint_string(
         settings: &[SettingParameter],
         window_update: u32,
         priority_frames: &[Http2Priority],
@@ -227,13 +227,12 @@ impl AkamaiFingerprint {
         format!("{settings_str}|{window_str}|{priority_str}|{pseudo_str}")
     }
 
-    /// Create a new Akamai fingerprint.
+    /// Create a new Akamai fingerprint directly from its components.
     ///
-    /// This constructor is intentionally `pub(crate)`: the only supported way to obtain an
-    /// [`AkamaiFingerprint`] from outside this crate is via
+    /// For production use, prefer
     /// [`extract_akamai_fingerprint`](crate::akamai_extractor::extract_akamai_fingerprint) or
     /// [`extract_akamai_fingerprint_from_bytes`](crate::akamai_extractor::extract_akamai_fingerprint_from_bytes),
-    /// which validate the input and return a typed [`crate::error::HuginnNetHttpError`] on failure.
+    /// which parse and validate HTTP/2 frames and return a typed error on failure.
     ///
     /// # Parameters
     /// - `settings`: SETTINGS frame parameters (order matters)
@@ -241,7 +240,7 @@ impl AkamaiFingerprint {
     /// - `priority_frames`: PRIORITY frames
     /// - `pseudo_header_order`: pseudo-header order decoded from the HEADERS frame
     #[must_use]
-    pub(crate) fn new(
+    pub fn new(
         settings: Vec<SettingParameter>,
         window_update: u32,
         priority_frames: Vec<Http2Priority>,
@@ -306,96 +305,5 @@ impl fmt::Display for AkamaiFingerprint {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_akamai_fingerprint_chrome() {
-        let settings = vec![
-            SettingParameter { id: SettingId::HeaderTableSize, value: 65536 },
-            SettingParameter { id: SettingId::EnablePush, value: 0 },
-            SettingParameter { id: SettingId::MaxConcurrentStreams, value: 1000 },
-            SettingParameter { id: SettingId::InitialWindowSize, value: 6291456 },
-            SettingParameter { id: SettingId::MaxFrameSize, value: 16384 },
-            SettingParameter { id: SettingId::MaxHeaderListSize, value: 262144 },
-        ];
-        let pseudo_headers = vec![
-            PseudoHeader::Method,
-            PseudoHeader::Path,
-            PseudoHeader::Authority,
-            PseudoHeader::Scheme,
-        ];
-        let fp = AkamaiFingerprint::new(settings, 15663105, vec![], pseudo_headers);
-        assert_eq!(
-            fp.fingerprint,
-            "1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|15663105|0|m,p,a,s"
-        );
-        assert!(!fp.hash.is_empty());
-    }
-
-    #[test]
-    fn test_akamai_fingerprint_firefox() {
-        let settings = vec![
-            SettingParameter { id: SettingId::HeaderTableSize, value: 65536 },
-            SettingParameter { id: SettingId::InitialWindowSize, value: 131072 },
-            SettingParameter { id: SettingId::MaxFrameSize, value: 16384 },
-        ];
-        let pseudo_headers = vec![
-            PseudoHeader::Method,
-            PseudoHeader::Path,
-            PseudoHeader::Authority,
-            PseudoHeader::Scheme,
-        ];
-        let fp = AkamaiFingerprint::new(settings, 12517377, vec![], pseudo_headers);
-        assert_eq!(fp.fingerprint, "1:65536;4:131072;5:16384|12517377|0|m,p,a,s");
-    }
-
-    #[test]
-    fn test_akamai_fingerprint_with_priorities() {
-        let settings = vec![
-            SettingParameter { id: SettingId::HeaderTableSize, value: 65536 },
-            SettingParameter { id: SettingId::EnablePush, value: 1 },
-        ];
-        let priorities = vec![
-            Http2Priority { stream_id: 1, exclusive: false, depends_on: 0, weight: 220 },
-            Http2Priority { stream_id: 3, exclusive: false, depends_on: 0, weight: 200 },
-        ];
-        let pseudo_headers = vec![
-            PseudoHeader::Method,
-            PseudoHeader::Path,
-            PseudoHeader::Authority,
-            PseudoHeader::Scheme,
-        ];
-        let fp = AkamaiFingerprint::new(settings, 15663105, priorities, pseudo_headers);
-        assert_eq!(fp.fingerprint, "1:65536;2:1|15663105|1:0:0:221,3:0:0:201|m,p,a,s");
-    }
-
-    #[test]
-    fn test_empty_fingerprint() {
-        let fp = AkamaiFingerprint::new(vec![], 0, vec![], vec![]);
-        assert_eq!(fp.fingerprint, "|00|0|");
-    }
-
-    #[test]
-    fn test_fingerprint_hash_consistency() {
-        let settings = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 65536 }];
-        let pseudo_headers = vec![PseudoHeader::Method];
-        let fp1 = AkamaiFingerprint::new(settings.clone(), 1000, vec![], pseudo_headers.clone());
-        let fp2 = AkamaiFingerprint::new(settings, 1000, vec![], pseudo_headers);
-        assert_eq!(fp1.hash, fp2.hash);
-    }
-
-    #[test]
-    fn test_fingerprint_hash_differs_for_different_fingerprints() {
-        let settings1 = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 65536 }];
-        let settings2 = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 4096 }];
-        let pseudo_headers = vec![PseudoHeader::Method];
-        let fp1 = AkamaiFingerprint::new(settings1, 1000, vec![], pseudo_headers.clone());
-        let fp2 = AkamaiFingerprint::new(settings2, 1000, vec![], pseudo_headers);
-        assert_ne!(fp1.hash, fp2.hash);
     }
 }

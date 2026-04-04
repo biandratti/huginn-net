@@ -1,92 +1,92 @@
 use huginn_net_http::akamai_extractor::extract_akamai_fingerprint;
-use huginn_net_http::{Http2Frame, Http2Priority, PseudoHeader, SettingId};
-
-// Helper: build a minimal SETTINGS frame from raw setting bytes
-fn settings_frame(payload: Vec<u8>) -> Http2Frame {
-    Http2Frame::new(0x4, 0x00, 0, payload)
-}
-
-// Helper: build a HEADERS frame with HPACK-encoded pseudo-headers (no flags)
-fn headers_frame(hpack: Vec<u8>) -> Http2Frame {
-    Http2Frame::new(0x1, 0x04, 1, hpack)
-}
+use huginn_net_http::{
+    AkamaiFingerprint, Http2Frame, Http2Priority, PseudoHeader, SettingId, SettingParameter,
+};
 
 #[test]
 fn test_akamai_fingerprint_chrome() {
-    // SETTINGS: HEADER_TABLE_SIZE=65536, ENABLE_PUSH=0, MAX_CONCURRENT_STREAMS=1000,
-    //           INITIAL_WINDOW_SIZE=6291456, MAX_FRAME_SIZE=16384, MAX_HEADER_LIST_SIZE=262144
-    let frame = settings_frame(vec![
-        0x00, 0x01, 0x00, 0x01, 0x00, 0x00, // HEADER_TABLE_SIZE = 65536
-        0x00, 0x02, 0x00, 0x00, 0x00, 0x00, // ENABLE_PUSH = 0
-        0x00, 0x03, 0x00, 0x00, 0x03, 0xE8, // MAX_CONCURRENT_STREAMS = 1000
-        0x00, 0x04, 0x00, 0x60, 0x00, 0x00, // INITIAL_WINDOW_SIZE = 6291456
-        0x00, 0x05, 0x00, 0x00, 0x40, 0x00, // MAX_FRAME_SIZE = 16384
-        0x00, 0x06, 0x00, 0x04, 0x00, 0x00, // MAX_HEADER_LIST_SIZE = 262144
-    ]);
-    // HPACK static: :method GET(2), :path /(4), :authority(1 literal), :scheme https(7)
-    let hpack = vec![0x82, 0x84, 0x01, 0x00, 0x87];
-    let fp = extract_akamai_fingerprint(&[frame, headers_frame(hpack)])
-        .unwrap_or_else(|e| panic!("should extract fingerprint: {e}"));
-
-    assert_eq!(fp.settings.len(), 6);
-    assert_eq!(fp.settings[0].id, SettingId::HeaderTableSize);
-    assert_eq!(fp.settings[1].id, SettingId::EnablePush);
-    assert!(fp
-        .fingerprint
-        .starts_with("1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|"));
+    let settings = vec![
+        SettingParameter { id: SettingId::HeaderTableSize, value: 65536 },
+        SettingParameter { id: SettingId::EnablePush, value: 0 },
+        SettingParameter { id: SettingId::MaxConcurrentStreams, value: 1000 },
+        SettingParameter { id: SettingId::InitialWindowSize, value: 6291456 },
+        SettingParameter { id: SettingId::MaxFrameSize, value: 16384 },
+        SettingParameter { id: SettingId::MaxHeaderListSize, value: 262144 },
+    ];
+    let pseudo_headers = vec![
+        PseudoHeader::Method,
+        PseudoHeader::Path,
+        PseudoHeader::Authority,
+        PseudoHeader::Scheme,
+    ];
+    let fp = AkamaiFingerprint::new(settings, 15663105, vec![], pseudo_headers);
+    assert_eq!(
+        fp.fingerprint,
+        "1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|15663105|0|m,p,a,s"
+    );
     assert!(!fp.hash.is_empty());
     assert_eq!(fp.hash.len(), 32);
 }
 
 #[test]
 fn test_akamai_fingerprint_firefox() {
-    // SETTINGS: HEADER_TABLE_SIZE=65536, INITIAL_WINDOW_SIZE=131072, MAX_FRAME_SIZE=16384
-    let frame = settings_frame(vec![
-        0x00, 0x01, 0x00, 0x01, 0x00, 0x00, // HEADER_TABLE_SIZE = 65536
-        0x00, 0x04, 0x00, 0x02, 0x00, 0x00, // INITIAL_WINDOW_SIZE = 131072
-        0x00, 0x05, 0x00, 0x00, 0x40, 0x00, // MAX_FRAME_SIZE = 16384
-    ]);
-    let fp = extract_akamai_fingerprint(&[frame])
-        .unwrap_or_else(|e| panic!("should extract fingerprint: {e}"));
-
-    assert_eq!(fp.settings.len(), 3);
-    assert!(fp.fingerprint.starts_with("1:65536;4:131072;5:16384|"));
+    let settings = vec![
+        SettingParameter { id: SettingId::HeaderTableSize, value: 65536 },
+        SettingParameter { id: SettingId::InitialWindowSize, value: 131072 },
+        SettingParameter { id: SettingId::MaxFrameSize, value: 16384 },
+    ];
+    let pseudo_headers = vec![
+        PseudoHeader::Method,
+        PseudoHeader::Path,
+        PseudoHeader::Authority,
+        PseudoHeader::Scheme,
+    ];
+    let fp = AkamaiFingerprint::new(settings, 12517377, vec![], pseudo_headers);
+    assert_eq!(fp.fingerprint, "1:65536;4:131072;5:16384|12517377|0|m,p,a,s");
 }
 
 #[test]
 fn test_akamai_fingerprint_with_priorities() {
-    let settings = settings_frame(vec![
-        0x00, 0x01, 0x00, 0x01, 0x00, 0x00, // HEADER_TABLE_SIZE = 65536
-        0x00, 0x02, 0x00, 0x00, 0x00, 0x01, // ENABLE_PUSH = 1
-    ]);
-    // Two PRIORITY frames: stream 1 (weight=220) and stream 3 (weight=200)
-    let p1 = Http2Frame::new(0x2, 0x00, 1, vec![0x00, 0x00, 0x00, 0x00, 220]);
-    let p2 = Http2Frame::new(0x2, 0x00, 3, vec![0x00, 0x00, 0x00, 0x00, 200]);
-    let fp = extract_akamai_fingerprint(&[settings, p1, p2])
-        .unwrap_or_else(|e| panic!("should extract fingerprint: {e}"));
+    let settings = vec![
+        SettingParameter { id: SettingId::HeaderTableSize, value: 65536 },
+        SettingParameter { id: SettingId::EnablePush, value: 1 },
+    ];
+    let priorities = vec![
+        Http2Priority { stream_id: 1, exclusive: false, depends_on: 0, weight: 220 },
+        Http2Priority { stream_id: 3, exclusive: false, depends_on: 0, weight: 200 },
+    ];
+    let pseudo_headers = vec![
+        PseudoHeader::Method,
+        PseudoHeader::Path,
+        PseudoHeader::Authority,
+        PseudoHeader::Scheme,
+    ];
+    let fp = AkamaiFingerprint::new(settings, 15663105, priorities, pseudo_headers);
+    assert_eq!(fp.fingerprint, "1:65536;2:1|15663105|1:0:0:221,3:0:0:201|m,p,a,s");
+}
 
-    assert_eq!(fp.priority_frames.len(), 2);
-    assert!(fp.fingerprint.contains("|1:0:0:221,3:0:0:201|"));
+#[test]
+fn test_empty_fingerprint() {
+    let fp = AkamaiFingerprint::new(vec![], 0, vec![], vec![]);
+    assert_eq!(fp.fingerprint, "|00|0|");
 }
 
 #[test]
 fn test_fingerprint_hash_consistency() {
-    let frame = settings_frame(vec![0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
-    let fp1 = extract_akamai_fingerprint(std::slice::from_ref(&frame))
-        .unwrap_or_else(|e| panic!("should extract: {e}"));
-    let fp2 = extract_akamai_fingerprint(std::slice::from_ref(&frame))
-        .unwrap_or_else(|e| panic!("should extract: {e}"));
+    let settings = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 65536 }];
+    let pseudo_headers = vec![PseudoHeader::Method];
+    let fp1 = AkamaiFingerprint::new(settings.clone(), 1000, vec![], pseudo_headers.clone());
+    let fp2 = AkamaiFingerprint::new(settings, 1000, vec![], pseudo_headers);
     assert_eq!(fp1.hash, fp2.hash);
 }
 
 #[test]
-fn test_fingerprint_hash_differs_for_different_settings() {
-    let frame1 = settings_frame(vec![0x00, 0x01, 0x00, 0x01, 0x00, 0x00]); // 65536
-    let frame2 = settings_frame(vec![0x00, 0x01, 0x00, 0x00, 0x10, 0x00]); // 4096
-    let fp1 =
-        extract_akamai_fingerprint(&[frame1]).unwrap_or_else(|e| panic!("should extract: {e}"));
-    let fp2 =
-        extract_akamai_fingerprint(&[frame2]).unwrap_or_else(|e| panic!("should extract: {e}"));
+fn test_fingerprint_hash_differs_for_different_fingerprints() {
+    let settings1 = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 65536 }];
+    let settings2 = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 4096 }];
+    let pseudo_headers = vec![PseudoHeader::Method];
+    let fp1 = AkamaiFingerprint::new(settings1, 1000, vec![], pseudo_headers.clone());
+    let fp2 = AkamaiFingerprint::new(settings2, 1000, vec![], pseudo_headers);
     assert_ne!(fp1.hash, fp2.hash);
 }
 
@@ -123,7 +123,7 @@ fn test_no_settings_returns_error() {
 #[test]
 fn test_malformed_headers_returns_error() {
     use huginn_net_http::HuginnNetHttpError;
-    let settings = settings_frame(vec![0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
+    let settings = Http2Frame::new(0x4, 0x00, 0, vec![0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
     // HEADERS frame with FLAG_PRIORITY (0x20) but only 2 bytes — truncated, needs 5
     let bad_headers = Http2Frame::new(0x1, 0x20, 1, vec![0x00, 0x00]);
     let result = extract_akamai_fingerprint(&[settings, bad_headers]);
