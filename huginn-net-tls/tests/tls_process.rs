@@ -77,10 +77,96 @@ fn test_grease_filtering() {
 }
 
 #[test]
+fn test_parse_client_hello_success() {
+    // Directly test the Ok(sig) path of parse_tls_client_hello with a well-formed
+    // TLS 1.2 ClientHello record built from scratch.
+    let cipher_suites: &[u16] = &[0x1301, 0x1302]; // TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384
+
+    let mut body = Vec::new();
+    body.extend_from_slice(&[0x03, 0x03]); // client_version: TLS 1.2
+    body.extend_from_slice(&[0u8; 32]); // random
+    body.push(0x00); // session_id_len = 0
+    let ciphers_len = (cipher_suites.len() * 2) as u16;
+    body.extend_from_slice(&ciphers_len.to_be_bytes());
+    for &suite in cipher_suites {
+        body.extend_from_slice(&suite.to_be_bytes());
+    }
+    body.push(0x01); // compression_methods_len = 1
+    body.push(0x00); // NULL compression
+    body.extend_from_slice(&0u16.to_be_bytes()); // extensions_len = 0
+
+    let body_len = body.len() as u32;
+    let mut handshake = vec![
+        0x01, // HandshakeType: ClientHello
+        ((body_len >> 16) & 0xff) as u8,
+        ((body_len >> 8) & 0xff) as u8,
+        (body_len & 0xff) as u8,
+    ];
+    handshake.extend_from_slice(&body);
+
+    let rec_len = handshake.len() as u16;
+    let mut record = vec![0x16, 0x03, 0x03, (rec_len >> 8) as u8, (rec_len & 0xff) as u8];
+    record.extend_from_slice(&handshake);
+
+    let result = parse_tls_client_hello(&record);
+    let sig =
+        result.unwrap_or_else(|e| panic!("Expected Ok(sig) for valid ClientHello, got: {e:?}"));
+    assert_eq!(sig.cipher_suites, cipher_suites);
+    assert!(sig.sni.is_none());
+    assert!(sig.alpn.is_none());
+    assert!(sig.extensions.is_empty());
+    let ja4 = sig.generate_ja4();
+    assert!(ja4.ja4_a.starts_with("t12i")); // TLS 1.2, no SNI
+}
+
+#[test]
 fn test_invalid_client_hello() {
     // Test parsing fails gracefully with invalid data
     let invalid_data = b"Not a TLS ClientHello";
     assert!(parse_tls_client_hello(invalid_data).is_err());
+}
+
+#[test]
+fn test_server_hello_returns_not_client_hello_error() {
+    // A valid TLS ServerHello should return Err(NotClientHello), not a parse error.
+    // This validates the semantic distinction: the record is well-formed TLS,
+    // but it is not the message type we are looking for.
+    let server_hello = {
+        // ServerHello body: version(2) + random(32) + session_id_len(1) + cipher(2) + compression(1) = 38 bytes
+        let mut body = Vec::new();
+        body.extend_from_slice(&[0x03, 0x03]); // TLS 1.2
+        body.extend_from_slice(&[0u8; 32]); // random
+        body.push(0x00); // session_id length = 0
+        body.extend_from_slice(&[0x13, 0x01]); // TLS_AES_128_GCM_SHA256
+        body.push(0x00); // compression NULL
+
+        let hs_len = body.len() as u32;
+        let mut handshake = vec![
+            0x02, // HandshakeType: ServerHello
+            ((hs_len >> 16) & 0xff) as u8,
+            ((hs_len >> 8) & 0xff) as u8,
+            (hs_len & 0xff) as u8,
+        ];
+        handshake.extend_from_slice(&body);
+
+        let rec_len = handshake.len() as u16;
+        let mut record = vec![
+            0x16, // ContentType: Handshake
+            0x03,
+            0x03, // TLS 1.2
+            (rec_len >> 8) as u8,
+            (rec_len & 0xff) as u8,
+        ];
+        record.extend_from_slice(&handshake);
+        record
+    };
+
+    let result = parse_tls_client_hello(&server_hello);
+    assert!(
+        matches!(result, Err(huginn_net_tls::error::HuginnNetTlsError::NotClientHello)),
+        "Expected NotClientHello for a ServerHello record, got: {:?}",
+        result
+    );
 }
 
 #[test]

@@ -14,6 +14,10 @@ pub enum HuginnNetTlsError {
     #[error("Misconfiguration: {0}")]
     Misconfiguration(String),
 
+    /// The TLS record is valid but does not contain a ClientHello message.
+    #[error("TLS record is not a ClientHello")]
+    NotClientHello,
+
     /// An unknown error occurred.
     #[error("Unknown error")]
     Unknown,

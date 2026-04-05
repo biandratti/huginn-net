@@ -1,11 +1,14 @@
 use crate::error::HuginnNetError;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::AnalysisConfig;
+use huginn_net_http::error::HuginnNetHttpError;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+use huginn_net_tcp::error::HuginnNetTcpError;
 use huginn_net_tcp::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
 use huginn_net_tcp::tcp_process::ObservableTCPPackage;
 use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
+use huginn_net_tls::error::HuginnNetTlsError;
 use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{ipv4::Ipv4Packet, ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
@@ -101,21 +104,15 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_http::http_process::process_http_ipv4(&packet, http_flows, http_processors)
                 .map_err(|e| match e {
-                    huginn_net_http::error::HuginnNetHttpError::Parse(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
-                    huginn_net_http::error::HuginnNetHttpError::UnsupportedProtocol(msg) => {
+                    HuginnNetHttpError::Parse(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetHttpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
-                    huginn_net_http::error::HuginnNetHttpError::Misconfiguration(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
-                    huginn_net_http::error::HuginnNetHttpError::NoSettingsFrame => {
+                    HuginnNetHttpError::Misconfiguration(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetHttpError::NoSettingsFrame => {
                         HuginnNetError::Parse("No SETTINGS frame found".to_string())
                     }
-                    huginn_net_http::error::HuginnNetHttpError::MalformedPseudoHeaders(msg) => {
-                        HuginnNetError::Parse(format!("Malformed pseudo-headers: {msg}"))
-                    }
+                    HuginnNetHttpError::MalformedPseudoHeaders(msg) => HuginnNetError::Parse(msg),
                 })
         } else {
             Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet data".to_string()))
@@ -129,21 +126,17 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv4(&packet, connection_tracker).map_err(
                 |e| match e {
-                    huginn_net_tcp::error::HuginnNetTcpError::Parse(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
-                    huginn_net_tcp::error::HuginnNetTcpError::UnsupportedProtocol(msg) => {
+                    HuginnNetTcpError::Parse(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetTcpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
-                    huginn_net_tcp::error::HuginnNetTcpError::InvalidTcpFlags(flags) => {
+                    HuginnNetTcpError::InvalidTcpFlags(flags) => {
                         HuginnNetError::InvalidTcpFlags(flags)
                     }
-                    huginn_net_tcp::error::HuginnNetTcpError::UnexpectedPackage(msg) => {
+                    HuginnNetTcpError::UnexpectedPackage(msg) => {
                         HuginnNetError::UnexpectedPackage(msg)
                     }
-                    huginn_net_tcp::error::HuginnNetTcpError::Misconfiguration(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
+                    HuginnNetTcpError::Misconfiguration(msg) => HuginnNetError::Parse(msg),
                 },
             )
         } else {
@@ -154,14 +147,15 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
     fn process_tls_with_data(data: &[u8]) -> Result<ObservableTlsPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_tls::process_tls_ipv4(&packet).map_err(|e| match e {
-                huginn_net_tls::error::HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
-                huginn_net_tls::error::HuginnNetTlsError::UnsupportedProtocol(msg) => {
+                HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
+                HuginnNetTlsError::UnsupportedProtocol(msg) => {
                     HuginnNetError::UnsupportedProtocol(msg)
                 }
-                huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
-                    HuginnNetError::Parse(msg)
+                HuginnNetTlsError::Misconfiguration(msg) => HuginnNetError::Parse(msg),
+                HuginnNetTlsError::NotClientHello => {
+                    HuginnNetError::Parse("TLS record is not a ClientHello".to_string())
                 }
-                huginn_net_tls::error::HuginnNetTlsError::Unknown => {
+                HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())
                 }
             })
@@ -192,21 +186,15 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_http::http_process::process_http_ipv6(&packet, http_flows, http_processors)
                 .map_err(|e| match e {
-                    huginn_net_http::error::HuginnNetHttpError::Parse(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
-                    huginn_net_http::error::HuginnNetHttpError::UnsupportedProtocol(msg) => {
+                    HuginnNetHttpError::Parse(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetHttpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
-                    huginn_net_http::error::HuginnNetHttpError::Misconfiguration(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
-                    huginn_net_http::error::HuginnNetHttpError::NoSettingsFrame => {
+                    HuginnNetHttpError::Misconfiguration(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetHttpError::NoSettingsFrame => {
                         HuginnNetError::Parse("No SETTINGS frame found".to_string())
                     }
-                    huginn_net_http::error::HuginnNetHttpError::MalformedPseudoHeaders(msg) => {
-                        HuginnNetError::Parse(format!("Malformed pseudo-headers: {msg}"))
-                    }
+                    HuginnNetHttpError::MalformedPseudoHeaders(msg) => HuginnNetError::Parse(msg),
                 })
         } else {
             Err(HuginnNetError::UnexpectedPackage("Invalid IPv6 packet data".to_string()))
@@ -220,21 +208,17 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv6(&packet, connection_tracker).map_err(
                 |e| match e {
-                    huginn_net_tcp::error::HuginnNetTcpError::Parse(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
-                    huginn_net_tcp::error::HuginnNetTcpError::UnsupportedProtocol(msg) => {
+                    HuginnNetTcpError::Parse(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetTcpError::UnsupportedProtocol(msg) => {
                         HuginnNetError::UnsupportedProtocol(msg)
                     }
-                    huginn_net_tcp::error::HuginnNetTcpError::InvalidTcpFlags(flags) => {
+                    HuginnNetTcpError::InvalidTcpFlags(flags) => {
                         HuginnNetError::InvalidTcpFlags(flags)
                     }
-                    huginn_net_tcp::error::HuginnNetTcpError::UnexpectedPackage(msg) => {
+                    HuginnNetTcpError::UnexpectedPackage(msg) => {
                         HuginnNetError::UnexpectedPackage(msg)
                     }
-                    huginn_net_tcp::error::HuginnNetTcpError::Misconfiguration(msg) => {
-                        HuginnNetError::Parse(msg)
-                    }
+                    HuginnNetTcpError::Misconfiguration(msg) => HuginnNetError::Parse(msg),
                 },
             )
         } else {
@@ -251,6 +235,9 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                 }
                 huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
                     HuginnNetError::Parse(msg)
+                }
+                huginn_net_tls::error::HuginnNetTlsError::NotClientHello => {
+                    HuginnNetError::Parse("TLS record is not a ClientHello".to_string())
                 }
                 huginn_net_tls::error::HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())

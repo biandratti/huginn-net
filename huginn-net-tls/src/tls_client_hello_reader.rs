@@ -1,3 +1,4 @@
+use crate::error::HuginnNetTlsError;
 use crate::tls::Signature;
 use crate::tls_process::parse_tls_client_hello;
 use tracing::{debug, error};
@@ -48,10 +49,7 @@ impl TlsClientHelloReader {
     /// - `Ok(Some(Signature))` if ClientHello was successfully parsed
     /// - `Ok(None)` if more data is needed or signature already parsed
     /// - `Err(HuginnNetTlsError)` if parsing fails
-    pub fn add_bytes(
-        &mut self,
-        data: &[u8],
-    ) -> Result<Option<Signature>, crate::error::HuginnNetTlsError> {
+    pub fn add_bytes(&mut self, data: &[u8]) -> Result<Option<Signature>, HuginnNetTlsError> {
         if self.signature.is_some() {
             debug!("Signature already parsed, skipping new bytes.");
             return Ok(None);
@@ -93,7 +91,7 @@ impl TlsClientHelloReader {
         if needed > 64 * 1024 {
             error!("TLS record too large ({} bytes), resetting buffer.", needed);
             self.reset(); // Clear buffer to avoid processing malicious large records
-            return Err(crate::error::HuginnNetTlsError::Parse("TLS record too large".to_string()));
+            return Err(HuginnNetTlsError::Parse("TLS record too large".to_string()));
         }
 
         debug!(
@@ -104,14 +102,14 @@ impl TlsClientHelloReader {
 
         // Parse ClientHello
         match parse_tls_client_hello(&self.buffer[..needed]) {
-            Ok(Some(signature)) => {
+            Ok(signature) => {
                 debug!("Successfully parsed TLS ClientHello from reassembled buffer");
                 self.signature = Some(signature.clone());
                 // Clear buffer after successful parse to prepare for next ClientHello
                 self.buffer.drain(..needed);
                 Ok(Some(signature))
             }
-            Ok(None) => {
+            Err(HuginnNetTlsError::NotClientHello) => {
                 debug!("TLS record is not a ClientHello (likely ServerHello or Application Data), ignoring");
                 self.reset();
                 Ok(None)
