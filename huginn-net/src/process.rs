@@ -114,7 +114,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                         HuginnNetError::Parse("No SETTINGS frame found".to_string())
                     }
                     huginn_net_http::error::HuginnNetHttpError::MalformedPseudoHeaders(msg) => {
-                        HuginnNetError::Parse(format!("Malformed pseudo-headers: {msg}"))
+                        HuginnNetError::Parse(msg)
                     }
                 })
         } else {
@@ -161,6 +161,9 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                 huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
                     HuginnNetError::Parse(msg)
                 }
+                huginn_net_tls::error::HuginnNetTlsError::NotClientHello => {
+                    HuginnNetError::Parse("TLS record is not a ClientHello".to_string())
+                }
                 huginn_net_tls::error::HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())
                 }
@@ -205,7 +208,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                         HuginnNetError::Parse("No SETTINGS frame found".to_string())
                     }
                     huginn_net_http::error::HuginnNetHttpError::MalformedPseudoHeaders(msg) => {
-                        HuginnNetError::Parse(format!("Malformed pseudo-headers: {msg}"))
+                        HuginnNetError::Parse(msg)
                     }
                 })
         } else {
@@ -251,6 +254,9 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                 }
                 huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
                     HuginnNetError::Parse(msg)
+                }
+                huginn_net_tls::error::HuginnNetTlsError::NotClientHello => {
+                    HuginnNetError::Parse("TLS record is not a ClientHello".to_string())
                 }
                 huginn_net_tls::error::HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())

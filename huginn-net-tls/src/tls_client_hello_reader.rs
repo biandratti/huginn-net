@@ -104,14 +104,14 @@ impl TlsClientHelloReader {
 
         // Parse ClientHello
         match parse_tls_client_hello(&self.buffer[..needed]) {
-            Ok(Some(signature)) => {
+            Ok(signature) => {
                 debug!("Successfully parsed TLS ClientHello from reassembled buffer");
                 self.signature = Some(signature.clone());
                 // Clear buffer after successful parse to prepare for next ClientHello
                 self.buffer.drain(..needed);
                 Ok(Some(signature))
             }
-            Ok(None) => {
+            Err(crate::error::HuginnNetTlsError::NotClientHello) => {
                 debug!("TLS record is not a ClientHello (likely ServerHello or Application Data), ignoring");
                 self.reset();
                 Ok(None)
