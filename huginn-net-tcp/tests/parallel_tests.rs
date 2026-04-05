@@ -87,11 +87,13 @@ fn test_hash_based_dispatch_consistency() {
 #[test]
 fn test_different_ips_distributed() {
     let (tx, _rx) = mpsc::channel();
-    let queue_size = 10;
+    // Small queue to guarantee drops regardless of worker processing speed.
+    // With queue_size=2 and 20 packets per IP across 4 workers, each worker
+    // overflows deterministically, making `dropped` a reliable cumulative signal.
+    let queue_size = 2;
     let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None));
 
-    // Create packets with different source IPs
-    let src_ips = vec![
+    let src_ips = [
         [192, 168, 1, 1],
         [192, 168, 1, 2],
         [192, 168, 1, 3],
@@ -102,34 +104,24 @@ fn test_different_ips_distributed() {
         [10, 0, 0, 4],
     ];
 
-    // Dispatch multiple packets per IP to increase chance queues aren't empty when checked
-    let mut total_dispatched = 0u64;
     for src_ip in &src_ips {
-        for _ in 0..5 {
-            if pool.dispatch(create_ipv4_packet(*src_ip)) == DispatchResult::Queued {
-                total_dispatched += 1;
-            }
+        for _ in 0..20 {
+            pool.dispatch(create_ipv4_packet(*src_ip));
         }
     }
 
     let stats = pool.stats();
 
-    // Verify packets were dispatched (some may have been dropped due to queue overflow)
-    assert_eq!(stats.total_dispatched, total_dispatched);
     assert!(stats.total_dispatched > 0, "Expected some packets to be dispatched");
 
-    // Packets should be distributed across workers
-    // Check queue_size OR dropped count, as packets may have been processed
-    // by the time stats() is called. The key is that multiple workers were involved.
-    let workers_with_activity = stats
-        .workers
-        .iter()
-        .filter(|w| w.queue_size > 0 || w.dropped > 0)
-        .count();
+    // Since we deliberately overflow each worker's queue, `dropped` is cumulative
+    // and not subject to timing — workers with drops > 0 received packets.
+    let workers_with_drops = stats.workers.iter().filter(|w| w.dropped > 0).count();
 
     assert!(
-        workers_with_activity > 1,
-        "Expected packets from different IPs to be distributed across multiple workers"
+        workers_with_drops > 1,
+        "Expected packets from different IPs to be distributed across multiple workers, \
+         but only {workers_with_drops} worker(s) had drops"
     );
 }
 
