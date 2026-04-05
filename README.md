@@ -4,13 +4,16 @@
   # Huginn Net - Multi-Protocol Passive Fingerprinting
 
   [![docs](https://docs.rs/huginn-net/badge.svg)](https://docs.rs/huginn-net)
-  [![crates.io](https://img.shields.io/crates/v/huginn-net.svg)](https://crates.io/crates/huginn-net)
-  [![Downloads](https://img.shields.io/crates/d/huginn-net.svg)](https://crates.io/crates/huginn-net)
   [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/biandratti/huginn-net#license)
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
   [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
   [![codecov](https://codecov.io/github/biandratti/huginn-net/graph/badge.svg?token=ZPZKFIR4YL)](https://codecov.io/github/biandratti/huginn-net)
+  [![huginn-net](https://img.shields.io/crates/d/huginn-net.svg?label=huginn-net)](https://crates.io/crates/huginn-net)
+  [![huginn-net-db](https://img.shields.io/crates/d/huginn-net-db.svg?label=huginn-net-db)](https://crates.io/crates/huginn-net-db)
+  [![huginn-net-tcp](https://img.shields.io/crates/d/huginn-net-tcp.svg?label=huginn-net-tcp)](https://crates.io/crates/huginn-net-tcp)
+  [![huginn-net-http](https://img.shields.io/crates/d/huginn-net-http.svg?label=huginn-net-http)](https://crates.io/crates/huginn-net-http)
+  [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
 </div>
 
 **Huginn Net combines p0f TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
@@ -77,15 +80,15 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 **For multi-protocol analysis:**
 ```toml
 [dependencies]
-huginn-net = "1.7.3"  # Complete analysis suite
+huginn-net = "1.7.4"  # Complete analysis suite
 ```
 
 **For specific protocols:**
 ```toml
 [dependencies]
-huginn-net-tcp = "1.7.3"   # TCP/OS fingerprinting only
-huginn-net-http = "1.7.3"  # HTTP analysis only  
-huginn-net-tls = "1.7.3"   # TLS/JA4 analysis only
+huginn-net-tcp = "1.7.4"   # TCP/OS fingerprinting only
+huginn-net-http = "1.7.4"  # HTTP analysis only
+huginn-net-tls = "1.7.4"   # TLS/JA4 analysis only
 ```
 
 ### Usage & Examples
