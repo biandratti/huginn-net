@@ -61,3 +61,22 @@ These are sent by the server in reply to the client's request, containing the re
 - **Server**: The identified web server matched from the database signature.
 - **Params**: Additional parameters or optional data included in the headers.
 - **Sig**: The HTTP response signature showing header order and values.
+
+## p0f HTTP vs Akamai HTTP/2
+
+The p0f HTTP signature described above has a fundamental limitation: **header order does not matter**. The `horder` field matches headers in sequence relative to each other, but the signature still passes even if other headers appear in between. This makes it a coarser fingerprint, more suited to general browser identification than precise client distinction.
+
+**Akamai HTTP/2 fingerprinting** works at a lower level and is considerably more precise. It captures four components of the raw HTTP/2 connection setup:
+
+- **SETTINGS frame parameters** and their order
+- **WINDOW_UPDATE** value
+- **PRIORITY frames** (stream weights and dependencies)
+- **Pseudo-header order** (`:method`, `:path`, `:authority`, `:scheme`)
+
+The pseudo-header order is the key distinction. HTTP/2 clients send pseudo-headers in a specific order that is determined by the implementation, not by the application layer. Chrome, Firefox, Safari, and curl each produce a different order, and that order is stable across versions. Because it sits below the application, it cannot be spoofed by simply reordering headers in user code.
+
+### Why a reverse proxy is required
+
+`huginn-net` can extract the Akamai fingerprint from raw packets captured on the wire. However, when traffic passes through a **TLS-terminating reverse proxy**, the proxy reassembles the HTTP/2 frames and forwards them to the backend. At that point the original pseudo-header order is lost.
+
+[huginn-proxy](https://github.com/biandratti/huginn-proxy) solves this by capturing the Akamai fingerprint **before** terminating TLS, then injecting it as a request header so the backend application receives it intact. This is the only reliable way to get the Akamai fingerprint in a typical production setup where your application sits behind a load balancer or proxy.
