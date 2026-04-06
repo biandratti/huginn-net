@@ -1,2 +1,21 @@
-.idea/
+# Astro / Node
+node_modules/
+dist/
+.astro/
+*.log
+.env
+.env.*
+.DS_Store
+
+# Rust build artifacts
 target/
+
+# IDE
+.idea/
+
+# Backup files
+*.bak
+
+# Generated at build time — committed only as fallback seed
+# Remove this line if you want to always commit crate-versions.json
+# src/data/crate-versions.json

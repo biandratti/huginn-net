@@ -1,0 +1,7 @@
+{
+  "huginn-net": "1.7.4",
+  "huginn-net-tcp": "1.7.4",
+  "huginn-net-http": "1.7.4",
+  "huginn-net-tls": "1.7.4",
+  "huginn-net-db": "1.7.4"
+}

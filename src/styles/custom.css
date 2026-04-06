@@ -1,0 +1,206 @@
+/* GitHub-dark adjacent surface + amber accent */
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #78350f;
+  --sl-color-accent: #f59e0b;
+  --sl-color-accent-high: #fde68a;
+  --sl-color-bg: #0d1117;
+  --sl-color-bg-nav: #0d1117;
+  --sl-color-bg-sidebar: #0d1117;
+  --sl-color-hairline: #30363d;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #fef3c7;
+  --sl-color-accent: #d97706;
+  --sl-color-accent-high: #92400e;
+}
+
+:root {
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+}
+
+/* Modular architecture diagram */
+.mod-arch {
+  text-align: center;
+  margin: 2em 0;
+}
+
+.mod-arch__name {
+  display: block;
+  font-family: var(--sl-font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.mod-arch__sub {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  opacity: 0.8;
+}
+
+.mod-arch__suite {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.85rem 1.1rem;
+  border: 2px solid #4caf50;
+  border-radius: 10px;
+  background-color: #f8f9fa;
+}
+
+.mod-arch__suite .mod-arch__name {
+  color: #4caf50;
+  font-size: 0.85rem;
+}
+
+.mod-arch__arrow {
+  margin: 0.9rem 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.mod-arch__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.625rem;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  align-items: stretch;
+}
+
+.mod-arch__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 8px;
+  border: 2px solid;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.mod-arch__col--tcp {
+  border-color: #2196f3;
+  background-color: #f0f8ff;
+}
+.mod-arch__col--tcp .mod-arch__name { color: #2196f3; }
+
+.mod-arch__col--http {
+  border-color: #ff9800;
+  background-color: #fff8f0;
+}
+.mod-arch__col--http .mod-arch__name { color: #ff9800; }
+
+.mod-arch__col--tls {
+  border-color: #9c27b0;
+  background-color: #f8f0ff;
+}
+.mod-arch__col--tls .mod-arch__name { color: #9c27b0; }
+
+.mod-arch__db {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #607d8b;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+}
+
+.mod-arch__db .mod-arch__name { color: #607d8b; }
+
+@media (max-width: 40rem) {
+  .mod-arch__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+:root[data-theme='dark'] .mod-arch__suite {
+  background-color: var(--sl-color-bg-sidebar);
+  border-color: #66bb6a;
+}
+:root[data-theme='dark'] .mod-arch__suite .mod-arch__name { color: #81c784; }
+
+:root[data-theme='dark'] .mod-arch__col--tcp {
+  background-color: rgba(33, 150, 243, 0.12);
+  border-color: #42a5f5;
+}
+:root[data-theme='dark'] .mod-arch__col--tcp .mod-arch__name { color: #90caf9; }
+
+:root[data-theme='dark'] .mod-arch__col--http {
+  background-color: rgba(255, 152, 0, 0.12);
+  border-color: #ffa726;
+}
+:root[data-theme='dark'] .mod-arch__col--http .mod-arch__name { color: #ffcc80; }
+
+:root[data-theme='dark'] .mod-arch__col--tls {
+  background-color: rgba(156, 39, 176, 0.14);
+  border-color: #ba68c8;
+}
+:root[data-theme='dark'] .mod-arch__col--tls .mod-arch__name { color: #ce93d8; }
+
+:root[data-theme='dark'] .mod-arch__db {
+  background-color: var(--sl-color-bg-sidebar);
+  border-color: #90a4ae;
+}
+:root[data-theme='dark'] .mod-arch__db .mod-arch__name { color: #b0bec5; }
+
+
+.doc-decision {
+  padding: 1.15rem 1.25rem;
+  border-radius: 10px;
+  margin: 1rem 0;
+  border: 1px solid var(--sl-color-hairline);
+  background: var(--sl-color-bg-nav);
+}
+
+.doc-decision h4 {
+  margin-top: 0;
+}
+
+@media (max-width: 50rem) {
+  main footer.sl-flex {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  main footer.sl-flex > .pagination-links {
+    order: -1;
+    margin-top: 0 !important;
+    width: 100%;
+  }
+
+  main footer.sl-flex > .meta {
+    margin-top: 0 !important;
+  }
+
+  .pagination-links {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem;
+    grid-template-columns: unset !important;
+  }
+
+  .pagination-links a {
+    min-height: 2.875rem;
+    padding: 0.875rem 1rem;
+    align-items: center;
+    -webkit-tap-highlight-color: rgba(245, 158, 11, 0.12);
+  }
+
+  .pagination-links a .link-title {
+    font-size: var(--sl-text-lg, 1.125rem);
+  }
+}

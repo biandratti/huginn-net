@@ -1,0 +1,148 @@
+---
+title: Ecosystem
+description: Huginn Net ecosystem of specialized crates for network protocol analysis.
+---
+
+The **Huginn Net ecosystem** consists of **5 specialized Rust crates** designed for maximum flexibility and performance in network protocol analysis. Each crate can be used independently or combined to create comprehensive network monitoring solutions.
+
+## Modular Architecture
+
+<div class="mod-arch">
+  <div class="mod-arch__suite">
+    <span class="mod-arch__name">huginn-net</span>
+    <span class="mod-arch__sub">Complete Suite</span>
+  </div>
+  <div class="mod-arch__arrow">↓ Uses ↓</div>
+  <div class="mod-arch__row not-content">
+    <div class="mod-arch__col mod-arch__col--tcp">
+      <span class="mod-arch__name">huginn-net-tcp</span>
+      <span class="mod-arch__sub">TCP analysis</span>
+    </div>
+    <div class="mod-arch__col mod-arch__col--http">
+      <span class="mod-arch__name">huginn-net-http</span>
+      <span class="mod-arch__sub">HTTP analysis</span>
+    </div>
+    <div class="mod-arch__col mod-arch__col--tls">
+      <span class="mod-arch__name">huginn-net-tls</span>
+      <span class="mod-arch__sub">TLS analysis</span>
+    </div>
+  </div>
+  <div class="mod-arch__arrow">↓ TCP & HTTP use ↓</div>
+  <div class="mod-arch__db">
+    <span class="mod-arch__name">huginn-net-db</span>
+    <span class="mod-arch__sub">Database Engine</span>
+  </div>
+</div>
+
+## Crates Overview
+
+### huginn-net - Complete Analysis Suite
+
+**Purpose:** Multi-protocol orchestrator that combines TCP, HTTP, and TLS analysis into a unified interface.
+
+**Use when:** You need comprehensive network analysis across multiple protocols.
+
+```toml
+[dependencies]
+huginn-net = "{{v:huginn-net}}"
+```
+
+**Key Features:**
+
+- Unified API for all protocols
+- Automatic protocol detection
+- Comprehensive result aggregation
+- Live capture and PCAP analysis
+- End-to-end TLS parsing and JA4, plus HTTP/2 and Akamai-style fingerprints where applicable
+
+### huginn-net-tcp - TCP Analysis & OS Detection
+
+**Purpose:** TCP fingerprinting and OS detection using p0f-style signatures.
+
+**Use when:** You only need TCP analysis, OS detection, MTU calculation, or uptime estimation.
+
+```toml
+[dependencies]
+huginn-net-tcp = "{{v:huginn-net-tcp}}"
+```
+
+**Key Features:**
+
+- OS fingerprinting (Windows, Linux, macOS, etc.)
+- MTU detection and link type identification
+- System uptime calculation from TCP timestamps
+- Quality scoring for match confidence
+
+### huginn-net-http - HTTP Analysis & Browser Detection
+
+**Purpose:** HTTP request/response analysis for browser and web server identification.
+
+**Use when:** You only need HTTP analysis, browser detection, or web server identification.
+
+```toml
+[dependencies]
+huginn-net-http = "{{v:huginn-net-http}}"
+```
+
+**Key Features:**
+
+- Browser detection (Chrome, Firefox, Safari, etc.)
+- Web server identification (nginx, Apache, IIS)
+- Language preference extraction
+- HTTP/1.x and HTTP/2 frame parsing
+- **Akamai HTTP/2 fingerprinting:** extract fingerprints from SETTINGS, WINDOW_UPDATE, PRIORITY, and HEADERS (Blackhat EU 2017 spec); the standalone `Http2FingerprintExtractor` preserves pseudo-header order for TLS-termination scenarios
+
+### huginn-net-tls - JA4 TLS Client Fingerprinting
+
+**Purpose:** TLS client fingerprinting using the official JA4 specification.
+
+**Use when:** You only need TLS analysis, JA4 fingerprinting, or client identification.
+
+```toml
+[dependencies]
+huginn-net-tls = "{{v:huginn-net-tls}}"
+```
+
+**Key Features:**
+
+- **TLS parsers:** ClientHello and record-level parsing (via `tls-parser`) for reliable JA4 inputs
+- JA4 fingerprinting (FoxIO specification)
+- TLS 1.0-1.3 and SSL 2.0/3.0 support
+- GREASE filtering per RFC 8701
+- SNI and ALPN extraction
+
+### huginn-net-db - Database Parser & Matching Engine
+
+**Purpose:** P0f database parsing and signature matching engine.
+
+**Use when:** You need custom signature parsing or advanced database operations.
+
+**Note:** This crate is automatically included with TCP and HTTP crates. Most users don't need to use it directly.
+
+```toml
+[dependencies]
+huginn-net-db = "{{v:huginn-net-db}}"
+```
+
+**Key Features:**
+
+- P0f signature database parsing
+- Distance-based quality scoring
+- Extensible matching algorithms
+- Custom signature support
+
+Dependency versions in the snippets above match each crate’s published `max_version` on [crates.io](https://crates.io/) at site build time.
+
+## Which Crate Should I Use?
+
+<div class="doc-decision">
+
+#### Decision Guide
+
+- **Need everything?** → Use `huginn-net`
+- **Only OS detection?** → Use `huginn-net-tcp`
+- **Only browser detection?** → Use `huginn-net-http`
+- **Only TLS analysis?** → Use `huginn-net-tls`
+- **Custom signatures?** → Use `huginn-net-db` directly
+
+</div>
