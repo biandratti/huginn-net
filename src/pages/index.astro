@@ -4,6 +4,8 @@ import '../styles/landing.css';
 const base = import.meta.env.BASE_URL;
 const docsOverview = `${base}docs/overview/`;
 const github = 'https://github.com/biandratti/huginn-net';
+const licenseMit = `${github}/blob/master/LICENSE-MIT`;
+const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
 ---
 
 <!DOCTYPE html>
@@ -203,6 +205,12 @@ huginn-net-tls = "<span class="huginn_net_tls_version">…</span>"   # TLS/JA4 a
           <a href={docsOverview}>Documentation</a>
           ·
           <a href={github}>GitHub</a>
+        </p>
+        <p>
+          Dual-licensed under
+          <a href={licenseMit}>MIT</a>
+          and
+          <a href={licenseApache}>Apache 2.0</a>.
         </p>
       </footer>
     </div>
