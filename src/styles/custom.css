@@ -204,3 +204,24 @@
     font-size: var(--sl-text-lg, 1.125rem);
   }
 }
+
+/* Global docs footer (see StarlightSiteFooter.astro) */
+.docs-site-footer {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--sl-color-hairline);
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}
+
+.docs-site-footer p {
+  margin: 0.35rem 0;
+}
+
+.docs-site-footer p:first-child {
+  margin-top: 0;
+}
+
+.docs-site-footer p:last-child {
+  margin-bottom: 0;
+}
