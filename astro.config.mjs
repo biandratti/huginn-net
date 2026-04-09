@@ -72,11 +72,11 @@ export default defineConfig({
         },
       ],
       favicon: '/favicon.ico',
-      editLink: {
-        baseUrl: 'https://github.com/biandratti/huginn-net/edit/gh-pages/',
-      },
       lastUpdated: true,
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 4 },
+      components: {
+        Footer: './src/components/StarlightSiteFooter.astro',
+      },
       sidebar: [
         { label: 'Home', link: '/' },
         {
