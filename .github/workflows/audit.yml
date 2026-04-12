@@ -3,9 +3,6 @@ name: Security audit
 on:
   push:
     branches: [ "master" ]
-    paths:
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
   schedule:
     - cron: '0 2 * * *'
 
@@ -26,6 +23,10 @@ jobs:
 
   cargo-audit:
     name: Cargo Audit (Workspace)
+    permissions:
+      checks: write
+      contents: read
+      issues: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
