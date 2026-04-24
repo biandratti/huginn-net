@@ -49,21 +49,12 @@ pub enum DatalinkFormat {
 /// * `IpPacket` - The parsed IP packet or None if no valid format found
 pub fn parse_packet(packet: &[u8]) -> IpPacket<'_> {
     // Strategy 1: Try Ethernet first (most common)
-    if let Some(parsed) = try_ethernet_format(packet) {
-        return parsed;
-    }
-
-    // Strategy 2: Try Raw IP (no Ethernet header)
-    if let Some(parsed) = try_raw_ip_format(packet) {
-        return parsed;
-    }
-
-    // Strategy 3: Try NULL datalink (skip 4-byte header)
-    if let Some(parsed) = try_null_datalink_format(packet) {
-        return parsed;
-    }
-
-    IpPacket::None
+    try_ethernet_format(packet)
+        // Strategy 2: Try Raw IP (no Ethernet header)
+        .or_else(|| try_raw_ip_format(packet))
+        // Strategy 3: Try NULL datalink (skip 4-byte header)
+        .or_else(|| try_null_datalink_format(packet))
+        .unwrap_or(IpPacket::None)
 }
 
 /// Try parsing as Ethernet frame
@@ -77,17 +68,13 @@ fn try_ethernet_format(packet: &[u8]) -> Option<IpPacket<'_>> {
     let ip_data = &packet[14..]; // Skip 14-byte Ethernet header
 
     match ethernet.get_ethertype() {
-        EtherTypes::Ipv4 => {
-            if Ipv4Packet::new(ip_data).is_some() {
-                debug!("Parsed Ethernet IPv4 packet");
-                return Some(IpPacket::Ipv4(ip_data));
-            }
+        EtherTypes::Ipv4 if Ipv4Packet::new(ip_data).is_some() => {
+            debug!("Parsed Ethernet IPv4 packet");
+            return Some(IpPacket::Ipv4(ip_data));
         }
-        EtherTypes::Ipv6 => {
-            if Ipv6Packet::new(ip_data).is_some() {
-                debug!("Parsed Ethernet IPv6 packet");
-                return Some(IpPacket::Ipv6(ip_data));
-            }
+        EtherTypes::Ipv6 if Ipv6Packet::new(ip_data).is_some() => {
+            debug!("Parsed Ethernet IPv6 packet");
+            return Some(IpPacket::Ipv6(ip_data));
         }
         _ => {}
     }
@@ -104,17 +91,13 @@ fn try_raw_ip_format(packet: &[u8]) -> Option<IpPacket<'_>> {
     // Check IP version in first 4 bits
     let version = (packet[0] & 0xF0) >> 4;
     match version {
-        4 => {
-            if Ipv4Packet::new(packet).is_some() {
-                debug!("Parsed Raw IPv4 packet");
-                return Some(IpPacket::Ipv4(packet));
-            }
+        4 if Ipv4Packet::new(packet).is_some() => {
+            debug!("Parsed Raw IPv4 packet");
+            return Some(IpPacket::Ipv4(packet));
         }
-        6 => {
-            if Ipv6Packet::new(packet).is_some() {
-                debug!("Parsed Raw IPv6 packet");
-                return Some(IpPacket::Ipv6(packet));
-            }
+        6 if Ipv6Packet::new(packet).is_some() => {
+            debug!("Parsed Raw IPv6 packet");
+            return Some(IpPacket::Ipv6(packet));
         }
         _ => {}
     }
@@ -133,17 +116,13 @@ fn try_null_datalink_format(packet: &[u8]) -> Option<IpPacket<'_>> {
     let version = (ip_data[0] & 0xF0) >> 4;
 
     match version {
-        4 => {
-            if Ipv4Packet::new(ip_data).is_some() {
-                debug!("Parsed NULL datalink IPv4 packet");
-                return Some(IpPacket::Ipv4(ip_data));
-            }
+        4 if Ipv4Packet::new(ip_data).is_some() => {
+            debug!("Parsed NULL datalink IPv4 packet");
+            return Some(IpPacket::Ipv4(ip_data));
         }
-        6 => {
-            if Ipv6Packet::new(ip_data).is_some() {
-                debug!("Parsed NULL datalink IPv6 packet");
-                return Some(IpPacket::Ipv6(ip_data));
-            }
+        6 if Ipv6Packet::new(ip_data).is_some() => {
+            debug!("Parsed NULL datalink IPv6 packet");
+            return Some(IpPacket::Ipv6(ip_data));
         }
         _ => {}
     }
