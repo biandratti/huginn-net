@@ -49,21 +49,12 @@ pub enum DatalinkFormat {
 /// * `IpPacket` - The parsed IP packet or None if no valid format found
 pub fn parse_packet(packet: &[u8]) -> IpPacket<'_> {
     // Strategy 1: Try Ethernet first (most common)
-    if let Some(parsed) = try_ethernet_format(packet) {
-        return parsed;
-    }
-
-    // Strategy 2: Try Raw IP (no Ethernet header)
-    if let Some(parsed) = try_raw_ip_format(packet) {
-        return parsed;
-    }
-
-    // Strategy 3: Try NULL datalink (skip 4-byte header)
-    if let Some(parsed) = try_null_datalink_format(packet) {
-        return parsed;
-    }
-
-    IpPacket::None
+    try_ethernet_format(packet)
+        // Strategy 2: Try Raw IP (no Ethernet header)
+        .or_else(|| try_raw_ip_format(packet))
+        // Strategy 3: Try NULL datalink (skip 4-byte header)
+        .or_else(|| try_null_datalink_format(packet))
+        .unwrap_or(IpPacket::None)
 }
 
 /// Try parsing as Ethernet frame
