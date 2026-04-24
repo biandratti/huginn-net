@@ -5,6 +5,7 @@ on:
     branches: [ "master" ]
   schedule:
     - cron: '0 2 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,3 +34,33 @@ jobs:
     - uses: rustsec/audit-check@v2.0.0
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Close advisory issues only when their specific RUSTSEC ID is no longer reported.
+      # rustsec/audit-check leaves cargo-audit installed, so we reuse it here.
+    - name: Close resolved advisory issues
+      if: success()
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Collect advisory IDs still active against the current Cargo.lock
+        ACTIVE=$(cargo audit --json 2>/dev/null \
+          | jq -r '.vulnerabilities.list[].advisory.id // empty' 2>/dev/null || true)
+        echo "Still active: ${ACTIVE:-none}"
+
+        gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+          --jq '.[] | select(.title | test("^RUSTSEC-")) | "\(.number) \(.title)"' \
+        | while IFS= read -r line; do
+            number=$(echo "$line" | cut -d' ' -f1)
+            title=$(echo "$line"  | cut -d' ' -f2-)
+            advisory=$(echo "$title" | grep -oE 'RUSTSEC-[0-9]+-[0-9]+')
+            [ -z "$advisory" ] && continue
+
+            if echo "$ACTIVE" | grep -qF "$advisory"; then
+              echo "Issue #$number ($advisory) still active — leaving open"
+            else
+              echo "Closing issue #$number — $advisory no longer in cargo audit output"
+              gh issue close "$number" \
+                --comment "Resolved: \`$advisory\` is no longer reported by \`cargo audit\` on this commit. Closing automatically."
+            fi
+          done
+
