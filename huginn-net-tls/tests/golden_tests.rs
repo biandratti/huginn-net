@@ -37,6 +37,7 @@ struct TlsSnapshot {
     has_elliptic_curves: bool,
     ja4: Ja4Snapshot,
     ja4_original: Ja4Snapshot,
+    ja4_stable_v1: Ja4Snapshot,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -213,6 +214,33 @@ fn assert_connection_matches_snapshot(
         expected.tls.ja4_original.raw,
         "Connection {connection_index}: JA4 original raw mismatch"
     );
+
+    assert_eq!(
+        actual.sig.ja4_stable_v1.full.to_string(),
+        expected.tls.ja4_stable_v1.full,
+        "Connection {connection_index}: JA4 stable v1 full fingerprint mismatch"
+    );
+
+    assert_eq!(
+        actual.sig.ja4_stable_v1.ja4_a, expected.tls.ja4_stable_v1.ja4_a,
+        "Connection {connection_index}: JA4 stable v1 ja4_a mismatch"
+    );
+
+    assert_eq!(
+        actual.sig.ja4_stable_v1.ja4_b, expected.tls.ja4_stable_v1.ja4_b,
+        "Connection {connection_index}: JA4 stable v1 ja4_b mismatch"
+    );
+
+    assert_eq!(
+        actual.sig.ja4_stable_v1.ja4_c, expected.tls.ja4_stable_v1.ja4_c,
+        "Connection {connection_index}: JA4 stable v1 ja4_c mismatch"
+    );
+
+    assert_eq!(
+        actual.sig.ja4_stable_v1.raw.to_string(),
+        expected.tls.ja4_stable_v1.raw,
+        "Connection {connection_index}: JA4 stable v1 raw mismatch"
+    );
 }
 
 /// Golden test: compares PCAP analysis output against known-good JSON snapshots
@@ -239,6 +267,7 @@ fn test_golden_pcap_snapshots() {
     let golden_test_cases = [
         "tls12.pcap",
         "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
+        "macos_safari_tls_extensions.pcap", // Safari on macOS with ephemeral extensions varying per connection
     ];
 
     for pcap_file in golden_test_cases {
