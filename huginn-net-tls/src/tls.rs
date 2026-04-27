@@ -34,6 +34,8 @@ impl fmt::Display for TlsVersion {
 pub enum Ja4Fingerprint {
     Sorted(String),
     Unsorted(String),
+    /// JA4 with ephemeral extensions excluded
+    StableV1(String),
 }
 
 impl fmt::Display for Ja4Fingerprint {
@@ -41,6 +43,7 @@ impl fmt::Display for Ja4Fingerprint {
         match self {
             Ja4Fingerprint::Sorted(s) => write!(f, "{s}"),
             Ja4Fingerprint::Unsorted(s) => write!(f, "{s}"),
+            Ja4Fingerprint::StableV1(s) => write!(f, "{s}"),
         }
     }
 }
@@ -50,6 +53,7 @@ impl Ja4Fingerprint {
         match self {
             Ja4Fingerprint::Sorted(_) => "ja4",
             Ja4Fingerprint::Unsorted(_) => "ja4_o",
+            Ja4Fingerprint::StableV1(_) => "ja4_s1",
         }
     }
 
@@ -57,6 +61,7 @@ impl Ja4Fingerprint {
         match self {
             Ja4Fingerprint::Sorted(s) => s,
             Ja4Fingerprint::Unsorted(s) => s,
+            Ja4Fingerprint::StableV1(s) => s,
         }
     }
 }
@@ -66,6 +71,8 @@ impl Ja4Fingerprint {
 pub enum Ja4RawFingerprint {
     Sorted(String),
     Unsorted(String),
+    /// JA4 raw with ephemeral extensions excluded
+    StableV1(String),
 }
 
 impl fmt::Display for Ja4RawFingerprint {
@@ -73,6 +80,7 @@ impl fmt::Display for Ja4RawFingerprint {
         match self {
             Ja4RawFingerprint::Sorted(s) => write!(f, "{s}"),
             Ja4RawFingerprint::Unsorted(s) => write!(f, "{s}"),
+            Ja4RawFingerprint::StableV1(s) => write!(f, "{s}"),
         }
     }
 }
@@ -82,6 +90,7 @@ impl Ja4RawFingerprint {
         match self {
             Ja4RawFingerprint::Sorted(_) => "ja4_r",
             Ja4RawFingerprint::Unsorted(_) => "ja4_ro",
+            Ja4RawFingerprint::StableV1(_) => "ja4_rs1",
         }
     }
 
@@ -89,6 +98,7 @@ impl Ja4RawFingerprint {
         match self {
             Ja4RawFingerprint::Sorted(s) => s,
             Ja4RawFingerprint::Unsorted(s) => s,
+            Ja4RawFingerprint::StableV1(s) => s,
         }
     }
 }
@@ -125,6 +135,21 @@ fn filter_grease_values(values: &[u16]) -> Vec<u16> {
     values
         .iter()
         .filter(|&&v| !is_grease_value(v))
+        .copied()
+        .collect()
+}
+
+/// Ephemeral TLS extensions that may vary per-connection and break JA4 stability
+/// - 0x0023: session_ticket (RFC 9149)
+/// - 0x0029: pre_shared_key (RFC 8446)
+/// - 0x0015: padding (RFC 7685)
+pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 3] = [0x0023, 0x0029, 0x0015];
+
+/// Filter out ephemeral extension IDs from a list
+fn filter_ephemeral_extensions(values: &[u16]) -> Vec<u16> {
+    values
+        .iter()
+        .filter(|&&v| !EPHEMERAL_TLS_EXTENSIONS.contains(&v))
         .copied()
         .collect()
 }
@@ -182,22 +207,56 @@ pub fn hash12(input: &str) -> String {
 
 impl Signature {
     /// Generate JA4 fingerprint according to official FoxIO specification
-    /// Returns sorted version by default
     pub fn generate_ja4(&self) -> Ja4Payload {
-        self.generate_ja4_with_order(false)
+        let (ja4_a, ja4_b, ja4_c, hashed, raw) = self.compute_ja4(false, false);
+        Ja4Payload {
+            ja4_a,
+            ja4_b,
+            ja4_c,
+            full: Ja4Fingerprint::Sorted(hashed),
+            raw: Ja4RawFingerprint::Sorted(raw),
+        }
     }
 
-    /// Generate JA4 fingerprint with original order (unsorted)
+    /// Generate JA4 fingerprint with original order
     pub fn generate_ja4_original(&self) -> Ja4Payload {
-        self.generate_ja4_with_order(true)
+        let (ja4_a, ja4_b, ja4_c, hashed, raw) = self.compute_ja4(true, false);
+        Ja4Payload {
+            ja4_a,
+            ja4_b,
+            ja4_c,
+            full: Ja4Fingerprint::Unsorted(hashed),
+            raw: Ja4RawFingerprint::Unsorted(raw),
+        }
     }
 
-    /// Generate JA4 fingerprint with specified order
-    /// original_order: true for unsorted (original), false for sorted
-    pub fn generate_ja4_with_order(&self, original_order: bool) -> Ja4Payload {
+    /// Generate JA4 fingerprint with ephemeral extensions excluded (sorted)
+    pub fn generate_ja4_stable_v1(&self) -> Ja4Payload {
+        let (ja4_a, ja4_b, ja4_c, hashed, raw) = self.compute_ja4(false, true);
+        Ja4Payload {
+            ja4_a,
+            ja4_b,
+            ja4_c,
+            full: Ja4Fingerprint::StableV1(hashed),
+            raw: Ja4RawFingerprint::StableV1(raw),
+        }
+    }
+
+    /// Core JA4 computation. Returns (ja4_a, ja4_b_raw, ja4_c_raw, ja4_hashed, ja4_raw_full)
+    fn compute_ja4(
+        &self,
+        original_order: bool,
+        exclude_ephemeral: bool,
+    ) -> (String, String, String, String, String) {
+        let extensions_after_exclude = if exclude_ephemeral {
+            filter_ephemeral_extensions(&self.extensions)
+        } else {
+            self.extensions.clone()
+        };
+
         // Filter out GREASE values from cipher suites for JA4_b and JA4_c processing
         let filtered_ciphers = filter_grease_values(&self.cipher_suites);
-        let filtered_extensions = filter_grease_values(&self.extensions);
+        let filtered_extensions = filter_grease_values(&extensions_after_exclude);
         let filtered_sig_algs = filter_grease_values(&self.signature_algorithms);
 
         // Protocol marker (always 't' for TLS, 'q' for QUIC)
@@ -212,8 +271,8 @@ impl Signature {
         // Cipher count in 2-digit decimal (max 99) - use ORIGINAL count before filtering
         let cipher_count = format!("{:02}", self.cipher_suites.len().min(99));
 
-        // Extension count in 2-digit decimal (max 99) - use ORIGINAL count before filtering
-        let extension_count = format!("{:02}", self.extensions.len().min(99));
+        // Extension count in 2-digit decimal (max 99) - after exclusions, before GREASE filtering
+        let extension_count = format!("{:02}", extensions_after_exclude.len().min(99));
 
         // ALPN first and last characters
         let (alpn_first, alpn_last) = match &self.alpn {
@@ -281,25 +340,6 @@ impl Signature {
         // JA4 raw: ja4_a + "_" + ja4_b_raw + "_" + ja4_c_raw
         let ja4_raw_full = format!("{ja4_a}_{ja4_b_raw}_{ja4_c_raw}");
 
-        // Create the appropriate enum variants based on order
-        let ja4_fingerprint = if original_order {
-            Ja4Fingerprint::Unsorted(ja4_hashed)
-        } else {
-            Ja4Fingerprint::Sorted(ja4_hashed)
-        };
-
-        let ja4_raw_fingerprint = if original_order {
-            Ja4RawFingerprint::Unsorted(ja4_raw_full)
-        } else {
-            Ja4RawFingerprint::Sorted(ja4_raw_full)
-        };
-
-        Ja4Payload {
-            ja4_a,
-            ja4_b: ja4_b_raw,
-            ja4_c: ja4_c_raw,
-            full: ja4_fingerprint,
-            raw: ja4_raw_fingerprint,
-        }
+        (ja4_a, ja4_b_raw, ja4_c_raw, ja4_hashed, ja4_raw_full)
     }
 }

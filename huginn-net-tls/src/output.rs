@@ -37,7 +37,9 @@ impl fmt::Display for TlsClientOutput {
               JA4:     {}\n\
               JA4_r:   {}\n\
               JA4_o:   {}\n\
-              JA4_or:  {}\n",
+              JA4_or:  {}\n\
+              JA4_s1:  {}\n\
+              JA4_s1r: {}\n",
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -48,6 +50,8 @@ impl fmt::Display for TlsClientOutput {
             self.sig.ja4.raw.value(),
             self.sig.ja4_original.full.value(),
             self.sig.ja4_original.raw.value(),
+            self.sig.ja4_stable_v1.full.value(),
+            self.sig.ja4_stable_v1.raw.value(),
         )
     }
 }
