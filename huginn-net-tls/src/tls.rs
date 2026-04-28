@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::fmt::{self};
 
 /// TLS version for fingerprinting
@@ -154,6 +155,34 @@ fn filter_ephemeral_extensions(values: &[u16]) -> Vec<u16> {
         .collect()
 }
 
+enum Ja4Mode {
+    Sorted,
+    Unsorted,
+    StableV1,
+}
+
+impl Ja4Mode {
+    fn is_original_order(&self) -> bool {
+        matches!(self, Ja4Mode::Unsorted)
+    }
+
+    fn is_exclude_ephemeral(&self) -> bool {
+        matches!(self, Ja4Mode::StableV1)
+    }
+
+    fn into_fingerprints(self, hashed: String, raw: String) -> (Ja4Fingerprint, Ja4RawFingerprint) {
+        match self {
+            Ja4Mode::Sorted => (Ja4Fingerprint::Sorted(hashed), Ja4RawFingerprint::Sorted(raw)),
+            Ja4Mode::Unsorted => {
+                (Ja4Fingerprint::Unsorted(hashed), Ja4RawFingerprint::Unsorted(raw))
+            }
+            Ja4Mode::StableV1 => {
+                (Ja4Fingerprint::StableV1(hashed), Ja4RawFingerprint::StableV1(raw))
+            }
+        }
+    }
+}
+
 /// TLS ClientHello Signature
 #[derive(Debug, Clone, PartialEq)]
 pub struct Signature {
@@ -208,50 +237,27 @@ pub fn hash12(input: &str) -> String {
 impl Signature {
     /// Generate JA4 fingerprint according to official FoxIO specification
     pub fn generate_ja4(&self) -> Ja4Payload {
-        let (ja4_a, ja4_b, ja4_c, hashed, raw) = self.compute_ja4(false, false);
-        Ja4Payload {
-            ja4_a,
-            ja4_b,
-            ja4_c,
-            full: Ja4Fingerprint::Sorted(hashed),
-            raw: Ja4RawFingerprint::Sorted(raw),
-        }
+        self.compute_ja4(Ja4Mode::Sorted)
     }
 
     /// Generate JA4 fingerprint with original order
     pub fn generate_ja4_original(&self) -> Ja4Payload {
-        let (ja4_a, ja4_b, ja4_c, hashed, raw) = self.compute_ja4(true, false);
-        Ja4Payload {
-            ja4_a,
-            ja4_b,
-            ja4_c,
-            full: Ja4Fingerprint::Unsorted(hashed),
-            raw: Ja4RawFingerprint::Unsorted(raw),
-        }
+        self.compute_ja4(Ja4Mode::Unsorted)
     }
 
     /// Generate JA4 fingerprint with ephemeral extensions excluded (sorted)
     pub fn generate_ja4_stable_v1(&self) -> Ja4Payload {
-        let (ja4_a, ja4_b, ja4_c, hashed, raw) = self.compute_ja4(false, true);
-        Ja4Payload {
-            ja4_a,
-            ja4_b,
-            ja4_c,
-            full: Ja4Fingerprint::StableV1(hashed),
-            raw: Ja4RawFingerprint::StableV1(raw),
-        }
+        self.compute_ja4(Ja4Mode::StableV1)
     }
 
     /// Core JA4 computation. Returns (ja4_a, ja4_b_raw, ja4_c_raw, ja4_hashed, ja4_raw_full)
-    fn compute_ja4(
-        &self,
-        original_order: bool,
-        exclude_ephemeral: bool,
-    ) -> (String, String, String, String, String) {
-        let extensions_after_exclude = if exclude_ephemeral {
-            filter_ephemeral_extensions(&self.extensions)
+    fn compute_ja4(&self, mode: Ja4Mode) -> Ja4Payload {
+        let original_order = mode.is_original_order();
+
+        let extensions_after_exclude: Cow<[u16]> = if mode.is_exclude_ephemeral() {
+            Cow::Owned(filter_ephemeral_extensions(&self.extensions))
         } else {
-            self.extensions.clone()
+            Cow::Borrowed(&self.extensions)
         };
 
         // Filter out GREASE values from cipher suites for JA4_b and JA4_c processing
@@ -330,6 +336,9 @@ impl Signature {
             format!("{extensions_str}_{sig_algs_str}")
         };
 
+        // JA4 raw: ja4_a + "_" + ja4_b_raw + "_" + ja4_c_raw
+        let ja4_raw_full = format!("{ja4_a}_{ja4_b_raw}_{ja4_c_raw}");
+
         // Generate hashes for JA4_b and JA4_c (first 12 characters of SHA256)
         let ja4_b_hash = hash12(&ja4_b_raw);
         let ja4_c_hash = hash12(&ja4_c_raw);
@@ -337,9 +346,14 @@ impl Signature {
         // JA4 hashed: ja4_a + "_" + ja4_b_hash + "_" + ja4_c_hash
         let ja4_hashed = format!("{ja4_a}_{ja4_b_hash}_{ja4_c_hash}");
 
-        // JA4 raw: ja4_a + "_" + ja4_b_raw + "_" + ja4_c_raw
-        let ja4_raw_full = format!("{ja4_a}_{ja4_b_raw}_{ja4_c_raw}");
-
-        (ja4_a, ja4_b_raw, ja4_c_raw, ja4_hashed, ja4_raw_full)
+        let (ja4_fingerprint, ja4_raw_fingerprint) =
+            mode.into_fingerprints(ja4_hashed, ja4_raw_full);
+        Ja4Payload {
+            ja4_a,
+            ja4_b: ja4_b_raw,
+            ja4_c: ja4_c_raw,
+            full: ja4_fingerprint,
+            raw: ja4_raw_fingerprint,
+        }
     }
 }
