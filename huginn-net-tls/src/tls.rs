@@ -140,19 +140,37 @@ fn filter_grease_values(values: &[u16]) -> Vec<u16> {
         .collect()
 }
 
-/// Ephemeral TLS extensions that may vary per-connection and break JA4 stability
-/// - 0x0023: session_ticket (RFC 9149)
-/// - 0x0029: pre_shared_key (RFC 8446)
-/// - 0x0015: padding (RFC 7685)
-pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 3] = [0x0023, 0x0029, 0x0015];
+/// TLS Session Ticket extension (RFC 9149): ephemeral, varies per-connection
+pub const TLS_EXT_SESSION_TICKET: u16 = 0x0023;
+/// Pre-Shared Key extension (RFC 8446): ephemeral, varies per-connection
+pub const TLS_EXT_PRE_SHARED_KEY: u16 = 0x0029;
+/// Padding extension (RFC 7685): ephemeral, varies per-connection
+pub const TLS_EXT_PADDING: u16 = 0x0015;
 
-/// Filter out ephemeral extension IDs from a list
-fn filter_ephemeral_extensions(values: &[u16]) -> Vec<u16> {
-    values
+/// Ephemeral TLS extensions that may vary per-connection and break JA4 stability
+pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 3] =
+    [TLS_EXT_SESSION_TICKET, TLS_EXT_PRE_SHARED_KEY, TLS_EXT_PADDING];
+
+fn filter_ephemeral_extensions(values: &[u16]) -> Cow<'_, [u16]> {
+    if values
         .iter()
-        .filter(|&&v| !EPHEMERAL_TLS_EXTENSIONS.contains(&v))
-        .copied()
-        .collect()
+        .any(|v| matches!(v, &TLS_EXT_SESSION_TICKET | &TLS_EXT_PRE_SHARED_KEY | &TLS_EXT_PADDING))
+    {
+        Cow::Owned(
+            values
+                .iter()
+                .copied()
+                .filter(|v| {
+                    !matches!(
+                        v,
+                        &TLS_EXT_SESSION_TICKET | &TLS_EXT_PRE_SHARED_KEY | &TLS_EXT_PADDING
+                    )
+                })
+                .collect(),
+        )
+    } else {
+        Cow::Borrowed(values)
+    }
 }
 
 enum Ja4Mode {
@@ -255,7 +273,7 @@ impl Signature {
         let original_order = mode.is_original_order();
 
         let extensions_after_exclude: Cow<[u16]> = if mode.is_exclude_ephemeral() {
-            Cow::Owned(filter_ephemeral_extensions(&self.extensions))
+            filter_ephemeral_extensions(&self.extensions)
         } else {
             Cow::Borrowed(&self.extensions)
         };
