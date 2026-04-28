@@ -268,7 +268,7 @@ impl Signature {
         self.compute_ja4(Ja4Mode::StableV1)
     }
 
-    /// Core JA4 computation. Returns (ja4_a, ja4_b_raw, ja4_c_raw, ja4_hashed, ja4_raw_full)
+    /// Core JA4 computation. Returns Ja4Payload(ja4_a, ja4_b_raw, ja4_c_raw, ja4_hashed, ja4_raw_full)
     fn compute_ja4(&self, mode: Ja4Mode) -> Ja4Payload {
         let original_order = mode.is_original_order();
 
