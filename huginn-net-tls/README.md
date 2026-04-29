@@ -52,6 +52,26 @@ Add this to your `Cargo.toml`:
 huginn-net-tls = "1.7.4"
 ```
 
+### Cargo Features
+
+| Feature | Default | Description                                                                                    |
+|---------|---------|------------------------------------------------------------------------------------------------|
+| `stable_v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
+
+Enable with:
+
+```toml
+[dependencies]
+huginn-net-tls = { version = "1.7.4", features = ["stable_v1"] }
+```
+
+When enabled, `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
+
+```text
+  JA4_s1:  t13d1416h2_8daaf6152771_b0da82dd1658
+  JA4_s1r: t13d1416h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033,002d
+```
+
 ### Basic Usage
 
 ```rust

@@ -22,6 +22,7 @@ pub struct ObservableTlsClient {
     /// Generated JA4 fingerprint from original ClientHello
     pub ja4_original: Ja4Payload,
     /// JA4 stable v1 fingerprint with ephemeral extensions excluded
+    #[cfg(feature = "stable_v1")]
     pub ja4_stable_v1: Ja4Payload,
 }
 

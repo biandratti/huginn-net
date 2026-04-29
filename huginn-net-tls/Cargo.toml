@@ -33,6 +33,9 @@ serde_json = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+[features]
+stable_v1 = []
+
 [[example]]
 name = "capture-tls"
 path = "../examples/capture-tls.rs"

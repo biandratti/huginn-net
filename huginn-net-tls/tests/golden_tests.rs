@@ -37,6 +37,7 @@ struct TlsSnapshot {
     has_elliptic_curves: bool,
     ja4: Ja4Snapshot,
     ja4_original: Ja4Snapshot,
+    #[cfg(feature = "stable_v1")]
     ja4_stable_v1: Ja4Snapshot,
 }
 
@@ -215,27 +216,32 @@ fn assert_connection_matches_snapshot(
         "Connection {connection_index}: JA4 original raw mismatch"
     );
 
+    #[cfg(feature = "stable_v1")]
     assert_eq!(
         actual.sig.ja4_stable_v1.full.to_string(),
         expected.tls.ja4_stable_v1.full,
         "Connection {connection_index}: JA4 stable v1 full fingerprint mismatch"
     );
 
+    #[cfg(feature = "stable_v1")]
     assert_eq!(
         actual.sig.ja4_stable_v1.ja4_a, expected.tls.ja4_stable_v1.ja4_a,
         "Connection {connection_index}: JA4 stable v1 ja4_a mismatch"
     );
 
+    #[cfg(feature = "stable_v1")]
     assert_eq!(
         actual.sig.ja4_stable_v1.ja4_b, expected.tls.ja4_stable_v1.ja4_b,
         "Connection {connection_index}: JA4 stable v1 ja4_b mismatch"
     );
 
+    #[cfg(feature = "stable_v1")]
     assert_eq!(
         actual.sig.ja4_stable_v1.ja4_c, expected.tls.ja4_stable_v1.ja4_c,
         "Connection {connection_index}: JA4 stable v1 ja4_c mismatch"
     );
 
+    #[cfg(feature = "stable_v1")]
     assert_eq!(
         actual.sig.ja4_stable_v1.raw.to_string(),
         expected.tls.ja4_stable_v1.raw,
