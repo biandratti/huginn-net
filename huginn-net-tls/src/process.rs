@@ -108,7 +108,7 @@ fn process_tcp_packet(
         Ok(Some(signature)) => {
             let ja4 = signature.generate_ja4();
             let ja4_original = signature.generate_ja4_original();
-            #[cfg(feature = "stable_v1")]
+            #[cfg(feature = "stable-v1")]
             let ja4_stable_v1 = signature.generate_ja4_stable_v1();
             let tls_client = ObservableTlsClient {
                 version: signature.version,
@@ -120,7 +120,7 @@ fn process_tcp_packet(
                 elliptic_curves: signature.elliptic_curves,
                 ja4,
                 ja4_original,
-                #[cfg(feature = "stable_v1")]
+                #[cfg(feature = "stable-v1")]
                 ja4_stable_v1,
             };
 

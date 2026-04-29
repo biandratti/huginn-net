@@ -309,7 +309,7 @@ fn test_captured_traffic_ja4() {
     assert!(ja4_original.raw.value().contains("0010")); // Has ALPN
 }
 
-#[cfg(feature = "stable_v1")]
+#[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_stable_filters_ephemeral_extensions() {
     let sig = create_test_signature();
@@ -333,7 +333,7 @@ fn test_ja4_stable_filters_ephemeral_extensions() {
     assert_ne!(ja4_stable.full.value(), ja4.full.value());
 }
 
-#[cfg(feature = "stable_v1")]
+#[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_stable_uses_stable_enum_variants() {
     let sig = create_test_signature();
@@ -348,7 +348,7 @@ fn test_ja4_stable_uses_stable_enum_variants() {
     assert_eq!(ja4.raw.variant_name(), "ja4_r");
 }
 
-#[cfg(feature = "stable_v1")]
+#[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_stable_idempotent_without_ephemeral_exts() {
     let mut sig = create_test_signature();

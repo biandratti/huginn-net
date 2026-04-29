@@ -15,7 +15,7 @@ keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography", "development-tools"]
 
 [features]
-stable_v1 = ["huginn-net-tls/stable_v1"]
+tls-stable-v1 = ["huginn-net-tls/stable-v1"]
 
 [dependencies]
 huginn-net-db = { workspace = true }

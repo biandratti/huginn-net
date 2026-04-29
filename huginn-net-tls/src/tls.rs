@@ -151,7 +151,7 @@ pub const TLS_EXT_PADDING: u16 = 0x0015;
 pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 3] =
     [TLS_EXT_SESSION_TICKET, TLS_EXT_PRE_SHARED_KEY, TLS_EXT_PADDING];
 
-#[cfg(feature = "stable_v1")]
+#[cfg(feature = "stable-v1")]
 fn filter_ephemeral_extensions(values: &[u16]) -> Cow<'_, [u16]> {
     if values
         .iter()
@@ -177,7 +177,7 @@ fn filter_ephemeral_extensions(values: &[u16]) -> Cow<'_, [u16]> {
 enum Ja4Mode {
     Sorted,
     Unsorted,
-    #[cfg(feature = "stable_v1")]
+    #[cfg(feature = "stable-v1")]
     StableV1,
 }
 
@@ -186,7 +186,7 @@ impl Ja4Mode {
         matches!(self, Ja4Mode::Unsorted)
     }
 
-    #[cfg(feature = "stable_v1")]
+    #[cfg(feature = "stable-v1")]
     fn is_exclude_ephemeral(&self) -> bool {
         matches!(self, Ja4Mode::StableV1)
     }
@@ -197,7 +197,7 @@ impl Ja4Mode {
             Ja4Mode::Unsorted => {
                 (Ja4Fingerprint::Unsorted(hashed), Ja4RawFingerprint::Unsorted(raw))
             }
-            #[cfg(feature = "stable_v1")]
+            #[cfg(feature = "stable-v1")]
             Ja4Mode::StableV1 => {
                 (Ja4Fingerprint::StableV1(hashed), Ja4RawFingerprint::StableV1(raw))
             }
@@ -268,7 +268,7 @@ impl Signature {
     }
 
     /// Generate JA4 fingerprint with ephemeral extensions excluded (sorted)
-    #[cfg(feature = "stable_v1")]
+    #[cfg(feature = "stable-v1")]
     pub fn generate_ja4_stable_v1(&self) -> Ja4Payload {
         self.compute_ja4(Ja4Mode::StableV1)
     }
@@ -277,13 +277,13 @@ impl Signature {
     fn compute_ja4(&self, mode: Ja4Mode) -> Ja4Payload {
         let original_order = mode.is_original_order();
 
-        #[cfg(feature = "stable_v1")]
+        #[cfg(feature = "stable-v1")]
         let extensions_after_exclude: Cow<[u16]> = if mode.is_exclude_ephemeral() {
             filter_ephemeral_extensions(&self.extensions)
         } else {
             Cow::Borrowed(&self.extensions)
         };
-        #[cfg(not(feature = "stable_v1"))]
+        #[cfg(not(feature = "stable-v1"))]
         let extensions_after_exclude: Cow<[u16]> = Cow::Borrowed(&self.extensions);
 
         // Filter out GREASE values from cipher suites for JA4_b and JA4_c processing

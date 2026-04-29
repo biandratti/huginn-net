@@ -49,7 +49,7 @@ impl fmt::Display for TlsClientOutput {
             self.sig.ja4_original.full.value(),
             self.sig.ja4_original.raw.value(),
         )?;
-        #[cfg(feature = "stable_v1")]
+        #[cfg(feature = "stable-v1")]
         write!(
             f,
             "JA4_s1:  {}\n\

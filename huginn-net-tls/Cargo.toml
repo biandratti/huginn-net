@@ -15,7 +15,7 @@ keywords = ["tls", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography"]
 
 [features]
-stable_v1 = []
+stable-v1 = []
 
 [dependencies]
 crossbeam-channel = { workspace = true }

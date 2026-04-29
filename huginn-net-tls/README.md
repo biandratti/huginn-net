@@ -56,13 +56,13 @@ huginn-net-tls = "1.7.4"
 
 | Feature | Default | Description                                                                                    |
 |---------|---------|------------------------------------------------------------------------------------------------|
-| `stable_v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
+| `stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
 
 Enable with:
 
 ```toml
 [dependencies]
-huginn-net-tls = { version = "1.7.4", features = ["stable_v1"] }
+huginn-net-tls = { version = "1.7.4", features = ["stable-v1"] }
 ```
 
 When enabled, `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
