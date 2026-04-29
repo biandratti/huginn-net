@@ -50,8 +50,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tcp = "1.7.4"
-huginn-net-db = "1.7.4"
+huginn-net-tcp = "1.7.5"
+huginn-net-db = "1.7.5"
 ```
 
 ### Basic Usage

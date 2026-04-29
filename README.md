@@ -16,21 +16,10 @@
   [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
 </div>
 
-**Huginn Net combines p0f TCP fingerprinting with JA4 TLS client analysis**, achieving the same detection accuracy as the original p0f tool while adding modern TLS fingerprinting capabilities. This Rust implementation has been thoroughly validated against real-world traffic and consistently delivers reliable fingerprinting results.
-
-#### Why choose Huginn Net?
-
-- **No third-party tools** - No tshark, wireshark, or external tools required
-- **Same accuracy as p0f** - Validated against extensive device testing  
-- **Modern Rust implementation** - Memory safety and zero-cost abstractions  
-- **Production performance** - Processes packets in ~3.1ms with comparable speed to original p0f  
-- **Type-safe architecture** - Prevents entire classes of bugs at compile time  
-- **Comprehensive testing** - Full unit and integration test coverage  
-- **Simple integration** - Pure Rust implementation, no system libraries required
-- **Active development** - Continuously improved and maintained  
+**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f for TCP and FoxIO's JA4 for TLS. Validated against the original p0f accuracy with ~3.1ms end-to-end per packet.
 
 #### What is Passive Traffic Fingerprinting?
-Passive Traffic Fingerprinting is a technique that allows you to infer information about remote hosts and applications without sending any probes. By analyzing characteristics of the TCP/IP packets and TLS handshakes that are exchanged during normal network conversations, Huginn Net provides insights into:
+Passive fingerprinting infers information about remote hosts without sending any probes. By analyzing TCP/IP packets and TLS handshakes, Huginn Net identifies:
 
 - **Operating Systems** - Using p0f-inspired TCP fingerprinting to identify OS type, version, and network stack
 - **Applications & Browsers** - Using HTTP headers and JA4 TLS client fingerprinting for precise application identification
@@ -41,17 +30,10 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 
 | Layer | Protocol / Feature        | Huginn Net Analysis                         |
 |-------|---------------------------|---------------------------------------------|
-| 7     | TLS                       | JA4 (FoxIO-style)                           |
+| 7     | TLS                       | JA4 (FoxIO-style) + stable signature        |
 | 7     | HTTP                      | HTTP/1 & HTTP/2 - Headers, User-Agent, Lang |
 | 4     | TCP                       | OS Fingerprinting (p0f-style)               |
 
-#### Real-world applications:
-- **Network Security Analysis** - Identify devices, applications, and TLS clients without active scanning
-- **Asset Discovery** - Map network infrastructure and application stack passively and safely  
-- **Threat Detection** - Detect hidden systems, suspicious TLS clients, and malicious applications
-- **Application Monitoring** - Track browser types, versions, and TLS capabilities across networks
-- **Research & Forensics** - Analyze traffic patterns, TLS usage, and improve security posture
-- **Compliance Monitoring** - Track device types, OS versions, and TLS configurations
 
 ## 📚 Huginn Net Crates
 
@@ -80,15 +62,15 @@ Passive Traffic Fingerprinting is a technique that allows you to infer informati
 **For multi-protocol analysis:**
 ```toml
 [dependencies]
-huginn-net = "1.7.4"  # Complete analysis suite
+huginn-net = "1.7.5"  # Complete analysis suite
 ```
 
 **For specific protocols:**
 ```toml
 [dependencies]
-huginn-net-tcp = "1.7.4"   # TCP/OS fingerprinting only
-huginn-net-http = "1.7.4"  # HTTP analysis only
-huginn-net-tls = "1.7.4"   # TLS/JA4 analysis only
+huginn-net-tcp = "1.7.5"   # TCP/OS fingerprinting only
+huginn-net-http = "1.7.5"  # HTTP analysis only
+huginn-net-tls = "1.7.5"   # TLS/JA4 analysis only
 ```
 
 ### Usage & Examples
@@ -112,24 +94,7 @@ For detailed usage examples, installation guides, and complete code samples:
 | **HTTP** | 142.9M pps | 526.6K pps | Browser/server detection |
 | **TLS** | 48M pps | 45K pps | JA4 fingerprinting, TLS analysis |
 
-### Key Performance Highlights
-- **Ultra-fast detection**: TCP at 83.3M pps, HTTP at 142.9M pps for pre-filtering
-- **Robust analysis**: TCP provides 975.6K pps, HTTP 526.6K pps for complete fingerprinting
-- **Parallel support**: TCP scales to 2.11M pps (4 workers), HTTP to 1.54M pps (2 workers), TLS to 97K pps (2-4 workers)
-- **Comprehensive coverage**: All protocols optimized for real-time network monitoring
-
-### Accuracy & Compatibility
-- **TCP**: Matches original p0f precision across tested device categories
-- **TLS**: JA4 methodology for modern TLS fingerprinting
-- **HTTP**: Browser and server detection with comprehensive signature database
-
-### Performance Optimization
-For maximum performance, use protocol-specific libraries:
-- `huginn-net-tcp` for TCP-only analysis
-- `huginn-net-tls` for TLS-only analysis  
-- `huginn-net-http` for HTTP-only analysis
-
-*See [benches/README.md](benches/README.md) for comprehensive benchmark analysis and capacity planning guidelines.*
+All protocols scale with multiple workers: TCP to 2.11M pps (4 workers), HTTP to 1.54M pps (2 workers), TLS to 97K pps (2–4 workers). See [benches/README.md](benches/README.md) for methodology and capacity planning.
 
 ### Validated Device Categories
 - **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
@@ -142,23 +107,15 @@ For maximum performance, use protocol-specific libraries:
 
 *Based on signatures available in the p0f database. See [huginn-net-db/config/p0f.fp](huginn-net-db/config/p0f.fp) for complete signature list.*
 
-### Database Coverage
-The current signature database includes patterns for:
-- **Major Operating Systems** (Windows, Linux, macOS, BSD variants)
-- **Popular Web Browsers** (Chrome, Firefox, Safari, etc.)
-- **Common Web Servers** (Apache, nginx, IIS)
-- **Gaming Devices** (Nintendo consoles)
-- **Network Analysis Tools** (crawlers, bots, command-line tools)
-
 ## Advanced Features
 
 ### Multi-Protocol Support
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
-- **HTTP Request/Response** analysis for application identification  
-- **TLS ClientHello** analysis with JA4 fingerprinting for client identification
+- **HTTP Request/Response** analysis for application identification
+- **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant `JA4_s1` / `JA4_s1r`
 - **MTU Discovery** for link type detection
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
-- **Custom Signature Databases** with easy updates
+- **Custom Signature Databases** - bring your own signatures or contribute to the shared database
 
 ### Packet Filtering
 
@@ -166,9 +123,7 @@ Optional packet filtering by port and/or IP address for improved performance. Fi
 
 ### Matching Quality
 
-Huginn Net provides intelligent quality scoring for all fingerprint matches, helping you assess the reliability of each detection.
-The quality score is calculated based on the **distance** between observed network characteristics and known signatures.
-To achieve the best quality in matching, a rich database will be needed.
+Each match gets a quality score based on the **distance** between the observed packet and the closest known signature. A richer database means better scores.
 
 #### Quality Metrics
 - **Perfect Match (1.0)**: Exact signature match with zero distance
@@ -179,7 +134,7 @@ To achieve the best quality in matching, a rich database will be needed.
 
 ### TLS JA4 Fingerprinting
 
-This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS client fingerprinting. For full attribution and licensing details, please see the [Licensing & Attribution](#-licensing--attribution) section. We do not implement JA4+ components which are under FoxIO License 1.1.
+This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS client fingerprinting. For full attribution and licensing details, please see the [Attribution](#attribution) section. We do not implement JA4+ components which are under FoxIO License 1.1.
 
 ## Companion Projects
 
@@ -209,8 +164,6 @@ Features:
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on how to get started.
-
-**Your signature contributions directly improve detection accuracy for the entire community!**
 
 ## Next Milestones
 -  **Enhanced Database** - Continuous signature updates and community contributions

@@ -49,7 +49,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tls = "1.7.4"
+huginn-net-tls = "1.7.5"
 ```
 
 ### Cargo Features
@@ -62,7 +62,7 @@ Enable with:
 
 ```toml
 [dependencies]
-huginn-net-tls = { version = "1.7.4", features = ["stable-v1"] }
+huginn-net-tls = { version = "1.7.5", features = ["stable-v1"] }
 ```
 
 When enabled, `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
