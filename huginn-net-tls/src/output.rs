@@ -52,7 +52,7 @@ impl fmt::Display for TlsClientOutput {
         #[cfg(feature = "stable_v1")]
         write!(
             f,
-            "  JA4_s1:  {}\n\
+            "JA4_s1:  {}\n\
               JA4_s1r: {}\n",
             self.sig.ja4_stable_v1.full.value(),
             self.sig.ja4_stable_v1.raw.value(),

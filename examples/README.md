@@ -35,6 +35,12 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture
 # Build TLS example
 cargo build --release --examples -p huginn-net-tls
 
+# Build TLS example with stable_v1 feature (adds JA4_s1 / JA4_rs1 fingerprints)
+cargo build --release --examples -p huginn-net-tls --features huginn-net-tls/stable_v1
+
+# Build TLS example with all features
+cargo build --release --examples -p huginn-net-tls --all-features
+
 # Live capture - Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live single -i <INTERFACE>
 
