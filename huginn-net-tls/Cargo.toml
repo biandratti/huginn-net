@@ -14,6 +14,9 @@ homepage.workspace = true
 keywords = ["tls", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography"]
 
+[features]
+stable-v1 = []
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }

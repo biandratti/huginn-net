@@ -21,6 +21,9 @@ pub struct ObservableTlsClient {
     pub ja4: Ja4Payload,
     /// Generated JA4 fingerprint from original ClientHello
     pub ja4_original: Ja4Payload,
+    /// JA4 stable v1 fingerprint with ephemeral extensions excluded
+    #[cfg(feature = "stable-v1")]
+    pub ja4_stable_v1: Ja4Payload,
 }
 
 /// Result of TLS packet processing

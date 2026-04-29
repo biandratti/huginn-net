@@ -82,6 +82,8 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
             );
             let ja4 = signature.generate_ja4();
             let ja4_original = signature.generate_ja4_original();
+            #[cfg(feature = "stable-v1")]
+            let ja4_stable_v1 = signature.generate_ja4_stable_v1();
             Ok(ObservableTlsPackage {
                 tls_client: Some(ObservableTlsClient {
                     version: signature.version,
@@ -93,6 +95,8 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
                     elliptic_curves: signature.elliptic_curves,
                     ja4,
                     ja4_original,
+                    #[cfg(feature = "stable-v1")]
+                    ja4_stable_v1,
                 }),
             })
         }

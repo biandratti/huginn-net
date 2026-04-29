@@ -308,3 +308,56 @@ fn test_captured_traffic_ja4() {
     assert!(ja4_original.raw.value().contains("0000")); // Has SNI
     assert!(ja4_original.raw.value().contains("0010")); // Has ALPN
 }
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_stable_filters_ephemeral_extensions() {
+    let sig = create_test_signature();
+    // create_test_signature includes 0x0023 (session_ticket) and 0x0015 (padding)
+    let ja4 = sig.generate_ja4();
+    let ja4_stable = sig.generate_ja4_stable_v1();
+
+    // JA4_a differs: extension count drops after ephemeral removal
+    assert_ne!(ja4_stable.ja4_a, ja4.ja4_a);
+
+    // Ephemeral extensions absent from ja4_stable raw output
+    assert!(!ja4_stable.raw.value().contains("0023")); // session_ticket
+    assert!(!ja4_stable.raw.value().contains("0029")); // pre_shared_key
+    assert!(!ja4_stable.raw.value().contains("0015")); // padding
+
+    // Non-ephemeral extensions still present
+    assert!(ja4_stable.raw.value().contains("000d")); // signature_algorithms ext
+    assert!(ja4_stable.raw.value().contains("002b")); // supported_versions ext
+
+    // Hashed fingerprint differs from standard JA4
+    assert_ne!(ja4_stable.full.value(), ja4.full.value());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_stable_uses_stable_enum_variants() {
+    let sig = create_test_signature();
+    let ja4_stable = sig.generate_ja4_stable_v1();
+
+    assert_eq!(ja4_stable.full.variant_name(), "ja4_s1");
+    assert_eq!(ja4_stable.raw.variant_name(), "ja4_rs1");
+
+    // Standard JA4 uses different variants
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.full.variant_name(), "ja4");
+    assert_eq!(ja4.raw.variant_name(), "ja4_r");
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_stable_idempotent_without_ephemeral_exts() {
+    let mut sig = create_test_signature();
+    sig.extensions
+        .retain(|e| !EPHEMERAL_TLS_EXTENSIONS.contains(e));
+
+    let ja4 = sig.generate_ja4();
+    let ja4_stable = sig.generate_ja4_stable_v1();
+
+    assert_eq!(ja4.full.value(), ja4_stable.full.value());
+    assert_eq!(ja4.raw.value(), ja4_stable.raw.value());
+}
