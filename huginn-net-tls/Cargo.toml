@@ -14,6 +14,9 @@ homepage.workspace = true
 keywords = ["tls", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography"]
 
+[features]
+stable_v1 = []
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }
@@ -32,9 +35,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
-
-[features]
-stable_v1 = []
 
 [[example]]
 name = "capture-tls"
