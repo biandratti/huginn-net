@@ -1,3 +1,11 @@
+//! Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.
+//!
+//! ## Cargo Features
+//!
+//! | Feature | Default | Description |
+//! |---------|---------|-------------|
+//! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`] — ephemeral extensions excluded for stable fingerprints |
+
 #![forbid(unsafe_code)]
 
 // ============================================================================

@@ -269,6 +269,7 @@ impl Signature {
 
     /// Generate JA4 fingerprint with ephemeral extensions excluded (sorted)
     #[cfg(feature = "stable-v1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     pub fn generate_ja4_stable_v1(&self) -> Ja4Payload {
         self.compute_ja4(Ja4Mode::StableV1)
     }

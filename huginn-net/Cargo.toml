@@ -14,6 +14,10 @@ homepage.workspace = true
 keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography", "development-tools"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 tls-stable-v1 = ["huginn-net-tls/stable-v1"]
 

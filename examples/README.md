@@ -10,11 +10,14 @@ ip link show
 # Build package
 cargo build --release --examples -p huginn-net
 
+# Build with tls-stable-v1 feature (adds JA4_s1 / JA4_rs1 fingerprints)
+cargo build --release --examples -p huginn-net --features huginn-net/tls-stable-v1
+
 # Live capture
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> live -i <INTERFACE>                       
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log live -i <INTERFACE>                       
 
 # PCAP analysis
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l <LOG_FILE.LOG> pcap -f <TCP_TRAFFIC>.pcap
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log pcap -f <TCP_TRAFFIC>.pcap
 
 # Filtering examples
 # Filter by destination port (e.g., HTTPS on port 443)

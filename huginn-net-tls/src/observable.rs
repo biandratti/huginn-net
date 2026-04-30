@@ -23,6 +23,7 @@ pub struct ObservableTlsClient {
     pub ja4_original: Ja4Payload,
     /// JA4 stable v1 fingerprint with ephemeral extensions excluded
     #[cfg(feature = "stable-v1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     pub ja4_stable_v1: Ja4Payload,
 }
 
