@@ -1,3 +1,11 @@
+//! TLS fingerprinting and JA4 analysis.
+//!
+//! ## Cargo Features
+//!
+//! | Feature | Default | Description |
+//! |---------|---------|-------------|
+//! | `stable-v1` | No | Adds [`Signature::generate_ja4_stable_v1`] / [`ObservableTlsClient::ja4_stable_v1`] — ephemeral extensions excluded for stable fingerprints |
+
 pub mod error;
 pub mod filter;
 pub mod observable;

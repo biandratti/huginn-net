@@ -17,6 +17,10 @@ categories = ["network-programming", "cryptography"]
 [features]
 stable-v1 = []
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }
