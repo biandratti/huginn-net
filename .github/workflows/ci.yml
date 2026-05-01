@@ -79,6 +79,23 @@ jobs:
             -D clippy::missing_panics_doc \
             -D clippy::redundant_field_names
 
+  docs:
+    name: Check documentation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [huginn-net-db, huginn-net-tls, huginn-net-tcp, huginn-net-http, huginn-net]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+      - name: Check documentation for ${{ matrix.crate }}
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --no-deps -p ${{ matrix.crate }} --all-features
+
   test-individual-crates:
     name: Test individual crates
     runs-on: ubuntu-latest
