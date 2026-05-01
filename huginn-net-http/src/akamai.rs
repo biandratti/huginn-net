@@ -144,7 +144,7 @@ impl fmt::Display for PseudoHeader {
 
 /// Akamai HTTP/2 Fingerprint
 ///
-/// Based on: https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf
+/// Based on: <https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf>
 ///
 /// Format: `S[;]|WU|P[,]|PS[,]`
 /// - S: Settings parameters (id:value;...)
