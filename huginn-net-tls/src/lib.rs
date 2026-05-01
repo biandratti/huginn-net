@@ -6,6 +6,7 @@
 //! |---------|---------|-------------|
 //! | `stable-v1` | No | Adds [`Signature::generate_ja4_stable_v1`] / [`ObservableTlsClient::ja4_stable_v1`] — ephemeral extensions excluded for stable fingerprints |
 
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod error;
