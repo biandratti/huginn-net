@@ -8,11 +8,59 @@ TCP packets are the backbone of network communication, and two of the most signi
 
 ## TCP Signature
 
-For TCP traffic, signature layout is as follows:
+For TCP traffic, **SYN** (client) and **SYN+ACK** (server) fingerprints share the same p0f-style **Sig** string: colon-separated fields, identical layout; only the observed values differ.
 
-```
-sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
-```
+### TCP fingerprint Layout
+
+<div class="tcp-sig-wrap">
+
+<p style="margin:0 0 0.5rem 0; opacity:0.92;">TCP SYN/SYN+ACK fingerprint string (p0f family). Field definitions are in the <strong>Key</strong> table after this diagram.</p>
+
+<div class="tcp-sig-formula">sig = ver : ittl : olen : mss : wsize , scale : olayout : quirks : pclass</div>
+
+<p style="margin:0 0 0.45rem 0; font-size:0.92em; opacity:0.9;"><strong>SYN</strong> (client), field-by-field:</p>
+
+<div class="tcp-sig-example">
+<div class="tcp-sig-part c1"><code>4</code><span class="tcp-sig-k">ver</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c2"><code>120+8</code><span class="tcp-sig-k">ittl</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c3"><code>0</code><span class="tcp-sig-k">olen</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c4"><code>1452</code><span class="tcp-sig-k">mss</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c1"><code>65535,0</code><span class="tcp-sig-k">wsize, scale</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part wide c2"><code>mss,nop,nop,sok</code><span class="tcp-sig-k">olayout</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c3"><code>df,id+</code><span class="tcp-sig-k">quirks</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c4"><code>0</code><span class="tcp-sig-k">pclass</span></div>
+</div>
+
+<p style="margin:0.85rem 0 0.45rem 0; font-size:0.92em; opacity:0.9;"><strong>SYN+ACK</strong> (server), field-by-field:</p>
+
+<div class="tcp-sig-example">
+<div class="tcp-sig-part c1"><code>4</code><span class="tcp-sig-k">ver</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c2"><code>64+0</code><span class="tcp-sig-k">ittl</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c3"><code>0</code><span class="tcp-sig-k">olen</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c4"><code>1460</code><span class="tcp-sig-k">mss</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c1"><code>mss*10,0</code><span class="tcp-sig-k">wsize, scale</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part wide c2"><code>mss,nop,nop,sok</code><span class="tcp-sig-k">olayout</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c3"><code>df</code><span class="tcp-sig-k">quirks</span></div>
+<span class="tcp-sig-sep">:</span>
+<div class="tcp-sig-part c4"><code>0</code><span class="tcp-sig-k">pclass</span></div>
+</div>
+
+<p class="tcp-sig-note">Raw SYN string for integrations: HTTP header <code>x-huginn-net-tcp</code> (same layout as this page).</p>
+
+</div>
 
 | Key       | Description                                                                                                                                                                                                                                                                                                                                 |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
