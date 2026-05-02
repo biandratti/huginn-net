@@ -77,7 +77,7 @@ The pseudo-header order is the key distinction. HTTP/2 clients send pseudo-heade
 
 <div class="tcp-sig-wrap">
 
-<p style="margin:0 0 0.45rem 0; opacity:0.92;"><strong>Akamai HTTP/2</strong> (in <strong>huginn-net-http</strong>) is a <strong>parser / library API</strong>: given the connection preface signals (SETTINGS, flow control, PRIORITY behaviour, pseudo-header order), it produces the printable pipe-separated string and a stable <strong>32-character hex</strong> hash. It does <strong>not</strong> capture packets by itself—you call it from tests, a proxy, or any pipeline that already observes client HTTP/2. Golden vectors: <a href="https://github.com/biandratti/huginn-net/blob/master/huginn-net-http/tests/akamai.rs"><code>huginn-net-http/tests/akamai.rs</code></a>.</p>
+<p style="margin:0 0 0.45rem 0; opacity:0.92;"><strong>Akamai HTTP/2</strong> (in <strong>huginn-net-http</strong>) is a <strong>parser / library API</strong>: given the connection preface signals (SETTINGS, flow control, PRIORITY behaviour, pseudo-header order), it produces the printable pipe-separated string and a stable <strong>32-character hex</strong> hash. It does <strong>not</strong> capture packets by itself—you call it from tests, a proxy, or any pipeline that already observes client HTTP/2.
 
 <div class="tcp-sig-formula"><strong>Shape:</strong> <strong>SETTINGS</strong> | <strong>WINDOW_UPDATE</strong> | <strong>PRIORITY</strong> | <strong>pseudo-headers</strong> — plus optional stable <strong>hash</strong> (32 hex)</div>
 
@@ -94,6 +94,8 @@ The pseudo-header order is the key distinction. HTTP/2 clients send pseudo-heade
 </div>
 
 <p style="margin:0.35rem 0 0.25rem 0; font-size:0.88em; opacity:0.88;"><strong>With PRIORITY frames</strong> (<code>test_akamai_fingerprint_with_priorities</code>): when priorities are present, the middle segment encodes streams such as <code>1:0:0:221,3:0:0:201</code> — stream id, dependency, exclusive flag, weight.</p>
+
+<p class="tcp-sig-note"><strong>Example</strong> (Chrome): <code style="word-break:break-all;">1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|15663105|0|m,p,a,s</code></p>
 
 </div>
 

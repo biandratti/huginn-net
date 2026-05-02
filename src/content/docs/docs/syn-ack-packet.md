@@ -18,8 +18,6 @@ For TCP traffic, **SYN** (client) and **SYN+ACK** (server) fingerprints share th
 
 <div class="tcp-sig-formula">sig = ver : ittl : olen : mss : wsize , scale : olayout : quirks : pclass</div>
 
-<p style="margin:0 0 0.45rem 0; font-size:0.92em; opacity:0.9;"><strong>SYN</strong> (client), field-by-field:</p>
-
 <div class="tcp-sig-example">
 <div class="tcp-sig-part c1"><code>4</code><span class="tcp-sig-k">ver</span></div>
 <span class="tcp-sig-sep">:</span>
@@ -38,25 +36,7 @@ For TCP traffic, **SYN** (client) and **SYN+ACK** (server) fingerprints share th
 <div class="tcp-sig-part c4"><code>0</code><span class="tcp-sig-k">pclass</span></div>
 </div>
 
-<p style="margin:0.85rem 0 0.45rem 0; font-size:0.92em; opacity:0.9;"><strong>SYN+ACK</strong> (server), field-by-field:</p>
-
-<div class="tcp-sig-example">
-<div class="tcp-sig-part c1"><code>4</code><span class="tcp-sig-k">ver</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part c2"><code>64+0</code><span class="tcp-sig-k">ittl</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part c3"><code>0</code><span class="tcp-sig-k">olen</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part c4"><code>1460</code><span class="tcp-sig-k">mss</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part c1"><code>mss*10,0</code><span class="tcp-sig-k">wsize, scale</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part wide c2"><code>mss,nop,nop,sok</code><span class="tcp-sig-k">olayout</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part c3"><code>df</code><span class="tcp-sig-k">quirks</span></div>
-<span class="tcp-sig-sep">:</span>
-<div class="tcp-sig-part c4"><code>0</code><span class="tcp-sig-k">pclass</span></div>
-</div>
+<p class="tcp-sig-note"><strong>Example</strong> (Windows XP): <code style="word-break:break-all;">4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0</code></p>
 
 <p class="tcp-sig-note">Raw SYN string for integrations: HTTP header <code>x-huginn-net-tcp</code> (same layout as this page).</p>
 
@@ -64,7 +44,7 @@ For TCP traffic, **SYN** (client) and **SYN+ACK** (server) fingerprints share th
 
 | Key       | Description                                                                                                                                                                                                                                                                                                                                 |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ver`     | Signature for IPv4 ('4'), IPv6 ('6'), or both ('*').                                                                                                                                                                                                                                                                                        |
+| `ver`     | Signature for IPv4 ('4'), IPv6 ('6').                                                                                                                                                                                                                                                                                        |
 | `ittl`    | Initial TTL used by the OS. Almost all operating systems use 64, 128, or 255; ancient versions of Windows sometimes used 32, and several obscure systems sometimes resort to odd values such as 60.                                                                                                                                           |
 | `olen`    | Length of IPv4 options or IPv6 extension headers.                                                                                                                                                                                                                                                                                           |
 | `mss`     | Maximum segment size, if specified in TCP options. Special value of '\*' can be used to denote that MSS varies depending on the parameters of sender's network link, and should not be a part of the signature. In this case, MSS will be used to guess the type of network hookup according to the [mtu] rules.                              |

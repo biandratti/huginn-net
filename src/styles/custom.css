@@ -279,18 +279,18 @@
 }
 
 /* JA4 anatomy row: keep prefix boxes + hashes on one line; shrink or scroll instead of wrapping */
+/* justify-content must be flex-start (not center) so that overflow-x: auto can scroll to the
+   left edge on mobile — centered flex overflow clips the left side and is unreachable by scroll */
 .ja4-sig-wrap .tcp-sig-example.ja4-sig-hl {
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.12rem;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: visible;
   padding-bottom: 0.2rem;
-  margin-left: auto;
-  margin-right: auto;
   font-size: clamp(0.62rem, 1.05vw + 0.48rem, 0.92em);
 }
 

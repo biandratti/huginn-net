@@ -30,6 +30,8 @@ Huginn Net is based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the s
 <div class="ja4-sig-hashbox"><code>02713d6af862</code><span class="tcp-sig-k">ext + sig algs (12)</span></div>
 </div>
 
+<p class="tcp-sig-note"><strong>Example:</strong> Chrome on Linux, ClientHello to Cloudflare: <code>t13d1516h2_8daaf6152771_02713d6af862</code></p>
+
 </div>
 
 | Part | Role (JA4 client) |
@@ -68,8 +70,6 @@ Extensions treated as ephemeral for **`stable-v1`** (filtered **before** hashing
 | `0x0023`           | Session ticket ([RFC 5077](https://datatracker.ietf.org/doc/html/rfc5077)) |
 | `0x0029`           | Pre-shared key ([RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446)) |
 | `0x0015`           | Padding ([RFC 7685](https://datatracker.ietf.org/doc/html/rfc7685)) |
-
-Constants and filtering logic live in [`huginn-net-tls/src/tls.rs`](https://github.com/biandratti/huginn-net/blob/master/huginn-net-tls/src/tls.rs) (`EPHEMERAL_TLS_EXTENSIONS`).
 
 ## TLS Key Fields
 
