@@ -30,20 +30,16 @@ Huginn Net is based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the s
 <div class="ja4-sig-hashbox"><code>02713d6af862</code><span class="tcp-sig-k">ext + sig algs (12)</span></div>
 </div>
 
-<table class="tcp-sig-table ja4-sig-table">
-<thead><tr><th>Part</th><th>Role (JA4 client)</th></tr></thead>
-<tbody>
-<tr><td><code>t</code> / <code>q</code> / <code>d</code></td><td>Transport: TLS over TCP, QUIC, or DTLS.</td></tr>
-<tr><td><code>13</code></td><td>TLS version from ClientHello (GREASE stripped) — here TLS 1.3.</td></tr>
-<tr><td><code>d</code> / <code>i</code></td><td>SNI style: hostname vs IP / no SNI.</td></tr>
-<tr><td><code>15</code> · <code>16</code></td><td>Counts of cipher suites and extensions (GREASE excluded).</td></tr>
-<tr><td><code>h2</code></td><td>ALPN signal (e.g. HTTP/2) — extra context JA3 did not encode.</td></tr>
-<tr><td>12-char hashes</td><td>Truncated SHA-256 over <strong>sorted</strong> cipher list and over sorted extensions + signature algorithms — stable when order shuffles.</td></tr>
-</tbody>
-</table>
-
-
 </div>
+
+| Part | Role (JA4 client) |
+| ---- | ----------------- |
+| `t` / `q` / `d` | Transport: TLS over TCP, QUIC, or DTLS. |
+| `13` | TLS version from ClientHello (GREASE stripped)—here TLS 1.3. |
+| `d` / `i` | SNI style: hostname vs IP / no SNI. |
+| `15` · `16` | Counts of cipher suites and extensions (GREASE excluded). |
+| `h2` | ALPN signal (e.g. HTTP/2)—extra context JA3 did not encode. |
+| 12-char hashes | Truncated SHA-256 over **sorted** cipher list and over sorted extensions + signature algorithms—stable when order shuffles. |
 
 ## TLS Client
 

@@ -199,6 +199,85 @@
   margin: 0 0 0.75rem;
 }
 
+/* TCP p0f-style row (syn-ack doc): single scrollable line like JA4 */
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0.08rem;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.2rem;
+  font-size: clamp(0.56rem, 0.85vw + 0.42rem, 0.86em);
+}
+
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) .tcp-sig-part {
+  flex-shrink: 0;
+  padding: 0.22rem 0.26rem 0.16rem;
+}
+
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) .tcp-sig-part.wide {
+  flex: 0 0 auto;
+  min-width: min-content;
+}
+
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) .tcp-sig-part code,
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) .tcp-sig-part span.tcp-sig-k {
+  white-space: nowrap;
+}
+
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) .tcp-sig-part span.tcp-sig-k {
+  font-size: 0.52em;
+  letter-spacing: 0.05em;
+}
+
+.tcp-sig-wrap .tcp-sig-example:not(.ja4-sig-hl):not(.akamai-sig-flow) .tcp-sig-sep {
+  align-self: flex-end;
+  flex-shrink: 0;
+  padding-bottom: 0.28rem;
+}
+
+/* Akamai HTTP/2 — single horizontal row; scroll if SETTINGS string is long */
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0.08rem;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.2rem;
+  font-size: clamp(0.48rem, 0.72vw + 0.34rem, 0.78em);
+}
+
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow .tcp-sig-part {
+  flex-shrink: 0;
+  padding: 0.22rem 0.26rem 0.16rem;
+}
+
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow .tcp-sig-part.wide {
+  flex: 0 0 auto;
+  min-width: min-content;
+  max-width: none;
+}
+
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow .tcp-sig-part code,
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow .tcp-sig-part span.tcp-sig-k {
+  white-space: nowrap;
+}
+
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow .tcp-sig-part span.tcp-sig-k {
+  font-size: 0.52em;
+  letter-spacing: 0.05em;
+}
+
+.tcp-sig-wrap .tcp-sig-example.akamai-sig-flow .tcp-sig-sep {
+  align-self: flex-end;
+  flex-shrink: 0;
+  padding-bottom: 0.28rem;
+}
+
 /* JA4 anatomy row: keep prefix boxes + hashes on one line; shrink or scroll instead of wrapping */
 .ja4-sig-wrap .tcp-sig-example.ja4-sig-hl {
   display: flex;
@@ -291,6 +370,11 @@
   border-color: #0d9488;
   background: rgba(13, 148, 136, 0.12);
   color: #134e4a;
+}
+
+.tcp-sig-part.wide {
+  flex: 1 1 14em;
+  min-width: min(100%, 12rem);
 }
 
 .tcp-sig-table {
