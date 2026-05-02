@@ -9,17 +9,41 @@ description: TLS ClientHello analysis and JA4 fingerprinting.
 
 Huginn Net is based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the structure of the ClientHello message into a compact signature. This allows for identification of client software and detection of anomalies or evasion techniques.
 
-```
-ja4 = version:ciphers:extensions:groups:point_formats
-```
+### JA4 ClientHello layout
 
-| Key             | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `version`       | TLS version used in the handshake (e.g., 771 for TLS 1.2). |
-| `ciphers`       | Ordered list of cipher suites offered by the client.     |
-| `extensions`    | Ordered list of TLS extensions present in the ClientHello. |
-| `groups`        | Supported groups (elliptic curves, etc.).                  |
-| `point_formats` | Supported EC point formats.                              |
+<div class="ja4-sig-wrap tcp-sig-wrap">
+
+<p style="margin:0 0 0.45rem 0; opacity:0.92;"><strong>JA4</strong> (FoxIO-LLC) fingerprints the TLS <strong>ClientHello</strong>.</p>
+
+<div class="tcp-sig-formula"><strong>Format:</strong> three segments separated by underscores—first a readable <strong>prefix</strong>, then two <strong>12-character</strong> hex hashes (truncated SHA-256: sorted cipher suites, then sorted extensions plus signature algorithms).<span style="display:block;margin-top:0.35rem;opacity:0.88;font-size:0.88em;line-height:1.35;">The prefix bundles transport, TLS version, SNI mode, GREASE-free cipher and extension counts, and ALPN; the colored boxes below expand each piece.</span></div>
+
+<div class="tcp-sig-example ja4-sig-hl">
+<div class="tcp-sig-part c1"><code>t</code><span class="tcp-sig-k">transport</span></div>
+<div class="tcp-sig-part c2"><code>13</code><span class="tcp-sig-k">TLS ver</span></div>
+<div class="tcp-sig-part c3"><code>d</code><span class="tcp-sig-k">SNI</span></div>
+<div class="tcp-sig-part c4"><code>15</code><span class="tcp-sig-k">#ciphers</span></div>
+<div class="tcp-sig-part c1"><code>16</code><span class="tcp-sig-k">#exts</span></div>
+<div class="tcp-sig-part c2"><code>h2</code><span class="tcp-sig-k">ALPN</span></div>
+<span class="tcp-sig-sep">_</span>
+<div class="ja4-sig-hashbox"><code>8daaf6152771</code><span class="tcp-sig-k">cipher hash (12)</span></div>
+<span class="tcp-sig-sep">_</span>
+<div class="ja4-sig-hashbox"><code>02713d6af862</code><span class="tcp-sig-k">ext + sig algs (12)</span></div>
+</div>
+
+<table class="tcp-sig-table ja4-sig-table">
+<thead><tr><th>Part</th><th>Role (JA4 client)</th></tr></thead>
+<tbody>
+<tr><td><code>t</code> / <code>q</code> / <code>d</code></td><td>Transport: TLS over TCP, QUIC, or DTLS.</td></tr>
+<tr><td><code>13</code></td><td>TLS version from ClientHello (GREASE stripped) — here TLS 1.3.</td></tr>
+<tr><td><code>d</code> / <code>i</code></td><td>SNI style: hostname vs IP / no SNI.</td></tr>
+<tr><td><code>15</code> · <code>16</code></td><td>Counts of cipher suites and extensions (GREASE excluded).</td></tr>
+<tr><td><code>h2</code></td><td>ALPN signal (e.g. HTTP/2) — extra context JA3 did not encode.</td></tr>
+<tr><td>12-char hashes</td><td>Truncated SHA-256 over <strong>sorted</strong> cipher list and over sorted extensions + signature algorithms — stable when order shuffles.</td></tr>
+</tbody>
+</table>
+
+
+</div>
 
 ## TLS Client
 

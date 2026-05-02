@@ -168,6 +168,250 @@
   margin-top: 0;
 }
 
+/* JA4 ClientHello signature anatomy (docs — tls.md); mirrors temporal/slides visuals, Starlight-themed */
+.tcp-sig-wrap {
+  font-size: 0.92em;
+  margin: 1rem 0 1.35rem;
+}
+
+.tcp-sig-wrap a {
+  color: var(--sl-color-accent);
+}
+
+.tcp-sig-formula {
+  font-family: var(--sl-font-mono), ui-monospace, monospace;
+  text-align: center;
+  opacity: 0.92;
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: var(--sl-color-bg-nav);
+  border: 1px solid var(--sl-color-hairline);
+}
+
+.tcp-sig-example {
+  font-family: var(--sl-font-mono), ui-monospace, monospace;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.2rem;
+  margin: 0 0 0.75rem;
+}
+
+/* JA4 anatomy row: keep prefix boxes + hashes on one line; shrink or scroll instead of wrapping */
+.ja4-sig-wrap .tcp-sig-example.ja4-sig-hl {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.12rem;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.2rem;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: clamp(0.62rem, 1.05vw + 0.48rem, 0.92em);
+}
+
+.tcp-sig-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.35rem 0.45rem 0.3rem;
+  border-radius: 8px;
+  border: 2px solid;
+  min-width: fit-content;
+  max-width: 100%;
+}
+
+.ja4-sig-wrap .tcp-sig-example.ja4-sig-hl .tcp-sig-part {
+  flex-shrink: 0;
+  padding: 0.26rem 0.3rem 0.2rem;
+}
+
+.ja4-sig-wrap .tcp-sig-example.ja4-sig-hl .tcp-sig-part code {
+  white-space: nowrap;
+}
+
+.ja4-sig-wrap .tcp-sig-example.ja4-sig-hl .tcp-sig-part span.tcp-sig-k {
+  white-space: nowrap;
+  font-size: 0.55em;
+  letter-spacing: 0.05em;
+}
+
+.tcp-sig-part code {
+  font-size: 0.95em;
+  background: transparent;
+  color: inherit;
+}
+
+.tcp-sig-part span.tcp-sig-k {
+  font-size: 0.62em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.35rem;
+  opacity: 0.88;
+}
+
+.tcp-sig-sep {
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  flex-shrink: 0;
+  font-weight: 700;
+  opacity: 0.35;
+  padding: 0 0.05rem;
+  padding-bottom: 0.35rem;
+  user-select: none;
+}
+
+.tcp-sig-part.c1 {
+  border-color: #0891b2;
+  background: rgba(8, 145, 178, 0.1);
+  color: #164e63;
+}
+
+.tcp-sig-part.c2 {
+  border-color: #ca8a04;
+  background: rgba(202, 138, 4, 0.12);
+  color: #713f12;
+}
+
+.tcp-sig-part.c3 {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+  color: #5b21b6;
+}
+
+.tcp-sig-part.c4 {
+  border-color: #0d9488;
+  background: rgba(13, 148, 136, 0.12);
+  color: #134e4a;
+}
+
+.tcp-sig-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+  margin: 0;
+}
+
+.tcp-sig-table th,
+.tcp-sig-table td {
+  border: 1px solid var(--sl-color-hairline);
+  padding: 0.28rem 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tcp-sig-table th {
+  background: var(--sl-color-gray-6);
+  font-weight: 600;
+}
+
+.tcp-sig-table td:first-child {
+  font-family: var(--sl-font-mono), ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+.tcp-sig-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.88em;
+  opacity: 0.9;
+}
+
+.ja4-sig-table {
+  font-size: 0.88em;
+}
+
+.ja4-sig-hl {
+  font-family: var(--sl-font-mono), ui-monospace, monospace;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.2rem;
+  margin: 0.45rem 0 0.65rem;
+}
+
+.ja4-sig-hashbox {
+  font-family: var(--sl-font-mono), ui-monospace, monospace;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  padding: 0.28rem 0.38rem 0.25rem;
+  border-radius: 8px;
+  border: 2px solid #7c3aed;
+  background: rgba(124, 58, 237, 0.08);
+  color: #5b21b6;
+  font-size: 0.92em;
+  text-align: center;
+  line-height: 1.15;
+  box-sizing: border-box;
+}
+
+.ja4-sig-hashbox code {
+  display: block;
+  white-space: nowrap;
+}
+
+.ja4-sig-hashbox .tcp-sig-k {
+  display: block;
+  color: inherit;
+  opacity: 0.85;
+  white-space: nowrap;
+  margin-top: 0.25rem;
+}
+
+:root[data-theme='dark'] .tcp-sig-part.c1 {
+  border-color: #61dafb;
+  background: rgba(97, 218, 251, 0.1);
+  color: #a5f3fc;
+}
+
+:root[data-theme='dark'] .tcp-sig-part.c2 {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fde68a;
+}
+
+:root[data-theme='dark'] .tcp-sig-part.c3 {
+  border-color: #c4b5fd;
+  background: rgba(196, 181, 253, 0.1);
+  color: #ddd6fe;
+}
+
+:root[data-theme='dark'] .tcp-sig-part.c4 {
+  border-color: #98d8c8;
+  background: rgba(152, 216, 200, 0.1);
+  color: #a7f3d0;
+}
+
+:root[data-theme='dark'] .tcp-sig-table th {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--sl-color-gray-1);
+}
+
+:root[data-theme='dark'] .tcp-sig-table td:first-child {
+  color: #7dd3fc;
+}
+
+:root[data-theme='dark'] .ja4-sig-hashbox {
+  border-color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  color: #e9d5ff;
+}
+
+:root[data-theme='dark'] .ja4-sig-hashbox .tcp-sig-k {
+  color: #ddd6fe;
+}
+
 @media (max-width: 50rem) {
   main footer.sl-flex {
     display: flex;
