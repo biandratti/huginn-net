@@ -1,26 +1,12 @@
-# Pull Request Template
+<!-- Summary of the change and why it's needed. Reference related issues with #number. -->
 
-## Description
+## How has this been tested?
 
-Please include a summary of the change and which issue is fixed.
-Please also include relevant motivation and context. List any dependencies that are required for this change.
+<!-- Describe what you ran to verify the change: unit tests, integration tests, manual testing, etc. Include OS and Rust version. -->
 
-## Type of change:
+## Checklist
 
-Please select the appropriate tags in the PR if necessary.
-
-# Motivation
-
-Keeping thing up-to-date
-
-# How has this been tested?
-
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce, and the Operative System used.
-
-## Checklist:
-
-- [ ] My code follows the style guidelines of this project.
-- [ ] I have performed a self-review of my own code.
-- [ ] I have commented my code, particularly in hard-to-understand areas.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] Select the appropriate tags in the PR if necessary.
+- [ ] `cargo fmt --all` passes
+- [ ] `cargo clippy --workspace --all-features --all-targets -- -D warnings -D clippy::expect_used -D clippy::unwrap_used -D clippy::unreachable -D clippy::todo -D clippy::unimplemented -D clippy::arithmetic_side_effects -D clippy::redundant_clone -D clippy::missing_panics_doc -D clippy::redundant_field_names` passes
+- [ ] `cargo test --all` passes
+- [ ] Breaking changes documented in `MIGRATION.md`
