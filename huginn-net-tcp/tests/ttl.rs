@@ -1,3 +1,5 @@
+#![cfg(feature = "db")]
+#![cfg(feature = "db")]
 use huginn_net_db::tcp::Ttl;
 use huginn_net_tcp::ttl::{calculate_ttl, guess_distance};
 

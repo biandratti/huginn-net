@@ -139,7 +139,7 @@ fn main() {
     let mut analyzer = match &args.command {
         Commands::Live { mode: LiveMode::Single { .. } } => {
             info!("Using sequential mode");
-            let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
+            let mut analyzer = match HuginnNetTcp::new_with_db(Some(db), 1000) {
                 Ok(analyzer) => analyzer,
                 Err(e) => {
                     error!("Failed to create HuginnNetTcp analyzer: {e}");
@@ -155,7 +155,7 @@ fn main() {
         Commands::Live { mode: LiveMode::Parallel { workers, queue_size, .. } } => {
             info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
             let mut analyzer =
-                match HuginnNetTcp::with_config(Some(db), 1000, *workers, *queue_size, 32, 10) {
+                match HuginnNetTcp::with_config_db(Some(db), 1000, *workers, *queue_size, 32, 10) {
                     Ok(analyzer) => analyzer,
                     Err(e) => {
                         error!("Failed to create HuginnNetTcp analyzer: {e}");
@@ -170,7 +170,7 @@ fn main() {
         }
         Commands::Pcap { .. } => {
             info!("Using sequential mode for PCAP analysis");
-            let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
+            let mut analyzer = match HuginnNetTcp::new_with_db(Some(db), 1000) {
                 Ok(analyzer) => analyzer,
                 Err(e) => {
                     error!("Failed to create HuginnNetTcp analyzer: {e}");

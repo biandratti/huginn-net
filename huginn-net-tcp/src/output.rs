@@ -1,6 +1,12 @@
 use crate::observable::ObservableTcp;
+#[cfg(feature = "db")]
 use huginn_net_db::tcp::Ttl;
-use huginn_net_db::{Label, MatchQualityType, Type};
+#[cfg(not(feature = "db"))]
+use crate::tcp::Ttl;
+#[cfg(feature = "db")]
+use huginn_net_db::{Label, Type, MatchQualityType};
+#[cfg(not(feature = "db"))]
+use crate::types::MatchQualityType;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -40,11 +46,8 @@ impl IpPort {
 
 /// Represents an operative system.
 ///
-/// This struct contains the name, family, variant, and kind of operative system.
-/// Examples:
-/// - name: "Linux", family: "unix", variant: "2.2.x-3.x", kind: Type::Specified
-/// - name: "Windows", family: "win", variant: "NT kernel 6.x", kind: Type::Specified
-/// - name: "iOS", family: "unix", variant: "iPhone or iPad", kind: Type::Specified
+/// Only available with the `db` feature.
+#[cfg(feature = "db")]
 #[derive(Debug)]
 pub struct OperativeSystem {
     pub name: String,
@@ -53,6 +56,7 @@ pub struct OperativeSystem {
     pub kind: Type,
 }
 
+#[cfg(feature = "db")]
 impl From<&Label> for OperativeSystem {
     fn from(label: &Label) -> Self {
         OperativeSystem {
@@ -64,9 +68,12 @@ impl From<&Label> for OperativeSystem {
     }
 }
 
-/// The operative system with the highest quality that matches the packet. Quality is a value between 0.0 and 1.0. 1.0 is a perfect match.
+/// The operative system with the highest quality that matches the packet.
+/// Quality is a value between 0.0 and 1.0, where 1.0 is a perfect match.
+/// Without the `db` feature, `os` is always `None` and quality is `Disabled`.
 #[derive(Debug)]
 pub struct OSQualityMatched {
+    #[cfg(feature = "db")]
     pub os: Option<OperativeSystem>,
     pub quality: MatchQualityType,
 }
@@ -89,6 +96,24 @@ pub struct SynTCPOutput {
 
 impl fmt::Display for SynTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        #[cfg(feature = "db")]
+        let os_str = self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
+            format!(
+                "{}/{}/{}",
+                os.name,
+                os.family.as_deref().unwrap_or("???"),
+                os.variant.as_deref().unwrap_or("??")
+            )
+        });
+        #[cfg(not(feature = "db"))]
+        let os_str = "???";
+
+        #[cfg(feature = "db")]
+        let params_str =
+            self.os_matched.os.as_ref().map_or("none".to_string(), |os| os.kind.to_string());
+        #[cfg(not(feature = "db"))]
+        let params_str = "none";
+
         write!(
             f,
             "[TCP SYN] {}:{} → {}:{}\n\
@@ -100,24 +125,14 @@ impl fmt::Display for SynTCPOutput {
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
-                format!(
-                    "{}/{}/{}",
-                    os.name,
-                    os.family.as_deref().unwrap_or("???"),
-                    os.variant.as_deref().unwrap_or("??")
-                )
-            }),
+            os_str,
             match self.sig.matching.ittl {
                 Ttl::Distance(_, distance) => distance,
                 Ttl::Bad(value) => value,
                 Ttl::Value(value) => value,
                 Ttl::Guess(value) => value,
             },
-            self.os_matched
-                .os
-                .as_ref()
-                .map_or("none".to_string(), |os| os.kind.to_string()),
+            params_str,
             self.sig,
         )
     }
@@ -141,6 +156,24 @@ pub struct SynAckTCPOutput {
 
 impl fmt::Display for SynAckTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        #[cfg(feature = "db")]
+        let os_str = self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
+            format!(
+                "{}/{}/{}",
+                os.name,
+                os.family.as_deref().unwrap_or("???"),
+                os.variant.as_deref().unwrap_or("??")
+            )
+        });
+        #[cfg(not(feature = "db"))]
+        let os_str = "???";
+
+        #[cfg(feature = "db")]
+        let params_str =
+            self.os_matched.os.as_ref().map_or("none".to_string(), |os| os.kind.to_string());
+        #[cfg(not(feature = "db"))]
+        let params_str = "none";
+
         write!(
             f,
             "[TCP SYN+ACK] {}:{} → {}:{}\n\
@@ -152,24 +185,14 @@ impl fmt::Display for SynAckTCPOutput {
             self.source.port,
             self.destination.ip,
             self.destination.port,
-            self.os_matched.os.as_ref().map_or("???".to_string(), |os| {
-                format!(
-                    "{}/{}/{}",
-                    os.name,
-                    os.family.as_deref().unwrap_or("???"),
-                    os.variant.as_deref().unwrap_or("??")
-                )
-            }),
+            os_str,
             match self.sig.matching.ittl {
                 Ttl::Distance(_, distance) => distance,
                 Ttl::Bad(value) => value,
                 Ttl::Value(value) => value,
                 Ttl::Guess(value) => value,
             },
-            self.os_matched
-                .os
-                .as_ref()
-                .map_or("none".to_string(), |os| os.kind.to_string()),
+            params_str,
             self.sig,
         )
     }

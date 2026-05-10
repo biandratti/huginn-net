@@ -5,6 +5,7 @@ use crate::packet_hash;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::raw_filter;
+#[cfg(feature = "db")]
 use crate::signature_matcher::SignatureMatcher;
 use crossbeam_channel::{bounded, Sender, TrySendError};
 use std::num::NonZeroUsize;
@@ -112,7 +113,7 @@ impl WorkerPool {
         batch_size: usize,
         timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<TcpAnalysisResult>,
-        database: Option<Arc<crate::db::Database>>,
+        #[cfg(feature = "db")] database: Option<Arc<crate::db::Database>>,
         max_connections: usize,
         filter_config: Option<FilterConfig>,
     ) -> Result<Self, HuginnNetTcpError> {
@@ -134,6 +135,7 @@ impl WorkerPool {
             worker_dropped.push(Arc::clone(&dropped_counter));
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
+            #[cfg(feature = "db")]
             let worker_database = database.as_ref().map(Arc::clone);
             let worker_filter = filter_config.clone();
 
@@ -144,6 +146,7 @@ impl WorkerPool {
                         worker_id,
                         rx,
                         result_sender_clone,
+                        #[cfg(feature = "db")]
                         worker_database,
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
@@ -182,7 +185,7 @@ impl WorkerPool {
         worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TcpAnalysisResult>,
-        database: Option<Arc<crate::db::Database>>,
+        #[cfg(feature = "db")] database: Option<Arc<crate::db::Database>>,
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
         filter_config: Option<FilterConfig>,
@@ -192,10 +195,9 @@ impl WorkerPool {
 
         tracing::debug!("TCP worker {worker_id} starting");
 
-        // Each worker creates its own matcher from the shared database
-        let matcher = database
-            .as_ref()
-            .map(|db| SignatureMatcher::new(db.as_ref()));
+        // Each worker creates its own matcher from the shared database (db feature only)
+        #[cfg(feature = "db")]
+        let matcher = database.as_ref().map(|db| SignatureMatcher::new(db.as_ref()));
 
         // Each worker maintains its own connection tracker (state isolation)
         let mut connection_tracker = TtlCache::new(config.max_connections);
@@ -230,6 +232,7 @@ impl WorkerPool {
             if !Self::process_packet(
                 &first_packet,
                 &mut connection_tracker,
+                #[cfg(feature = "db")]
                 matcher.as_ref(),
                 &result_sender,
                 filter_config.as_ref(),
@@ -245,6 +248,7 @@ impl WorkerPool {
                         if !Self::process_packet(
                             &packet,
                             &mut connection_tracker,
+                            #[cfg(feature = "db")]
                             matcher.as_ref(),
                             &result_sender,
                             filter_config.as_ref(),
@@ -269,7 +273,7 @@ impl WorkerPool {
             crate::uptime::ConnectionKey,
             crate::uptime::TcpTimestamp,
         >,
-        matcher: Option<&SignatureMatcher>,
+        #[cfg(feature = "db")] matcher: Option<&SignatureMatcher>,
         result_sender: &std::sync::mpsc::Sender<TcpAnalysisResult>,
         filter: Option<&FilterConfig>,
     ) -> bool {
@@ -281,8 +285,18 @@ impl WorkerPool {
         }
 
         let result = match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, connection_tracker, matcher),
-            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, connection_tracker, matcher),
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(
+                &ipv4,
+                connection_tracker,
+                #[cfg(feature = "db")]
+                matcher,
+            ),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(
+                &ipv6,
+                connection_tracker,
+                #[cfg(feature = "db")]
+                matcher,
+            ),
             IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,
                 syn_ack: None,

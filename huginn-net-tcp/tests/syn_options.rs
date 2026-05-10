@@ -1,3 +1,4 @@
+#![cfg(feature = "db")]
 use huginn_net_db::observable_signals::TcpObservation;
 use huginn_net_tcp::syn_options::parse_options_raw;
 use huginn_net_tcp::tcp::{IpVersion, PayloadSize, TcpOption};

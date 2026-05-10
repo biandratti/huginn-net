@@ -1,7 +1,20 @@
 #![forbid(unsafe_code)]
 
+// When the db feature is enabled, re-export huginn-net-db so internal code
+// can use `crate::db::*` and `crate::tcp::*` from the DB crate (type-compatible
+// with TcpObservation used in the matching logic).
+// When db is off, the local `tcp` and `types` modules provide the same types.
+#[cfg(feature = "db")]
 pub use huginn_net_db as db;
+
+#[cfg(not(feature = "db"))]
+pub mod tcp;
+#[cfg(feature = "db")]
 pub use huginn_net_db::tcp;
+
+pub mod types;
+#[cfg(feature = "db")]
+pub use huginn_net_db::MatchQualityType;
 
 pub mod filter;
 pub mod ip_options;
@@ -21,6 +34,7 @@ pub mod error;
 pub mod observable;
 pub mod output;
 pub mod process;
+#[cfg(feature = "db")]
 pub mod signature_matcher;
 
 // Re-exports
@@ -28,8 +42,11 @@ pub use error::*;
 pub use filter::*;
 pub use observable::*;
 pub use output::*;
+#[cfg(not(feature = "db"))]
+pub use types::MatchQualityType;
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::*;
+#[cfg(feature = "db")]
 pub use signature_matcher::*;
 pub use tcp_process::*;
 pub use uptime::{
@@ -63,6 +80,7 @@ pub struct ParallelConfig {
 ///
 /// Supports both sequential (single-threaded) and parallel (multi-threaded) processing modes.
 pub struct HuginnNetTcp {
+    #[cfg(feature = "db")]
     matcher: Option<Arc<db::Database>>,
     max_connections: usize,
     parallel_config: Option<ParallelConfig>,
@@ -71,7 +89,25 @@ pub struct HuginnNetTcp {
 }
 
 impl HuginnNetTcp {
-    /// Creates a new instance of `HuginnNetTcp` in sequential mode.
+    /// Creates a new instance of `HuginnNetTcp` in sequential mode without DB matching.
+    ///
+    /// # Parameters
+    /// - `max_connections`: Maximum number of connections to track in the connection tracker
+    ///
+    /// # Returns
+    /// A new `HuginnNetTcp` instance ready for sequential TCP analysis.
+    pub fn new(max_connections: usize) -> Result<Self, HuginnNetTcpError> {
+        Ok(Self {
+            #[cfg(feature = "db")]
+            matcher: None,
+            max_connections,
+            parallel_config: None,
+            worker_pool: None,
+            filter_config: None,
+        })
+    }
+
+    /// Creates a new instance of `HuginnNetTcp` in sequential mode with optional DB matching.
     ///
     /// # Parameters
     /// - `database`: Optional signature database for OS matching
@@ -79,7 +115,8 @@ impl HuginnNetTcp {
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance ready for sequential TCP analysis.
-    pub fn new(
+    #[cfg(feature = "db")]
+    pub fn new_with_db(
         database: Option<Arc<db::Database>>,
         max_connections: usize,
     ) -> Result<Self, HuginnNetTcpError> {
@@ -120,24 +157,45 @@ impl HuginnNetTcp {
     /// # Example
     /// ```rust,no_run
     /// use huginn_net_tcp::HuginnNetTcp;
-    /// use huginn_net_db::Database;
-    /// use std::sync::Arc;
-    ///
-    /// let db = Arc::new(Database::load_default().expect("Failed to load database"));
     ///
     /// // Balanced configuration (recommended)
-    /// let tcp = HuginnNetTcp::with_config(Some(db.clone()), 1000, 4, 100, 32, 10);
+    /// let tcp = HuginnNetTcp::with_config(1000, 4, 100, 32, 10);
     ///
-    /// // Low latency
-    /// let low_latency = HuginnNetTcp::with_config(Some(db.clone()), 1000, 2, 100, 8, 5);
-    ///
-    /// // High throughput
-    /// let high_throughput = HuginnNetTcp::with_config(Some(db), 1000, 4, 200, 64, 20);
+    /// // With DB matching (requires the `db` feature):
+    /// // use huginn_net_db::Database;
+    /// // use std::sync::Arc;
+    /// // let db = Arc::new(Database::load_default().expect("Failed to load database"));
+    /// // let tcp = HuginnNetTcp::with_config_db(Some(db), 1000, 4, 100, 32, 10);
     /// ```
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance configured for parallel processing.
+    /// Creates a new instance of `HuginnNetTcp` configured for parallel processing, without DB.
     pub fn with_config(
+        max_connections: usize,
+        num_workers: usize,
+        queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
+    ) -> Result<Self, HuginnNetTcpError> {
+        Ok(Self {
+            #[cfg(feature = "db")]
+            matcher: None,
+            max_connections,
+            parallel_config: Some(ParallelConfig {
+                num_workers,
+                queue_size,
+                batch_size,
+                timeout_ms,
+            }),
+            worker_pool: None,
+            filter_config: None,
+        })
+    }
+
+    /// Creates a new instance of `HuginnNetTcp` configured for parallel processing, with DB.
+    #[cfg(feature = "db")]
+    pub fn with_config_db(
         database: Option<Arc<db::Database>>,
         max_connections: usize,
         num_workers: usize,
@@ -185,7 +243,7 @@ impl HuginnNetTcp {
                     .to_string(),
             ))?;
 
-        // Clone Arc for sharing across threads (cheap, just increments ref count)
+        #[cfg(feature = "db")]
         let database_arc = self.matcher.as_ref().map(Arc::clone);
 
         let worker_pool = WorkerPool::new(
@@ -194,6 +252,7 @@ impl HuginnNetTcp {
             config.batch_size,
             config.timeout_ms,
             sender,
+            #[cfg(feature = "db")]
             database_arc,
             self.max_connections,
             self.filter_config.clone(),
@@ -423,18 +482,22 @@ impl HuginnNetTcp {
             }
         }
 
-        let matcher = self
-            .matcher
-            .as_ref()
-            .map(|db| SignatureMatcher::new(db.as_ref()));
+        #[cfg(feature = "db")]
+        let matcher = self.matcher.as_ref().map(|db| SignatureMatcher::new(db.as_ref()));
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => {
-                process_ipv4_packet(&ipv4, connection_tracker, matcher.as_ref())
-            }
-            IpPacket::Ipv6(ipv6) => {
-                process_ipv6_packet(&ipv6, connection_tracker, matcher.as_ref())
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(
+                &ipv4,
+                connection_tracker,
+                #[cfg(feature = "db")]
+                matcher.as_ref(),
+            ),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(
+                &ipv6,
+                connection_tracker,
+                #[cfg(feature = "db")]
+                matcher.as_ref(),
+            ),
             IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,
                 syn_ack: None,

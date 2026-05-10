@@ -2,8 +2,11 @@
 //!
 //! Provides [`parse_options_raw`] for decoding TCP options from raw bytes (TLV encoding, RFC 793).
 //! Pair it with [`crate::ttl::calculate_ttl`] and [`crate::window_size::detect_win_multiplicator`]
-//! to assemble a complete [`huginn_net_db::observable_signals::TcpObservation`].
+//! to assemble a complete [`crate::observable::TcpObservation`].
 
+#[cfg(feature = "db")]
+use huginn_net_db::tcp::TcpOption;
+#[cfg(not(feature = "db"))]
 use crate::tcp::TcpOption;
 use pnet::packet::tcp::{TcpOptionNumbers::*, TcpOptionPacket};
 use pnet::packet::{Packet, PacketSize};
