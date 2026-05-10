@@ -1,12 +1,12 @@
 use crate::observable::ObservableTcp;
-#[cfg(feature = "db")]
-use huginn_net_db::tcp::Ttl;
 #[cfg(not(feature = "db"))]
 use crate::tcp::Ttl;
-#[cfg(feature = "db")]
-use huginn_net_db::{Label, Type, MatchQualityType};
 #[cfg(not(feature = "db"))]
 use crate::types::MatchQualityType;
+#[cfg(feature = "db")]
+use huginn_net_db::tcp::Ttl;
+#[cfg(feature = "db")]
+use huginn_net_db::{Label, MatchQualityType, Type};
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -109,8 +109,11 @@ impl fmt::Display for SynTCPOutput {
         let os_str = "???";
 
         #[cfg(feature = "db")]
-        let params_str =
-            self.os_matched.os.as_ref().map_or("none".to_string(), |os| os.kind.to_string());
+        let params_str = self
+            .os_matched
+            .os
+            .as_ref()
+            .map_or("none".to_string(), |os| os.kind.to_string());
         #[cfg(not(feature = "db"))]
         let params_str = "none";
 
@@ -169,8 +172,11 @@ impl fmt::Display for SynAckTCPOutput {
         let os_str = "???";
 
         #[cfg(feature = "db")]
-        let params_str =
-            self.os_matched.os.as_ref().map_or("none".to_string(), |os| os.kind.to_string());
+        let params_str = self
+            .os_matched
+            .os
+            .as_ref()
+            .map_or("none".to_string(), |os| os.kind.to_string());
         #[cfg(not(feature = "db"))]
         let params_str = "none";
 

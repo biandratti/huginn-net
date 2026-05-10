@@ -1,11 +1,13 @@
 use crate::error::HuginnNetTcpError;
-use crate::output::{IpPort, MTUOutput, MTUQualityMatched, OSQualityMatched, SynAckTCPOutput,
-    SynTCPOutput, UptimeOutput};
+use crate::output::{
+    IpPort, MTUOutput, MTUQualityMatched, OSQualityMatched, SynAckTCPOutput, SynTCPOutput,
+    UptimeOutput,
+};
+#[cfg(not(feature = "db"))]
+use crate::types::MatchQualityType;
 use crate::{tcp_process, ConnectionKey, TcpAnalysisResult, TcpTimestamp, UptimeRole};
 #[cfg(feature = "db")]
 use huginn_net_db::MatchQualityType;
-#[cfg(not(feature = "db"))]
-use crate::types::MatchQualityType;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
@@ -14,11 +16,11 @@ use std::net::IpAddr;
 use ttl_cache::TtlCache;
 
 #[cfg(feature = "db")]
+use crate::observable::ObservableTcp;
+#[cfg(feature = "db")]
 use crate::output::OperativeSystem;
 #[cfg(feature = "db")]
 use crate::SignatureMatcher;
-#[cfg(feature = "db")]
-use crate::observable::ObservableTcp;
 
 // ---------------------------------------------------------------------------
 // OS quality helpers — compile only when the db feature is active
@@ -30,9 +32,7 @@ fn os_quality_from_request(
     matcher: Option<&SignatureMatcher>,
 ) -> OSQualityMatched {
     if let Some(matcher) = matcher {
-        if let Some((label, _signature, quality)) =
-            matcher.matching_by_tcp_request(tcp_request)
-        {
+        if let Some((label, _signature, quality)) = matcher.matching_by_tcp_request(tcp_request) {
             OSQualityMatched {
                 os: Some(OperativeSystem::from(label)),
                 quality: MatchQualityType::Matched(quality),
@@ -51,9 +51,7 @@ fn os_quality_from_response(
     matcher: Option<&SignatureMatcher>,
 ) -> OSQualityMatched {
     if let Some(matcher) = matcher {
-        if let Some((label, _signature, quality)) =
-            matcher.matching_by_tcp_response(tcp_response)
-        {
+        if let Some((label, _signature, quality)) = matcher.matching_by_tcp_response(tcp_response) {
             OSQualityMatched {
                 os: Some(OperativeSystem::from(label)),
                 quality: MatchQualityType::Matched(quality),
@@ -67,16 +65,10 @@ fn os_quality_from_response(
 }
 
 #[cfg(feature = "db")]
-fn mtu_quality(
-    mtu_value: &u16,
-    matcher: Option<&SignatureMatcher>,
-) -> MTUQualityMatched {
+fn mtu_quality(mtu_value: &u16, matcher: Option<&SignatureMatcher>) -> MTUQualityMatched {
     if let Some(matcher) = matcher {
         if let Some((link, _)) = matcher.matching_by_mtu(mtu_value) {
-            MTUQualityMatched {
-                link: Some(link.clone()),
-                quality: MatchQualityType::Matched(1.0),
-            }
+            MTUQualityMatched { link: Some(link.clone()), quality: MatchQualityType::Matched(1.0) }
         } else {
             MTUQualityMatched { link: None, quality: MatchQualityType::NotMatched }
         }

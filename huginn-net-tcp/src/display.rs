@@ -1,10 +1,10 @@
 use crate::observable::ObservableTcp;
-use core::fmt;
-use std::fmt::Formatter;
-#[cfg(feature = "db")]
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 #[cfg(not(feature = "db"))]
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use core::fmt;
+#[cfg(feature = "db")]
+use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use std::fmt::Formatter;
 
 trait TcpDisplayFormat {
     fn get_version(&self) -> IpVersion;

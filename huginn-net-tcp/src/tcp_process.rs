@@ -1,14 +1,14 @@
 use crate::error::HuginnNetTcpError;
 use crate::ip_options::IpOptions;
 use crate::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
-#[cfg(feature = "db")]
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 #[cfg(not(feature = "db"))]
 use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use crate::uptime::check_ts_tcp;
 use crate::uptime::{Connection, ConnectionKey, TcpTimestamp};
 use crate::window_size::detect_win_multiplicator;
 use crate::{mtu, ttl};
+#[cfg(feature = "db")]
+use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ipv4::{Ipv4Flags, Ipv4Packet},

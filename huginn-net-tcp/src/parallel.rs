@@ -197,7 +197,9 @@ impl WorkerPool {
 
         // Each worker creates its own matcher from the shared database (db feature only)
         #[cfg(feature = "db")]
-        let matcher = database.as_ref().map(|db| SignatureMatcher::new(db.as_ref()));
+        let matcher = database
+            .as_ref()
+            .map(|db| SignatureMatcher::new(db.as_ref()));
 
         // Each worker maintains its own connection tracker (state isolation)
         let mut connection_tracker = TtlCache::new(config.max_connections);

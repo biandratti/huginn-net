@@ -42,13 +42,13 @@ pub use error::*;
 pub use filter::*;
 pub use observable::*;
 pub use output::*;
-#[cfg(not(feature = "db"))]
-pub use types::MatchQualityType;
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::*;
 #[cfg(feature = "db")]
 pub use signature_matcher::*;
 pub use tcp_process::*;
+#[cfg(not(feature = "db"))]
+pub use types::MatchQualityType;
 pub use uptime::{
     calculate_uptime_improved, Connection, ConnectionKey, FrequencyState, TcpTimestamp,
     UptimeTracker,
@@ -483,7 +483,10 @@ impl HuginnNetTcp {
         }
 
         #[cfg(feature = "db")]
-        let matcher = self.matcher.as_ref().map(|db| SignatureMatcher::new(db.as_ref()));
+        let matcher = self
+            .matcher
+            .as_ref()
+            .map(|db| SignatureMatcher::new(db.as_ref()));
 
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => process_ipv4_packet(
