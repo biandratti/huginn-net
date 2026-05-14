@@ -4,6 +4,134 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ---
 
+## v1.x → v2.0.0
+
+### Summary
+
+Architectural refactor: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+
+### Most users (umbrella crate `huginn-net`)
+
+If you depend on `huginn-net` as a single crate, **most code keeps working** thanks to compatibility re-exports. The most likely thing you need to update is direct imports from `huginn_net_db::tcp` / `huginn_net_db::http`:
+
+```diff
+-use huginn_net_db::tcp::{IpVersion, Ttl};
++use huginn_net_tcp::tcp::{IpVersion, Ttl};
+
+-use huginn_net_db::http::Version;
++use huginn_net_http::http::Version;
+```
+
+Or via the umbrella (unchanged):
+
+```rust
+use huginn_net::tcp::{IpVersion, Ttl};   // still works
+use huginn_net::http::Version;           // still works
+```
+
+### Direct users of `huginn-net-tcp` / `huginn-net-http`
+
+`HuginnNetTcp::new` and `HuginnNetHttp::new` no longer accept a `Database`. Matching is configured via the new `with_matcher()` builder method.
+
+**Before (v1.x):**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_db::Database;
+use std::sync::Arc;
+
+let db = Arc::new(Database::load_default()?);
+let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
+```
+
+**After (v2.0) — with matching:**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
+use std::sync::Arc;
+
+let db = Arc::new(TcpDatabase::load_default()?);
+let matcher = TcpSignatureMatcher::new(db);
+let mut tcp = HuginnNetTcp::new(1000)?
+    .with_matcher(Arc::new(matcher));
+```
+
+**After (v2.0) — raw signatures only, no matching, no `huginn-net-db`:**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+let mut tcp = HuginnNetTcp::new(1000)?;
+```
+
+Same pattern for `HuginnNetHttp` with `HttpDatabase` and `HttpSignatureMatcher`.
+
+### Type paths moved
+
+| Old path (v1.x) | New path (v2.0) |
+|---|---|
+| `huginn_net_db::tcp::{IpVersion, Ttl, WindowSize, TcpOption, Quirk, PayloadSize}` | `huginn_net_tcp::tcp::*` |
+| `huginn_net_db::http::{Version, Header, HttpDiagnosis}` | `huginn_net_http::http::*` |
+| `huginn_net_db::observable_signals::TcpObservation` | `huginn_net_tcp::observable::TcpObservation` |
+| `huginn_net_db::observable_signals::HttpRequestObservation` | `huginn_net_http::observable::HttpRequestObservation` |
+| `huginn_net_db::observable_signals::HttpResponseObservation` | `huginn_net_http::observable::HttpResponseObservation` |
+| `huginn_net_tcp::SignatureMatcher` | `huginn_net_db::TcpSignatureMatcher` |
+| `huginn_net_http::SignatureMatcher` | `huginn_net_db::HttpSignatureMatcher` |
+| `huginn_net_tcp::db` (re-export) | removed — depend on `huginn-net-db` directly |
+| `huginn_net_http::db` (re-export) | removed — depend on `huginn-net-db` directly |
+
+### Database split
+
+`Database` is now a composition of `TcpDatabase` and `HttpDatabase`. Field access requires one extra hop:
+
+| Old field (v1.x) | New path (v2.0) |
+|---|---|
+| `db.tcp_request`, `db.tcp_response` | `db.tcp.tcp_request`, `db.tcp.tcp_response` |
+| `db.mtu` | `db.tcp.mtu` |
+| `db.http_request`, `db.http_response` | `db.http.http_request`, `db.http.http_response` |
+| `db.ua_os` | `db.http.ua_os` |
+
+Load only what you need:
+
+```rust
+let tcp_db  = huginn_net_db::TcpDatabase::load_default()?;
+let http_db = huginn_net_db::HttpDatabase::load_default()?;
+let full_db = huginn_net_db::Database::load_default()?;
+```
+
+### Removed methods
+
+The following inherent methods on TCP fingerprint types are removed in v2.0:
+
+- `Ttl::distance_ttl(other)`
+- `IpVersion::distance_ip_version(other)`
+- `WindowSize::distance_window_size(other, mss)`
+- `PayloadSize::distance_payload_size(other)`
+
+If you were calling these directly, use `TcpSignatureMatcher` instead — it wraps the full matching pipeline and returns the matched OS label. If you only need the distance score for a custom matcher, the matching logic now lives as free functions inside `huginn-net-db` (internal use).
+
+### New: optional matching in `huginn-net`
+
+`huginn-net` gains a `db` feature, **enabled by default** for backward compatibility. Opt out to ship a binary without the database (raw signatures only — useful for TLS terminators, sidecars, custom matchers):
+
+```toml
+huginn-net = { version = "2.0", default-features = false }
+```
+
+With `db` disabled, `HuginnNet::new(None, ...)` is the only constructor and all `*QualityMatched` results are `Disabled`.
+
+### Cargo features summary
+
+| Crate | New features (v2.0) |
+|---|---|
+| `huginn-net-tcp` | none (always standalone) |
+| `huginn-net-http` | none (always standalone) |
+| `huginn-net-tls` | `stable-v1` (unchanged) |
+| `huginn-net-db` | `tcp` (default), `http` (default) |
+| `huginn-net` | `db` (default), `tls-stable-v1` |
+
+---
+
 ## v1.6.x → v1.7.0
 
 ### Summary
