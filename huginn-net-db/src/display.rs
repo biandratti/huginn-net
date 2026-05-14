@@ -110,70 +110,12 @@ mod tcp {
     }
 }
 
-pub mod http {
-    use crate::http::{Header, HttpDiagnosis, Signature, Version};
-    use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
+mod http {
+    use crate::http::Signature;
     use core::fmt;
+    use huginn_net_http::display::HttpDisplayFormat;
+    use huginn_net_http::http::{Header, Version};
     use std::fmt::Formatter;
-
-    pub trait HttpDisplayFormat {
-        fn get_version(&self) -> Version;
-        fn get_horder(&self) -> &[Header];
-        fn get_habsent(&self) -> &[Header];
-        fn get_expsw(&self) -> &str;
-
-        fn format_http_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            write!(f, "{}:", self.get_version())?;
-
-            for (i, h) in self.get_horder().iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-                write!(f, "{h}")?;
-            }
-
-            f.write_str(":")?;
-
-            for (i, h) in self.get_habsent().iter().enumerate() {
-                if i > 0 {
-                    f.write_str(",")?;
-                }
-                write!(f, "{h}")?;
-            }
-
-            write!(f, ":{}", self.get_expsw())
-        }
-    }
-
-    impl HttpDisplayFormat for HttpRequestObservation {
-        fn get_version(&self) -> Version {
-            self.version
-        }
-        fn get_horder(&self) -> &[Header] {
-            &self.horder
-        }
-        fn get_habsent(&self) -> &[Header] {
-            &self.habsent
-        }
-        fn get_expsw(&self) -> &str {
-            &self.expsw
-        }
-    }
-
-    impl HttpDisplayFormat for HttpResponseObservation {
-        fn get_version(&self) -> Version {
-            self.version
-        }
-        fn get_horder(&self) -> &[Header] {
-            &self.horder
-        }
-        fn get_habsent(&self) -> &[Header] {
-            &self.habsent
-        }
-        fn get_expsw(&self) -> &str {
-            &self.expsw
-        }
-    }
 
     impl HttpDisplayFormat for Signature {
         fn get_version(&self) -> Version {
@@ -190,61 +132,9 @@ pub mod http {
         }
     }
 
-    impl fmt::Display for HttpRequestObservation {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            self.format_http_display(f)
-        }
-    }
-
-    impl fmt::Display for HttpResponseObservation {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            self.format_http_display(f)
-        }
-    }
-
     impl fmt::Display for Signature {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             self.format_http_display(f)
-        }
-    }
-
-    impl fmt::Display for Version {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            f.write_str(match self {
-                Version::V10 => "0",
-                Version::V11 => "1",
-                Version::V20 => "2",
-                Version::V30 => "3",
-                Version::Any => "*",
-            })
-        }
-    }
-
-    impl fmt::Display for Header {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            if self.optional {
-                f.write_str("?")?;
-            }
-
-            f.write_str(&self.name)?;
-
-            if let Some(ref value) = self.value {
-                write!(f, "=[{value}]")?;
-            }
-
-            Ok(())
-        }
-    }
-    impl fmt::Display for HttpDiagnosis {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            use crate::http::HttpDiagnosis::*;
-
-            f.write_str(match self {
-                Dishonest => "dishonest",
-                Anonymous => "anonymous",
-                Generic => "generic",
-                None => "none",
-            })
         }
     }
 }

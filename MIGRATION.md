@@ -6,19 +6,9 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ## v1.x → v2.0.0
 
-> **Status:** v2.0 is being shipped in stages on the `v2-dev` branch. Sections marked _(landed in v2.0)_ are already on that branch; the rest is the planned final state. Do not target this guide from a stable release until v2.0.0 is published on crates.io.
-
 ### Summary
 
 Architectural refactor: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
-
-| Stage | Status |
-|---|---|
-| TCP independence + `TcpMatcher` trait + `TcpSignatureMatcher` in `db` | _landed in v2.0_ |
-| Builder API (`HuginnNetTcp::new(...).with_matcher(...)`) | _landed in v2.0 (TCP only)_ |
-| HTTP independence + `HttpMatcher` trait + `HttpSignatureMatcher` in `db` | planned |
-| `TcpDatabase` / `HttpDatabase` split + Cargo features (`tcp`, `http`) | planned |
-| `db` feature on `huginn-net` umbrella | planned |
 
 ### Most users (umbrella crate `huginn-net`)
 
@@ -78,7 +68,22 @@ use huginn_net_tcp::HuginnNetTcp;
 let mut tcp = HuginnNetTcp::new(1000)?;
 ```
 
-Same pattern for `HuginnNetHttp` with `HttpDatabase` and `HttpSignatureMatcher`.
+The same pattern applies to `HuginnNetHttp`:
+
+```rust
+use huginn_net_http::HuginnNetHttp;
+use huginn_net_http::matcher_api::HttpMatcher;
+use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+use std::sync::Arc;
+
+let db = Arc::new(Database::load_default()?);
+let matcher: Arc<dyn HttpMatcher + Send + Sync> =
+    Arc::new(SharedHttpSignatureMatcher::new(db));
+let mut http = HuginnNetHttp::new(1000)?
+    .with_matcher(matcher);
+```
+
+> Once the planned `HttpDatabase` split lands, `Database` above can be replaced by `HttpDatabase` to load only HTTP signatures.
 
 ### Type paths moved
 

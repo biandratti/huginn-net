@@ -1,16 +1,14 @@
-use huginn_net_db::{Label, MatchQualityType, Type};
+use crate::http::HttpDiagnosis;
+use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Represents the output from HTTP analysis.
-///
-/// This struct contains various optional outputs that can be derived
-/// from analyzing HTTP packets.
+/// Result of analyzing HTTP packets, mirrors the database-agnostic shape of
+/// `HuginnNetHttp::analyze_*`.
 #[derive(Debug)]
 pub struct HttpAnalysisResult {
     /// Information derived from HTTP request packets.
     pub http_request: Option<HttpRequestOutput>,
-
     /// Information derived from HTTP response packets.
     pub http_response: Option<HttpResponseOutput>,
 }
@@ -26,45 +24,61 @@ impl IpPort {
         Self { ip, port }
     }
 }
-use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
-use huginn_net_db::http::HttpDiagnosis;
+
+/// Whether a matched browser/web server label was a *specified* (concrete)
+/// or *generic* (catch-all) entry in the underlying database.
+///
+/// Defined locally so `huginn-net-http` does not depend on `huginn-net-db`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OsKind {
+    Specified,
+    Generic,
+}
+
+/// Quality classification for an HTTP match.
+///
+/// - `Matched(score)` — a signature was matched with the given quality score
+///   (higher is better, typically in `[0.0, 1.0]`).
+/// - `NotMatched` — the matcher was active but no signature was a viable fit.
+/// - `Disabled` — matching was disabled (no matcher plugged in).
+#[derive(Clone, Debug)]
+pub enum MatchQuality {
+    Matched(f32),
+    NotMatched,
+    Disabled,
+}
 
 #[derive(Debug)]
 pub struct BrowserQualityMatched {
     pub browser: Option<Browser>,
-    pub quality: MatchQualityType,
+    pub quality: MatchQuality,
 }
 
-/// Represents a browser.
-///
-/// This struct contains the name, family, variant, and kind of browser.
-/// Examples:
-/// - name: "", family: "chrome", variant: "11.x to 26.x", kind: Type::Specified
-/// - name: "", family: "firefox", variant: "3.x", kind: Type::Specified
-#[derive(Debug)]
+/// Represents a browser identified from an HTTP request signature.
+#[derive(Debug, Clone)]
 pub struct Browser {
     pub name: String,
     pub family: Option<String>,
     pub variant: Option<String>,
-    pub kind: Type,
+    pub kind: OsKind,
 }
 
-impl From<&Label> for Browser {
-    fn from(label: &Label) -> Self {
-        Browser {
-            name: label.name.clone(),
-            family: label.class.clone(),
-            variant: label.flavor.clone(),
-            kind: label.ty.clone(),
-        }
-    }
+#[derive(Debug)]
+pub struct WebServerQualityMatched {
+    pub web_server: Option<WebServer>,
+    pub quality: MatchQuality,
+}
+
+/// Represents a web server identified from an HTTP response signature.
+#[derive(Debug, Clone)]
+pub struct WebServer {
+    pub name: String,
+    pub family: Option<String>,
+    pub variant: Option<String>,
+    pub kind: OsKind,
 }
 
 /// Holds information derived from analyzing HTTP request headers.
-///
-/// This structure contains details about the client, the detected application
-/// (if any), the preferred language, diagnostic parameters related to HTTP behavior,
-/// and the raw HTTP signature.
 #[derive(Debug)]
 pub struct HttpRequestOutput {
     /// The source IP address and port of the client making the request.
@@ -111,41 +125,7 @@ impl fmt::Display for HttpRequestOutput {
     }
 }
 
-#[derive(Debug)]
-pub struct WebServerQualityMatched {
-    pub web_server: Option<WebServer>,
-    pub quality: MatchQualityType,
-}
-
-/// Represents a web server.
-///
-/// This struct contains the name, family, variant, and kind of browser.
-/// Examples:
-/// - name: "", family: "apache", variant: "2.x", kind: Type::Specified
-/// - name: "", family: "nginx", variant: "1.x", kind: Type::Specified
-#[derive(Debug)]
-pub struct WebServer {
-    pub name: String,
-    pub family: Option<String>,
-    pub variant: Option<String>,
-    pub kind: Type,
-}
-
-impl From<&Label> for WebServer {
-    fn from(label: &Label) -> Self {
-        WebServer {
-            name: label.name.clone(),
-            family: label.class.clone(),
-            variant: label.flavor.clone(),
-            kind: label.ty.clone(),
-        }
-    }
-}
-
 /// Holds information derived from analyzing HTTP response headers.
-///
-/// This structure contains details about the server, the detected application
-/// (if any), diagnostic parameters related to HTTP behavior, and the raw HTTP signature.
 #[derive(Debug)]
 pub struct HttpResponseOutput {
     /// The source IP address and port of the server sending the response.

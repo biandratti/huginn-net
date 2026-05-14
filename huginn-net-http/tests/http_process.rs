@@ -1,4 +1,4 @@
-use huginn_net_db::http;
+use huginn_net_http::http;
 use huginn_net_http::http1_process;
 use huginn_net_http::http_common;
 use huginn_net_http::http_common::HttpProcessor;

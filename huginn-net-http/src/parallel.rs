@@ -8,17 +8,22 @@
 use crate::error::HuginnNetHttpError;
 use crate::filter::FilterConfig;
 use crate::http_process::{FlowKey, HttpProcessors, TcpFlow};
+use crate::matcher_api::HttpMatcher;
+use crate::output::HttpAnalysisResult;
 use crate::packet_hash;
 use crate::raw_filter;
-use crate::{HttpAnalysisResult, SignatureMatcher};
 use crossbeam_channel::{bounded, Sender};
-use huginn_net_db as db;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tracing::debug;
 use ttl_cache::TtlCache;
+
+/// Shared, thread-safe HTTP matcher used by [`WorkerPool`] and
+/// [`crate::HuginnNetHttp`]. The reference implementation is provided by
+/// `huginn-net-db` (`SharedHttpSignatureMatcher`).
+pub type SharedHttpMatcher = Arc<dyn HttpMatcher + Send + Sync>;
 
 /// Worker configuration parameters
 struct WorkerConfig {
@@ -32,10 +37,10 @@ pub struct WorkerPool {
     packet_senders: Arc<Vec<Sender<Vec<u8>>>>,
     result_sender: Arc<Mutex<Option<std::sync::mpsc::Sender<HttpAnalysisResult>>>>,
     shutdown_flag: Arc<AtomicBool>,
-    dispatched_count: Arc<AtomicU64>,
-    dropped_count: Arc<AtomicU64>,
+    dispatched_count: AtomicU64,
+    dropped_count: AtomicU64,
     worker_dropped: Vec<Arc<AtomicU64>>,
-    num_workers: usize,
+    num_workers: std::num::NonZeroUsize,
     pub batch_size: usize,
     pub timeout_ms: u64,
 }
@@ -74,7 +79,7 @@ impl WorkerPool {
     /// - `batch_size`: Maximum packets to process in one batch
     /// - `timeout_ms`: Worker receive timeout in milliseconds
     /// - `result_sender`: Channel to send analysis results
-    /// - `database`: Optional signature database for matching
+    /// - `matcher`: Optional shared signature matcher
     /// - `max_connections`: Maximum HTTP flows to track per worker
     /// - `filter_config`: Optional filter configuration for packet filtering
     ///
@@ -87,30 +92,29 @@ impl WorkerPool {
         batch_size: usize,
         timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
-        database: Option<Arc<db::Database>>,
+        matcher: Option<SharedHttpMatcher>,
         max_connections: usize,
         filter_config: Option<FilterConfig>,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
-        if num_workers == 0 {
-            return Err(HuginnNetHttpError::Misconfiguration(
-                "Worker count must be at least 1".to_string(),
-            ));
-        }
+        let num_workers_nz = std::num::NonZeroUsize::new(num_workers).ok_or_else(|| {
+            HuginnNetHttpError::Misconfiguration("Worker count must be at least 1".to_string())
+        })?;
 
         let mut packet_senders = Vec::with_capacity(num_workers);
-        let mut worker_dropped = Vec::with_capacity(num_workers);
+        let worker_dropped: Vec<Arc<AtomicU64>> = (0..num_workers)
+            .map(|_| Arc::new(AtomicU64::new(0)))
+            .collect();
         let shutdown_flag = Arc::new(AtomicBool::new(false));
 
-        for worker_id in 0..num_workers {
+        for (worker_id, dropped_slot) in worker_dropped.iter().enumerate() {
             let (tx, rx) = bounded::<Vec<u8>>(queue_size);
             packet_senders.push(tx);
 
             let result_sender_clone = result_sender.clone();
-            let db_clone = database.clone();
-            let dropped = Arc::new(AtomicU64::new(0));
-            worker_dropped.push(Arc::clone(&dropped));
+            let matcher_clone = matcher.clone();
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
             let worker_filter = filter_config.clone();
+            let dropped_clone = Arc::clone(dropped_slot);
 
             thread::Builder::new()
                 .name(format!("http-worker-{worker_id}"))
@@ -119,8 +123,8 @@ impl WorkerPool {
                         worker_id,
                         rx,
                         result_sender_clone,
-                        db_clone,
-                        dropped,
+                        matcher_clone,
+                        dropped_clone,
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
                         worker_filter,
@@ -137,10 +141,10 @@ impl WorkerPool {
             packet_senders: Arc::new(packet_senders),
             result_sender: Arc::new(Mutex::new(Some(result_sender))),
             shutdown_flag,
-            dispatched_count: Arc::new(AtomicU64::new(0)),
-            dropped_count: Arc::new(AtomicU64::new(0)),
+            dispatched_count: AtomicU64::new(0),
+            dropped_count: AtomicU64::new(0),
             worker_dropped,
-            num_workers,
+            num_workers: num_workers_nz,
             batch_size,
             timeout_ms,
         }))
@@ -152,7 +156,7 @@ impl WorkerPool {
         worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
-        database: Option<Arc<db::Database>>,
+        matcher: Option<SharedHttpMatcher>,
         dropped: Arc<AtomicU64>,
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
@@ -163,9 +167,6 @@ impl WorkerPool {
 
         debug!("HTTP worker {} started", worker_id);
 
-        let matcher = database
-            .as_ref()
-            .map(|db| SignatureMatcher::new(db.as_ref()));
         let mut http_flows = TtlCache::new(config.max_connections);
         let http_processors = HttpProcessors::new();
         let timeout = Duration::from_millis(config.timeout_ms);
@@ -177,12 +178,10 @@ impl WorkerPool {
                 break;
             }
 
-            // Receive first packet with timeout (blocking)
             match rx.recv_timeout(timeout) {
                 Ok(packet) => {
                     batch.push(packet);
 
-                    // Try to fill the batch with additional packets (non-blocking)
                     while batch.len() < config.batch_size {
                         match rx.try_recv() {
                             Ok(packet) => batch.push(packet),
@@ -190,13 +189,14 @@ impl WorkerPool {
                         }
                     }
 
-                    // Process all packets in the batch
+                    let matcher_ref: Option<&dyn HttpMatcher> =
+                        matcher.as_deref().map(|m| m as &dyn HttpMatcher);
                     for packet in batch.drain(..) {
                         match Self::process_packet(
                             &packet,
                             &mut http_flows,
                             &http_processors,
-                            matcher.as_ref(),
+                            matcher_ref,
                             filter_config.as_ref(),
                         ) {
                             Ok(result) => {
@@ -206,7 +206,9 @@ impl WorkerPool {
                                 }
                             }
                             Err(_) => {
-                                // Packet processing error, increment dropped count
+                                // Packet processing error inside this worker. Feed it into the
+                                // per-worker drop counter so it is visible via `PoolStats`.
+                                // (See also `dispatch()` for queue-overflow drops.)
                                 dropped.fetch_add(1, Ordering::Relaxed);
                             }
                         }
@@ -229,12 +231,11 @@ impl WorkerPool {
         debug!("HTTP worker {} stopped", worker_id);
     }
 
-    /// Processes a single packet within a worker thread.
     fn process_packet(
         packet: &[u8],
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
-        matcher: Option<&SignatureMatcher>,
+        matcher: Option<&dyn HttpMatcher>,
         filter: Option<&FilterConfig>,
     ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
         if let Some(filter_cfg) = filter {
@@ -258,14 +259,20 @@ impl WorkerPool {
         }
     }
 
+    /// Deterministically computes which worker would process `packet` based
+    /// on its flow hash. Useful for tests that want to assert routing
+    /// decisions without going through the actual queue.
+    pub fn worker_index_for_packet(&self, packet: &[u8]) -> usize {
+        packet_hash::hash_flow(packet, self.num_workers.get())
+    }
+
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
-        // Don't accept new packets if shutting down
         if self.shutdown_flag.load(Ordering::Relaxed) {
             self.dropped_count.fetch_add(1, Ordering::Relaxed);
             return DispatchResult::Dropped;
         }
 
-        let worker_id = packet_hash::hash_flow(&packet, self.num_workers);
+        let worker_id = self.worker_index_for_packet(&packet);
 
         self.dispatched_count.fetch_add(1, Ordering::Relaxed);
 
@@ -305,10 +312,8 @@ impl WorkerPool {
 
     /// Initiates graceful shutdown of the worker pool.
     pub fn shutdown(&self) {
-        // Set shutdown flag to stop workers on next timeout
         self.shutdown_flag.store(true, Ordering::Relaxed);
 
-        // Drop result sender to signal workers
         if let Ok(mut sender) = self.result_sender.lock() {
             *sender = None;
         }

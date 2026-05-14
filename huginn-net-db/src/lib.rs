@@ -26,6 +26,7 @@ pub mod observable_signals;
 pub mod observable_tcp_signals_matching;
 
 // Matcher implementations
+pub mod http_signature_matcher;
 pub mod tcp_signature_matcher;
 
 // Display implementations for database types
@@ -35,5 +36,6 @@ pub mod utils;
 // Re-export main types for convenience
 pub use db::{Database, Label, Type};
 pub use error::DatabaseError;
+pub use http_signature_matcher::{HttpSignatureMatcher, SharedHttpSignatureMatcher};
 pub use tcp_signature_matcher::{SharedTcpSignatureMatcher, TcpSignatureMatcher};
 pub use utils::MatchQualityType;

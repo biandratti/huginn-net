@@ -1,4 +1,4 @@
-use huginn_net_db::http;
+use huginn_net_http::http;
 use huginn_net_http::http1_parser::{Http1Config, Http1ParseError, Http1Parser};
 
 fn unwrap_parser_result<T>(result: Result<Option<T>, Http1ParseError>) -> T {

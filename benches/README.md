@@ -133,7 +133,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 #### HTTP Optimization
 - **Sequential Mode**: 526.6K pps throughput (154.3% CPU for 10 Gbps [OVERLOAD] - requires parallel mode)
 - **Parallel Mode (2 workers)**: 1.54M pps throughput (52.7% CPU for 10 Gbps) - **Recommended**
-- Use `HuginnNetHttp::with_config(Some(db), 1000, 2, 100, 16, 10)` for optimal throughput
+- Use `HuginnNetHttp::with_config(1000, 2, 100, 16, 10)?.with_matcher(matcher)` for optimal throughput
 - Disable browser matching when not needed (reduces overhead by 44.3%)
 - Disable server matching when not needed (reduces overhead by 29.9%)
 - Use large cache (10K flows) for +3.2% throughput improvement

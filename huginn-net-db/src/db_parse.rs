@@ -225,7 +225,6 @@ impl_from_str!(Label, parse_label);
 impl_from_str!(Type, parse_type);
 impl_from_str!(TcpSignature, parse_tcp_signature);
 impl_from_str!(HttpSignature, parse_http_signature);
-impl_from_str!(HttpHeader, parse_http_header);
 
 macro_rules! str_parser {
     ($name:ident, $ty:ty, $parse:ident) => {
@@ -253,6 +252,8 @@ str_parser!(parse_window_size_str, WindowSize, parse_window_size);
 str_parser!(parse_tcp_option_str, TcpOption, parse_tcp_option);
 str_parser!(parse_quirk_str, Quirk, parse_quirk);
 str_parser!(parse_payload_size_str, PayloadSize, parse_payload_size);
+str_parser!(parse_http_version_str, HttpVersion, parse_http_version);
+str_parser!(parse_http_header_str, HttpHeader, parse_http_header);
 
 fn parse_named_value(input: &str) -> IResult<&str, (&str, &str)> {
     let (input, (name, _, _, _, value)) =

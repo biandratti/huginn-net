@@ -1,5 +1,5 @@
-use huginn_net_db::http;
-use huginn_net_db::http::Header;
+use huginn_net_http::http;
+use huginn_net_http::http::Header;
 use huginn_net_http::http1_process::{
     has_complete_headers, parse_http1_request, parse_http1_response,
 };
@@ -97,36 +97,20 @@ fn test_get_diagnostic_for_empty_sw() {
 #[test]
 fn test_get_diagnostic_with_existing_signature_matcher() {
     let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
-    let os = "Linux";
-    let browser = Some("Firefox");
-    let ua_matcher: Option<(&str, Option<&str>)> = Some((os, browser));
-    let label = huginn_net_db::Label {
-        ty: huginn_net_db::Type::Specified,
-        class: None,
-        name: "Linux".to_string(),
-        flavor: None,
-    };
-    let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
+    let ua_os_family = Some("Linux");
+    let network_os_name = Some("Linux");
 
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
+    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
     assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
 }
 
 #[test]
 fn test_get_diagnostic_with_dishonest_user_agent() {
     let user_agent = Some("Mozilla/5.0".to_string());
-    let os = "Windows";
-    let browser = Some("Firefox");
-    let ua_matcher: Option<(&str, Option<&str>)> = Some((os, browser));
-    let label = huginn_net_db::Label {
-        ty: huginn_net_db::Type::Specified,
-        class: None,
-        name: "Linux".to_string(),
-        flavor: None,
-    };
-    let signature_os_matcher: Option<&huginn_net_db::Label> = Some(&label);
+    let ua_os_family = Some("Windows");
+    let network_os_name = Some("Linux");
 
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_matcher, signature_os_matcher);
+    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
     assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
 }
 

@@ -12,8 +12,7 @@
 // CORE IMPORTS (database, errors, results - always required)
 // ============================================================================
 use crate::output::FingerprintResult;
-use huginn_net_db::MatchQualityType;
-pub use huginn_net_db::{db_matching_trait, http, Database, Label};
+pub use huginn_net_db::{db_matching_trait, Database, Label};
 use huginn_net_tcp::output::{MatchQuality as TcpMatchQuality, OSQualityMatched};
 
 // ============================================================================
@@ -30,11 +29,12 @@ use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
 // ============================================================================
 // HTTP PROTOCOL IMPORTS (depends on TCP)
 // ============================================================================
-use huginn_net_db::http::HttpDiagnosis;
+pub use huginn_net_http::http;
+use huginn_net_http::http::HttpDiagnosis;
 use huginn_net_http::http_process::{FlowKey, TcpFlow};
 use huginn_net_http::output::{
-    Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, WebServer,
-    WebServerQualityMatched,
+    Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput,
+    MatchQuality as HttpMatchQuality, WebServer, WebServerQualityMatched,
 };
 
 // ============================================================================
@@ -131,7 +131,7 @@ impl Default for AnalysisConfig {
 /// client analysis following the official FoxIO specification.
 pub struct HuginnNet<'a> {
     pub tcp_matcher: Option<huginn_net_db::TcpSignatureMatcher<'a>>,
-    pub http_matcher: Option<huginn_net_http::SignatureMatcher<'a>>,
+    pub http_matcher: Option<huginn_net_db::HttpSignatureMatcher<'a>>,
     connection_tracker: TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: huginn_net_http::http_process::HttpProcessors,
@@ -178,7 +178,7 @@ impl<'a> HuginnNet<'a> {
         };
 
         let http_matcher = if config.matcher_enabled && config.http_enabled {
-            database.map(huginn_net_http::SignatureMatcher::new)
+            database.map(huginn_net_db::HttpSignatureMatcher::new)
         } else {
             None
         };
@@ -520,7 +520,7 @@ impl<'a> HuginnNet<'a> {
                                 enabled: self.config.matcher_enabled,
                                 matcher: self.http_matcher,
                                 call: matcher => {
-                                    let sig_match = matcher.matching_by_http_request(&observable_http_request);
+                                    let sig_match = matcher.matching_by_http_request(&observable_http_request.matching);
                                     let ua_match = observable_http_request.user_agent.clone()
                                         .and_then(|ua| matcher.matching_by_user_agent(ua));
                                     Some((sig_match, ua_match))
@@ -529,34 +529,40 @@ impl<'a> HuginnNet<'a> {
                                     let browser_quality = signature_matcher
                                         .map(|(label, _signature, quality)| BrowserQualityMatched {
                                             browser: Some(Browser::from(label)),
-                                            quality: MatchQualityType::Matched(quality),
+                                            quality: HttpMatchQuality::Matched(quality),
                                         })
                                         .unwrap_or(BrowserQualityMatched {
                                             browser: None,
-                                            quality: MatchQualityType::NotMatched,
+                                            quality: HttpMatchQuality::NotMatched,
                                         });
                                     (signature_matcher, ua_matcher, browser_quality)
                                 },
                                 not_matched: {
                                     let browser_quality = BrowserQualityMatched {
                                         browser: None,
-                                        quality: MatchQualityType::NotMatched,
+                                        quality: HttpMatchQuality::NotMatched,
                                     };
                                     (None, None, browser_quality)
                                 },
                                 disabled: {
                                     let browser_quality = BrowserQualityMatched {
                                         browser: None,
-                                        quality: MatchQualityType::Disabled,
+                                        quality: HttpMatchQuality::Disabled,
                                     };
                                     (None, None, browser_quality)
                                 }
                             );
 
+                            // TODO(v2-followup): the third argument should be the OS name from
+                            // the TCP fingerprint match (network-observed OS), not the HTTP
+                            // signature label name (which is a *browser* name like "Firefox"
+                            // when the matcher is HTTP). Revisit in a dedicated PR by wiring
+                            // the TCP `OSQualityMatched` produced for `syn`/`syn_ack` of the
+                            // same packet into this diagnostic.
                             let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
                                 observable_http_request.user_agent.clone(),
-                                ua_matcher,
-                                signature_matcher.map(|(label, _signature, _quality)| label),
+                                ua_matcher.and_then(|(_, family)| family),
+                                signature_matcher.map(|(label, _signature, _quality)| label.name.as_str()),
                             );
 
                             HttpRequestOutput {
@@ -581,18 +587,18 @@ impl<'a> HuginnNet<'a> {
                             let web_server_quality = simple_quality_match!(
                                 enabled: self.config.matcher_enabled,
                                 matcher: self.http_matcher,
-                                method: matching_by_http_response(&observable_http_response),
+                                method: matching_by_http_response(&observable_http_response.matching),
                                 success: (label, _signature, quality) => WebServerQualityMatched {
                                     web_server: Some(WebServer::from(label)),
-                                    quality: MatchQualityType::Matched(quality),
+                                    quality: HttpMatchQuality::Matched(quality),
                                 },
                                 failure: WebServerQualityMatched {
                                     web_server: None,
-                                    quality: MatchQualityType::NotMatched,
+                                    quality: HttpMatchQuality::NotMatched,
                                 },
                                 disabled: WebServerQualityMatched {
                                     web_server: None,
-                                    quality: MatchQualityType::Disabled,
+                                    quality: HttpMatchQuality::Disabled,
                                 }
                             );
 
