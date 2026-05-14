@@ -386,7 +386,7 @@ impl HuginnNetTcp {
 
         self.process_with(
             move || match pcap_reader.next_packet() {
-                Some(Ok(packet)) => Some(Ok(packet.data.to_vec())),
+                Some(Ok(packet)) => Some(Ok(packet.data().to_vec())),
                 Some(Err(e)) => {
                     Some(Err(HuginnNetTcpError::Parse(format!("Error reading PCAP packet: {e}"))))
                 }
