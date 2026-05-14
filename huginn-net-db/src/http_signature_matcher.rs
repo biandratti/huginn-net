@@ -1,4 +1,4 @@
-use crate::db::{Database, Label, Type};
+use crate::db::{HttpDatabase, Label, Type};
 use crate::db_matching_trait::FingerprintDb;
 use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
@@ -6,11 +6,11 @@ use huginn_net_http::output::{Browser, OsKind, WebServer};
 use std::sync::Arc;
 
 pub struct HttpSignatureMatcher<'a> {
-    database: &'a Database,
+    database: &'a HttpDatabase,
 }
 
 impl<'a> HttpSignatureMatcher<'a> {
-    pub fn new(database: &'a Database) -> Self {
+    pub fn new(database: &'a HttpDatabase) -> Self {
         Self { database }
     }
 
@@ -106,22 +106,33 @@ impl<'a> HttpMatcher for HttpSignatureMatcher<'a> {
 // Shared, owned matcher (implements HttpMatcher)
 // ---------------------------------------------------------------------------
 
-/// Owned wrapper around an `Arc<Database>` that implements [`HttpMatcher`].
+/// Owned wrapper around an `Arc<HttpDatabase>` that implements [`HttpMatcher`].
 ///
 /// This is the type you typically hand to
 /// [`huginn_net_http::HuginnNetHttp::with_matcher`].
 pub struct SharedHttpSignatureMatcher {
-    database: Arc<Database>,
+    database: Arc<HttpDatabase>,
 }
 
 impl SharedHttpSignatureMatcher {
-    pub fn new(database: Arc<Database>) -> Self {
+    pub fn new(database: Arc<HttpDatabase>) -> Self {
         Self { database }
+    }
+
+    /// Convenience constructor for callers that already have an `Arc` of the
+    /// composed [`crate::Database`]. Clones the inner [`HttpDatabase`] once;
+    /// after that, lookups are zero-copy.
+    ///
+    /// Available only when both `tcp` and `http` features are enabled (the
+    /// composed [`crate::Database`] requires both).
+    #[cfg(all(feature = "tcp", feature = "http"))]
+    pub fn from_database(database: &crate::Database) -> Self {
+        Self { database: Arc::new(database.http.clone()) }
     }
 
     /// Borrow the underlying database, e.g. to construct a borrowed
     /// [`HttpSignatureMatcher`] for low-level access.
-    pub fn database(&self) -> &Database {
+    pub fn database(&self) -> &HttpDatabase {
         &self.database
     }
 }

@@ -1,11 +1,12 @@
+#![cfg(feature = "tcp")]
 use huginn_net_db::observable_signals::TcpObservation;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
-use huginn_net_db::{Database, TcpSignatureMatcher, Type};
+use huginn_net_db::{TcpDatabase, TcpSignatureMatcher, Type};
 use huginn_net_tcp::ObservableTcp;
 
 #[test]
 fn matching_linux_by_tcp_request() {
-    let db = match Database::load_default() {
+    let db = match TcpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => {
             panic!("Failed to create default database: {e}");
@@ -50,7 +51,7 @@ fn matching_linux_by_tcp_request() {
 
 #[test]
 fn matching_android_by_tcp_request() {
-    let db = match Database::load_default() {
+    let db = match TcpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => {
             panic!("Failed to create default database: {e}");

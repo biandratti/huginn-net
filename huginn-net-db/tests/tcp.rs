@@ -1,3 +1,4 @@
+#![cfg(feature = "tcp")]
 use huginn_net_db::tcp::{distance_ttl, TcpMatchQuality, Ttl};
 
 #[test]

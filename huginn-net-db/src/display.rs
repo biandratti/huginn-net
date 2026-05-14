@@ -15,6 +15,7 @@ impl fmt::Display for Label {
     }
 }
 
+#[cfg(feature = "tcp")]
 mod tcp {
     use crate::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
     use core::fmt;
@@ -110,6 +111,7 @@ mod tcp {
     }
 }
 
+#[cfg(feature = "http")]
 mod http {
     use crate::http::Signature;
     use core::fmt;

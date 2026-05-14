@@ -1,15 +1,15 @@
-//! TCP signature matchers backed by a [`Database`].
+//! TCP signature matchers backed by a [`TcpDatabase`].
 //!
 //! Two flavours are exposed:
 //! - [`TcpSignatureMatcher<'a>`] — a borrowed matcher used by the umbrella
-//!   crate (and any code that already has a `&Database` in hand). This is
+//!   crate (and any code that already has a `&TcpDatabase` in hand). This is
 //!   the lower-level, allocation-free API.
 //! - [`SharedTcpSignatureMatcher`] — an owned matcher (holds an
-//!   `Arc<Database>`) that implements [`TcpMatcher`]. This is the matcher
+//!   `Arc<TcpDatabase>`) that implements [`TcpMatcher`]. This is the matcher
 //!   you hand to [`huginn_net_tcp::HuginnNetTcp`] when you want OS/MTU
 //!   matching without writing your own glue.
 
-use crate::db::{Database, Label, Type};
+use crate::db::{Label, TcpDatabase, Type};
 use crate::db_matching_trait::FingerprintDb;
 use crate::observable_signals::TcpObservation;
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
@@ -17,14 +17,14 @@ use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::output::{OperativeSystem, OsKind};
 use std::sync::Arc;
 
-/// A TCP signature matcher that searches `database` for the closest match
-/// to an observed fingerprint.
+/// A TCP signature matcher that searches a [`TcpDatabase`] for the closest
+/// match to an observed fingerprint.
 pub struct TcpSignatureMatcher<'a> {
-    database: &'a Database,
+    database: &'a TcpDatabase,
 }
 
 impl<'a> TcpSignatureMatcher<'a> {
-    pub fn new(database: &'a Database) -> Self {
+    pub fn new(database: &'a TcpDatabase) -> Self {
         Self { database }
     }
 
@@ -87,7 +87,7 @@ impl From<&Label> for OperativeSystem {
 // ---------------------------------------------------------------------------
 // TcpMatcher implementation for the borrowed matcher.
 //
-// Useful in code that already holds a `&Database` and wants to feed an
+// Useful in code that already holds a `&TcpDatabase` and wants to feed an
 // observation through the public matcher trait without going through Arc.
 // ---------------------------------------------------------------------------
 
@@ -118,21 +118,32 @@ impl<'a> TcpMatcher for TcpSignatureMatcher<'a> {
 // Shared, owned matcher (implements TcpMatcher)
 // ---------------------------------------------------------------------------
 
-/// Owned wrapper around an `Arc<Database>`. Implements
+/// Owned wrapper around an `Arc<TcpDatabase>`. Implements
 /// [`TcpMatcher`] so it can be plugged into
 /// [`huginn_net_tcp::HuginnNetTcp::new`] / `with_config`.
 pub struct SharedTcpSignatureMatcher {
-    database: Arc<Database>,
+    database: Arc<TcpDatabase>,
 }
 
 impl SharedTcpSignatureMatcher {
-    pub fn new(database: Arc<Database>) -> Self {
+    pub fn new(database: Arc<TcpDatabase>) -> Self {
         Self { database }
+    }
+
+    /// Convenience constructor for callers that already have an `Arc` of the
+    /// composed [`crate::Database`]. Clones the inner [`TcpDatabase`] once;
+    /// after that, lookups are zero-copy.
+    ///
+    /// Available only when both `tcp` and `http` features are enabled (the
+    /// composed [`crate::Database`] requires both).
+    #[cfg(all(feature = "tcp", feature = "http"))]
+    pub fn from_database(database: &crate::Database) -> Self {
+        Self { database: Arc::new(database.tcp.clone()) }
     }
 
     /// Borrow the underlying database, e.g. to construct a borrowed
     /// [`TcpSignatureMatcher`] for low-level access.
-    pub fn database(&self) -> &Database {
+    pub fn database(&self) -> &TcpDatabase {
         &self.database
     }
 }

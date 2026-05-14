@@ -134,7 +134,8 @@ fn main() {
         }
     };
     debug!("Loaded p0f database successfully");
-    let matcher: Arc<dyn TcpMatcher + Send + Sync> = Arc::new(SharedTcpSignatureMatcher::new(db));
+    let matcher: Arc<dyn TcpMatcher + Send + Sync> =
+        Arc::new(SharedTcpSignatureMatcher::from_database(&db));
 
     let filter_config = build_filter(&args.filter);
 

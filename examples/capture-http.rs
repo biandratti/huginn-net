@@ -150,7 +150,7 @@ fn main() {
         debug!("Loaded database: {:?}", db);
 
         let matcher: Arc<dyn HttpMatcher + Send + Sync> =
-            Arc::new(SharedHttpSignatureMatcher::new(Arc::new(db)));
+            Arc::new(SharedHttpSignatureMatcher::from_database(&db));
         let filter_config = build_filter(&args.filter);
 
         match args.command {

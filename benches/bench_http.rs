@@ -10,7 +10,7 @@ use std::time::Duration;
 use ttl_cache::TtlCache;
 
 fn shared_matcher(db: Arc<Database>) -> Arc<dyn HttpMatcher + Send + Sync> {
-    Arc::new(SharedHttpSignatureMatcher::new(db))
+    Arc::new(SharedHttpSignatureMatcher::from_database(&db))
 }
 
 /// Number of times to repeat the PCAP dataset for stable benchmarks
@@ -378,7 +378,7 @@ fn bench_http_browser_detection(c: &mut Criterion) {
         }
     };
 
-    let matcher = HttpSignatureMatcher::new(&db);
+    let matcher = HttpSignatureMatcher::new(&db.http);
     let http_processors = HttpProcessors::new();
 
     println!("HTTP Browser Detection Analysis:");
@@ -446,7 +446,7 @@ fn bench_http_browser_detection(c: &mut Criterion) {
     // Benchmark HTTP processing with browser matching
     group.bench_function("http_with_browser_matching", |b| {
         b.iter(|| {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             for packet in packets.iter() {
@@ -480,7 +480,7 @@ fn bench_http_browser_detection(c: &mut Criterion) {
     // Measure and store actual times for reporting
     let http_with_match_time = measure_average_time(
         || {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             for packet in packets.iter() {
@@ -552,7 +552,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count server detections
-    let matcher = HttpSignatureMatcher::new(&db);
+    let matcher = HttpSignatureMatcher::new(&db.http);
     let http_processors = HttpProcessors::new();
     let mut http_flows = TtlCache::new(1000);
     let mut server_detections: u32 = 0;
@@ -577,7 +577,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
     // Benchmark server detection with database matching
     group.bench_function("server_with_matching", |b| {
         b.iter(|| {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             for packet in packets.iter() {
@@ -615,7 +615,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
     // Measure and store server detection times
     let server_with_match_time = measure_average_time(
         || {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             for packet in packets.iter() {
@@ -886,7 +886,7 @@ fn bench_http_processing_overhead(c: &mut Criterion) {
     // Benchmark full HTTP analysis
     group.bench_function("full_http_analysis", |b| {
         b.iter(|| {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             for packet in packets.iter() {
@@ -898,7 +898,7 @@ fn bench_http_processing_overhead(c: &mut Criterion) {
     // Benchmark with result collection
     group.bench_function("full_analysis_with_collection", |b| {
         b.iter(|| {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             let mut results = Vec::new();
@@ -943,7 +943,7 @@ fn bench_http_processing_overhead(c: &mut Criterion) {
 
     let full_http_analysis_time = measure_average_time(
         || {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             for packet in packets.iter() {
@@ -955,7 +955,7 @@ fn bench_http_processing_overhead(c: &mut Criterion) {
 
     let full_analysis_with_collection_time = measure_average_time(
         || {
-            let matcher = HttpSignatureMatcher::new(&db);
+            let matcher = HttpSignatureMatcher::new(&db.http);
             let processors = HttpProcessors::new();
             let mut flows = TtlCache::new(1000);
             let mut results = Vec::new();

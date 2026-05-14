@@ -1,9 +1,10 @@
-use huginn_net_db::{http, Database, HttpSignatureMatcher, Type};
+#![cfg(feature = "http")]
+use huginn_net_db::{http, HttpDatabase, HttpSignatureMatcher, Type};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 #[test]
 fn matching_firefox2_by_http_request() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to create default database: {e}"),
     };
@@ -41,7 +42,7 @@ fn matching_firefox2_by_http_request() {
 
 #[test]
 fn matching_apache_by_http_response() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to create default database: {e}"),
     };
@@ -85,7 +86,7 @@ fn matching_apache_by_http_response() {
 
 #[test]
 fn matching_android_chrome_by_http_request() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to create default database: {e}"),
     };

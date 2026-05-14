@@ -44,7 +44,7 @@ let db = Arc::new(Database::load_default()?);
 let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
 ```
 
-**After (v2.0) — with matching:**
+**After (v2.0) — full database (TCP + HTTP), with matching:**
 
 ```rust
 use huginn_net_tcp::HuginnNetTcp;
@@ -52,14 +52,28 @@ use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_db::{Database, SharedTcpSignatureMatcher};
 use std::sync::Arc;
 
-let db = Arc::new(Database::load_default()?);
+let db = Database::load_default()?;
 let matcher: Arc<dyn TcpMatcher + Send + Sync> =
-    Arc::new(SharedTcpSignatureMatcher::new(db));
-let mut tcp = HuginnNetTcp::new(1000)?
-    .with_matcher(matcher);
+    Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
 ```
 
-> Once the planned `TcpDatabase` split lands, `Database` above can be replaced by `TcpDatabase` to load only TCP signatures.
+**After (v2.0) — TCP-only database (no HTTP signatures loaded):**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
+use std::sync::Arc;
+
+let tcp_db = Arc::new(TcpDatabase::load_default()?);
+let matcher: Arc<dyn TcpMatcher + Send + Sync> =
+    Arc::new(SharedTcpSignatureMatcher::new(tcp_db));
+let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
+```
+
+To turn off the HTTP signatures entirely (no parsing cost, no embedded data),
+build `huginn-net-db` with `--no-default-features --features tcp`.
 
 **After (v2.0) — raw signatures only, no matching, no `huginn-net-db`:**
 
@@ -68,22 +82,20 @@ use huginn_net_tcp::HuginnNetTcp;
 let mut tcp = HuginnNetTcp::new(1000)?;
 ```
 
-The same pattern applies to `HuginnNetHttp`:
+The same pattern applies to `HuginnNetHttp` — full database, HTTP-only or no
+matching at all:
 
 ```rust
 use huginn_net_http::HuginnNetHttp;
 use huginn_net_http::matcher_api::HttpMatcher;
-use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use std::sync::Arc;
 
-let db = Arc::new(Database::load_default()?);
+let http_db = Arc::new(HttpDatabase::load_default()?);
 let matcher: Arc<dyn HttpMatcher + Send + Sync> =
-    Arc::new(SharedHttpSignatureMatcher::new(db));
-let mut http = HuginnNetHttp::new(1000)?
-    .with_matcher(matcher);
+    Arc::new(SharedHttpSignatureMatcher::new(http_db));
+let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
 ```
-
-> Once the planned `HttpDatabase` split lands, `Database` above can be replaced by `HttpDatabase` to load only HTTP signatures.
 
 ### Type paths moved
 
@@ -131,13 +143,31 @@ If you were calling these directly, use `TcpSignatureMatcher` instead — it wra
 
 ### New: optional matching in `huginn-net`
 
-`huginn-net` gains a `db` feature, **enabled by default** for backward compatibility. Opt out to ship a binary without the database (raw signatures only — useful for TLS terminators, sidecars, custom matchers):
+`huginn-net` gains a `db` feature, **enabled by default** for backward
+compatibility. Opt out to ship a binary without the database (raw signatures
+only — useful for TLS terminators, sidecars, custom matchers):
 
 ```toml
 huginn-net = { version = "2.0", default-features = false }
 ```
 
-With `db` disabled, `HuginnNet::new(None, ...)` is the only constructor and all `*QualityMatched` results are `Disabled`.
+With `db` disabled, the database-aware constructor `HuginnNet::new` is *not
+compiled*. Use the observation-only constructor instead:
+
+```rust
+use huginn_net::HuginnNet;
+
+let mut analyzer = HuginnNet::new_observable(1000, None)?;
+```
+
+All `*QualityMatched` fields in the resulting `FingerprintResult` will report
+`MatchQuality::Disabled`, and the observable signatures (raw TCP signature,
+JA4, Akamai, etc.) are produced as usual.
+
+`huginn-net-db` itself also exposes `tcp` and `http` features (both default).
+The umbrella's `db` feature pulls in **both** to preserve the v1.x feature
+set; downstream consumers depending on `huginn-net-db` directly may opt into
+just one.
 
 ### Cargo features summary
 

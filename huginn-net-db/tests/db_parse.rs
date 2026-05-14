@@ -1,3 +1,4 @@
+#![cfg(all(feature = "tcp", feature = "http"))]
 use huginn_net_db::db_parse::parse_ttl_str;
 use huginn_net_db::http::{
     Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion,

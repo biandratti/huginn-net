@@ -8,9 +8,10 @@
 //! we parse it as a `tcp::Signature`, construct an equivalent
 //! `TcpObservation`, and ask `TcpSignatureMatcher` to identify the OS.
 
+#![cfg(feature = "tcp")]
 use huginn_net_db::observable_signals::TcpObservation;
 use huginn_net_db::tcp::Signature;
-use huginn_net_db::{Database, TcpSignatureMatcher};
+use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
 use huginn_net_tcp::ObservableTcp;
 
 /// Build a `TcpObservation` whose fields exactly mirror a parsed `tcp::Signature`.
@@ -50,7 +51,7 @@ fn match_request(
 
 #[test]
 fn matches_known_request_signatures() {
-    let db = match Database::load_default() {
+    let db = match TcpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
@@ -92,7 +93,7 @@ fn matches_known_request_signatures() {
 
 #[test]
 fn unknown_request_signature_does_not_match() {
-    let db = match Database::load_default() {
+    let db = match TcpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };

@@ -19,10 +19,12 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
+default = ["db"]
+db = ["dep:huginn-net-db", "huginn-net-db/tcp", "huginn-net-db/http"]
 tls-stable-v1 = ["huginn-net-tls/stable-v1"]
 
 [dependencies]
-huginn-net-db = { workspace = true }
+huginn-net-db = { workspace = true, optional = true }
 huginn-net-http = { workspace = true }
 huginn-net-tcp = { workspace = true }
 huginn-net-tls = { workspace = true }
@@ -42,3 +44,4 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "capture"
 path = "../examples/capture.rs"
+required-features = ["db"]

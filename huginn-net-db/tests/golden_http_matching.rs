@@ -8,12 +8,13 @@
 //! `HttpRequestObservation` / `HttpResponseObservation`, we ask
 //! `HttpSignatureMatcher` to identify the browser/web server.
 
-use huginn_net_db::{http, Database, HttpSignatureMatcher, Type};
+#![cfg(feature = "http")]
+use huginn_net_db::{http, HttpDatabase, HttpSignatureMatcher, Type};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 #[test]
 fn matches_known_request_firefox() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
@@ -48,7 +49,7 @@ fn matches_known_request_firefox() {
 
 #[test]
 fn matches_known_response_apache() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
@@ -89,7 +90,7 @@ fn matches_known_response_apache() {
 
 #[test]
 fn unknown_request_signature_does_not_match() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
@@ -115,7 +116,7 @@ fn unknown_request_signature_does_not_match() {
 
 #[test]
 fn ua_lookup_returns_known_family() {
-    let db = match Database::load_default() {
+    let db = match HttpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
