@@ -125,7 +125,6 @@ impl WorkerPool {
 
         let mut workers = Vec::new();
         let mut packet_senders = Vec::new();
-        let mut worker_dropped = Vec::new();
         let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         for worker_id in 0..num_workers.get() {
@@ -133,8 +132,6 @@ impl WorkerPool {
             packet_senders.push(tx);
 
             let result_sender_clone = result_sender.clone();
-            let dropped_counter = Arc::new(AtomicU64::new(0));
-            worker_dropped.push(Arc::clone(&dropped_counter));
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
             let worker_matcher = matcher.as_ref().map(Arc::clone);
@@ -162,10 +159,8 @@ impl WorkerPool {
             workers.push(handle);
         }
 
-        let worker_dropped_plain: Vec<AtomicU64> = worker_dropped
-            .iter()
-            .map(|arc| AtomicU64::new(arc.load(Ordering::Relaxed)))
-            .collect();
+        let worker_dropped: Vec<AtomicU64> =
+            (0..num_workers.get()).map(|_| AtomicU64::new(0)).collect();
 
         Ok(Self {
             _workers: workers,
@@ -175,7 +170,7 @@ impl WorkerPool {
             num_workers,
             dispatched_count: AtomicU64::new(0),
             dropped_count: AtomicU64::new(0),
-            worker_dropped: worker_dropped_plain,
+            worker_dropped,
             batch_size,
             timeout_ms,
         })
@@ -304,6 +299,18 @@ impl WorkerPool {
         }
     }
 
+    /// Returns the worker index that would receive `packet` (same routing as
+    /// [`Self::dispatch`]).
+    ///
+    /// This is deterministic for a given packet and pool size; callers can use
+    /// it in tests without relying on queue timing.
+    pub fn worker_index_for_packet(&self, packet: &[u8]) -> usize {
+        let source_ip_hash = packet_hash::hash_source_ip(packet);
+        source_ip_hash
+            .checked_rem(self.num_workers.get())
+            .unwrap_or(0)
+    }
+
     /// Dispatches a packet to the appropriate worker based on source IP hash.
     ///
     /// Uses hash-based assignment to ensure packets from the same source IP
@@ -314,13 +321,7 @@ impl WorkerPool {
             return DispatchResult::Dropped;
         }
 
-        // Extract source IP for hashing
-        let source_ip_hash = packet_hash::hash_source_ip(&packet);
-
-        // NonZeroUsize guarantees num_workers.get() > 0
-        let worker_id = source_ip_hash
-            .checked_rem(self.num_workers.get())
-            .unwrap_or(0);
+        let worker_id = self.worker_index_for_packet(&packet);
 
         match self.packet_senders[worker_id].try_send(packet) {
             Ok(()) => {
