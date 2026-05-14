@@ -313,7 +313,7 @@ fn load_packets_from_pcap(pcap_path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error
     let mut pcap_reader = PcapReader::new(file)?;
     let mut packets = Vec::new();
     while let Some(pkt) = pcap_reader.next_packet() {
-        packets.push(pkt?.data.into());
+        packets.push(pkt?.data().into());
     }
     Ok(packets)
 }
