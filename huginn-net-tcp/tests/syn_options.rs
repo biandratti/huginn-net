@@ -1,6 +1,6 @@
-use huginn_net_db::observable_signals::TcpObservation;
+use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::syn_options::parse_options_raw;
-use huginn_net_tcp::tcp::{IpVersion, PayloadSize, TcpOption};
+use huginn_net_tcp::tcp::{IpVersion, PayloadSize, Quirk, TcpOption};
 
 /// Common Linux SYN options: MSS(1460), NOP, WS(6), NOP, NOP, TS, SACK-permitted
 fn linux_syn_options() -> Vec<u8> {
@@ -22,7 +22,7 @@ fn build_obs(
     window: u16,
     olen: u8,
     options: &[u8],
-    quirks: Vec<huginn_net_db::tcp::Quirk>,
+    quirks: Vec<Quirk>,
     pclass: PayloadSize,
 ) -> TcpObservation {
     let parsed = parse_options_raw(options);

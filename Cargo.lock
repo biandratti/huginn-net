@@ -485,6 +485,7 @@ dependencies = [
 name = "huginn-net-db"
 version = "1.7.5"
 dependencies = [
+ "huginn-net-tcp",
  "lazy_static",
  "nom 8.0.0",
  "thiserror 2.0.18",

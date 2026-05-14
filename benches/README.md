@@ -113,7 +113,7 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 #### TCP Optimization
 - **Parallel mode (2-4 workers)**: 2.10-2.11M pps throughput (~38.5% CPU for 10 Gbps) - **Recommended**
 - **Sequential mode**: 975.6K pps throughput (83.3% CPU for 10 Gbps)
-- Use `HuginnNetTcp::with_config(Some(db), 1000, 4, 100, 32, 10)` for balanced performance
+- Use `HuginnNetTcp::with_config(1000, 4, 100, 32, 10).with_matcher(matcher)` for balanced performance
 - Disable OS matching when not needed (87% faster)
 - Disable link matching when not needed (110% faster)
 - Use large cache (10K connections) for high volumes (55% faster)

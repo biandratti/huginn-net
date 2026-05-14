@@ -1,6 +1,5 @@
 use crate::observable::ObservableTcp;
-use huginn_net_db::tcp::Ttl;
-use huginn_net_db::{Label, MatchQualityType, Type};
+use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -38,43 +37,61 @@ impl IpPort {
     }
 }
 
+/// Marker telling whether a fingerprint is a "specific" definition or a
+/// "generic" fall-back. Equivalent to p0f's `s` / `g` label prefix but
+/// expressed as a TCP-local enum so this crate stays decoupled from any
+/// particular database format.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OsKind {
+    Specified,
+    Generic,
+}
+
+impl fmt::Display for OsKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            OsKind::Specified => "Specified",
+            OsKind::Generic => "Generic",
+        })
+    }
+}
+
+/// Outcome of matching an observation against a fingerprint database.
+///
+/// Independent from any specific database type so that consumers of this
+/// crate don't need to depend on `huginn-net-db`.
+#[derive(Clone, Debug)]
+pub enum MatchQuality {
+    /// Successful match. Score is in `[0.0, 1.0]` with `1.0` being a
+    /// perfect match and lower scores indicating fuzzier matches.
+    Matched(f32),
+    /// A matcher was attached but no signature matched the observation.
+    NotMatched,
+    /// No matcher was attached, so matching was skipped entirely.
+    Disabled,
+}
+
 /// Represents an operative system.
 ///
-/// This struct contains the name, family, variant, and kind of operative system.
 /// Examples:
-/// - name: "Linux", family: "unix", variant: "2.2.x-3.x", kind: Type::Specified
-/// - name: "Windows", family: "win", variant: "NT kernel 6.x", kind: Type::Specified
-/// - name: "iOS", family: "unix", variant: "iPhone or iPad", kind: Type::Specified
-#[derive(Debug)]
+/// - `name: "Linux"`,   `family: Some("unix")`, `variant: Some("2.2.x-3.x")`, `kind: OsKind::Specified`
+/// - `name: "Windows"`, `family: Some("win")`,  `variant: Some("NT kernel 6.x")`, `kind: OsKind::Specified`
+#[derive(Debug, Clone)]
 pub struct OperativeSystem {
     pub name: String,
     pub family: Option<String>,
     pub variant: Option<String>,
-    pub kind: Type,
+    pub kind: OsKind,
 }
 
-impl From<&Label> for OperativeSystem {
-    fn from(label: &Label) -> Self {
-        OperativeSystem {
-            name: label.name.clone(),
-            family: label.class.clone(),
-            variant: label.flavor.clone(),
-            kind: label.ty.clone(),
-        }
-    }
-}
-
-/// The operative system with the highest quality that matches the packet. Quality is a value between 0.0 and 1.0. 1.0 is a perfect match.
+/// The operative system with the highest quality that matches the packet.
 #[derive(Debug)]
 pub struct OSQualityMatched {
     pub os: Option<OperativeSystem>,
-    pub quality: MatchQualityType,
+    pub quality: MatchQuality,
 }
 
 /// Holds information derived from analyzing a TCP SYN packet (client initiation).
-///
-/// This structure contains details about the client system based on its SYN packet,
-/// including the identified OS/application label and the raw TCP signature.
 #[derive(Debug)]
 pub struct SynTCPOutput {
     /// The source IP address and port of the client sending the SYN.
@@ -124,9 +141,6 @@ impl fmt::Display for SynTCPOutput {
 }
 
 /// Holds information derived from analyzing a TCP SYN+ACK packet (server response).
-///
-/// This structure contains details about the server system based on its SYN+ACK packet,
-/// including the identified OS/application label and the raw TCP signature.
 #[derive(Debug)]
 pub struct SynAckTCPOutput {
     /// The source IP address and port of the server sending the SYN+ACK.
@@ -178,13 +192,10 @@ impl fmt::Display for SynAckTCPOutput {
 #[derive(Debug)]
 pub struct MTUQualityMatched {
     pub link: Option<String>,
-    pub quality: MatchQualityType,
+    pub quality: MatchQuality,
 }
 
 /// Holds information about the estimated Maximum Transmission Unit (MTU) of a link.
-///
-/// This structure contains the source and destination addresses, an estimation
-/// of the link type based on common MTU values, and the calculated raw MTU value.
 #[derive(Debug)]
 pub struct MTUOutput {
     /// The source IP address and port (usually the client).
@@ -234,28 +245,15 @@ impl fmt::Display for UptimeRole {
 }
 
 /// Holds uptime information derived from TCP timestamp analysis.
-///
-/// This structure contains the estimated uptime components (days, hours, minutes),
-/// the timestamp clock's wraparound period (`up_mod_days`), and the calculated
-/// clock frequency (`freq`). Note that the days/hours/minutes calculation based
-/// on the timestamp value might be approximate.
 #[derive(Debug)]
 pub struct UptimeOutput {
-    /// The source IP address and port of the connection.
     pub source: IpPort,
-    /// The destination IP address and port of the connection.
     pub destination: IpPort,
-    /// The role of the host (client or server).
     pub role: UptimeRole,
-    /// Estimated uptime in days, derived from the TCP timestamp value. Potentially approximate.
     pub days: u32,
-    /// Estimated uptime component in hours. Potentially approximate.
     pub hours: u32,
-    /// Estimated uptime component in minutes. Potentially approximate.
     pub min: u32,
-    /// The calculated period in days after which the timestamp counter wraps around (2^32 ticks).
     pub up_mod_days: u32,
-    /// The calculated frequency of the remote system's timestamp clock in Hertz (Hz).
     pub freq: f64,
 }
 

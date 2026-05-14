@@ -216,17 +216,43 @@ macro_rules! impl_from_str {
     };
 }
 
+// `FromStr` impls only for types **defined in this crate** (orphan rule).
+// `IpVersion`/`Ttl`/`WindowSize`/`TcpOption`/`Quirk`/`PayloadSize` live in
+// `huginn-net-tcp`, so we expose `parse_*_str` helpers below for callers that
+// want to round-trip a single field without going through the full signature
+// parser.
 impl_from_str!(Label, parse_label);
 impl_from_str!(Type, parse_type);
 impl_from_str!(TcpSignature, parse_tcp_signature);
-impl_from_str!(IpVersion, parse_ip_version);
-impl_from_str!(Ttl, parse_ttl);
-impl_from_str!(WindowSize, parse_window_size);
-impl_from_str!(TcpOption, parse_tcp_option);
-impl_from_str!(Quirk, parse_quirk);
-impl_from_str!(PayloadSize, parse_payload_size);
 impl_from_str!(HttpSignature, parse_http_signature);
 impl_from_str!(HttpHeader, parse_http_header);
+
+macro_rules! str_parser {
+    ($name:ident, $ty:ty, $parse:ident) => {
+        /// Parse a single field from its canonical p0f text form.
+        pub fn $name(s: &str) -> Result<$ty, DatabaseError> {
+            let (remaining, value) = $parse(s).map_err(|err| {
+                DatabaseError::Parse(format!("parse {} failed: {}, {}", stringify!($ty), s, err))
+            })?;
+            if !remaining.is_empty() {
+                Err(DatabaseError::Parse(format!(
+                    "parse {} failed, remaining: {}",
+                    stringify!($ty),
+                    remaining
+                )))
+            } else {
+                Ok(value)
+            }
+        }
+    };
+}
+
+str_parser!(parse_ip_version_str, IpVersion, parse_ip_version);
+str_parser!(parse_ttl_str, Ttl, parse_ttl);
+str_parser!(parse_window_size_str, WindowSize, parse_window_size);
+str_parser!(parse_tcp_option_str, TcpOption, parse_tcp_option);
+str_parser!(parse_quirk_str, Quirk, parse_quirk);
+str_parser!(parse_payload_size_str, PayloadSize, parse_payload_size);
 
 fn parse_named_value(input: &str) -> IResult<&str, (&str, &str)> {
     let (input, (name, _, _, _, value)) =

@@ -1,0 +1,161 @@
+//! TCP signature matchers backed by a [`Database`].
+//!
+//! Two flavours are exposed:
+//! - [`TcpSignatureMatcher<'a>`] — a borrowed matcher used by the umbrella
+//!   crate (and any code that already has a `&Database` in hand). This is
+//!   the lower-level, allocation-free API.
+//! - [`SharedTcpSignatureMatcher`] — an owned matcher (holds an
+//!   `Arc<Database>`) that implements [`TcpMatcher`]. This is the matcher
+//!   you hand to [`huginn_net_tcp::HuginnNetTcp`] when you want OS/MTU
+//!   matching without writing your own glue.
+
+use crate::db::{Database, Label, Type};
+use crate::db_matching_trait::FingerprintDb;
+use crate::observable_signals::TcpObservation;
+use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
+use huginn_net_tcp::observable::ObservableTcp;
+use huginn_net_tcp::output::{OperativeSystem, OsKind};
+use std::sync::Arc;
+
+/// A TCP signature matcher that searches `database` for the closest match
+/// to an observed fingerprint.
+pub struct TcpSignatureMatcher<'a> {
+    database: &'a Database,
+}
+
+impl<'a> TcpSignatureMatcher<'a> {
+    pub fn new(database: &'a Database) -> Self {
+        Self { database }
+    }
+
+    /// Lower-level lookup that returns the raw label/signature/quality tuple
+    /// produced by the underlying [`FingerprintDb`].
+    ///
+    /// Useful for callers that need access to the matched [`Label`] (e.g. the
+    /// HTTP UA-OS heuristic). Most consumers should prefer [`TcpMatcher`].
+    pub fn matching_by_tcp_request(
+        &self,
+        signature: &ObservableTcp,
+    ) -> Option<(&'a Label, &'a crate::tcp::Signature, f32)> {
+        self.database
+            .tcp_request
+            .find_best_match(&signature.matching)
+    }
+
+    /// Lower-level lookup for SYN+ACK observations.
+    pub fn matching_by_tcp_response(
+        &self,
+        signature: &ObservableTcp,
+    ) -> Option<(&'a Label, &'a crate::tcp::Signature, f32)> {
+        self.database
+            .tcp_response
+            .find_best_match(&signature.matching)
+    }
+
+    /// Lower-level MTU lookup. Returns the matching link name and its raw
+    /// MTU value if a known link in the database advertises this exact MTU.
+    pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
+        for (link, db_mtus) in &self.database.mtu {
+            for db_mtu in db_mtus {
+                if mtu == db_mtu {
+                    return Some((link, db_mtu));
+                }
+            }
+        }
+        None
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Conversion bridges
+// ---------------------------------------------------------------------------
+
+impl From<&Label> for OperativeSystem {
+    fn from(label: &Label) -> Self {
+        OperativeSystem {
+            name: label.name.clone(),
+            family: label.class.clone(),
+            variant: label.flavor.clone(),
+            kind: match label.ty {
+                Type::Specified => OsKind::Specified,
+                Type::Generic => OsKind::Generic,
+            },
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TcpMatcher implementation for the borrowed matcher.
+//
+// Useful in code that already holds a `&Database` and wants to feed an
+// observation through the public matcher trait without going through Arc.
+// ---------------------------------------------------------------------------
+
+impl<'a> TcpMatcher for TcpSignatureMatcher<'a> {
+    fn match_tcp_request(&self, obs: &TcpObservation) -> Option<TcpMatch> {
+        let (label, _sig, quality) = self.database.tcp_request.find_best_match(obs)?;
+        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+    }
+
+    fn match_tcp_response(&self, obs: &TcpObservation) -> Option<TcpMatch> {
+        let (label, _sig, quality) = self.database.tcp_response.find_best_match(obs)?;
+        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+    }
+
+    fn match_mtu(&self, mtu: u16) -> Option<MtuMatch> {
+        for (link, db_mtus) in &self.database.mtu {
+            for db_mtu in db_mtus {
+                if mtu == *db_mtu {
+                    return Some(MtuMatch { link: link.clone() });
+                }
+            }
+        }
+        None
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared, owned matcher (implements TcpMatcher)
+// ---------------------------------------------------------------------------
+
+/// Owned wrapper around an `Arc<Database>`. Implements
+/// [`TcpMatcher`] so it can be plugged into
+/// [`huginn_net_tcp::HuginnNetTcp::new`] / `with_config`.
+pub struct SharedTcpSignatureMatcher {
+    database: Arc<Database>,
+}
+
+impl SharedTcpSignatureMatcher {
+    pub fn new(database: Arc<Database>) -> Self {
+        Self { database }
+    }
+
+    /// Borrow the underlying database, e.g. to construct a borrowed
+    /// [`TcpSignatureMatcher`] for low-level access.
+    pub fn database(&self) -> &Database {
+        &self.database
+    }
+}
+
+impl TcpMatcher for SharedTcpSignatureMatcher {
+    fn match_tcp_request(&self, obs: &TcpObservation) -> Option<TcpMatch> {
+        let (label, _sig, quality) = self.database.tcp_request.find_best_match(obs)?;
+        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+    }
+
+    fn match_tcp_response(&self, obs: &TcpObservation) -> Option<TcpMatch> {
+        let (label, _sig, quality) = self.database.tcp_response.find_best_match(obs)?;
+        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+    }
+
+    fn match_mtu(&self, mtu: u16) -> Option<MtuMatch> {
+        for (link, db_mtus) in &self.database.mtu {
+            for db_mtu in db_mtus {
+                if mtu == *db_mtu {
+                    return Some(MtuMatch { link: link.clone() });
+                }
+            }
+        }
+        None
+    }
+}

@@ -6,9 +6,19 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ## v1.x → v2.0.0
 
+> **Status:** v2.0 is being shipped in stages on the `v2-dev` branch. Sections marked _(landed in v2.0)_ are already on that branch; the rest is the planned final state. Do not target this guide from a stable release until v2.0.0 is published on crates.io.
+
 ### Summary
 
 Architectural refactor: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+
+| Stage | Status |
+|---|---|
+| TCP independence + `TcpMatcher` trait + `TcpSignatureMatcher` in `db` | _landed in v2.0_ |
+| Builder API (`HuginnNetTcp::new(...).with_matcher(...)`) | _landed in v2.0 (TCP only)_ |
+| HTTP independence + `HttpMatcher` trait + `HttpSignatureMatcher` in `db` | planned |
+| `TcpDatabase` / `HttpDatabase` split + Cargo features (`tcp`, `http`) | planned |
+| `db` feature on `huginn-net` umbrella | planned |
 
 ### Most users (umbrella crate `huginn-net`)
 
@@ -48,14 +58,18 @@ let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
 
 ```rust
 use huginn_net_tcp::HuginnNetTcp;
-use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
+use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_db::{Database, SharedTcpSignatureMatcher};
 use std::sync::Arc;
 
-let db = Arc::new(TcpDatabase::load_default()?);
-let matcher = TcpSignatureMatcher::new(db);
+let db = Arc::new(Database::load_default()?);
+let matcher: Arc<dyn TcpMatcher + Send + Sync> =
+    Arc::new(SharedTcpSignatureMatcher::new(db));
 let mut tcp = HuginnNetTcp::new(1000)?
-    .with_matcher(Arc::new(matcher));
+    .with_matcher(matcher);
 ```
+
+> Once the planned `TcpDatabase` split lands, `Database` above can be replaced by `TcpDatabase` to load only TCP signatures.
 
 **After (v2.0) — raw signatures only, no matching, no `huginn-net-db`:**
 

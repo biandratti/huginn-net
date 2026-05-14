@@ -1,3 +1,4 @@
+use huginn_net_db::db_parse::parse_ttl_str;
 use huginn_net_db::http::{
     Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion,
 };
@@ -205,7 +206,7 @@ fn test_tcp_signature() {
 #[test]
 fn test_ttl() {
     for (s, ttl) in TTLS.iter() {
-        let result = s.parse::<Ttl>();
+        let result = parse_ttl_str(s);
         assert!(result.is_ok(), "Failed to parse TTL: {s}");
         if let Ok(ref parsed) = result {
             assert_eq!(parsed, ttl);

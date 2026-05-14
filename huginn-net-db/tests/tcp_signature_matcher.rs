@@ -1,7 +1,7 @@
 use huginn_net_db::observable_signals::TcpObservation;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
-use huginn_net_db::{Database, Type};
-use huginn_net_tcp::{ObservableTcp, SignatureMatcher};
+use huginn_net_db::{Database, TcpSignatureMatcher, Type};
+use huginn_net_tcp::ObservableTcp;
 
 #[test]
 fn matching_linux_by_tcp_request() {
@@ -33,7 +33,7 @@ fn matching_linux_by_tcp_request() {
         },
     };
 
-    let matcher = SignatureMatcher::new(&db);
+    let matcher = TcpSignatureMatcher::new(&db);
 
     if let Some((label, _matched_db_sig, quality)) =
         matcher.matching_by_tcp_request(&linux_signature)
@@ -99,7 +99,7 @@ fn matching_android_by_tcp_request() {
         },
     };
 
-    let matcher = SignatureMatcher::new(&db);
+    let matcher = TcpSignatureMatcher::new(&db);
 
     if let Some((label, _matched_db_sig, quality)) =
         matcher.matching_by_tcp_request(&android_signature)

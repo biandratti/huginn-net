@@ -13,18 +13,18 @@
 // ============================================================================
 use crate::output::FingerprintResult;
 use huginn_net_db::MatchQualityType;
-pub use huginn_net_db::{db_matching_trait, Database, Label};
-pub use huginn_net_db::{http, tcp};
-use huginn_net_tcp::output::OSQualityMatched;
+pub use huginn_net_db::{db_matching_trait, http, Database, Label};
+use huginn_net_tcp::output::{MatchQuality as TcpMatchQuality, OSQualityMatched};
 
 // ============================================================================
 // TCP PROTOCOL IMPORTS (base protocol)
 // ============================================================================
-pub use huginn_net_db::tcp::Ttl;
 use huginn_net_tcp::output::{
     MTUOutput, MTUQualityMatched, OperativeSystem, SynAckTCPOutput, SynTCPOutput, UptimeOutput,
     UptimeRole,
 };
+pub use huginn_net_tcp::tcp;
+pub use huginn_net_tcp::tcp::Ttl;
 use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
 
 // ============================================================================
@@ -130,7 +130,7 @@ impl Default for AnalysisConfig {
 /// analysis and matching signatures using a database of known fingerprints, plus JA4 TLS
 /// client analysis following the official FoxIO specification.
 pub struct HuginnNet<'a> {
-    pub tcp_matcher: Option<huginn_net_tcp::SignatureMatcher<'a>>,
+    pub tcp_matcher: Option<huginn_net_db::TcpSignatureMatcher<'a>>,
     pub http_matcher: Option<huginn_net_http::SignatureMatcher<'a>>,
     connection_tracker: TtlCache<ConnectionKey, TcpTimestamp>,
     http_flows: TtlCache<FlowKey, TcpFlow>,
@@ -172,7 +172,7 @@ impl<'a> HuginnNet<'a> {
         }
 
         let tcp_matcher = if config.matcher_enabled && config.tcp_enabled {
-            database.map(huginn_net_tcp::SignatureMatcher::new)
+            database.map(huginn_net_db::TcpSignatureMatcher::new)
         } else {
             None
         };
@@ -383,15 +383,15 @@ impl<'a> HuginnNet<'a> {
                             method: matching_by_mtu(&observable_mtu.value),
                             success: (link, _) => MTUQualityMatched {
                                 link: Some(link.clone()),
-                                quality: MatchQualityType::Matched(1.0),
+                                quality: TcpMatchQuality::Matched(1.0),
                             },
                             failure: MTUQualityMatched {
                                 link: None,
-                                quality: MatchQualityType::NotMatched,
+                                quality: TcpMatchQuality::NotMatched,
                             },
                             disabled: MTUQualityMatched {
                                 link: None,
-                                quality: MatchQualityType::Disabled,
+                                quality: TcpMatchQuality::Disabled,
                             }
                         );
 
@@ -417,15 +417,15 @@ impl<'a> HuginnNet<'a> {
                                 method: matching_by_tcp_request(&observable_tcp),
                                 success: (label, _signature, quality) => OSQualityMatched {
                                     os: Some(OperativeSystem::from(label)),
-                                    quality: MatchQualityType::Matched(quality),
+                                    quality: TcpMatchQuality::Matched(quality),
                                 },
                                 failure: OSQualityMatched {
                                     os: None,
-                                    quality: MatchQualityType::NotMatched,
+                                    quality: TcpMatchQuality::NotMatched,
                                 },
                                 disabled: OSQualityMatched {
                                     os: None,
-                                    quality: MatchQualityType::Disabled,
+                                    quality: TcpMatchQuality::Disabled,
                                 }
                             );
 
@@ -451,15 +451,15 @@ impl<'a> HuginnNet<'a> {
                                 method: matching_by_tcp_response(&observable_tcp),
                                 success: (label, _signature, quality) => OSQualityMatched {
                                     os: Some(OperativeSystem::from(label)),
-                                    quality: MatchQualityType::Matched(quality),
+                                    quality: TcpMatchQuality::Matched(quality),
                                 },
                                 failure: OSQualityMatched {
                                     os: None,
-                                    quality: MatchQualityType::NotMatched,
+                                    quality: TcpMatchQuality::NotMatched,
                                 },
                                 disabled: OSQualityMatched {
                                     os: None,
-                                    quality: MatchQualityType::Disabled,
+                                    quality: TcpMatchQuality::Disabled,
                                 }
                             );
 

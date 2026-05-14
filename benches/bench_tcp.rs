@@ -1,8 +1,12 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use huginn_net_db::Database;
-use huginn_net_tcp::{
-    process_ipv4_packet, process_ipv6_packet, ConnectionKey, SignatureMatcher, TcpTimestamp,
-};
+use huginn_net_db::{Database, SharedTcpSignatureMatcher, TcpSignatureMatcher};
+use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_tcp::{process_ipv4_packet, process_ipv6_packet, ConnectionKey, TcpTimestamp};
+use std::sync::Arc;
+
+fn shared_matcher(db: Arc<Database>) -> Arc<dyn TcpMatcher + Send + Sync> {
+    Arc::new(SharedTcpSignatureMatcher::new(db))
+}
 use pcap_file::pcap::PcapReader;
 use std::error::Error;
 use std::fs::File;
@@ -352,7 +356,7 @@ fn load_packets_repeated(pcap_path: &str, repeat: usize) -> Result<Vec<Vec<u8>>,
 fn process_tcp_packet(
     packet: &[u8],
     connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
-    matcher: Option<&SignatureMatcher>,
+    matcher: Option<&dyn TcpMatcher>,
 ) -> Option<huginn_net_tcp::TcpAnalysisResult> {
     match huginn_net_tcp::packet_parser::parse_packet(packet) {
         huginn_net_tcp::packet_parser::IpPacket::Ipv4(ipv4) => {
@@ -388,7 +392,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
         }
     };
 
-    let matcher = SignatureMatcher::new(&db);
+    let matcher = TcpSignatureMatcher::new(&db);
 
     println!("TCP OS Fingerprinting Analysis:");
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
@@ -440,7 +444,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     // Benchmark TCP processing with OS fingerprinting
     group.bench_function("tcp_with_os_matching", |b| {
         b.iter(|| {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
@@ -472,7 +476,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     // Measure and store actual times for reporting
     let tcp_with_os_time = measure_average_time(
         || {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
@@ -542,7 +546,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count MTU detections
-    let matcher = SignatureMatcher::new(&db);
+    let matcher = TcpSignatureMatcher::new(&db);
     let mut connection_tracker = TtlCache::new(1000);
     let mut mtu_detections: u32 = 0;
 
@@ -562,7 +566,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     // Benchmark MTU detection with link matching
     group.bench_function("mtu_with_link_matching", |b| {
         b.iter(|| {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, Some(&matcher)) {
@@ -596,7 +600,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     // Measure and store MTU detection times
     let mtu_with_link_time = measure_average_time(
         || {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, Some(&matcher)) {
@@ -815,7 +819,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     // Benchmark full TCP analysis
     group.bench_function("full_tcp_analysis", |b| {
         b.iter(|| {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
@@ -826,7 +830,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     // Benchmark with result collection
     group.bench_function("full_analysis_with_collection", |b| {
         b.iter(|| {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             let mut results = Vec::new();
 
@@ -864,7 +868,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
 
     let full_tcp_analysis_time = measure_average_time(
         || {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
@@ -875,7 +879,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
 
     let full_analysis_with_collection_time = measure_average_time(
         || {
-            let matcher = SignatureMatcher::new(&db);
+            let matcher = TcpSignatureMatcher::new(&db);
             let mut tracker = TtlCache::new(1000);
             let mut results = Vec::new();
             for packet in packets.iter() {
@@ -934,6 +938,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
             return;
         }
     };
+    let shared = shared_matcher(db);
 
     println!("TCP Parallel Processing Analysis:");
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
@@ -953,7 +958,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
                     32,
                     10,
                     tx,
-                    Some(db.clone()),
+                    Some(shared.clone()),
                     1000,
                     None,
                 ) {
@@ -988,7 +993,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
                 32,
                 10,
                 tx,
-                Some(db.clone()),
+                Some(shared.clone()),
                 1000,
                 None,
             ) {
@@ -1013,7 +1018,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
                 32,
                 10,
                 tx,
-                Some(db.clone()),
+                Some(shared.clone()),
                 1000,
                 None,
             ) {
@@ -1038,7 +1043,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
                 32,
                 10,
                 tx,
-                Some(db.clone()),
+                Some(shared.clone()),
                 1000,
                 None,
             ) {

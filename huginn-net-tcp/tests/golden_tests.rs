@@ -1,4 +1,14 @@
-use huginn_net_db::Database;
+//! Golden tests for raw TCP fingerprint extraction.
+//!
+//! **This is the "Layer 1" golden test**: it only checks that
+//! `huginn-net-tcp` extracts the same raw signature / MTU / uptime values
+//! from a given PCAP that it always has — *without* any database matching.
+//!
+//! The matching half of what used to be in this file lives in
+//! `huginn-net-db/tests/golden_tcp_matching.rs`, where each captured
+//! `raw_signature` is fed through `TcpSignatureMatcher` and the resulting
+//! OS/quality is verified.
+
 use huginn_net_tcp::{HuginnNetTcp, HuginnNetTcpError, TcpAnalysisResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -37,25 +47,16 @@ struct TcpAnalysisSnapshot {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct SynSnapshot {
-    os_name: Option<String>,
-    os_family: Option<String>,
-    os_variant: Option<String>,
-    quality: String,
     raw_signature: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct SynAckSnapshot {
-    os_name: Option<String>,
-    os_family: Option<String>,
-    os_variant: Option<String>,
-    quality: String,
     raw_signature: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MtuSnapshot {
-    link_type: String,
     raw_mtu: u16,
 }
 
@@ -80,21 +81,14 @@ fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
 fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNetTcpError> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
-    // Load the default database for TCP analysis
-    let db = Database::load_default()
-        .map_err(|e| HuginnNetTcpError::Parse(format!("Failed to load database: {e}")))?;
-
-    let mut analyzer = HuginnNetTcp::new(Some(std::sync::Arc::new(db)), 1000)?;
+    // Layer 1: no matcher attached — we only test raw extraction here.
+    let mut analyzer = HuginnNetTcp::new(1000)?;
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
 
-    let pcap_file_str = pcap_path.to_string();
-
-    // Run analysis in the same thread to avoid lifetime issues
-    analyzer.analyze_pcap(&pcap_file_str, sender, None)?;
+    analyzer.analyze_pcap(pcap_path, sender, None)?;
 
     let mut results = Vec::new();
     for tcp_output in receiver {
-        // Only include results that have meaningful TCP data
         if has_meaningful_tcp_data(&tcp_output) {
             results.push(tcp_output);
         }
@@ -103,8 +97,7 @@ fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNe
     Ok(results)
 }
 
-/// Check if a TCP analysis result has meaningful data for golden tests
-/// Includes SYN, SYN-ACK, MTU, and uptime packets.
+/// Check if a TCP analysis result has meaningful data for golden tests.
 fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
     result.syn.is_some()
         || result.syn_ack.is_some()
@@ -118,7 +111,6 @@ fn assert_connection_matches_snapshot(
     expected: &ConnectionSnapshot,
     connection_index: usize,
 ) {
-    // Check SYN data if present
     if let (Some(actual_syn), Some(expected_syn)) = (&actual.syn, &expected.tcp_analysis.syn) {
         assert_eq!(
             actual_syn.source.ip.to_string(),
@@ -138,27 +130,6 @@ fn assert_connection_matches_snapshot(
             actual_syn.destination.port, expected.destination.port,
             "Connection {connection_index}: SYN destination port mismatch"
         );
-
-        // Check OS matching
-        if let Some(expected_os_name) = &expected_syn.os_name {
-            assert!(
-                actual_syn.os_matched.os.is_some(),
-                "Connection {connection_index}: Expected OS match but found none"
-            );
-            if let Some(actual_os) = &actual_syn.os_matched.os {
-                assert_eq!(
-                    actual_os.name, *expected_os_name,
-                    "Connection {connection_index}: SYN OS name mismatch"
-                );
-            }
-        }
-
-        assert_eq!(
-            format!("{:?}", actual_syn.os_matched.quality),
-            expected_syn.quality,
-            "Connection {connection_index}: SYN quality mismatch"
-        );
-
         assert_eq!(
             actual_syn.sig.to_string(),
             expected_syn.raw_signature,
@@ -166,7 +137,6 @@ fn assert_connection_matches_snapshot(
         );
     }
 
-    // Check SYN-ACK data if present
     if let (Some(actual_syn_ack), Some(expected_syn_ack)) =
         (&actual.syn_ack, &expected.tcp_analysis.syn_ack)
     {
@@ -179,29 +149,13 @@ fn assert_connection_matches_snapshot(
             actual_syn_ack.source.port, expected.source.port,
             "Connection {connection_index}: SYN-ACK source port mismatch"
         );
-
-        // Check OS matching
-        if let Some(expected_os_name) = &expected_syn_ack.os_name {
-            assert!(
-                actual_syn_ack.os_matched.os.is_some(),
-                "Connection {connection_index}: Expected SYN-ACK OS match but found none"
-            );
-            if let Some(actual_os) = &actual_syn_ack.os_matched.os {
-                assert_eq!(
-                    actual_os.name, *expected_os_name,
-                    "Connection {connection_index}: SYN-ACK OS name mismatch"
-                );
-            }
-        }
-
         assert_eq!(
-            format!("{:?}", actual_syn_ack.os_matched.quality),
-            expected_syn_ack.quality,
-            "Connection {connection_index}: SYN-ACK quality mismatch"
+            actual_syn_ack.sig.to_string(),
+            expected_syn_ack.raw_signature,
+            "Connection {connection_index}: SYN-ACK raw signature mismatch"
         );
     }
 
-    // Check MTU data if present
     if let (Some(actual_mtu), Some(expected_mtu)) = (&actual.mtu, &expected.tcp_analysis.mtu) {
         assert_eq!(
             actual_mtu.mtu, expected_mtu.raw_mtu,
@@ -209,7 +163,6 @@ fn assert_connection_matches_snapshot(
         );
     }
 
-    // Check client uptime data if present
     if let (Some(actual_uptime), Some(expected_uptime)) =
         (&actual.client_uptime, &expected.tcp_analysis.client_uptime)
     {
@@ -223,7 +176,6 @@ fn assert_connection_matches_snapshot(
         );
     }
 
-    // Check server uptime data if present
     if let (Some(actual_uptime), Some(expected_uptime)) =
         (&actual.server_uptime, &expected.tcp_analysis.server_uptime)
     {
@@ -238,7 +190,7 @@ fn assert_connection_matches_snapshot(
     }
 }
 
-/// Golden test: compares PCAP analysis output against known-good JSON snapshots
+/// Golden test: compares PCAP analysis output against known-good JSON snapshots.
 fn test_pcap_with_snapshot(pcap_file: &str) {
     let snapshot = load_snapshot(pcap_file);
     let results = analyze_pcap_file(&snapshot.pcap_path)
