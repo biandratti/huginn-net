@@ -4,6 +4,15 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ---
 
+## v1.x → v2.0.0
+
+### Summary
+
+Architectural refactoring: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. 
+The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+
+---
+
 ## v1.6.x → v1.7.0
 
 ### Summary
