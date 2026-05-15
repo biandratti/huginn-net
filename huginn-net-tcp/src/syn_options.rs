@@ -28,9 +28,9 @@ pub struct ParsedTcpOptions {
 ///
 /// # Returns
 /// `(olayout, mss, wscale)` where:
-/// - `olayout` — ordered list of options found (used for fingerprint matching).
-/// - `mss`     — Maximum Segment Size if the MSS option was present.
-/// - `wscale`  — Window Scale factor if the WS option was present.
+/// - `olayout`: ordered list of options found (used for fingerprint matching).
+/// - `mss`    : Maximum Segment Size if the MSS option was present.
+/// - `wscale` : Window Scale factor if the WS option was present.
 ///
 /// # Example
 ///

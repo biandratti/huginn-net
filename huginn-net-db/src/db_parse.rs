@@ -320,11 +320,6 @@ macro_rules! impl_from_str {
     };
 }
 
-// `FromStr` impls only for types **defined in this crate** (orphan rule).
-// `IpVersion`/`Ttl`/`WindowSize`/`TcpOption`/`Quirk`/`PayloadSize` live in
-// `huginn-net-tcp`, so we expose `parse_*_str` helpers below for callers that
-// want to round-trip a single field without going through the full signature
-// parser.
 impl_from_str!(Label, parse_label);
 impl_from_str!(Type, parse_type);
 #[cfg(feature = "tcp")]
@@ -335,7 +330,6 @@ impl_from_str!(HttpSignature, parse_http_signature);
 #[cfg(any(feature = "tcp", feature = "http"))]
 macro_rules! str_parser {
     ($name:ident, $ty:ty, $parse:ident) => {
-        /// Parse a single field from its canonical p0f text form.
         pub fn $name(s: &str) -> Result<$ty, DatabaseError> {
             let (remaining, value) = $parse(s).map_err(|err| {
                 DatabaseError::Parse(format!("parse {} failed: {}, {}", stringify!($ty), s, err))

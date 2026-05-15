@@ -124,7 +124,7 @@ fn test_no_settings_returns_error() {
 fn test_malformed_headers_returns_error() {
     use huginn_net_http::HuginnNetHttpError;
     let settings = Http2Frame::new(0x4, 0x00, 0, vec![0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
-    // HEADERS frame with FLAG_PRIORITY (0x20) but only 2 bytes — truncated, needs 5
+    // HEADERS frame with FLAG_PRIORITY (0x20) but only 2 bytes, truncated, needs 5
     let bad_headers = Http2Frame::new(0x1, 0x20, 1, vec![0x00, 0x00]);
     let result = extract_akamai_fingerprint(&[settings, bad_headers]);
     assert!(matches!(result, Err(HuginnNetHttpError::MalformedPseudoHeaders(_))));

@@ -107,7 +107,7 @@ fn test_unknown_option_kind() {
 
 #[test]
 fn test_truncated_tlv_stops_gracefully() {
-    // MSS option declares length=4 but only 3 bytes are available — truncated.
+    // MSS option declares length=4, but only 3 bytes are available, truncated.
     // Parser stops at the bad entry, returns what came before, and sets malformed=true.
     let buf: &[u8] = &[1, 2, 4, 0x05]; // NOP, then truncated MSS
     let parsed = parse_options_raw(buf);

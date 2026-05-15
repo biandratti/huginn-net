@@ -5,7 +5,7 @@
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
 //! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
-//! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`] — ephemeral extensions excluded for stable fingerprints |
+//! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints |
 
 #![forbid(unsafe_code)]
 
@@ -17,13 +17,7 @@ use crate::output::FingerprintResult;
 pub use huginn_net_db::{db_matching_trait, Database, Label};
 
 // ============================================================================
-// PUBLIC RE-EXPORTS — output / observable / quality types
-//
-// We surface the most-used output, observable and quality types here so
-// consumers can write `use huginn_net::Browser;` instead of reaching into
-// `huginn_net_http::output` directly. The originating crates remain
-// available via the `pub use huginn_net_tcp` / `huginn_net_http` /
-// `huginn_net_tls` re-exports further down.
+// PUBLIC RE-EXPORTS, output / observable / quality types
 // ============================================================================
 pub use huginn_net_tcp::output::{
     MTUOutput, MTUQualityMatched, MatchQuality as TcpMatchQuality, OSQualityMatched,
@@ -697,7 +691,7 @@ impl<'a> HuginnNet<'a> {
                 call: matcher => {
                     let sig_match = matcher.matching_by_http_request(&observable_http_request.matching);
                     let ua_match = observable_http_request.user_agent.clone()
-                        .and_then(|ua| matcher.matching_by_user_agent(ua));
+                        .and_then(|ua| matcher.matching_by_user_agent(&ua));
                     Some((sig_match, ua_match))
                 },
                 matched: (signature_matcher, ua_matcher) => {

@@ -3,9 +3,9 @@
 //! Pure data types ([`IpVersion`], [`Ttl`], [`WindowSize`], [`TcpOption`],
 //! [`Quirk`], [`PayloadSize`]) are re-exported from `huginn-net-tcp`. This
 //! module owns only the **database-specific** pieces:
-//! - [`Signature`] — a fingerprint as defined in p0f's `.fp` format.
-//! - [`TcpMatchQuality`] — the per-component quality bucket used during scoring.
-//! - distance functions — free functions that compute the distance between
+//! - [`Signature`] - a fingerprint as defined in p0f's `.fp` format.
+//! - [`TcpMatchQuality`] - the per-component quality bucket used during scoring.
+//! - distance functions - free functions that compute the distance between
 //!   an observed value and a database value.
 
 pub use huginn_net_tcp::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};

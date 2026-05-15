@@ -1023,7 +1023,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
             return;
         }
     };
-    let shared = shared_matcher(db);
+    let matcher = shared_matcher(db);
 
     println!("HTTP Parallel Processing Analysis:");
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
@@ -1043,7 +1043,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                     16,
                     10,
                     tx,
-                    Some(shared.clone()),
+                    Some(matcher.clone()),
                     1000,
                     None,
                 ) {
@@ -1078,7 +1078,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 16,
                 10,
                 tx,
-                Some(shared.clone()),
+                Some(matcher.clone()),
                 1000,
                 None,
             ) {
@@ -1103,7 +1103,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 16,
                 10,
                 tx,
-                Some(shared.clone()),
+                Some(matcher.clone()),
                 1000,
                 None,
             ) {
@@ -1128,7 +1128,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 16,
                 10,
                 tx,
-                Some(shared.clone()),
+                Some(matcher.clone()),
                 1000,
                 None,
             ) {

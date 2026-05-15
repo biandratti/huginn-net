@@ -37,10 +37,10 @@ pub enum OsKind {
 
 /// Quality classification for an HTTP match.
 ///
-/// - `Matched(score)` — a signature was matched with the given quality score
+/// - `Matched(score)` a signature was matched with the given quality score
 ///   (higher is better, typically in `[0.0, 1.0]`).
-/// - `NotMatched` — the matcher was active but no signature was a viable fit.
-/// - `Disabled` — matching was disabled (no matcher plugged in).
+/// - `NotMatched` the matcher was active but no signature was a viable fit.
+/// - `Disabled` matching was disabled (no matcher plugged in).
 #[derive(Clone, Debug)]
 pub enum MatchQuality {
     Matched(f32),

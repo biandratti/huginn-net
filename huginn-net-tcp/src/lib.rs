@@ -4,11 +4,11 @@
 //!
 //! This crate is intentionally **independent of any signature database**.
 //! It exposes:
-//! - [`tcp`] — pure data types describing a TCP fingerprint.
-//! - [`observable::TcpObservation`] — what was observed on the wire.
-//! - [`matcher_api::TcpMatcher`] — the trait any database/matcher implements
+//! - [`tcp`] pure data types describing a TCP fingerprint.
+//! - [`observable::TcpObservation`] what was observed on the wire.
+//! - [`matcher_api::TcpMatcher`] the trait any database/matcher implements
 //!   to provide OS/MTU matches.
-//! - [`HuginnNetTcp`] — the high-level capture/processing entry point that
+//! - [`HuginnNetTcp`] the high-level capture/processing entry point that
 //!   plugs an arbitrary matcher in.
 //!
 //! In the default workspace setup, `huginn-net-db` provides

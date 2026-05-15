@@ -21,9 +21,7 @@ mod tcp {
     use core::fmt;
     use std::fmt::Formatter;
 
-    // Display for `Signature` mirrors the format used by `TcpObservation`
-    // (whose Display lives in `huginn-net-tcp`). Both produce the canonical
-    // p0f text form: `version:ittl:olen:mss:wsize,wscale:olayout:quirks:pclass`.
+    // Shared p0f format: `version:ittl:olen:mss:wsize,wscale:olayout:quirks:pclass`.
     trait TcpDisplayFormat {
         fn get_version(&self) -> IpVersion;
         fn get_ittl(&self) -> Ttl;

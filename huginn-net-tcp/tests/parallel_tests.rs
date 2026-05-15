@@ -173,7 +173,7 @@ fn test_different_ips_distributed() {
     assert!(stats.total_dispatched > 0, "Expected some packets to be dispatched");
 
     // Since we deliberately overflow each worker's queue, `dropped` is cumulative
-    // and not subject to timing — workers with drops > 0 received packets.
+    // and not subject to timing; workers with drops > 0 received packets.
     let workers_with_drops = stats.workers.iter().filter(|w| w.dropped > 0).count();
 
     assert!(

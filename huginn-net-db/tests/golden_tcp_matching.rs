@@ -67,7 +67,7 @@ fn matches_known_request_signatures() {
             Some("2.2.x-3.x"),
             1.0,
         ),
-        // Android SYN (raw value 65535 / WS 8 — matches the Android variant).
+        // Android SYN (raw value 65535 / WS 8, matches the Android variant).
         (
             "4:64+0:0:1460:65535,8:mss,sok,ts,nop,ws:df,id+:0",
             "Linux",

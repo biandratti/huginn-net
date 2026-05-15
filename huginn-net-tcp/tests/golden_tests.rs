@@ -2,7 +2,7 @@
 //!
 //! **This is the "Layer 1" golden test**: it only checks that
 //! `huginn-net-tcp` extracts the same raw signature / MTU / uptime values
-//! from a given PCAP that it always has — *without* any database matching.
+//! from a given PCAP that it always has *without* any database matching.
 //!
 //! The matching half of what used to be in this file lives in
 //! `huginn-net-db/tests/golden_tcp_matching.rs`, where each captured
@@ -81,7 +81,6 @@ fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
 fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNetTcpError> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
-    // Layer 1: no matcher attached — we only test raw extraction here.
     let mut analyzer = HuginnNetTcp::new(1000)?;
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
 

@@ -12,10 +12,10 @@
 //!
 //! ## Cargo Features
 //!
-//! - `tcp` (default) — pulls in `huginn-net-tcp` and exposes [`TcpDatabase`],
+//! - `tcp` (default) - pulls in `huginn-net-tcp` and exposes [`TcpDatabase`],
 //!   [`TcpSignatureMatcher`], the `[tcp:*]` parser branch, and TCP signal
 //!   matching impls.
-//! - `http` (default) — pulls in `huginn-net-http` and exposes [`HttpDatabase`],
+//! - `http` (default) - pulls in `huginn-net-http` and exposes [`HttpDatabase`],
 //!   [`HttpSignatureMatcher`], the `[http:*]` parser branch, and HTTP signal
 //!   matching impls.
 //!

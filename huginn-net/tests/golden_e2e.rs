@@ -56,7 +56,7 @@ fn e2e_macos_tcp_flags_yields_tcp_matches() {
     );
 
     // The first connection of `macos_tcp_flags.pcap` carries an MTU of 1504,
-    // which is *not* one of the canonical p0f.fp link entries — so a healthy
+    // which is *not* one of the canonical p0f.fp link entries, so a healthy
     // pipeline must surface it as `NotMatched` (matcher ran, no entry hit).
     // We use this as a positive signal that the matcher is wired in (i.e.
     // never falls back to `Disabled` when a database is present).

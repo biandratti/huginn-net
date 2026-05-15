@@ -1,10 +1,10 @@
 //! TCP signature matchers backed by a [`TcpDatabase`].
 //!
 //! Two flavours are exposed:
-//! - [`TcpSignatureMatcher<'a>`] — a borrowed matcher used by the umbrella
+//! - [`TcpSignatureMatcher<'a>`] - a borrowed matcher used by the umbrella
 //!   crate (and any code that already has a `&TcpDatabase` in hand). This is
 //!   the lower-level, allocation-free API.
-//! - [`SharedTcpSignatureMatcher`] — an owned matcher (holds an
+//! - [`SharedTcpSignatureMatcher`] an owned matcher (holds an
 //!   `Arc<TcpDatabase>`) that implements [`TcpMatcher`]. This is the matcher
 //!   you hand to [`huginn_net_tcp::HuginnNetTcp`] when you want OS/MTU
 //!   matching without writing your own glue.
@@ -85,32 +85,45 @@ impl From<&Label> for OperativeSystem {
 }
 
 // ---------------------------------------------------------------------------
+// Shared matching helpers
+// ---------------------------------------------------------------------------
+
+fn match_tcp_request_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
+    let (label, _sig, quality) = db.tcp_request.find_best_match(obs)?;
+    Some(TcpMatch { os: OperativeSystem::from(label), quality })
+}
+
+fn match_tcp_response_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
+    let (label, _sig, quality) = db.tcp_response.find_best_match(obs)?;
+    Some(TcpMatch { os: OperativeSystem::from(label), quality })
+}
+
+fn match_mtu_impl(db: &TcpDatabase, mtu: u16) -> Option<MtuMatch> {
+    for (link, db_mtus) in &db.mtu {
+        for db_mtu in db_mtus {
+            if mtu == *db_mtu {
+                return Some(MtuMatch { link: link.clone() });
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
 // TcpMatcher implementation for the borrowed matcher.
-//
-// Useful in code that already holds a `&TcpDatabase` and wants to feed an
-// observation through the public matcher trait without going through Arc.
 // ---------------------------------------------------------------------------
 
 impl<'a> TcpMatcher for TcpSignatureMatcher<'a> {
     fn match_tcp_request(&self, obs: &TcpObservation) -> Option<TcpMatch> {
-        let (label, _sig, quality) = self.database.tcp_request.find_best_match(obs)?;
-        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+        match_tcp_request_impl(self.database, obs)
     }
 
     fn match_tcp_response(&self, obs: &TcpObservation) -> Option<TcpMatch> {
-        let (label, _sig, quality) = self.database.tcp_response.find_best_match(obs)?;
-        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+        match_tcp_response_impl(self.database, obs)
     }
 
     fn match_mtu(&self, mtu: u16) -> Option<MtuMatch> {
-        for (link, db_mtus) in &self.database.mtu {
-            for db_mtu in db_mtus {
-                if mtu == *db_mtu {
-                    return Some(MtuMatch { link: link.clone() });
-                }
-            }
-        }
-        None
+        match_mtu_impl(self.database, mtu)
     }
 }
 
@@ -150,23 +163,14 @@ impl SharedTcpSignatureMatcher {
 
 impl TcpMatcher for SharedTcpSignatureMatcher {
     fn match_tcp_request(&self, obs: &TcpObservation) -> Option<TcpMatch> {
-        let (label, _sig, quality) = self.database.tcp_request.find_best_match(obs)?;
-        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+        match_tcp_request_impl(&self.database, obs)
     }
 
     fn match_tcp_response(&self, obs: &TcpObservation) -> Option<TcpMatch> {
-        let (label, _sig, quality) = self.database.tcp_response.find_best_match(obs)?;
-        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+        match_tcp_response_impl(&self.database, obs)
     }
 
     fn match_mtu(&self, mtu: u16) -> Option<MtuMatch> {
-        for (link, db_mtus) in &self.database.mtu {
-            for db_mtu in db_mtus {
-                if mtu == *db_mtu {
-                    return Some(MtuMatch { link: link.clone() });
-                }
-            }
-        }
-        None
+        match_mtu_impl(&self.database, mtu)
     }
 }

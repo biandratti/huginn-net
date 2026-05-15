@@ -14,8 +14,6 @@ impl<'a> HttpSignatureMatcher<'a> {
         Self { database }
     }
 
-    /// Lower-level lookup that returns the raw label/signature/quality tuple
-    /// produced by the underlying [`FingerprintDb`].
     pub fn matching_by_http_request(
         &self,
         signature: &HttpRequestObservation,
@@ -23,7 +21,6 @@ impl<'a> HttpSignatureMatcher<'a> {
         self.database.http_request.find_best_match(signature)
     }
 
-    /// Lower-level lookup for HTTP responses.
     pub fn matching_by_http_response(
         &self,
         signature: &HttpResponseObservation,
@@ -31,11 +28,9 @@ impl<'a> HttpSignatureMatcher<'a> {
         self.database.http_response.find_best_match(signature)
     }
 
-    /// Map a User-Agent string to its OS family using the database UA→OS
-    /// table. Returns the UA substring that matched and the OS family.
-    pub fn matching_by_user_agent(&self, user_agent: String) -> Option<(&'a str, Option<&'a str>)> {
+    pub fn matching_by_user_agent(&self, user_agent: &str) -> Option<(&'a str, Option<&'a str>)> {
         for (ua, ua_family) in &self.database.ua_os {
-            if user_agent.contains(ua) {
+            if user_agent.contains(ua.as_str()) {
                 return Some((ua.as_str(), ua_family.as_ref().map(|s| s.as_str())));
             }
         }
@@ -76,29 +71,51 @@ impl From<&Label> for WebServer {
 }
 
 // ---------------------------------------------------------------------------
+// Shared matching helpers
+// ---------------------------------------------------------------------------
+
+fn match_http_request_impl(
+    db: &HttpDatabase,
+    obs: &HttpRequestObservation,
+) -> Option<HttpRequestMatch> {
+    let (label, _sig, quality) = db.http_request.find_best_match(obs)?;
+    Some(HttpRequestMatch { browser: Browser::from(label), quality })
+}
+
+fn match_http_response_impl(
+    db: &HttpDatabase,
+    obs: &HttpResponseObservation,
+) -> Option<HttpResponseMatch> {
+    let (label, _sig, quality) = db.http_response.find_best_match(obs)?;
+    Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+}
+
+fn match_user_agent_impl(db: &HttpDatabase, ua: &str) -> Option<UaOsMatch> {
+    for (ua_substr, family) in &db.ua_os {
+        if ua.contains(ua_substr.as_str()) {
+            if let Some(family) = family {
+                return Some(UaOsMatch { family: family.clone(), flavor: None });
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
 // HttpMatcher implementation for the borrowed matcher.
 // ---------------------------------------------------------------------------
 
 impl<'a> HttpMatcher for HttpSignatureMatcher<'a> {
     fn match_http_request(&self, obs: &HttpRequestObservation) -> Option<HttpRequestMatch> {
-        let (label, _sig, quality) = self.database.http_request.find_best_match(obs)?;
-        Some(HttpRequestMatch { browser: Browser::from(label), quality })
+        match_http_request_impl(self.database, obs)
     }
 
     fn match_http_response(&self, obs: &HttpResponseObservation) -> Option<HttpResponseMatch> {
-        let (label, _sig, quality) = self.database.http_response.find_best_match(obs)?;
-        Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+        match_http_response_impl(self.database, obs)
     }
 
     fn match_user_agent(&self, ua: &str) -> Option<UaOsMatch> {
-        for (ua_substr, family) in &self.database.ua_os {
-            if ua.contains(ua_substr) {
-                if let Some(family) = family {
-                    return Some(UaOsMatch { family: family.clone(), flavor: None });
-                }
-            }
-        }
-        None
+        match_user_agent_impl(self.database, ua)
     }
 }
 
@@ -139,23 +156,14 @@ impl SharedHttpSignatureMatcher {
 
 impl HttpMatcher for SharedHttpSignatureMatcher {
     fn match_http_request(&self, obs: &HttpRequestObservation) -> Option<HttpRequestMatch> {
-        let (label, _sig, quality) = self.database.http_request.find_best_match(obs)?;
-        Some(HttpRequestMatch { browser: Browser::from(label), quality })
+        match_http_request_impl(&self.database, obs)
     }
 
     fn match_http_response(&self, obs: &HttpResponseObservation) -> Option<HttpResponseMatch> {
-        let (label, _sig, quality) = self.database.http_response.find_best_match(obs)?;
-        Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+        match_http_response_impl(&self.database, obs)
     }
 
     fn match_user_agent(&self, ua: &str) -> Option<UaOsMatch> {
-        for (ua_substr, family) in &self.database.ua_os {
-            if ua.contains(ua_substr) {
-                if let Some(family) = family {
-                    return Some(UaOsMatch { family: family.clone(), flavor: None });
-                }
-            }
-        }
-        None
+        match_user_agent_impl(&self.database, ua)
     }
 }
