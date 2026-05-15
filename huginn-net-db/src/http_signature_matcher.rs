@@ -123,10 +123,6 @@ impl<'a> HttpMatcher for HttpSignatureMatcher<'a> {
 // Shared, owned matcher (implements HttpMatcher)
 // ---------------------------------------------------------------------------
 
-/// Owned wrapper around an `Arc<HttpDatabase>` that implements [`HttpMatcher`].
-///
-/// This is the type you typically hand to
-/// [`huginn_net_http::HuginnNetHttp::with_matcher`].
 pub struct SharedHttpSignatureMatcher {
     database: Arc<HttpDatabase>,
 }
@@ -136,19 +132,11 @@ impl SharedHttpSignatureMatcher {
         Self { database }
     }
 
-    /// Convenience constructor for callers that already have an `Arc` of the
-    /// composed [`crate::Database`]. Clones the inner [`HttpDatabase`] once;
-    /// after that, lookups are zero-copy.
-    ///
-    /// Available only when both `tcp` and `http` features are enabled (the
-    /// composed [`crate::Database`] requires both).
     #[cfg(all(feature = "tcp", feature = "http"))]
     pub fn from_database(database: &crate::Database) -> Self {
         Self { database: Arc::new(database.http.clone()) }
     }
 
-    /// Borrow the underlying database, e.g. to construct a borrowed
-    /// [`HttpSignatureMatcher`] for low-level access.
     pub fn database(&self) -> &HttpDatabase {
         &self.database
     }

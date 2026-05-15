@@ -1,0 +1,43 @@
+{
+  "pcap_file": "http-simple-get.pcap",
+  "pcap_path": "../pcap/http-simple-get.pcap",
+  "expected_connections": 2,
+  "connections": [
+    {
+      "source": {
+        "ip": "10.180.156.141",
+        "port": 61450
+      },
+      "destination": {
+        "ip": "10.180.156.249",
+        "port": 80
+      },
+      "http_request": {
+        "browser": "curl",
+        "lang": null,
+        "quality": "Matched(0.8)",
+        "user_agent": "curl/7.24.0 (x86_64-apple-darwin12.0) libcurl/7.24.0 OpenSSL/0.9.8y zlib/1.2.5",
+        "method": "GET",
+        "uri": "/"
+      },
+      "http_response": null
+    },
+    {
+      "source": {
+        "ip": "10.180.156.249",
+        "port": 80
+      },
+      "destination": {
+        "ip": "10.180.156.141",
+        "port": 61450
+      },
+      "http_request": null,
+      "http_response": {
+        "web_server": "Apache",
+        "quality": "Matched(0.8)",
+        "status_code": 403,
+        "headers_count": 6
+      }
+    }
+  ]
+}
