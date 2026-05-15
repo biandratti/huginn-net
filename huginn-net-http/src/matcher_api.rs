@@ -10,26 +10,47 @@ use crate::observable::{HttpRequestObservation, HttpResponseObservation};
 use crate::output::{Browser, WebServer};
 
 /// Result of matching an [`HttpRequestObservation`] against a database.
+///
+/// `expsw` is the substring expected to appear inside the observed
+/// `User-Agent` for this signature (the fourth field of the `sig =` line in
+/// `p0f.fp`, e.g. `"Firefox/"`). It is preserved here so the diagnostic step
+/// can compare it against the observed UA and surface
+/// [`crate::http::HttpDiagnosis::Dishonest`] when the two disagree, mirroring
+/// p0f's `strstr(ts->sw, rs->sw)` check. Implementations that do not have
+/// this information should leave it empty; the diagnostic step then falls
+/// back to one of the other variants instead of `Dishonest`.
 #[derive(Debug, Clone)]
 pub struct HttpRequestMatch {
     pub browser: Browser,
     pub quality: f32,
+    pub expsw: String,
 }
 
 /// Result of matching an [`HttpResponseObservation`] against a database.
+///
+/// `expsw` is the substring expected to appear inside the observed `Server`
+/// header, analogous to [`HttpRequestMatch::expsw`].
 #[derive(Debug, Clone)]
 pub struct HttpResponseMatch {
     pub web_server: WebServer,
     pub quality: f32,
+    pub expsw: String,
 }
 
 /// Result of mapping a User-Agent string against the database's UA→OS table.
 ///
-/// `family` is the OS family (e.g. `"Windows"`, `"Linux"`); `flavor` is the
-/// optional sub-variant (e.g. `"7 or 8"`).
+/// `family` is the OS family (e.g. `"Windows"`, `"Linux"`). It is optional
+/// because `p0f.fp` allows a UA→OS entry to match a substring without
+/// declaring an OS family (e.g. raw `Linux` vs `iOS=[iPad]`); previously the
+/// two helpers in `huginn-net-db` disagreed on what to do with such entries —
+/// `matching_by_user_agent` preserved them, `match_user_agent` discarded
+/// them. Carrying the raw `Option<String>` keeps both APIs consistent and
+/// pushes the decision to the caller.
+///
+/// `flavor` is the optional sub-variant (e.g. `"7 or 8"`).
 #[derive(Debug, Clone)]
 pub struct UaOsMatch {
-    pub family: String,
+    pub family: Option<String>,
     pub flavor: Option<String>,
 }
 

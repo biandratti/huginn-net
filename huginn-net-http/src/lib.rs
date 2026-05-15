@@ -168,12 +168,42 @@ impl HuginnNetHttp {
 
     /// Initializes the worker pool for parallel processing.
     ///
-    /// Must be called after `with_config` and before calling `analyze_network` or `analyze_pcap`.
+    /// Must be called after `with_config` and before calling `analyze_network`
+    /// or `analyze_pcap`.
+    ///
+    /// # Builder ordering footgun
+    ///
+    /// `init_pool` snapshots the current matcher (`self.matcher.clone()`) into
+    /// each worker. Calling `init_pool` **before** [`Self::with_matcher`] is
+    /// almost always a bug: the pool is built with `matcher = None` and every
+    /// worker reports `MatchQuality::Disabled` while the parent
+    /// [`HuginnNetHttp`] still looks like it has a matcher attached. The
+    /// recommended order is:
+    ///
+    /// ```text
+    /// HuginnNetHttp::with_config(..)
+    ///     .with_matcher(..)        // first
+    ///     .with_filter(..)         // optional
+    ///     .init_pool(tx)?;         // last
+    /// ```
+    ///
+    /// When `init_pool` is invoked while `self.matcher.is_none()`, this
+    /// function emits a `tracing::warn!` to make the misconfiguration
+    /// noticeable; it does **not** fail (the pool may still be useful for
+    /// callers that intentionally run observation-only).
     pub fn init_pool(
         &mut self,
         result_tx: Sender<HttpAnalysisResult>,
     ) -> Result<(), HuginnNetHttpError> {
         if let Some(config) = &self.parallel_config {
+            if self.matcher.is_none() {
+                tracing::warn!(
+                    "HuginnNetHttp::init_pool called without a matcher; the pool \
+                     will run in observation-only mode. If this is intentional, \
+                     ignore this warning. Otherwise call `with_matcher(..)` \
+                     before `init_pool(..)`."
+                );
+            }
             let pool = WorkerPool::new(
                 config.num_workers,
                 config.queue_size,

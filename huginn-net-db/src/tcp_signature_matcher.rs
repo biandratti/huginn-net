@@ -141,8 +141,6 @@ impl SharedTcpSignatureMatcher {
         Self { database: Arc::new(database.tcp.clone()) }
     }
 
-    /// Borrow the underlying database, e.g. to construct a borrowed
-    /// [`TcpSignatureMatcher`] for low-level access.
     pub fn database(&self) -> &TcpDatabase {
         &self.database
     }
@@ -150,23 +148,14 @@ impl SharedTcpSignatureMatcher {
 
 impl TcpMatcher for SharedTcpSignatureMatcher {
     fn match_tcp_request(&self, obs: &TcpObservation) -> Option<TcpMatch> {
-        let (label, _sig, quality) = self.database.tcp_request.find_best_match(obs)?;
-        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+        TcpSignatureMatcher::new(&self.database).match_tcp_request(obs)
     }
 
     fn match_tcp_response(&self, obs: &TcpObservation) -> Option<TcpMatch> {
-        let (label, _sig, quality) = self.database.tcp_response.find_best_match(obs)?;
-        Some(TcpMatch { os: OperativeSystem::from(label), quality })
+        TcpSignatureMatcher::new(&self.database).match_tcp_response(obs)
     }
 
     fn match_mtu(&self, mtu: u16) -> Option<MtuMatch> {
-        for (link, db_mtus) in &self.database.mtu {
-            for db_mtu in db_mtus {
-                if mtu == *db_mtu {
-                    return Some(MtuMatch { link: link.clone() });
-                }
-            }
-        }
-        None
+        TcpSignatureMatcher::new(&self.database).match_mtu(mtu)
     }
 }

@@ -16,20 +16,44 @@
 
 ## Overview
 
-This crate provides p0f database parsing and signature matching capabilities. It handles parsing of p0f signature databases and provides efficient matching algorithms for TCP and HTTP fingerprinting.
+This crate provides p0f database parsing and signature matching. It is the
+default implementation of the [`TcpMatcher`] / [`HttpMatcher`] traits exposed
+by `huginn-net-tcp` and `huginn-net-http`, but those crates are
+**database-agnostic**: you can swap in your own matcher without depending on
+this crate.
 
-**Note**: This crate is automatically included when using `huginn-net-tcp` or `huginn-net-http`. Most users don't need to use it directly.
+**Note**: When using the umbrella `huginn-net` with the default `db` feature
+on, this crate is pulled in automatically. Most users do not need to depend
+on it directly.
+
+## Cargo features
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `tcp`   | Yes     | TCP signature parsing + `SharedTcpSignatureMatcher` (`TcpMatcher` impl). |
+| `http`  | Yes     | HTTP signature parsing + `SharedHttpSignatureMatcher` (`HttpMatcher` impl). |
+
+When **both** features are on, the crate also exposes a composed
+[`Database`](https://docs.rs/huginn-net-db/latest/huginn_net_db/struct.Database.html)
+wrapping the per-protocol databases. Disable a feature to slim the
+dependency footprint when you only need one protocol.
+
+[`TcpMatcher`]: https://docs.rs/huginn-net-tcp/latest/huginn_net_tcp/matcher_api/trait.TcpMatcher.html
+[`HttpMatcher`]: https://docs.rs/huginn-net-http/latest/huginn_net_http/matcher_api/trait.HttpMatcher.html
 
 ## Features
 
 - **P0f Database Parsing** - Complete parser for p0f signature format
-- **TCP & HTTP Matching** - Efficient signature matching algorithms  
+- **TCP & HTTP Matching** - Efficient signature matching algorithms
 - **Quality Scoring** - Distance-based quality metrics for matches
 - **Extensible Design** - Easy to add new signature types
 
 ## Usage
 
-This crate is used internally by other huginn-net crates and is not intended for direct use.
+Most consumers depend on `huginn-net`, `huginn-net-tcp`, or `huginn-net-http`
+and let those crates pull `huginn-net-db` in transitively. Direct usage is
+appropriate when you want raw access to the p0f parser or the
+borrowed/shared matchers.
 
 ## Documentation
 

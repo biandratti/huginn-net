@@ -4,33 +4,26 @@
 ///
 /// # Usage
 ///
+/// The doctest below uses synthetic types so it builds whether or not the
+/// optional `db` feature is enabled, `huginn_net_db::Label` is feature-gated
+/// behind `db`, so the macro is documented against generic shapes instead.
+///
 /// ```rust
 /// use huginn_net::quality_match;
-/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched, OperativeSystem};
-/// # use huginn_net_db::Label;
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
-/// # struct ObservableTcp;
+/// # struct Output { name: Option<String> }
 /// # let config = Config { matcher_enabled: true };
 /// # let matcher: Option<Matcher> = None;
-/// # let observable_tcp = ObservableTcp;
-/// let quality = quality_match!(
+/// let out: Output = quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
-///     call: matcher => None::<(Label, String, f32)>,
-///     matched: (label, _signature, quality) => OSQualityMatched {
-///         os: Some(OperativeSystem::from(&label)),
-///         quality: MatchQuality::Matched(quality),
-///     },
-///     not_matched: OSQualityMatched {
-///         os: None,
-///         quality: MatchQuality::NotMatched,
-///     },
-///     disabled: OSQualityMatched {
-///         os: None,
-///         quality: MatchQuality::Disabled,
-///     }
+///     call: _m => None::<(String, String, f32)>,
+///     matched: (name, _signature, _quality) => Output { name: Some(name) },
+///     not_matched: Output { name: None },
+///     disabled: Output { name: None }
 /// );
+/// # let _ = out;
 /// ```
 #[macro_export]
 macro_rules! quality_match {
@@ -61,35 +54,30 @@ macro_rules! quality_match {
 ///
 /// # Usage
 ///
+/// Like [`quality_match!`], the doctest is written against synthetic types so
+/// it compiles independent of optional features.
+///
 /// ```rust
 /// use huginn_net::{simple_quality_match, quality_match};
-/// # use huginn_net_tcp::output::{MTUQualityMatched, MatchQuality};
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # impl Matcher {
 /// #     fn matching_by_mtu(&self, _value: &u16) -> Option<(String, String)> { None }
 /// # }
 /// # struct ObservableMtu { value: u16 }
+/// # struct Output { link: Option<String> }
 /// # let config = Config { matcher_enabled: true };
 /// # let matcher: Option<Matcher> = None;
 /// # let observable_mtu = ObservableMtu { value: 1500 };
-/// let quality = simple_quality_match!(
+/// let out: Output = simple_quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
 ///     method: matching_by_mtu(&observable_mtu.value),
-///     success: (link, _) => MTUQualityMatched {
-///         link: Some(link.clone()),
-///         quality: MatchQuality::Matched(1.0),
-///     },
-///     failure: MTUQualityMatched {
-///         link: None,
-///         quality: MatchQuality::NotMatched,
-///     },
-///     disabled: MTUQualityMatched {
-///         link: None,
-///         quality: MatchQuality::Disabled,
-///     }
+///     success: (link, _) => Output { link: Some(link.clone()) },
+///     failure: Output { link: None },
+///     disabled: Output { link: None }
 /// );
+/// # let _ = out;
 /// ```
 #[macro_export]
 macro_rules! simple_quality_match {

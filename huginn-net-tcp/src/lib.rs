@@ -177,6 +177,25 @@ impl HuginnNetTcp {
     ///
     /// # Errors
     /// Returns error if called without parallel config or if worker pool creation fails.
+    ///
+    /// # Builder ordering footgun
+    ///
+    /// `init_pool` snapshots the current matcher into each worker. Calling
+    /// `init_pool` **before** [`Self::with_matcher`] is almost always a bug:
+    /// the pool is built with `matcher = None` and every worker reports
+    /// `MatchQuality::Disabled`. The recommended order is:
+    ///
+    /// ```text
+    /// HuginnNetTcp::with_config(..)
+    ///     .with_matcher(..)        // first
+    ///     .with_filter(..)         // optional
+    ///     .init_pool(tx)?;         // last
+    /// ```
+    ///
+    /// When `init_pool` is invoked while `self.matcher.is_none()`, this
+    /// function emits a `tracing::warn!` to make the misconfiguration
+    /// noticeable; it does **not** fail (the pool may still be useful for
+    /// callers that intentionally run observation-only).
     pub fn init_pool(
         &mut self,
         sender: Sender<TcpAnalysisResult>,
@@ -187,6 +206,15 @@ impl HuginnNetTcp {
                 "Parallel mode not configured. Use with_config() to enable parallel processing"
                     .to_string(),
             ))?;
+
+        if self.matcher.is_none() {
+            tracing::warn!(
+                "HuginnNetTcp::init_pool called without a matcher; the pool \
+                 will run in observation-only mode. If this is intentional, \
+                 ignore this warning. Otherwise call `with_matcher(..)` \
+                 before `init_pool(..)`."
+            );
+        }
 
         let matcher_arc = self.matcher.as_ref().map(Arc::clone);
 

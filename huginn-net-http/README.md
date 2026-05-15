@@ -78,6 +78,19 @@ This design allows you to extract Akamai fingerprints **before TLS termination**
 
 > **Note:** Live packet capture requires `libpcap` (usually pre-installed on Linux/macOS).
 
+### Pluggable matcher
+
+`huginn-net-http` does not ship signatures: it exposes the [`HttpMatcher`]
+trait and accepts any implementation. The default workspace setup uses
+[`huginn-net-db`], which loads p0f-style signatures and provides
+`SharedHttpSignatureMatcher`. You can also bring your own matcher (custom
+heuristics, ML model, in-house rules) without touching `huginn-net-http`
+itself. Without a matcher, `analyze_*` still emits observable HTTP signals
+but every match quality is reported as `Disabled`.
+
+[`HttpMatcher`]: https://docs.rs/huginn-net-http/latest/huginn_net_http/matcher_api/trait.HttpMatcher.html
+[`huginn-net-db`]: https://docs.rs/huginn-net-db
+
 ### Installation
 
 Add this to your `Cargo.toml`:
@@ -85,7 +98,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net-http = "1.7.5"
-huginn-net-db = "1.7.5"
+huginn-net-db = "1.7.5"   # optional: only needed for the bundled p0f matcher
 ```
 
 ### Basic Usage

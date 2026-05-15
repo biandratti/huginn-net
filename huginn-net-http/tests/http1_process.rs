@@ -89,36 +89,42 @@ fn test_parse_http1_response() {
 }
 
 #[test]
-fn test_get_diagnostic_for_empty_sw() {
-    let diagnosis: http::HttpDiagnosis = http_common::get_diagnostic(None, None, None);
+fn test_get_diagnostic_anonymous_when_no_user_agent() {
+    let diagnosis: http::HttpDiagnosis = http_common::get_diagnostic(None, None);
     assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
 }
 
 #[test]
-fn test_get_diagnostic_with_existing_signature_matcher() {
-    let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
-    let ua_os_family = Some("Linux");
-    let network_os_name = Some("Linux");
-
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
+fn test_get_diagnostic_generic_when_match_is_generic_and_ua_contains_expsw() {
+    let diagnosis = http_common::get_diagnostic(Some("Mozilla/5.0"), Some((true, "Mozilla")));
     assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
 }
 
 #[test]
-fn test_get_diagnostic_with_dishonest_user_agent() {
-    let user_agent = Some("Mozilla/5.0".to_string());
-    let ua_os_family = Some("Windows");
-    let network_os_name = Some("Linux");
-
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
+fn test_get_diagnostic_dishonest_when_user_agent_lacks_expsw() {
+    // Matched signature expects "Firefox" inside the UA; observed UA does not
+    // contain it -> p0f's `dishonest` flag.
+    let diagnosis = http_common::get_diagnostic(Some("Mozilla/5.0"), Some((false, "Firefox")));
     assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
 }
 
 #[test]
-fn test_get_diagnostic_without_user_agent_and_signature_matcher() {
-    let user_agent = Some("Mozilla/5.0".to_string());
+fn test_get_diagnostic_none_for_specific_match_with_coherent_ua() {
+    let diagnosis = http_common::get_diagnostic(Some("Mozilla/5.0"), Some((false, "Mozilla")));
+    assert_eq!(diagnosis, http::HttpDiagnosis::None);
+}
 
-    let diagnosis = http_common::get_diagnostic(user_agent, None, None);
+#[test]
+fn test_get_diagnostic_none_when_no_match() {
+    let diagnosis = http_common::get_diagnostic(Some("Mozilla/5.0"), None);
+    assert_eq!(diagnosis, http::HttpDiagnosis::None);
+}
+
+#[test]
+fn test_get_diagnostic_ignores_unknown_expsw_placeholder() {
+    // p0f uses "???" as the "no expectation" placeholder; it must never
+    // trigger `Dishonest`.
+    let diagnosis = http_common::get_diagnostic(Some("Mozilla/5.0"), Some((false, "???")));
     assert_eq!(diagnosis, http::HttpDiagnosis::None);
 }
 

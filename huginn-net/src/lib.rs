@@ -1,11 +1,46 @@
-//! Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.
+//! Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS
+//! (JA4) analysis.
+//!
+//! `huginn-net` is the umbrella crate that composes the three protocol crates
+//! (`huginn-net-tcp`, `huginn-net-http`, `huginn-net-tls`) into a single
+//! analyzer ([`HuginnNet`]). Each protocol crate is also independently usable
+//! on its own; `huginn-net` exists so consumers don't have to wire the three
+//! together by hand.
 //!
 //! ## Cargo Features
 //!
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
-//! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
+//! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementations via the `TcpMatcher` / `HttpMatcher` traits). |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`] — ephemeral extensions excluded for stable fingerprints |
+//!
+//! ## Quick start
+//!
+//! ```no_run
+//! # #[cfg(feature = "db")]
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use huginn_net::{Database, HuginnNet};
+//! use huginn_net::output::FingerprintResult;
+//! use std::sync::mpsc;
+//!
+//! let db = Box::leak(Box::new(Database::load_default()?));
+//! let mut analyzer = HuginnNet::new(Some(db), 1000, None)?;
+//! let (tx, rx) = mpsc::channel::<FingerprintResult>();
+//!
+//! // `analyze_network` blocks until cancelled; in real code you would
+//! // typically run it on a dedicated capture thread and consume `rx` from
+//! // your worker. See `examples/capture.rs` for a complete program.
+//! let _ = analyzer.analyze_network("eth0", tx, None);
+//!
+//! for result in rx {
+//!     if let Some(syn) = result.tcp_syn { println!("{syn}"); }
+//!     if let Some(http) = result.http_request { println!("{http}"); }
+//!     if let Some(tls) = result.tls_client { println!("{tls}"); }
+//! }
+//! # Ok(()) }
+//! # #[cfg(not(feature = "db"))]
+//! # fn main() {}
+//! ```
 
 #![forbid(unsafe_code)]
 
@@ -691,16 +726,13 @@ impl<'a> HuginnNet<'a> {
     ) -> HttpRequestMatchResult {
         #[cfg(feature = "db")]
         {
-            let (signature_matcher, ua_matcher, browser_quality) = quality_match!(
+            let (signature_matcher, browser_quality) = quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
                 call: matcher => {
-                    let sig_match = matcher.matching_by_http_request(&observable_http_request.matching);
-                    let ua_match = observable_http_request.user_agent.clone()
-                        .and_then(|ua| matcher.matching_by_user_agent(ua));
-                    Some((sig_match, ua_match))
+                    Some(matcher.matching_by_http_request(&observable_http_request.matching))
                 },
-                matched: (signature_matcher, ua_matcher) => {
+                matched: signature_matcher => {
                     let browser_quality = signature_matcher
                         .map(|(label, _signature, quality)| BrowserQualityMatched {
                             browser: Some(Browser::from(label)),
@@ -710,45 +742,44 @@ impl<'a> HuginnNet<'a> {
                             browser: None,
                             quality: HttpMatchQuality::NotMatched,
                         });
-                    (signature_matcher, ua_matcher, browser_quality)
+                    (signature_matcher, browser_quality)
                 },
                 not_matched: {
                     let browser_quality = BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::NotMatched,
                     };
-                    (None, None, browser_quality)
+                    (None, browser_quality)
                 },
                 disabled: {
                     let browser_quality = BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::Disabled,
                     };
-                    (None, None, browser_quality)
+                    (None, browser_quality)
                 }
             );
 
-            // TODO(v2-followup): the third argument should be the OS name from
-            // the TCP fingerprint match (network-observed OS), not the HTTP
-            // signature label name (which is a *browser* name like "Firefox"
-            // when the matcher is HTTP). Revisit in a dedicated PR by wiring
-            // the TCP `OSQualityMatched` produced for `syn`/`syn_ack` of the
-            // same packet into this diagnostic.
+            // p0f-style HTTP diagnostic — HTTP-only flags from `dump_flags`.
+            // The cross-protocol UA-vs-TCP-OS check (p0f's `bad_sw`) is not
+            // wired in yet; it is tracked as a follow-up PR.
+            let matched_for_diag = signature_matcher.map(|(label, signature, _quality)| {
+                (matches!(label.ty, huginn_net_db::Type::Generic), signature.expsw.as_str())
+            });
             let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
-                observable_http_request.user_agent.clone(),
-                ua_matcher.and_then(|(_, family)| family),
-                signature_matcher.map(|(label, _signature, _quality)| label.name.as_str()),
+                observable_http_request.user_agent.as_deref(),
+                matched_for_diag,
             );
 
             HttpRequestMatchResult { browser_quality, http_diagnosis }
         }
         #[cfg(not(feature = "db"))]
         {
-            // Without the `db` feature we can still report UA/network agreement
-            // based on the User-Agent string alone (UA → declared OS family).
+            // Without the `db` feature there is no signature match available,
+            // so the diagnostic collapses to `Anonymous`/`None` based on
+            // whether a User-Agent header was observed.
             let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
-                observable_http_request.user_agent.clone(),
-                None,
+                observable_http_request.user_agent.as_deref(),
                 None,
             );
             HttpRequestMatchResult {
