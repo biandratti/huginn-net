@@ -39,11 +39,18 @@ pub struct HttpResponseMatch {
 
 /// Result of mapping a User-Agent string against the database's UA→OS table.
 ///
-/// `family` is the OS family (e.g. `"Windows"`, `"Linux"`); `flavor` is the
-/// optional sub-variant (e.g. `"7 or 8"`).
+/// `family` is the OS family (e.g. `"Windows"`, `"Linux"`). It is optional
+/// because `p0f.fp` allows a UA→OS entry to match a substring without
+/// declaring an OS family (e.g. raw `Linux` vs `iOS=[iPad]`); previously the
+/// two helpers in `huginn-net-db` disagreed on what to do with such entries —
+/// `matching_by_user_agent` preserved them, `match_user_agent` discarded
+/// them. Carrying the raw `Option<String>` keeps both APIs consistent and
+/// pushes the decision to the caller.
+///
+/// `flavor` is the optional sub-variant (e.g. `"7 or 8"`).
 #[derive(Debug, Clone)]
 pub struct UaOsMatch {
-    pub family: String,
+    pub family: Option<String>,
     pub flavor: Option<String>,
 }
 

@@ -44,6 +44,18 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 
 > **Note:** Live packet capture requires `libpcap` (usually pre-installed on Linux/macOS).
 
+### Pluggable matcher
+
+`huginn-net-tcp` does not ship signatures: it exposes the [`TcpMatcher`]
+trait and accepts any implementation. The default workspace setup uses
+[`huginn-net-db`], which loads p0f-style signatures and provides
+`SharedTcpSignatureMatcher`. You can also bring your own matcher (custom
+heuristics, ML model, in-house rules) without touching `huginn-net-tcp`
+itself.
+
+[`TcpMatcher`]: https://docs.rs/huginn-net-tcp/latest/huginn_net_tcp/matcher_api/trait.TcpMatcher.html
+[`huginn-net-db`]: https://docs.rs/huginn-net-db
+
 ### Installation
 
 Add this to your `Cargo.toml`:
@@ -51,7 +63,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net-tcp = "1.7.5"
-huginn-net-db = "1.7.5"
+huginn-net-db = "1.7.5"   # optional: only needed for the bundled p0f matcher
 ```
 
 ### Basic Usage

@@ -1,11 +1,46 @@
-//! Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.
+//! Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS
+//! (JA4) analysis.
+//!
+//! `huginn-net` is the umbrella crate that composes the three protocol crates
+//! (`huginn-net-tcp`, `huginn-net-http`, `huginn-net-tls`) into a single
+//! analyzer ([`HuginnNet`]). Each protocol crate is also independently usable
+//! on its own; `huginn-net` exists so consumers don't have to wire the three
+//! together by hand.
 //!
 //! ## Cargo Features
 //!
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
-//! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
+//! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementations via the `TcpMatcher` / `HttpMatcher` traits). |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`] — ephemeral extensions excluded for stable fingerprints |
+//!
+//! ## Quick start
+//!
+//! ```no_run
+//! # #[cfg(feature = "db")]
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use huginn_net::{Database, HuginnNet};
+//! use huginn_net::output::FingerprintResult;
+//! use std::sync::mpsc;
+//!
+//! let db = Box::leak(Box::new(Database::load_default()?));
+//! let mut analyzer = HuginnNet::new(Some(db), 1000, None)?;
+//! let (tx, rx) = mpsc::channel::<FingerprintResult>();
+//!
+//! // `analyze_network` blocks until cancelled; in real code you would
+//! // typically run it on a dedicated capture thread and consume `rx` from
+//! // your worker. See `examples/capture.rs` for a complete program.
+//! let _ = analyzer.analyze_network("eth0", tx, None);
+//!
+//! for result in rx {
+//!     if let Some(syn) = result.tcp_syn { println!("{syn}"); }
+//!     if let Some(http) = result.http_request { println!("{http}"); }
+//!     if let Some(tls) = result.tls_client { println!("{tls}"); }
+//! }
+//! # Ok(()) }
+//! # #[cfg(not(feature = "db"))]
+//! # fn main() {}
+//! ```
 
 #![forbid(unsafe_code)]
 

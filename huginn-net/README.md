@@ -43,6 +43,7 @@ huginn-net-db = "1.7.5"
 
 | Feature | Default | Description |
 |---------|---------|-------------|
+| `db` | Yes | Pulls in [`huginn-net-db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation via the `TcpMatcher` / `HttpMatcher` traits). |
 | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
 
 Enable with:
@@ -51,6 +52,13 @@ Enable with:
 [dependencies]
 huginn-net = { version = "1.7.5", features = ["tls-stable-v1"] }
 huginn-net-db = "1.7.5"
+```
+
+For an observation-only build (no signature matching, no `huginn-net-db`):
+
+```toml
+[dependencies]
+huginn-net = { version = "1.7.5", default-features = false }
 ```
 
 When enabled, `TlsClient` output gains two extra lines:

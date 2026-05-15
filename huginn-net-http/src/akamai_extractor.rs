@@ -106,10 +106,10 @@ pub fn extract_akamai_fingerprint(
     ))
 }
 
-/// Extract SETTINGS frame parameters
+/// Extract SETTINGS frame parameters.
 ///
-/// SETTINGS frame format (RFC 7540):
-/// Each setting is 6 bytes: [id:16][value:32]
+/// SETTINGS frame format (RFC 7540): each setting is 6 bytes laid out as
+/// `[id:16][value:32]`.
 fn extract_settings_parameters(frames: &[Http2Frame]) -> Vec<SettingParameter> {
     frames
         .iter()
@@ -144,10 +144,9 @@ pub fn parse_settings_payload(payload: &[u8]) -> Vec<SettingParameter> {
     settings
 }
 
-/// Extract WINDOW_UPDATE value
+/// Extract WINDOW_UPDATE value.
 ///
-/// WINDOW_UPDATE frame format (RFC 7540):
-/// [R:1][Window Size Increment:31]
+/// WINDOW_UPDATE frame format (RFC 7540): `[R:1][Window Size Increment:31]`
 fn extract_window_update(frames: &[Http2Frame]) -> u32 {
     frames
         .iter()
@@ -168,10 +167,9 @@ pub fn parse_window_update_payload(payload: &[u8]) -> Option<u32> {
     Some(increment)
 }
 
-/// Extract PRIORITY frames
+/// Extract PRIORITY frames.
 ///
-/// PRIORITY frame format (RFC 7540):
-/// [E:1][Stream Dependency:31][Weight:8]
+/// PRIORITY frame format (RFC 7540): `[E:1][Stream Dependency:31][Weight:8]`
 fn extract_priority_frames(frames: &[Http2Frame]) -> Vec<Http2Priority> {
     frames
         .iter()

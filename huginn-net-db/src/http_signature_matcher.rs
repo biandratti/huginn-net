@@ -97,9 +97,7 @@ impl<'a> HttpMatcher for HttpSignatureMatcher<'a> {
     fn match_user_agent(&self, ua: &str) -> Option<UaOsMatch> {
         for (ua_substr, family) in &self.database.ua_os {
             if ua.contains(ua_substr) {
-                if let Some(family) = family {
-                    return Some(UaOsMatch { family: family.clone(), flavor: None });
-                }
+                return Some(UaOsMatch { family: family.clone(), flavor: None });
             }
         }
         None
@@ -143,27 +141,14 @@ impl SharedHttpSignatureMatcher {
 
 impl HttpMatcher for SharedHttpSignatureMatcher {
     fn match_http_request(&self, obs: &HttpRequestObservation) -> Option<HttpRequestMatch> {
-        let (label, sig, quality) = self.database.http_request.find_best_match(obs)?;
-        Some(HttpRequestMatch { browser: Browser::from(label), quality, expsw: sig.expsw.clone() })
+        HttpSignatureMatcher::new(&self.database).match_http_request(obs)
     }
 
     fn match_http_response(&self, obs: &HttpResponseObservation) -> Option<HttpResponseMatch> {
-        let (label, sig, quality) = self.database.http_response.find_best_match(obs)?;
-        Some(HttpResponseMatch {
-            web_server: WebServer::from(label),
-            quality,
-            expsw: sig.expsw.clone(),
-        })
+        HttpSignatureMatcher::new(&self.database).match_http_response(obs)
     }
 
     fn match_user_agent(&self, ua: &str) -> Option<UaOsMatch> {
-        for (ua_substr, family) in &self.database.ua_os {
-            if ua.contains(ua_substr) {
-                if let Some(family) = family {
-                    return Some(UaOsMatch { family: family.clone(), flavor: None });
-                }
-            }
-        }
-        None
+        HttpSignatureMatcher::new(&self.database).match_user_agent(ua)
     }
 }
