@@ -175,7 +175,7 @@ impl HuginnNetTls {
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
     {
         if self.parallel_config.is_some() {
-            self.process_parallel(packet_fn, sender, cancel_signal)
+            self.process_parallel(packet_fn, cancel_signal)
         } else {
             self.process_sequential(packet_fn, sender, cancel_signal)
         }
@@ -184,34 +184,19 @@ impl HuginnNetTls {
     fn process_parallel<F>(
         &mut self,
         mut packet_fn: F,
-        sender: Sender<TlsClientOutput>,
         cancel_signal: Option<Arc<AtomicBool>>,
     ) -> Result<(), HuginnNetTlsError>
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTlsError>>,
     {
-        let config = self
-            .parallel_config
-            .as_ref()
-            .ok_or_else(|| HuginnNetTlsError::Parse("Parallel config not found".to_string()))?;
-
-        if self.worker_pool.is_none() {
-            let worker_pool = Arc::new(WorkerPool::new(
-                config.num_workers,
-                config.queue_size,
-                config.batch_size,
-                config.timeout_ms,
-                sender,
-                self.max_connections,
-                self.filter_config.clone(),
-            )?);
-            self.worker_pool = Some(worker_pool);
-        }
-
         let worker_pool = self
             .worker_pool
             .as_ref()
-            .ok_or_else(|| HuginnNetTlsError::Parse("Worker pool not initialized".to_string()))?
+            .ok_or_else(|| {
+                HuginnNetTlsError::Parse(
+                    "Worker pool not initialized. Call init_pool() before processing".to_string(),
+                )
+            })?
             .clone();
 
         while let Some(packet_result) = packet_fn() {
@@ -232,6 +217,7 @@ impl HuginnNetTls {
             }
         }
 
+        worker_pool.shutdown();
         Ok(())
     }
 

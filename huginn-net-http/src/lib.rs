@@ -192,7 +192,7 @@ impl HuginnNetHttp {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetHttpError>>,
     {
-        if self.worker_pool.is_some() {
+        if self.parallel_config.is_some() {
             self.process_parallel(packet_fn, cancel_signal)
         } else {
             self.process_sequential(packet_fn, sender, cancel_signal)
@@ -244,7 +244,7 @@ impl HuginnNetHttp {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetHttpError>>,
     {
-        let pool = self.worker_pool.as_ref().ok_or_else(|| {
+        let worker_pool = self.worker_pool.as_ref().ok_or_else(|| {
             HuginnNetHttpError::Misconfiguration("Worker pool not initialized".to_string())
         })?;
 
@@ -258,13 +258,15 @@ impl HuginnNetHttp {
 
             match packet_result {
                 Ok(packet) => {
-                    let _ = pool.dispatch(packet);
+                    let _ = worker_pool.dispatch(packet);
                 }
                 Err(e) => {
                     error!("Failed to read packet: {}", e);
                 }
             }
         }
+
+        worker_pool.shutdown();
         Ok(())
     }
 
