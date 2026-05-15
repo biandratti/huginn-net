@@ -8,6 +8,7 @@
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints |
 
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 // ============================================================================
 // CORE IMPORTS (errors, results - always required)
@@ -119,11 +120,52 @@ impl Default for AnalysisConfig {
     }
 }
 
-/// A multi-protocol passive fingerprinting library inspired by `p0f` with JA4 TLS client fingerprinting.
+/// A multi-protocol passive fingerprinting analyzer: TCP (p0f-style), HTTP, and TLS (JA4).
 ///
-/// The `HuginnNet` struct acts as the core component of the library, handling TCP, HTTP, and TLS packet
-/// analysis and matching signatures using a database of known fingerprints, plus JA4 TLS
-/// client analysis following the official FoxIO specification.
+/// Combines all three protocols in a single sequential pass over each packet,
+/// producing a unified [`FingerprintResult`] per packet. For single-protocol
+/// high-throughput use cases, prefer the individual crates
+/// (`huginn-net-tcp`, `huginn-net-http`, `huginn-net-tls`) which support
+/// parallel worker pools.
+///
+/// # Examples
+///
+/// **With p0f database — TCP + HTTP matching enabled (requires `db` feature):**
+///
+/// ```no_run
+/// # #[cfg(feature = "db")] {
+/// use huginn_net::{Database, HuginnNet};
+/// use std::sync::mpsc;
+///
+/// let db = Database::load_default().unwrap();
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNet::new(Some(&db), 1000, None)
+///     .unwrap()
+///     .analyze_pcap("capture.pcap", tx, None)
+///     .unwrap();
+/// for result in rx {
+///     if let Some(syn) = result.tcp_syn   { println!("{syn}"); }
+///     if let Some(req) = result.http_request { println!("{req}"); }
+///     if let Some(tls) = result.tls_client  { println!("{tls}"); }
+/// }
+/// # }
+/// ```
+///
+/// **Observation-only — no database, all protocols, matching disabled:**
+///
+/// ```no_run
+/// # #[cfg(feature = "db")] {
+/// use huginn_net::{AnalysisConfig, HuginnNet};
+/// use std::sync::mpsc;
+///
+/// let config = AnalysisConfig { matcher_enabled: false, ..Default::default() };
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNet::new(None, 1000, Some(config))
+///     .unwrap()
+///     .analyze_pcap("capture.pcap", tx, None)
+///     .unwrap();
+/// # }
+/// ```
 pub struct HuginnNet<'a> {
     #[cfg(feature = "db")]
     pub tcp_matcher: Option<huginn_net_db::TcpSignatureMatcher<'a>>,

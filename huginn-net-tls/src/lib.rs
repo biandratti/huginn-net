@@ -68,8 +68,46 @@ pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
 /// A TLS-focused passive fingerprinting analyzer using JA4 methodology.
 ///
-/// The `HuginnNetTls` struct handles TLS packet analysis and JA4 fingerprinting
-/// following the official FoxIO specification.
+/// Extracts JA4 client-hello fingerprints from raw network traffic without
+/// decrypting TLS, no database or external matcher is required.
+///
+/// # Examples
+///
+/// **Sequential: JA4 fingerprints from a PCAP file:**
+///
+/// ```no_run
+/// use huginn_net_tls::HuginnNetTls;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetTls::new(1000).analyze_pcap("capture.pcap", tx, None).unwrap();
+/// for output in rx {
+///     println!("{output}");
+/// }
+/// ```
+///
+/// **Sequential: live capture on a network interface:**
+///
+/// ```no_run
+/// use huginn_net_tls::HuginnNetTls;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetTls::new(10000).analyze_network("eth0", tx, None).unwrap();
+/// ```
+///
+/// **Parallel: worker pool for high-throughput live capture:**
+///
+/// ```no_run
+/// use huginn_net_tls::HuginnNetTls;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// let mut analyzer = HuginnNetTls::new(10000).with_parallel(4, 100, 32, 10);
+/// // Results are delivered via the sender given to init_pool.
+/// analyzer.init_pool(tx.clone()).unwrap();
+/// analyzer.analyze_network("eth0", tx, None).unwrap();
+/// ```
 pub struct HuginnNetTls {
     tcp_flows: TtlCache<FlowKey, TlsClientHelloReader>,
     parallel_config: Option<ParallelConfig>,

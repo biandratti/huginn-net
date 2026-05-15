@@ -104,7 +104,7 @@ fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
                 .unwrap_or_else(|_| panic!("{ctx}: cannot parse quality float from: {expected}"));
             assert!(
                 (q - expected_q).abs() < 0.01,
-                "{ctx}: quality mismatch — expected {expected_q}, got {q}"
+                "{ctx}: quality mismatch, expected {expected_q}, got {q}"
             );
         }
         MatchQuality::NotMatched => {

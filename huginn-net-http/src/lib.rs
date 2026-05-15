@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Standalone HTTP fingerprinting (p0f-style) analyzer.
 //!
@@ -11,6 +12,8 @@
 
 pub mod akamai;
 pub mod akamai_extractor;
+pub mod display;
+pub mod error;
 pub mod filter;
 pub mod http;
 pub mod http1_parser;
@@ -22,17 +25,13 @@ pub mod http_common;
 pub mod http_languages;
 pub mod http_process;
 pub mod matcher_api;
-pub mod packet_parser;
-pub mod raw_filter;
-
-pub mod packet_hash;
-
-pub mod display;
-pub mod error;
 pub mod observable;
 pub mod output;
+pub mod packet_hash;
+pub mod packet_parser;
 pub mod parallel;
 pub mod process;
+pub mod raw_filter;
 
 // Re-exports
 pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
@@ -77,13 +76,52 @@ struct ParallelConfig {
 
 /// An HTTP-focused passive fingerprinting analyzer.
 ///
-/// The `HuginnNetHttp` struct handles HTTP packet analysis for browser fingerprinting,
-/// web server detection, and HTTP protocol analysis using p0f-style methodologies.
+/// Extracts HTTP/1.x and HTTP/2 observable signals and optionally matches them
+/// against a signature database for browser and web-server identification.
 ///
-/// Construction follows a builder pattern: start from [`HuginnNetHttp::new`], then
-/// optionally enable parallel mode via [`HuginnNetHttp::with_parallel`], attach a
-/// matcher via [`HuginnNetHttp::with_matcher`], and/or a filter via
-/// [`HuginnNetHttp::with_filter`].
+/// # Examples
+///
+/// **Sequential: raw HTTP signals, no database:**
+///
+/// ```no_run
+/// use huginn_net_http::HuginnNetHttp;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetHttp::new(1000).analyze_pcap("capture.pcap", tx, None).unwrap();
+/// for result in rx {
+///     if let Some(req) = result.http_request { println!("{req}"); }
+/// }
+/// ```
+///
+/// **Sequential with browser/server matching (`huginn-net-db`):**
+///
+/// ```ignore
+/// use huginn_net_http::HuginnNetHttp;
+/// use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+/// use std::sync::{mpsc, Arc};
+///
+/// let db = Database::load_default().unwrap();
+/// let matcher = Arc::new(SharedHttpSignatureMatcher::from_database(&db));
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetHttp::new(1000)
+///     .with_matcher(matcher)
+///     .analyze_pcap("capture.pcap", tx, None)
+///     .unwrap();
+/// ```
+///
+/// **Parallel: flow-based routing so HTTP reassembly state stays per-worker:**
+///
+/// ```no_run
+/// use huginn_net_http::HuginnNetHttp;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// let mut analyzer = HuginnNetHttp::new(1000).with_parallel(2, 100, 16, 10);
+/// // Results are delivered via the sender given to init_pool.
+/// analyzer.init_pool(tx.clone()).unwrap();
+/// analyzer.analyze_pcap("capture.pcap", tx, None).unwrap();
+/// ```
 pub struct HuginnNetHttp {
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: HttpProcessors,

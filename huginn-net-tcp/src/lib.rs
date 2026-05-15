@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! TCP fingerprinting primitives.
 //!
@@ -15,13 +16,18 @@
 //! `TcpSignatureMatcher`, which loads p0f-style signatures and implements
 //! [`TcpMatcher`].
 
+pub mod display;
+pub mod error;
 pub mod filter;
 pub mod ip_options;
 pub mod matcher_api;
 pub mod mtu;
+pub mod observable;
+pub mod output;
 pub mod packet_hash;
 pub mod packet_parser;
 pub mod parallel;
+pub mod process;
 pub mod raw_filter;
 pub mod syn_options;
 pub mod tcp;
@@ -29,12 +35,6 @@ pub mod tcp_process;
 pub mod ttl;
 pub mod uptime;
 pub mod window_size;
-
-pub mod display;
-pub mod error;
-pub mod observable;
-pub mod output;
-pub mod process;
 
 // Re-exports
 pub use error::*;
@@ -75,8 +75,49 @@ pub type SharedTcpMatcher = Arc<dyn TcpMatcher + Send + Sync>;
 /// `HuginnNetTcp` handles TCP packet analysis for OS fingerprinting,
 /// MTU detection, and uptime calculation using p0f-style methodologies.
 ///
-/// Supports both sequential (single-threaded) and parallel (multi-threaded)
-/// processing modes.
+/// # Examples
+///
+/// **Sequential: raw fingerprints, no database:**
+///
+/// ```no_run
+/// use huginn_net_tcp::HuginnNetTcp;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetTcp::new(1000).analyze_pcap("capture.pcap", tx, None).unwrap();
+/// for result in rx {
+///     if let Some(syn) = result.syn { println!("{syn}"); }
+/// }
+/// ```
+///
+/// **Sequential with p0f OS matching (`huginn-net-db`):**
+///
+/// ```ignore
+/// use huginn_net_tcp::HuginnNetTcp;
+/// use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+/// use std::sync::{mpsc, Arc};
+///
+/// let db = Database::load_default().unwrap();
+/// let matcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetTcp::new(1000)
+///     .with_matcher(matcher)
+///     .analyze_pcap("capture.pcap", tx, None)
+///     .unwrap();
+/// ```
+///
+/// **Parallel: hash-based dispatch, same source IP always hits the same worker:**
+///
+/// ```no_run
+/// use huginn_net_tcp::HuginnNetTcp;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// let mut analyzer = HuginnNetTcp::new(1000).with_parallel(4, 100, 32, 10);
+/// // Results are delivered via the sender given to init_pool.
+/// analyzer.init_pool(tx.clone()).unwrap();
+/// analyzer.analyze_pcap("capture.pcap", tx, None).unwrap();
+/// ```
 pub struct HuginnNetTcp {
     matcher: Option<SharedTcpMatcher>,
     max_connections: usize,

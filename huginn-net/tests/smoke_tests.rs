@@ -45,7 +45,7 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
     );
     assert!(
         matches!(first_syn.os_matched.quality, TcpMatchQuality::NotMatched),
-        "macOS SYN is not in p0f.fp — matcher must run and return NotMatched, got {:?}",
+        "macOS SYN is not in p0f.fp, matcher must run and return NotMatched, got {:?}",
         first_syn.os_matched.quality
     );
 
@@ -58,7 +58,7 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
     assert_eq!(first_mtu.mtu, 1504, "first MTU value");
     assert!(
         matches!(first_mtu.link.quality, TcpMatchQuality::NotMatched),
-        "MTU 1504 is not in p0f.fp — matcher must return NotMatched, got {:?}",
+        "MTU 1504 is not in p0f.fp, matcher must return NotMatched, got {:?}",
         first_mtu.link.quality
     );
 }
