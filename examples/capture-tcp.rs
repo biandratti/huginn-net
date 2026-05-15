@@ -142,13 +142,7 @@ fn main() {
     let mut analyzer = match &args.command {
         Commands::Live { mode: LiveMode::Single { .. } } => {
             info!("Using sequential mode");
-            let mut analyzer = match HuginnNetTcp::new(1000) {
-                Ok(analyzer) => analyzer.with_matcher(matcher.clone()),
-                Err(e) => {
-                    error!("Failed to create HuginnNetTcp analyzer: {e}");
-                    return;
-                }
-            };
+            let mut analyzer = HuginnNetTcp::new(1000).with_matcher(matcher.clone());
             if let Some(ref filter_cfg) = filter_config {
                 analyzer = analyzer.with_filter(filter_cfg.clone());
                 info!("Packet filtering enabled");
@@ -157,14 +151,9 @@ fn main() {
         }
         Commands::Live { mode: LiveMode::Parallel { workers, queue_size, .. } } => {
             info!("Using parallel mode with {workers} workers, queue_size={queue_size}");
-            let mut analyzer = match HuginnNetTcp::with_config(1000, *workers, *queue_size, 32, 10)
-            {
-                Ok(analyzer) => analyzer.with_matcher(matcher.clone()),
-                Err(e) => {
-                    error!("Failed to create HuginnNetTcp analyzer: {e}");
-                    return;
-                }
-            };
+            let mut analyzer = HuginnNetTcp::new(1000)
+                .with_parallel(*workers, *queue_size, 32, 10)
+                .with_matcher(matcher.clone());
             if let Some(ref filter_cfg) = filter_config {
                 analyzer = analyzer.with_filter(filter_cfg.clone());
                 info!("Packet filtering enabled");
@@ -173,13 +162,7 @@ fn main() {
         }
         Commands::Pcap { .. } => {
             info!("Using sequential mode for PCAP analysis");
-            let mut analyzer = match HuginnNetTcp::new(1000) {
-                Ok(analyzer) => analyzer.with_matcher(matcher.clone()),
-                Err(e) => {
-                    error!("Failed to create HuginnNetTcp analyzer: {e}");
-                    return;
-                }
-            };
+            let mut analyzer = HuginnNetTcp::new(1000).with_matcher(matcher.clone());
             if let Some(ref filter_cfg) = filter_config {
                 analyzer = analyzer.with_filter(filter_cfg.clone());
                 info!("Packet filtering enabled");

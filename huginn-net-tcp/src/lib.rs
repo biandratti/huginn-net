@@ -5,15 +5,15 @@
 //! This crate is intentionally **independent of any signature database**.
 //! It exposes:
 //! - [`tcp`] pure data types describing a TCP fingerprint.
-//! - [`observable::TcpObservation`] what was observed on the wire.
-//! - [`matcher_api::TcpMatcher`] the trait any database/matcher implements
+//! - [`TcpObservation`] what was observed on the wire.
+//! - [`TcpMatcher`] the trait any database/matcher implements
 //!   to provide OS/MTU matches.
 //! - [`HuginnNetTcp`] the high-level capture/processing entry point that
 //!   plugs an arbitrary matcher in.
 //!
 //! In the default workspace setup, `huginn-net-db` provides
 //! `TcpSignatureMatcher`, which loads p0f-style signatures and implements
-//! [`matcher_api::TcpMatcher`].
+//! [`TcpMatcher`].
 
 pub mod filter;
 pub mod ip_options;
@@ -60,13 +60,12 @@ use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
-/// Configuration for parallel processing.
 #[derive(Debug, Clone, Copy)]
-pub struct ParallelConfig {
-    pub num_workers: usize,
-    pub queue_size: usize,
-    pub batch_size: usize,
-    pub timeout_ms: u64,
+struct ParallelConfig {
+    num_workers: usize,
+    queue_size: usize,
+    batch_size: usize,
+    timeout_ms: u64,
 }
 
 pub type SharedTcpMatcher = Arc<dyn TcpMatcher + Send + Sync>;
@@ -101,51 +100,36 @@ impl HuginnNetTcp {
     ///
     /// # Returns
     /// A new `HuginnNetTcp` instance ready for sequential TCP analysis.
-    pub fn new(max_connections: usize) -> Result<Self, HuginnNetTcpError> {
-        Ok(Self {
+    pub fn new(max_connections: usize) -> Self {
+        Self {
             matcher: None,
             max_connections,
             parallel_config: None,
             worker_pool: None,
             filter_config: None,
-        })
+        }
     }
 
-    /// Creates a new instance of `HuginnNetTcp` configured for parallel processing.
+    /// Enable parallel processing (builder pattern).
     ///
     /// Uses hash-based worker assignment to ensure packets from the same source IP
     /// always go to the same worker, maintaining state consistency.
     ///
-    /// Use [`HuginnNetTcp::with_matcher`] to plug in a fingerprint matcher.
-    ///
     /// # Parameters
-    /// - `max_connections`: Maximum number of connections to track per worker (typical: 1000)
     /// - `num_workers`: Number of worker threads (recommended: 2-4 on 8-core systems)
     /// - `queue_size`: Size of packet queue per worker (typical: 100-200)
     /// - `batch_size`: Maximum packets to process in one batch (typical: 16-64, recommended: 32)
     /// - `timeout_ms`: Worker receive timeout in milliseconds (typical: 5-50, recommended: 10)
-    ///
-    /// # Returns
-    /// A new `HuginnNetTcp` instance configured for parallel processing.
-    pub fn with_config(
-        max_connections: usize,
+    pub fn with_parallel(
+        mut self,
         num_workers: usize,
         queue_size: usize,
         batch_size: usize,
         timeout_ms: u64,
-    ) -> Result<Self, HuginnNetTcpError> {
-        Ok(Self {
-            matcher: None,
-            max_connections,
-            parallel_config: Some(ParallelConfig {
-                num_workers,
-                queue_size,
-                batch_size,
-                timeout_ms,
-            }),
-            worker_pool: None,
-            filter_config: None,
-        })
+    ) -> Self {
+        self.parallel_config =
+            Some(ParallelConfig { num_workers, queue_size, batch_size, timeout_ms });
+        self
     }
 
     /// Plug in a TCP fingerprint matcher (builder pattern).
@@ -184,7 +168,7 @@ impl HuginnNetTcp {
         let config = self
             .parallel_config
             .ok_or(HuginnNetTcpError::Misconfiguration(
-                "Parallel mode not configured. Use with_config() to enable parallel processing"
+                "Parallel mode not configured. Use with_parallel() to enable parallel processing"
                     .to_string(),
             ))?;
 

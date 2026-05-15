@@ -53,8 +53,7 @@ fn analyze_pcap_file(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
     // Layer 1: no matcher attached. We only assert raw HTTP extraction.
-    let mut analyzer =
-        HuginnNetHttp::new(1000).unwrap_or_else(|e| panic!("Failed to create analyzer: {e}"));
+    let mut analyzer = HuginnNetHttp::new(1000);
 
     let (sender, receiver) = channel();
 

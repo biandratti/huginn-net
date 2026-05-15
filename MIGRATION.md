@@ -130,6 +130,50 @@ let http_db = huginn_net_db::HttpDatabase::load_default()?;
 let full_db = huginn_net_db::Database::load_default()?;
 ```
 
+### Constructor changes — `new()` no longer returns `Result`
+
+`HuginnNetTcp::new` and `HuginnNetHttp::new` now return `Self` directly. They
+never failed in practice, so the `Result` wrapper was misleading.
+
+```diff
+-let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
++let mut tcp = HuginnNetTcp::new(1000).with_matcher(matcher);
+
+-let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
++let mut http = HuginnNetHttp::new(1000).with_matcher(matcher);
+```
+
+`HuginnNetTls::new` was already infallible — no change there.
+
+### Constructor changes — parallel mode
+
+The old parallel-mode constructors are removed. All analyzers now follow the same
+builder pattern: `new(max_connections)` for sequential mode, then optionally
+`.with_parallel(...)` to enable multi-threaded processing.
+
+**`huginn-net-tcp`**
+
+```diff
+-HuginnNetTcp::with_config(num_workers, queue_size, batch_size, timeout_ms, max_connections)?
++HuginnNetTcp::new(max_connections)?.with_parallel(num_workers, queue_size, batch_size, timeout_ms)
+```
+
+**`huginn-net-http`**
+
+```diff
+-HuginnNetHttp::with_config(num_workers, queue_size, batch_size, timeout_ms, max_connections)?
++HuginnNetHttp::new(max_connections)?.with_parallel(num_workers, queue_size, batch_size, timeout_ms)
+```
+
+**`huginn-net-tls`**
+
+```diff
+-HuginnNetTls::with_config_and_max_connections(num_workers, queue_size, batch_size, timeout_ms, max_connections)
++HuginnNetTls::new(max_connections).with_parallel(num_workers, queue_size, batch_size, timeout_ms)
+```
+
+Sequential mode is unchanged — `new(max_connections)` alone is sufficient.
+
 ### Removed methods
 
 The following inherent methods on TCP fingerprint types are removed in v2.0:

@@ -89,9 +89,7 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
     let db = Database::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
     let matcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
 
-    let mut analyzer = HuginnNetTcp::new(1000)
-        .unwrap_or_else(|e| panic!("failed to create analyzer: {e}"))
-        .with_matcher(matcher);
+    let mut analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
 
     let (tx, rx) = mpsc::channel();
     analyzer

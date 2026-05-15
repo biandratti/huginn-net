@@ -77,9 +77,7 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     let db = Database::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
     let matcher = Arc::new(SharedHttpSignatureMatcher::from_database(&db));
 
-    let mut analyzer = HuginnNetHttp::new(1000)
-        .unwrap_or_else(|e| panic!("failed to create analyzer: {e}"))
-        .with_matcher(matcher);
+    let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher);
 
     let (tx, rx) = channel();
     analyzer

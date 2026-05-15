@@ -81,7 +81,7 @@ fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
 fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNetTcpError> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
-    let mut analyzer = HuginnNetTcp::new(1000)?;
+    let mut analyzer = HuginnNetTcp::new(1000);
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
 
     analyzer.analyze_pcap(pcap_path, sender, None)?;

@@ -156,13 +156,7 @@ fn main() {
         match args.command {
             Commands::Live { mode: LiveMode::Single { interface } } => {
                 info!("Initializing HTTP analyzer in sequential mode");
-                let mut analyzer = match HuginnNetHttp::new(1000) {
-                    Ok(analyzer) => analyzer.with_matcher(matcher.clone()),
-                    Err(e) => {
-                        error!("Failed to create HuginnNetHttp analyzer: {e}");
-                        return;
-                    }
-                };
+                let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher.clone());
                 if let Some(ref filter_cfg) = filter_config {
                     analyzer = analyzer.with_filter(filter_cfg.clone());
                     info!("Packet filtering enabled");
@@ -179,14 +173,9 @@ fn main() {
                 info!(
                     "Initializing HTTP analyzer with {workers} worker threads (flow-based routing)"
                 );
-                let mut analyzer =
-                    match HuginnNetHttp::with_config(1000, workers, queue_size, 16, 10) {
-                        Ok(analyzer) => analyzer.with_matcher(matcher.clone()),
-                        Err(e) => {
-                            error!("Failed to create HuginnNetHttp analyzer: {e}");
-                            return;
-                        }
-                    };
+                let mut analyzer = HuginnNetHttp::new(1000)
+                    .with_parallel(workers, queue_size, 16, 10)
+                    .with_matcher(matcher.clone());
                 if let Some(ref filter_cfg) = filter_config {
                     analyzer = analyzer.with_filter(filter_cfg.clone());
                     info!("Packet filtering enabled");
@@ -206,13 +195,7 @@ fn main() {
             }
             Commands::Pcap { file } => {
                 info!("Initializing HTTP analyzer in sequential mode for PCAP analysis");
-                let mut analyzer = match HuginnNetHttp::new(1000) {
-                    Ok(analyzer) => analyzer.with_matcher(matcher.clone()),
-                    Err(e) => {
-                        error!("Failed to create HuginnNetHttp analyzer: {e}");
-                        return;
-                    }
-                };
+                let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher.clone());
                 if let Some(ref filter_cfg) = filter_config {
                     analyzer = analyzer.with_filter(filter_cfg.clone());
                     info!("Packet filtering enabled");
