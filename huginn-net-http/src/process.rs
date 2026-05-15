@@ -4,7 +4,7 @@ use crate::http_process;
 use crate::matcher_api::HttpMatcher;
 use crate::output::{
     BrowserQualityMatched, HttpAnalysisResult, HttpRequestOutput, HttpResponseOutput, IpPort,
-    MatchQuality, WebServerQualityMatched,
+    MatchQuality, OsKind, WebServerQualityMatched,
 };
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -92,51 +92,26 @@ fn build_http_result(
     let mut http_result = HttpAnalysisResult { http_request: None, http_response: None };
 
     if let Some(http_request) = http_package.http_request {
-        let (browser_quality, ua_os_family) = match matcher {
-            Some(m) => match m.match_http_request(&http_request.matching) {
-                Some(req_match) => {
-                    let ua_family = http_request
-                        .user_agent
-                        .as_deref()
-                        .and_then(|ua| m.match_user_agent(ua))
-                        .map(|um| um.family);
-                    (
-                        BrowserQualityMatched {
-                            browser: Some(req_match.browser),
-                            quality: MatchQuality::Matched(req_match.quality),
-                        },
-                        ua_family,
-                    )
-                }
-                None => {
-                    let ua_family = http_request
-                        .user_agent
-                        .as_deref()
-                        .and_then(|ua| m.match_user_agent(ua))
-                        .map(|um| um.family);
-                    (
-                        BrowserQualityMatched { browser: None, quality: MatchQuality::NotMatched },
-                        ua_family,
-                    )
-                }
+        let req_match = matcher.and_then(|m| m.match_http_request(&http_request.matching));
+
+        let browser_quality = match (matcher, req_match.as_ref()) {
+            (Some(_), Some(rm)) => BrowserQualityMatched {
+                browser: Some(rm.browser.clone()),
+                quality: MatchQuality::Matched(rm.quality),
             },
-            None => {
-                (BrowserQualityMatched { browser: None, quality: MatchQuality::Disabled }, None)
+            (Some(_), None) => {
+                BrowserQualityMatched { browser: None, quality: MatchQuality::NotMatched }
             }
+            (None, _) => BrowserQualityMatched { browser: None, quality: MatchQuality::Disabled },
         };
 
-        // TODO(v2-followup): the value passed as `network_os_name` is currently
-        // `Browser.name` (e.g. "Firefox"), which is *not* an OS. The standalone
-        // `HuginnNetHttp` pipeline has no access to a TCP fingerprint here, so the
-        // diagnostic crossing UA-vs-network-OS is only meaningful when called from
-        // the umbrella crate that can supply the TCP-detected OS. Revisit in a
-        // dedicated PR (see also umbrella callsite in `huginn-net/src/lib.rs`).
-        let network_os_name = browser_quality.browser.as_ref().map(|b| b.name.clone());
+        let matched_for_diag = req_match
+            .as_ref()
+            .map(|rm| (matches!(rm.browser.kind, OsKind::Generic), rm.expsw.as_str()));
 
         let diagnosis = crate::http_common::get_diagnostic(
-            http_request.user_agent.clone(),
-            ua_os_family.as_deref(),
-            network_os_name.as_deref(),
+            http_request.user_agent.as_deref(),
+            matched_for_diag,
         );
 
         let request_output = HttpRequestOutput {

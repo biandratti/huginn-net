@@ -81,13 +81,17 @@ impl From<&Label> for WebServer {
 
 impl<'a> HttpMatcher for HttpSignatureMatcher<'a> {
     fn match_http_request(&self, obs: &HttpRequestObservation) -> Option<HttpRequestMatch> {
-        let (label, _sig, quality) = self.database.http_request.find_best_match(obs)?;
-        Some(HttpRequestMatch { browser: Browser::from(label), quality })
+        let (label, sig, quality) = self.database.http_request.find_best_match(obs)?;
+        Some(HttpRequestMatch { browser: Browser::from(label), quality, expsw: sig.expsw.clone() })
     }
 
     fn match_http_response(&self, obs: &HttpResponseObservation) -> Option<HttpResponseMatch> {
-        let (label, _sig, quality) = self.database.http_response.find_best_match(obs)?;
-        Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+        let (label, sig, quality) = self.database.http_response.find_best_match(obs)?;
+        Some(HttpResponseMatch {
+            web_server: WebServer::from(label),
+            quality,
+            expsw: sig.expsw.clone(),
+        })
     }
 
     fn match_user_agent(&self, ua: &str) -> Option<UaOsMatch> {
@@ -139,13 +143,17 @@ impl SharedHttpSignatureMatcher {
 
 impl HttpMatcher for SharedHttpSignatureMatcher {
     fn match_http_request(&self, obs: &HttpRequestObservation) -> Option<HttpRequestMatch> {
-        let (label, _sig, quality) = self.database.http_request.find_best_match(obs)?;
-        Some(HttpRequestMatch { browser: Browser::from(label), quality })
+        let (label, sig, quality) = self.database.http_request.find_best_match(obs)?;
+        Some(HttpRequestMatch { browser: Browser::from(label), quality, expsw: sig.expsw.clone() })
     }
 
     fn match_http_response(&self, obs: &HttpResponseObservation) -> Option<HttpResponseMatch> {
-        let (label, _sig, quality) = self.database.http_response.find_best_match(obs)?;
-        Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+        let (label, sig, quality) = self.database.http_response.find_best_match(obs)?;
+        Some(HttpResponseMatch {
+            web_server: WebServer::from(label),
+            quality,
+            expsw: sig.expsw.clone(),
+        })
     }
 
     fn match_user_agent(&self, ua: &str) -> Option<UaOsMatch> {

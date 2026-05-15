@@ -130,41 +130,61 @@ pub trait HttpProcessor {
     fn name(&self) -> &'static str;
 }
 
-/// HTTP diagnostic function - determines the relationship between User-Agent and an
-/// externally-observed OS signal.
+/// p0f-style HTTP diagnostic.
 ///
-/// This function compares the OS family reported by the User-Agent string against an
-/// OS name observed from the network (typically obtained from TCP fingerprinting by the
-/// caller, but this crate is intentionally agnostic about the source). A mismatch
-/// between the two is a hint of potential spoofing.
+/// Faithful port of the four flags p0f's `dump_flags` emits for an HTTP
+/// observation (`fp_http.c::dump_flags`, around lines 644-648 of the
+/// reference C source under `data/p0f/`):
+///
+/// ```text
+///   if (hsig->dishonest) RETF(" dishonest");
+///   if (!hsig->sw)       RETF(" anonymous");
+///   if (m && m->generic) RETF(" generic");
+/// ```
+///
+/// p0f emits all that apply (concatenated). [`http::HttpDiagnosis`] is an
+/// exclusive enum, so we apply the same precedence the strings would take
+/// when rendered:
+///
+/// 1. [`http::HttpDiagnosis::Anonymous`] — no `User-Agent` (or `Server`)
+///    header was observed (`hsig->sw` was empty).
+/// 2. [`http::HttpDiagnosis::Dishonest`] — there is a match whose
+///    `expsw` is non-empty *and* the observed UA does not contain it
+///    (p0f's `!strstr(ts->sw, rs->sw)`). This is the strongest signal of
+///    a forged User-Agent and outranks `generic`.
+/// 3. [`http::HttpDiagnosis::Generic`] — the matched `p0f.fp` record is a
+///    catch-all entry (`label = g:…`).
+/// 4. [`http::HttpDiagnosis::None`] — specific match with a coherent UA,
+///    or no match at all.
+///
+/// **HTTP-only.** This function deliberately ignores TCP fingerprinting.
+/// p0f's cross-protocol UA-vs-TCP-OS check (`bad_sw` / `NAT_APP_UA` in
+/// `fp_http.c::score_nat`) is a separate signal that lives on `host_data`,
+/// not on the HTTP signature; it is not exposed by this crate yet.
 ///
 /// # Arguments
-/// * `user_agent` - Optional User-Agent string from HTTP headers
-/// * `ua_os_family` - OS family resolved from the User-Agent (UA→OS mapping in the database)
-/// * `network_os_name` - OS name observed from another source (e.g. TCP fingerprinting).
-///   `huginn-net-http` does not know how this was produced; it just compares strings.
-///
-/// # Returns
-/// * `HttpDiagnosis::Anonymous` - No User-Agent provided
-/// * `HttpDiagnosis::Generic` - User-Agent OS matches the externally observed OS
-/// * `HttpDiagnosis::Dishonest` - User-Agent OS differs from the externally observed OS (potential spoofing)
-/// * `HttpDiagnosis::None` - Insufficient data for comparison
+/// * `user_agent` — observed `User-Agent` (request) or `Server` (response)
+///   header value, or `None` if absent.
+/// * `matched` — `(is_generic, expsw)` for the matched `p0f.fp` entry, or
+///   `None` if no signature passed the matcher's quality threshold.
+///   - `is_generic`: whether the matched label is a `g:` (catch-all)
+///     entry, equivalent to `m->generic` in p0f.
+///   - `expsw`: the substring expected to appear inside `user_agent`, the
+///     fourth field of the `sig =` line in `p0f.fp`. An empty `expsw`
+///     (or the literal `"???"` placeholder p0f uses for "unknown") is
+///     treated as "no expectation" and never triggers `Dishonest`.
 pub fn get_diagnostic(
-    user_agent: Option<String>,
-    ua_os_family: Option<&str>,
-    network_os_name: Option<&str>,
+    user_agent: Option<&str>,
+    matched: Option<(bool, &str)>,
 ) -> http::HttpDiagnosis {
-    match user_agent {
-        None => http::HttpDiagnosis::Anonymous,
-        Some(_ua) => match (ua_os_family, network_os_name) {
-            (Some(ua_name), Some(net_name)) => {
-                if ua_name.eq_ignore_ascii_case(net_name) {
-                    http::HttpDiagnosis::Generic
-                } else {
-                    http::HttpDiagnosis::Dishonest
-                }
-            }
-            _ => http::HttpDiagnosis::None,
-        },
+    match (user_agent, matched) {
+        (None, _) => http::HttpDiagnosis::Anonymous,
+        (Some(ua), Some((_is_generic, expsw)))
+            if !expsw.is_empty() && expsw != "???" && !ua.contains(expsw) =>
+        {
+            http::HttpDiagnosis::Dishonest
+        }
+        (Some(_), Some((true, _))) => http::HttpDiagnosis::Generic,
+        (Some(_), _) => http::HttpDiagnosis::None,
     }
 }

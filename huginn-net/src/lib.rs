@@ -691,16 +691,13 @@ impl<'a> HuginnNet<'a> {
     ) -> HttpRequestMatchResult {
         #[cfg(feature = "db")]
         {
-            let (signature_matcher, ua_matcher, browser_quality) = quality_match!(
+            let (signature_matcher, browser_quality) = quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
                 call: matcher => {
-                    let sig_match = matcher.matching_by_http_request(&observable_http_request.matching);
-                    let ua_match = observable_http_request.user_agent.clone()
-                        .and_then(|ua| matcher.matching_by_user_agent(ua));
-                    Some((sig_match, ua_match))
+                    Some(matcher.matching_by_http_request(&observable_http_request.matching))
                 },
-                matched: (signature_matcher, ua_matcher) => {
+                matched: signature_matcher => {
                     let browser_quality = signature_matcher
                         .map(|(label, _signature, quality)| BrowserQualityMatched {
                             browser: Some(Browser::from(label)),
@@ -710,45 +707,44 @@ impl<'a> HuginnNet<'a> {
                             browser: None,
                             quality: HttpMatchQuality::NotMatched,
                         });
-                    (signature_matcher, ua_matcher, browser_quality)
+                    (signature_matcher, browser_quality)
                 },
                 not_matched: {
                     let browser_quality = BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::NotMatched,
                     };
-                    (None, None, browser_quality)
+                    (None, browser_quality)
                 },
                 disabled: {
                     let browser_quality = BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::Disabled,
                     };
-                    (None, None, browser_quality)
+                    (None, browser_quality)
                 }
             );
 
-            // TODO(v2-followup): the third argument should be the OS name from
-            // the TCP fingerprint match (network-observed OS), not the HTTP
-            // signature label name (which is a *browser* name like "Firefox"
-            // when the matcher is HTTP). Revisit in a dedicated PR by wiring
-            // the TCP `OSQualityMatched` produced for `syn`/`syn_ack` of the
-            // same packet into this diagnostic.
+            // p0f-style HTTP diagnostic — HTTP-only flags from `dump_flags`.
+            // The cross-protocol UA-vs-TCP-OS check (p0f's `bad_sw`) is not
+            // wired in yet; it is tracked as a follow-up PR.
+            let matched_for_diag = signature_matcher.map(|(label, signature, _quality)| {
+                (matches!(label.ty, huginn_net_db::Type::Generic), signature.expsw.as_str())
+            });
             let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
-                observable_http_request.user_agent.clone(),
-                ua_matcher.and_then(|(_, family)| family),
-                signature_matcher.map(|(label, _signature, _quality)| label.name.as_str()),
+                observable_http_request.user_agent.as_deref(),
+                matched_for_diag,
             );
 
             HttpRequestMatchResult { browser_quality, http_diagnosis }
         }
         #[cfg(not(feature = "db"))]
         {
-            // Without the `db` feature we can still report UA/network agreement
-            // based on the User-Agent string alone (UA → declared OS family).
+            // Without the `db` feature there is no signature match available,
+            // so the diagnostic collapses to `Anonymous`/`None` based on
+            // whether a User-Agent header was observed.
             let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
-                observable_http_request.user_agent.clone(),
-                None,
+                observable_http_request.user_agent.as_deref(),
                 None,
             );
             HttpRequestMatchResult {

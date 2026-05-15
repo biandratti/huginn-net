@@ -69,18 +69,15 @@ fn test_http2_response_conversion() {
 }
 
 #[test]
-fn test_get_diagnostic_for_http2() {
-    let diagnosis = http_common::get_diagnostic(None, None, None);
+fn test_get_diagnostic_for_http2_anonymous() {
+    let diagnosis = http_common::get_diagnostic(None, None);
     assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
 }
 
 #[test]
-fn test_get_diagnostic_with_http2_user_agent() {
-    let user_agent = Some("Mozilla/5.0 HTTP/2.0".to_string());
-    let ua_os_family = Some("Linux");
-    let network_os_name = Some("Linux");
-
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
+fn test_get_diagnostic_with_http2_user_agent_generic_match() {
+    let diagnosis =
+        http_common::get_diagnostic(Some("Mozilla/5.0 HTTP/2.0"), Some((true, "Mozilla")));
     assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
 }
 
