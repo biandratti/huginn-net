@@ -8,8 +8,220 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ### Summary
 
-Architectural refactoring: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. 
-The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+Architectural refactor: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+
+### Most users (umbrella crate `huginn-net`)
+
+If you depend on `huginn-net` as a single crate, **most code keeps working** thanks to compatibility re-exports. The most likely thing you need to update is direct imports from `huginn_net_db::tcp` / `huginn_net_db::http`:
+
+```diff
+-use huginn_net_db::tcp::{IpVersion, Ttl};
++use huginn_net_tcp::tcp::{IpVersion, Ttl};
+
+-use huginn_net_db::http::Version;
++use huginn_net_http::http::Version;
+```
+
+Or via the umbrella (unchanged):
+
+```rust
+use huginn_net::tcp::{IpVersion, Ttl};   // still works
+use huginn_net::http::Version;           // still works
+```
+
+### Direct users of `huginn-net-tcp` / `huginn-net-http`
+
+`HuginnNetTcp::new` and `HuginnNetHttp::new` no longer accept a `Database`. Matching is configured via the new `with_matcher()` builder method.
+
+**Before (v1.x):**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_db::Database;
+use std::sync::Arc;
+
+let db = Arc::new(Database::load_default()?);
+let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
+```
+
+**After (v2.0) — full database (TCP + HTTP), with matching:**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use std::sync::Arc;
+
+let db = Database::load_default()?;
+let matcher: Arc<dyn TcpMatcher + Send + Sync> =
+    Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
+```
+
+**After (v2.0) — TCP-only database (no HTTP signatures loaded):**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
+use std::sync::Arc;
+
+let tcp_db = Arc::new(TcpDatabase::load_default()?);
+let matcher: Arc<dyn TcpMatcher + Send + Sync> =
+    Arc::new(SharedTcpSignatureMatcher::new(tcp_db));
+let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
+```
+
+To turn off the HTTP signatures entirely (no parsing cost, no embedded data),
+build `huginn-net-db` with `--no-default-features --features tcp`.
+
+**After (v2.0) — raw signatures only, no matching, no `huginn-net-db`:**
+
+```rust
+use huginn_net_tcp::HuginnNetTcp;
+let mut tcp = HuginnNetTcp::new(1000)?;
+```
+
+The same pattern applies to `HuginnNetHttp` — full database, HTTP-only or no
+matching at all:
+
+```rust
+use huginn_net_http::HuginnNetHttp;
+use huginn_net_http::matcher_api::HttpMatcher;
+use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
+use std::sync::Arc;
+
+let http_db = Arc::new(HttpDatabase::load_default()?);
+let matcher: Arc<dyn HttpMatcher + Send + Sync> =
+    Arc::new(SharedHttpSignatureMatcher::new(http_db));
+let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
+```
+
+### Type paths moved
+
+| Old path (v1.x) | New path (v2.0) |
+|---|---|
+| `huginn_net_db::tcp::{IpVersion, Ttl, WindowSize, TcpOption, Quirk, PayloadSize}` | `huginn_net_tcp::tcp::*` |
+| `huginn_net_db::http::{Version, Header, HttpDiagnosis}` | `huginn_net_http::http::*` |
+| `huginn_net_db::observable_signals::TcpObservation` | `huginn_net_tcp::observable::TcpObservation` |
+| `huginn_net_db::observable_signals::HttpRequestObservation` | `huginn_net_http::observable::HttpRequestObservation` |
+| `huginn_net_db::observable_signals::HttpResponseObservation` | `huginn_net_http::observable::HttpResponseObservation` |
+| `huginn_net_tcp::SignatureMatcher` | `huginn_net_db::TcpSignatureMatcher` |
+| `huginn_net_http::SignatureMatcher` | `huginn_net_db::HttpSignatureMatcher` |
+| `huginn_net_tcp::db` (re-export) | removed — depend on `huginn-net-db` directly |
+| `huginn_net_http::db` (re-export) | removed — depend on `huginn-net-db` directly |
+
+### Database split
+
+`Database` is now a composition of `TcpDatabase` and `HttpDatabase`. Field access requires one extra hop:
+
+| Old field (v1.x) | New path (v2.0) |
+|---|---|
+| `db.tcp_request`, `db.tcp_response` | `db.tcp.tcp_request`, `db.tcp.tcp_response` |
+| `db.mtu` | `db.tcp.mtu` |
+| `db.http_request`, `db.http_response` | `db.http.http_request`, `db.http.http_response` |
+| `db.ua_os` | `db.http.ua_os` |
+
+Load only what you need:
+
+```rust
+let tcp_db  = huginn_net_db::TcpDatabase::load_default()?;
+let http_db = huginn_net_db::HttpDatabase::load_default()?;
+let full_db = huginn_net_db::Database::load_default()?;
+```
+
+### Constructor changes — `new()` no longer returns `Result`
+
+`HuginnNetTcp::new` and `HuginnNetHttp::new` now return `Self` directly. They
+never failed in practice, so the `Result` wrapper was misleading.
+
+```diff
+-let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
++let mut tcp = HuginnNetTcp::new(1000).with_matcher(matcher);
+
+-let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
++let mut http = HuginnNetHttp::new(1000).with_matcher(matcher);
+```
+
+`HuginnNetTls::new` was already infallible — no change there.
+
+### Constructor changes — parallel mode
+
+The old parallel-mode constructors are removed. All analyzers now follow the same
+builder pattern: `new(max_connections)` for sequential mode, then optionally
+`.with_parallel(...)` to enable multi-threaded processing.
+
+**`huginn-net-tcp`**
+
+```diff
+-HuginnNetTcp::with_config(num_workers, queue_size, batch_size, timeout_ms, max_connections)?
++HuginnNetTcp::new(max_connections)?.with_parallel(num_workers, queue_size, batch_size, timeout_ms)
+```
+
+**`huginn-net-http`**
+
+```diff
+-HuginnNetHttp::with_config(num_workers, queue_size, batch_size, timeout_ms, max_connections)?
++HuginnNetHttp::new(max_connections)?.with_parallel(num_workers, queue_size, batch_size, timeout_ms)
+```
+
+**`huginn-net-tls`**
+
+```diff
+-HuginnNetTls::with_config_and_max_connections(num_workers, queue_size, batch_size, timeout_ms, max_connections)
++HuginnNetTls::new(max_connections).with_parallel(num_workers, queue_size, batch_size, timeout_ms)
+```
+
+Sequential mode is unchanged — `new(max_connections)` alone is sufficient.
+
+### Removed methods
+
+The following inherent methods on TCP fingerprint types are removed in v2.0:
+
+- `Ttl::distance_ttl(other)`
+- `IpVersion::distance_ip_version(other)`
+- `WindowSize::distance_window_size(other, mss)`
+- `PayloadSize::distance_payload_size(other)`
+
+If you were calling these directly, use `TcpSignatureMatcher` instead — it wraps the full matching pipeline and returns the matched OS label. If you only need the distance score for a custom matcher, the matching logic now lives as free functions inside `huginn-net-db` (internal use).
+
+### New: optional matching in `huginn-net`
+
+`huginn-net` gains a `db` feature, **enabled by default** for backward
+compatibility. Opt out to ship a binary without the database (raw signatures
+only — useful for TLS terminators, sidecars, custom matchers):
+
+```toml
+huginn-net = { version = "2.0", default-features = false }
+```
+
+With `db` disabled, the database-aware constructor `HuginnNet::new` is *not
+compiled*. Use the observation-only constructor instead:
+
+```rust
+use huginn_net::HuginnNet;
+
+let mut analyzer = HuginnNet::new_observable(1000, None)?;
+```
+
+All `*QualityMatched` fields in the resulting `FingerprintResult` will report
+`MatchQuality::Disabled`, and the observable signatures (raw TCP signature,
+JA4, Akamai, etc.) are produced as usual.
+
+`huginn-net-db` itself also exposes `tcp` and `http` features (both default).
+The umbrella's `db` feature pulls in **both** to preserve the v1.x feature
+set; downstream consumers depending on `huginn-net-db` directly may opt into
+just one.
+
+### Cargo features summary
+
+| Crate | New features (v2.0) |
+|---|---|
+| `huginn-net-tcp` | none (always standalone) |
+| `huginn-net-http` | none (always standalone) |
+| `huginn-net-tls` | `stable-v1` (unchanged) |
+| `huginn-net-db` | `tcp` (default), `http` (default) |
+| `huginn-net` | `db` (default), `tls-stable-v1` |
 
 ---
 

@@ -1,3 +1,4 @@
+#![cfg(all(feature = "tcp", feature = "http"))]
 use huginn_net_db::Database;
 
 #[test]
@@ -9,10 +10,11 @@ fn test_default_database() {
         }
     };
 
-    assert_eq!(db.classes, vec!["win", "unix", "other"]);
+    assert_eq!(db.tcp.classes, vec!["win", "unix", "other"]);
+    assert_eq!(db.http.classes, vec!["win", "unix", "other"]);
 
     assert_eq!(
-        db.mtu,
+        db.tcp.mtu,
         vec![
             ("Ethernet or modem".to_owned(), vec![576, 1500]),
             ("DSL".to_owned(), vec![1452, 1454, 1492]),

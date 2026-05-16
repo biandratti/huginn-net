@@ -153,8 +153,12 @@ fn main() {
             }
             LiveMode::Parallel { workers, queue_size, batch_size, timeout_ms, .. } => {
                 info!("Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}");
-                let mut analyzer =
-                    HuginnNetTls::with_config(*workers, *queue_size, *batch_size, *timeout_ms);
+                let mut analyzer = HuginnNetTls::new(10000).with_parallel(
+                    *workers,
+                    *queue_size,
+                    *batch_size,
+                    *timeout_ms,
+                );
                 if let Some(filter_config) = build_filter(args.filter.port, args.filter.ip.clone())
                 {
                     analyzer = analyzer.with_filter(filter_config);

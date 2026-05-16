@@ -4,60 +4,59 @@ Performance analysis of `huginn-net-tls` library for JA4 fingerprinting with seq
 
 ## Test Data
 
-PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1000 TLS Client Hello packets).
+PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1,000,000 total packets processed per iteration).
 
 ## Performance Results
 
 ### Sequential Mode (Single-Thread)
 
-| Operation | Time | Throughput | Notes |
-|-----------|------|------------|-------|
-| TLS Detection | 21 ns | 48M pps | Packet validation |
-| Full TLS Processing | 22 µs | 45K pps | Complete JA4 fingerprinting with TCP reassembly |
-| Overhead Analysis | - | 1034x | Detection → Full processing |
+| Operation | Time/Packet | Throughput | Notes |
+|-----------|-------------|------------|-------|
+| TLS Detection | ~7 ns | ~140M pps | `is_tls_traffic` byte check only |
+| Packet Parsing | ~3 ns | ~333M pps | Ethernet/IP/TCP header parsing |
+| Full TLS Processing | ~20 µs | ~50K pps | ClientHello parse + JA4 calculation via TtlCache |
 
 ### Parallel Mode (Multi-Worker)
 
 | Workers | Throughput | 1 Gbps CPU | 10 Gbps CPU | Notes |
 |---------|------------|------------|-------------|-------|
-| 2 | 97K pps | 84% | 835% | Hash-based flow dispatch |
-| 4 | 97K pps | 84% | 841% | Hash-based flow dispatch |
-| 8 | 96K pps | 85% | 851% | Hash-based flow dispatch |
+| 2 | ~97K pps | ~84% | ~837% | Hash-based flow dispatch |
+| 4 | ~97K pps | ~84% | ~837% | Hash-based flow dispatch |
+| 8 | ~96K pps | ~85% | ~845% | Hash-based flow dispatch |
 
-**Worker Architecture**: Hash-based flow dispatch (TCP reassembly with TtlCache)
-**Note**: Benchmarks include worker pool creation/dispatch/shutdown overhead. Throughput is lower than previous round-robin implementation due to TCP reassembly overhead and flow state management.
+**Worker Architecture**: Hash-based flow dispatch — packets from the same TCP flow (src/dst IP + port) always route to the same worker. Each worker maintains its own `TtlCache<FlowKey, TlsClientHelloReader>` for stateful TCP reassembly, required to handle fragmented ClientHello messages.
+
+**Note**: Benchmarks include worker pool creation/dispatch/shutdown overhead. 2 and 4 workers achieve equivalent throughput; 8 workers show marginal degradation due to scheduling overhead on an 8-core system.
 
 ### Network Capacity
 
 | Scenario | Sequential (1 worker) | Parallel (2 workers) | Parallel (4 workers) |
 |----------|-----------------------|----------------------|----------------------|
-| 1 Gbps (81,274 pps) | 212% CPU [OVERLOAD] | 84% CPU [OK] | 84% CPU [OK] |
-| 10 Gbps (812,740 pps) | 2121% CPU [OVERLOAD] | 835% CPU [OVERLOAD] | 841% CPU [OVERLOAD] |
+| 1 Gbps (81,274 pps) | ~162% CPU [OVERLOAD] | ~84% CPU [OK] | ~84% CPU [OK] |
+| 10 Gbps (812,740 pps) | ~1621% CPU [OVERLOAD] | ~837% CPU [OVERLOAD] | ~837% CPU [OVERLOAD] |
 
-**Note**: Tested on 8-core system. Maximum measured throughput is **97K pps** with 2-4 workers, which represents 12% of 10 Gbps packet rate.
-
-**Scaling considerations**: The 4-worker optimum is specific to 8-core systems. On server hardware with more cores, higher worker counts may improve throughput, though actual performance will depend on workload characteristics and system configuration.
+**Note**: Tested on 8-core system. Maximum measured throughput is **~97K pps** with 2–4 workers, representing ~12% of 10 Gbps packet rate. Results are stable across repeated runs; the 2-worker configuration is the recommended minimum for 1 Gbps environments.
 
 ## Key Findings
 
 ### Performance Characteristics
 
-1. **Fast Detection**: TLS packet validation in 21 nanoseconds
-2. **JA4 Processing**: Complete fingerprinting in 22 microseconds per packet (sequential) with TCP reassembly
-3. **High Overhead**: 1034x from detection to full processing (includes TCP reassembly + JA4 calculation)
-4. **Worker Performance**: All worker configurations (2, 4, 8) achieve similar throughput (96-97K pps) due to TCP reassembly overhead
-5. **Parallel Scaling**: 2 workers provide 2.2x throughput improvement over sequential mode (97K vs 45K pps)
-6. **10 Gbps Limit**: Maximum throughput of 97K pps is 12% of 10 Gbps requirements (812K pps)
-7. **TCP Reassembly Impact**: Flow state management (TtlCache) adds overhead but enables proper handling of fragmented ClientHello messages
+1. **Fast Detection**: TLS byte-level validation in ~7 nanoseconds per packet
+2. **JA4 Processing**: Complete fingerprinting in ~20 microseconds per packet (sequential), dominated by TCP reassembly state management
+3. **Overhead**: ~2800x from raw parsing to full JA4 processing (hash + string formatting)
+4. **Worker Performance**: 2 and 4 workers achieve identical throughput (~97K pps); adding more workers does not help on 8-core hardware due to TCP reassembly overhead being the bottleneck
+5. **Parallel Scaling**: 2 workers provide ~2x throughput improvement over sequential (97K vs ~50K pps)
+6. **10 Gbps Limit**: Maximum throughput of ~97K pps is ~12% of 10 Gbps requirements (812K pps)
+7. **TCP Reassembly Impact**: Per-worker `TtlCache` state management adds overhead but enables correct handling of fragmented ClientHello across multiple TCP segments
 
 ### Mode Selection
 
 | Workload | Mode | Configuration | Measured Throughput |
 |----------|------|---------------|---------------------|
-| < 1 Gbps (< 81K pps) | Parallel (2 workers) | `HuginnNetTls::with_config(2, 100)` | 97K pps |
-| 1 Gbps (81K pps) | Parallel (2-4 workers) | `HuginnNetTls::with_config(2-4, 100)` | 97K pps |
+| < 1 Gbps (< 81K pps) | Parallel (2 workers) | `HuginnNetTls::with_config(2, 100)` | ~97K pps |
+| 1 Gbps (81K pps) | Parallel (2–4 workers) | `HuginnNetTls::with_config(2-4, 100)` | ~97K pps |
 
-**Note**: Throughput measurements are from benchmarks on 8-core laptop. Results may vary with different hardware and network conditions. The current implementation prioritizes correctness (TCP reassembly for fragmented ClientHello) over raw throughput compared to the previous stateless round-robin approach.
+**Note**: Throughput measurements are from benchmarks on an 8-core laptop. Results may vary with different hardware and network conditions.
 
 ## Running Benchmarks
 
@@ -69,16 +68,14 @@ The benchmark automatically generates a comprehensive report including:
 - Sequential mode throughput and capacity planning
 - Parallel mode throughput with scaling analysis
 - 1 Gbps and 10 Gbps network capacity assessment
-- Code recommendations for production deployment
 
 ## Technical Notes
 
 - Benchmarks use release mode with full compiler optimizations
-- Dataset repeated 1000x for statistical stability
-- Measured using Criterion.rs with statistical analysis
+- Dataset repeated 1000x for statistical stability (Criterion.rs with 100 samples)
 - Parallel benchmarks include worker pool creation/dispatch/shutdown overhead
-- Hash-based flow dispatch ensures packets from same TCP flow go to same worker (required for TCP reassembly)
-- TCP reassembly with TtlCache (20-second TTL) enables proper handling of fragmented ClientHello messages
+- **Dispatch**: Hash-based flow routing (`packet_hash::hash_flow`) — same TCP flow always goes to the same worker
+- **Reassembly**: Each worker has its own `TtlCache<FlowKey, TlsClientHelloReader>` for stateful TCP reassembly
 - Batch processing (default: 32 packets, 10ms timeout) optimizes throughput vs. latency
 - Results measured on x86_64 architecture with 8 CPU cores
 - Testing environment: Standard laptop (non-server hardware)

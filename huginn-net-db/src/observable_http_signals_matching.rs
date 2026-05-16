@@ -1,7 +1,23 @@
 use crate::db::HttpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, MatchQuality};
+use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::http::{self, Header, HttpMatchQuality, Version};
 use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
+
+impl ObservedFingerprint for HttpRequestObservation {
+    type Key = HttpIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpIndexKey { http_version_key: self.version }
+    }
+}
+
+impl ObservedFingerprint for HttpResponseObservation {
+    type Key = HttpIndexKey;
+
+    fn generate_index_key(&self) -> Self::Key {
+        HttpIndexKey { http_version_key: self.version }
+    }
+}
 
 pub trait HttpDistance {
     fn get_version(&self) -> Version;

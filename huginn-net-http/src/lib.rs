@@ -1,11 +1,21 @@
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
-pub use huginn_net_db as db;
-pub use huginn_net_db::http;
+//! Standalone HTTP fingerprinting (p0f-style) analyzer.
+//!
+//! `huginn-net-http` is intentionally independent of any signature database:
+//! you can use it to extract observable HTTP signals from raw traffic without
+//! pulling in `huginn-net-db`. To enable matching against the bundled
+//! signatures, plug a [`HttpMatcher`] implementation
+//! (`huginn-net-db` provides `SharedHttpSignatureMatcher`) via
+//! [`HuginnNetHttp::with_matcher`].
 
 pub mod akamai;
 pub mod akamai_extractor;
+pub mod display;
+pub mod error;
 pub mod filter;
+pub mod http;
 pub mod http1_parser;
 pub mod http1_process;
 pub mod http2_fingerprint_extractor;
@@ -14,18 +24,14 @@ pub mod http2_process;
 pub mod http_common;
 pub mod http_languages;
 pub mod http_process;
-pub mod packet_parser;
-pub mod raw_filter;
-
-pub mod packet_hash;
-
-pub mod display;
-pub mod error;
+pub mod matcher_api;
 pub mod observable;
 pub mod output;
+pub mod packet_hash;
+pub mod packet_parser;
 pub mod parallel;
 pub mod process;
-pub mod signature_matcher;
+pub mod raw_filter;
 
 // Re-exports
 pub use akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
@@ -44,11 +50,11 @@ pub use http2_parser::{Http2Frame, Http2FrameType, Http2Parser, HTTP2_CONNECTION
 pub use http2_process::{parse_http2_request, Http2Processor};
 pub use http_common::HttpProcessor;
 pub use http_process::*;
+pub use matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 pub use observable::*;
 pub use output::*;
-pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
+pub use parallel::{DispatchResult, PoolStats, SharedHttpMatcher, WorkerPool, WorkerStats};
 pub use process::*;
-pub use signature_matcher::*;
 
 use crate::packet_parser::{parse_packet, IpPacket};
 use pcap_file::pcap::PcapReader;
@@ -60,33 +66,68 @@ use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
-/// Configuration for parallel processing
-///
-/// Controls the behavior of worker threads in parallel mode.
 #[derive(Debug, Clone)]
-pub struct ParallelConfig {
-    /// Number of worker threads to spawn
-    pub num_workers: usize,
-    /// Size of packet queue per worker (affects memory usage and backpressure)
-    pub queue_size: usize,
-    /// Maximum packets to process in one batch before checking for new work
-    /// Higher = better throughput, lower = better latency (typical: 8-32)
-    pub batch_size: usize,
-    /// Worker receive timeout in milliseconds
-    /// Lower = faster shutdown, higher = better throughput (typical: 5-20)
-    pub timeout_ms: u64,
+struct ParallelConfig {
+    num_workers: usize,
+    queue_size: usize,
+    batch_size: usize,
+    timeout_ms: u64,
 }
 
 /// An HTTP-focused passive fingerprinting analyzer.
 ///
-/// The `HuginnNetHttp` struct handles HTTP packet analysis for browser fingerprinting,
-/// web server detection, and HTTP protocol analysis using p0f-style methodologies.
+/// Extracts HTTP/1.x and HTTP/2 observable signals and optionally matches them
+/// against a signature database for browser and web-server identification.
+///
+/// # Examples
+///
+/// **Sequential: raw HTTP signals, no database:**
+///
+/// ```no_run
+/// use huginn_net_http::HuginnNetHttp;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetHttp::new(1000).analyze_pcap("capture.pcap", tx, None).unwrap();
+/// for result in rx {
+///     if let Some(req) = result.http_request { println!("{req}"); }
+/// }
+/// ```
+///
+/// **Sequential with browser/server matching (`huginn-net-db`):**
+///
+/// ```ignore
+/// use huginn_net_http::HuginnNetHttp;
+/// use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+/// use std::sync::{mpsc, Arc};
+///
+/// let db = Database::load_default().unwrap();
+/// let matcher = Arc::new(SharedHttpSignatureMatcher::from_database(&db));
+/// let (tx, rx) = mpsc::channel();
+/// HuginnNetHttp::new(1000)
+///     .with_matcher(matcher)
+///     .analyze_pcap("capture.pcap", tx, None)
+///     .unwrap();
+/// ```
+///
+/// **Parallel: flow-based routing so HTTP reassembly state stays per-worker:**
+///
+/// ```no_run
+/// use huginn_net_http::HuginnNetHttp;
+/// use std::sync::mpsc;
+///
+/// let (tx, rx) = mpsc::channel();
+/// let mut analyzer = HuginnNetHttp::new(1000).with_parallel(2, 100, 16, 10);
+/// // Results are delivered via the sender given to init_pool.
+/// analyzer.init_pool(tx.clone()).unwrap();
+/// analyzer.analyze_pcap("capture.pcap", tx, None).unwrap();
+/// ```
 pub struct HuginnNetHttp {
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: HttpProcessors,
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
-    database: Option<Arc<db::Database>>,
+    matcher: Option<SharedHttpMatcher>,
     max_connections: usize,
     filter_config: Option<FilterConfig>,
 }
@@ -95,86 +136,45 @@ impl HuginnNetHttp {
     /// Creates a new instance of `HuginnNetHttp` in sequential mode.
     ///
     /// # Parameters
-    /// - `database`: Optional signature database for HTTP matching
     /// - `max_connections`: Maximum number of HTTP flows to track
-    ///
-    /// # Returns
-    /// A new `HuginnNetHttp` instance ready for HTTP analysis.
-    pub fn new(
-        database: Option<Arc<db::Database>>,
-        max_connections: usize,
-    ) -> Result<Self, HuginnNetHttpError> {
-        Ok(Self {
+    pub fn new(max_connections: usize) -> Self {
+        Self {
             http_flows: TtlCache::new(max_connections),
             http_processors: HttpProcessors::new(),
             parallel_config: None,
             worker_pool: None,
-            database,
+            matcher: None,
             max_connections,
             filter_config: None,
-        })
+        }
     }
 
-    /// Creates a new instance of `HuginnNetHttp` with full parallel configuration.
+    /// Enable parallel processing (builder pattern).
     ///
     /// # Parameters
-    /// - `database`: Optional signature database for HTTP matching
-    /// - `max_connections`: Maximum number of HTTP flows to track per worker (typical: 1000-10000)
     /// - `num_workers`: Number of worker threads (recommended: 2 for HTTP due to flow tracking)
     /// - `queue_size`: Size of each worker's packet queue (typical: 100-200)
     /// - `batch_size`: Maximum packets to process in one batch (typical: 8-32, recommended: 16)
     /// - `timeout_ms`: Worker receive timeout in milliseconds (typical: 5-20, recommended: 10)
-    ///
-    /// # Configuration Guide
-    ///
-    /// ## batch_size
-    /// - **Low (8)**: Lower latency, more responsive, higher overhead
-    /// - **Medium (16)**: Balanced throughput and latency *(recommended)*
-    /// - **High (32-64)**: Maximum throughput, higher latency
-    ///
-    /// ## timeout_ms
-    /// - **Low (5-10ms)**: Fast shutdown, slightly lower throughput *(recommended: 10)*
-    /// - **Medium (15-20ms)**: Better throughput, slower shutdown
-    /// - **High (50ms+)**: Maximum throughput, slow shutdown
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use huginn_net_http::HuginnNetHttp;
-    ///
-    /// // Balanced configuration (recommended for HTTP)
-    /// let http = HuginnNetHttp::with_config(None, 1000, 2, 100, 16, 10);
-    ///
-    /// // Low latency
-    /// let low_latency = HuginnNetHttp::with_config(None, 1000, 2, 100, 8, 5);
-    ///
-    /// // High throughput
-    /// let high_throughput = HuginnNetHttp::with_config(None, 5000, 2, 200, 32, 15);
-    /// ```
-    ///
-    /// # Returns
-    /// A new `HuginnNetHttp` instance configured for parallel processing.
-    pub fn with_config(
-        database: Option<Arc<db::Database>>,
-        max_connections: usize,
+    pub fn with_parallel(
+        mut self,
         num_workers: usize,
         queue_size: usize,
         batch_size: usize,
         timeout_ms: u64,
-    ) -> Result<Self, HuginnNetHttpError> {
-        Ok(Self {
-            http_flows: TtlCache::new(max_connections),
-            http_processors: HttpProcessors::new(),
-            parallel_config: Some(ParallelConfig {
-                num_workers,
-                queue_size,
-                batch_size,
-                timeout_ms,
-            }),
-            worker_pool: None,
-            database,
-            max_connections,
-            filter_config: None,
-        })
+    ) -> Self {
+        self.parallel_config =
+            Some(ParallelConfig { num_workers, queue_size, batch_size, timeout_ms });
+        self
+    }
+
+    /// Plug a signature matcher (e.g. `huginn_net_db::SharedHttpSignatureMatcher`).
+    ///
+    /// Without a matcher, `analyze_*` still returns observable HTTP signals
+    /// but every match quality is reported as `Disabled`.
+    pub fn with_matcher(mut self, matcher: SharedHttpMatcher) -> Self {
+        self.matcher = Some(matcher);
+        self
     }
 
     /// Configure packet filtering (builder pattern)
@@ -185,13 +185,7 @@ impl HuginnNetHttp {
 
     /// Initializes the worker pool for parallel processing.
     ///
-    /// Must be called after `with_config` and before calling `analyze_network` or `analyze_pcap`.
-    ///
-    /// # Parameters
-    /// - `result_tx`: Channel sender for analysis results
-    ///
-    /// # Returns
-    /// `Ok(())` if pool initialized successfully, error otherwise.
+    /// Must be called after `with_parallel` and before calling `analyze_network` or `analyze_pcap`.
     pub fn init_pool(
         &mut self,
         result_tx: Sender<HttpAnalysisResult>,
@@ -203,7 +197,7 @@ impl HuginnNetHttp {
                 config.batch_size,
                 config.timeout_ms,
                 result_tx,
-                self.database.clone(),
+                self.matcher.clone(),
                 self.max_connections,
                 self.filter_config.clone(),
             )?;
@@ -211,14 +205,15 @@ impl HuginnNetHttp {
             Ok(())
         } else {
             Err(HuginnNetHttpError::Misconfiguration(
-                "Parallel config not set. Use with_config() instead of new()".to_string(),
+                "Parallel config not set. Use with_parallel() to enable parallel processing"
+                    .to_string(),
             ))
         }
     }
 
     /// Returns a reference to the worker pool if initialized.
-    pub fn worker_pool(&self) -> Option<&Arc<WorkerPool>> {
-        self.worker_pool.as_ref()
+    pub fn worker_pool(&self) -> Option<Arc<WorkerPool>> {
+        self.worker_pool.as_ref().map(Arc::clone)
     }
 
     /// Returns current worker pool statistics if parallel mode is active.
@@ -235,7 +230,7 @@ impl HuginnNetHttp {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetHttpError>>,
     {
-        if self.worker_pool.is_some() {
+        if self.parallel_config.is_some() {
             self.process_parallel(packet_fn, cancel_signal)
         } else {
             self.process_sequential(packet_fn, sender, cancel_signal)
@@ -287,7 +282,7 @@ impl HuginnNetHttp {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetHttpError>>,
     {
-        let pool = self.worker_pool.as_ref().ok_or_else(|| {
+        let worker_pool = self.worker_pool.as_ref().ok_or_else(|| {
             HuginnNetHttpError::Misconfiguration("Worker pool not initialized".to_string())
         })?;
 
@@ -301,25 +296,19 @@ impl HuginnNetHttp {
 
             match packet_result {
                 Ok(packet) => {
-                    let _ = pool.dispatch(packet);
+                    let _ = worker_pool.dispatch(packet);
                 }
                 Err(e) => {
                     error!("Failed to read packet: {}", e);
                 }
             }
         }
+
+        worker_pool.shutdown();
         Ok(())
     }
 
     /// Analyzes network traffic from a live network interface for HTTP packets.
-    ///
-    /// # Parameters
-    /// - `interface_name`: The name of the network interface to capture from.
-    /// - `sender`: A channel sender to send analysis results.
-    /// - `cancel_signal`: Optional atomic boolean to signal cancellation.
-    ///
-    /// # Returns
-    /// A `Result` indicating success or failure.
     pub fn analyze_network(
         &mut self,
         interface_name: &str,
@@ -361,14 +350,6 @@ impl HuginnNetHttp {
     }
 
     /// Analyzes HTTP packets from a PCAP file.
-    ///
-    /// # Parameters
-    /// - `pcap_path`: Path to the PCAP file to analyze.
-    /// - `sender`: A channel sender to send analysis results.
-    /// - `cancel_signal`: Optional atomic boolean to signal cancellation.
-    ///
-    /// # Returns
-    /// A `Result` indicating success or failure.
     pub fn analyze_pcap(
         &mut self,
         pcap_path: &str,
@@ -394,12 +375,6 @@ impl HuginnNetHttp {
     }
 
     /// Processes a single packet and extracts HTTP information if present.
-    ///
-    /// # Parameters
-    /// - `packet`: The raw packet data.
-    ///
-    /// # Returns
-    /// A `Result` containing an `HttpAnalysisResult` or an error.
     fn process_packet(&mut self, packet: &[u8]) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
         if let Some(ref filter) = self.filter_config {
             if !raw_filter::apply(packet, filter) {
@@ -408,23 +383,21 @@ impl HuginnNetHttp {
             }
         }
 
-        let matcher = self
-            .database
-            .as_ref()
-            .map(|db| SignatureMatcher::new(db.as_ref()));
+        let matcher: Option<&dyn HttpMatcher> =
+            self.matcher.as_deref().map(|m| m as &dyn HttpMatcher);
 
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => process::process_ipv4_packet(
                 &ipv4,
                 &mut self.http_flows,
                 &self.http_processors,
-                matcher.as_ref(),
+                matcher,
             ),
             IpPacket::Ipv6(ipv6) => process::process_ipv6_packet(
                 &ipv6,
                 &mut self.http_flows,
                 &self.http_processors,
-                matcher.as_ref(),
+                matcher,
             ),
             IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
         }

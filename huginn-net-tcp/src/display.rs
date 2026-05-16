@@ -1,6 +1,6 @@
-use crate::observable::ObservableTcp;
+use crate::observable::{ObservableTcp, TcpObservation};
+use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use core::fmt;
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
 use std::fmt::Formatter;
 
 trait TcpDisplayFormat {
@@ -84,6 +84,42 @@ impl TcpDisplayFormat for ObservableTcp {
 }
 
 impl fmt::Display for ObservableTcp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.format_tcp_display(f)
+    }
+}
+
+impl TcpDisplayFormat for TcpObservation {
+    fn get_version(&self) -> IpVersion {
+        self.version
+    }
+    fn get_ittl(&self) -> Ttl {
+        self.ittl.clone()
+    }
+    fn get_olen(&self) -> u8 {
+        self.olen
+    }
+    fn get_mss(&self) -> Option<u16> {
+        self.mss
+    }
+    fn get_wsize(&self) -> WindowSize {
+        self.wsize.clone()
+    }
+    fn get_wscale(&self) -> Option<u8> {
+        self.wscale
+    }
+    fn get_olayout(&self) -> &[TcpOption] {
+        &self.olayout
+    }
+    fn get_quirks(&self) -> &[Quirk] {
+        &self.quirks
+    }
+    fn get_pclass(&self) -> PayloadSize {
+        self.pclass
+    }
+}
+
+impl fmt::Display for TcpObservation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.format_tcp_display(f)
     }

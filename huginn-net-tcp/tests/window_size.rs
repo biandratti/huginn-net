@@ -1,4 +1,4 @@
-use huginn_net_db::tcp::{IpVersion, WindowSize};
+use huginn_net_tcp::tcp::{IpVersion, WindowSize};
 use huginn_net_tcp::window_size::detect_win_multiplicator;
 
 #[test]

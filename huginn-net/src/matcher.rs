@@ -6,8 +6,8 @@
 ///
 /// ```rust
 /// use huginn_net::quality_match;
-/// # use huginn_net_tcp::output::{OperativeSystem, OSQualityMatched};
-/// # use huginn_net_db::{MatchQualityType, Label};
+/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched, OperativeSystem};
+/// # use huginn_net_db::Label;
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # struct ObservableTcp;
@@ -20,15 +20,15 @@
 ///     call: matcher => None::<(Label, String, f32)>,
 ///     matched: (label, _signature, quality) => OSQualityMatched {
 ///         os: Some(OperativeSystem::from(&label)),
-///         quality: MatchQualityType::Matched(quality),
+///         quality: MatchQuality::Matched(quality),
 ///     },
 ///     not_matched: OSQualityMatched {
 ///         os: None,
-///         quality: MatchQualityType::NotMatched,
+///         quality: MatchQuality::NotMatched,
 ///     },
 ///     disabled: OSQualityMatched {
 ///         os: None,
-///         quality: MatchQualityType::Disabled,
+///         quality: MatchQuality::Disabled,
 ///     }
 /// );
 /// ```
@@ -63,8 +63,7 @@ macro_rules! quality_match {
 ///
 /// ```rust
 /// use huginn_net::{simple_quality_match, quality_match};
-/// # use huginn_net_tcp::output::MTUQualityMatched;
-/// # use huginn_net_db::MatchQualityType;
+/// # use huginn_net_tcp::output::{MTUQualityMatched, MatchQuality};
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # impl Matcher {
@@ -80,15 +79,15 @@ macro_rules! quality_match {
 ///     method: matching_by_mtu(&observable_mtu.value),
 ///     success: (link, _) => MTUQualityMatched {
 ///         link: Some(link.clone()),
-///         quality: MatchQualityType::Matched(1.0),
+///         quality: MatchQuality::Matched(1.0),
 ///     },
 ///     failure: MTUQualityMatched {
 ///         link: None,
-///         quality: MatchQualityType::NotMatched,
+///         quality: MatchQuality::NotMatched,
 ///     },
 ///     disabled: MTUQualityMatched {
 ///         link: None,
-///         quality: MatchQualityType::Disabled,
+///         quality: MatchQuality::Disabled,
 ///     }
 /// );
 /// ```

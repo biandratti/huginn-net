@@ -75,7 +75,7 @@ pub fn extract_akamai_fingerprint_from_bytes(
 /// # Returns
 /// - `Ok(AkamaiFingerprint)` if enough frames are present and all fields are valid
 /// - `Err(NoSettingsFrame)` if no SETTINGS frame was found (insufficient data)
-/// - `Err(MalformedPseudoHeaders)` if a HEADERS frame was present but its payload is corrupt —
+/// - `Err(MalformedPseudoHeaders)` if a HEADERS frame was present but its payload is corrupt,
 ///   this is a strong indicator of spoofed or bot-generated traffic
 ///
 /// # Example
@@ -200,7 +200,7 @@ const FLAG_PRIORITY: u8 = 0x20;
 /// Extract pseudo-header order from HEADERS frame.
 ///
 /// Returns:
-/// - `Ok(vec![])` if no HEADERS frame is present yet (legitimate — data may arrive later).
+/// - `Ok(vec![])` if no HEADERS frame is present yet (legitimate, data may arrive later).
 /// - `Ok(headers)` if decoded successfully.
 /// - `Err(MalformedPseudoHeaders)` if a HEADERS frame is present but its payload is corrupt.
 ///
@@ -214,7 +214,7 @@ fn extract_pseudo_header_order(
         .find(|f| f.frame_type == Http2FrameType::Headers && f.stream_id > 0);
 
     let Some(frame) = headers_frame else {
-        return Ok(Vec::new()); // no HEADERS frame yet — legitimate, not an error
+        return Ok(Vec::new()); // no HEADERS frame yet, legitimate, not an error
     };
 
     // RFC 7540 §6.2: strip optional leading fields before the HPACK block.

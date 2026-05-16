@@ -14,10 +14,15 @@
       },
       "tcp_analysis": {
         "syn": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1,eol+0:df,ecn:0"
         },
         "syn_ack": null,
         "mtu": {
+          "link_type": "MTUQualityMatched { link: None, quality: NotMatched }",
           "raw_mtu": 1504
         },
         "client_uptime": null,
@@ -36,6 +41,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:1134:mtu*45,8:mss,sok,ts,nop,ws:df,ecn:0"
         },
         "mtu": null,
@@ -55,6 +64,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2051,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -74,6 +87,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2051,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -93,6 +110,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:df,id+:0"
         },
         "mtu": null,
@@ -112,6 +133,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:ecn,df,id+:+"
         },
         "mtu": null,
@@ -131,6 +156,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:ecn,df,id+:+"
         },
         "mtu": null,
@@ -150,6 +179,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -169,6 +202,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2016,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -188,6 +225,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2010,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -207,6 +248,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -226,6 +271,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -245,6 +294,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -264,6 +317,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -283,6 +340,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -302,6 +363,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -321,6 +386,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -340,6 +409,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -359,6 +432,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:df,id+:0"
         },
         "mtu": null,
@@ -378,6 +455,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:253,*:nop,nop,ts:df,id+:0"
         },
         "mtu": null,
@@ -397,6 +478,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:df,id+:0"
         },
         "mtu": null,
@@ -416,6 +501,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -435,6 +524,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2039,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -454,6 +547,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -473,6 +570,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2047,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -492,6 +593,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2047,*:nop,nop,ts:ecn,df,pushf+:+"
         },
         "mtu": null,
@@ -511,6 +616,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
         },
         "mtu": null,
@@ -530,6 +639,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -549,6 +662,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2028,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -568,6 +685,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
         },
         "mtu": null,
@@ -587,6 +708,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -606,6 +731,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -625,6 +754,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2026,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -644,6 +777,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2022,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -663,6 +800,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
         },
         "mtu": null,
@@ -682,6 +823,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+:+"
         },
         "mtu": null,
@@ -701,6 +846,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -720,6 +869,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:ecn,df,id+,pushf+:+"
         },
         "mtu": null,
@@ -739,6 +892,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2012,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -758,6 +915,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:1997,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -777,6 +938,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:1997,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -796,6 +961,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:64+0:0:*:2048,*:nop,nop,ts:df:0"
         },
         "mtu": null,
@@ -815,6 +984,10 @@
       "tcp_analysis": {
         "syn": null,
         "syn_ack": {
+          "os_name": null,
+          "os_family": null,
+          "os_variant": null,
+          "quality": "NotMatched",
           "raw_signature": "4:63+1:0:*:252,*:nop,nop,ts:df,id+:0"
         },
         "mtu": null,

@@ -1,6 +1,8 @@
 # Huginn-Net Benchmarks
 
-This directory contains comprehensive performance benchmarks for all Huginn-Net protocol libraries. Each benchmark is designed to measure specific aspects of network protocol analysis performance.
+Performance benchmarks for all Huginn-Net protocol libraries.
+
+> **Numbers source**: Criterion.rs medians. Per-packet values are criterion median ÷ packets per iteration (TCP: 43,000 · HTTP: 16,000 · TLS: 1,000). The inline report printed at the end of each bench run uses `measure_average_time` with 3–10 iterations and no warmup — those values can diverge from Criterion and should be ignored.
 
 ## Available Benchmarks
 
@@ -12,158 +14,77 @@ This directory contains comprehensive performance benchmarks for all Huginn-Net 
 
 ## Performance Summary
 
-### Sequential Mode (Single-Thread) Throughput
+### Sequential Mode (Single-Thread)
 
-| Protocol | Detection | Full Analysis | Processing Time | Use Case |
-|----------|-----------|---------------|-----------------|----------|
-| **TCP** | 83.3M pps | 975.6K pps | 1.025 μs | OS fingerprinting, MTU detection |
-| **HTTP** | 142.9M pps | 526.6K pps | 1.899 μs | Browser/server detection, flow tracking |
-| **TLS** | 48M pps | 45K pps | 22 μs | JA4 fingerprinting, TLS analysis |
+| Protocol | Time/Packet | Throughput | 1 Gbps CPU | 10 Gbps CPU |
+|----------|-------------|------------|------------|-------------|
+| **TCP** | ~480–510 ns | ~2.0M pps | ~4.1% | ~41% |
+| **HTTP** | ~0.95 µs | ~1.05M pps | ~7.7% | ~77% |
+| **TLS** | ~20 µs | ~50K pps | ~162% [OVERLOAD] | ~1621% [OVERLOAD] |
 
-### Parallel Mode Performance
+### Parallel Mode
 
-#### TLS (Hash-Based Flow Dispatch)
-| Mode | Workers | Throughput | Speedup | 1 Gbps Support | 10 Gbps Support |
-|------|---------|------------|---------|----------------|-----------------|
-| Sequential | 1 | 45K pps | 1.0x | 212% CPU [OVERLOAD] | 2121% CPU [OVERLOAD] |
-| Parallel | 2 | 97K pps | 2.2x | 84% CPU | 835% CPU [OVERLOAD] |
-| Parallel | 4 | 97K pps | 2.2x | 84% CPU | 841% CPU [OVERLOAD] |
-| Parallel | 8 | 96K pps | 2.1x | 85% CPU | 851% CPU [OVERLOAD] |
+#### TLS — Hash-based flow dispatch, per-worker `TtlCache`
+| Workers | Throughput | 1 Gbps CPU | 10 Gbps CPU |
+|---------|------------|------------|-------------|
+| 1 (seq) | ~50K pps | ~162% [OVERLOAD] | ~1621% [OVERLOAD] |
+| 2 | ~97K pps | ~84% | ~837% [OVERLOAD] |
+| 4 | ~97K pps | ~84% | ~837% [OVERLOAD] |
+| 8 | ~96K pps | ~85% | ~845% [OVERLOAD] |
 
-#### TCP (Hash-Based Worker Assignment)
-| Mode | Workers | Throughput | 1 Gbps | 10 Gbps |
-|------|---------|------------|--------|---------|
-| Sequential | 1 | 975.6K pps | 8.3% CPU | 83.3% CPU |
-| Parallel | 2 | 2.10M pps | 3.9% CPU | 38.7% CPU |
-| Parallel | 4 | 2.11M pps | 3.9% CPU | 38.5% CPU |
-| Parallel | 8 | 2.03M pps | 4.0% CPU | 40.1% CPU |
+#### TCP — Hash-based flow dispatch, per-worker `TtlCache`
+| Workers | Throughput | 1 Gbps CPU | 10 Gbps CPU |
+|---------|------------|------------|-------------|
+| 1 (seq) | ~2.0M pps | ~4.1% | ~41% |
+| 2 | ~3.6–4.2M pps | ~2.0–2.3% | ~20–23% |
+| 4 | ~3.9–4.2M pps | ~1.9–2.1% | ~19–21% |
+| 8 | ~3.8–4.2M pps | ~1.9–2.2% | ~19–22% |
 
-#### HTTP (Flow-Based Hash Routing)
-| Mode | Workers | Throughput | 1 Gbps | 10 Gbps |
-|------|---------|------------|--------|---------|
-| Sequential | 1 | 526.6K pps | 15.4% CPU | 154.3% CPU [OVERLOAD] |
-| Parallel | 2 | 1.54M pps | 5.3% CPU | 52.7% CPU |
-| Parallel | 4 | 1.38M pps | 5.9% CPU | 59.0% CPU |
-| Parallel | 8 | 1.40M pps | 5.8% CPU | 57.9% CPU |
+#### HTTP — Hash-based flow dispatch, per-worker `TtlCache`
+| Workers | Throughput | 1 Gbps CPU | 10 Gbps CPU |
+|---------|------------|------------|-------------|
+| 1 (seq) | ~1.05M pps | ~7.7% | ~77% |
+| 2 | ~1.53M pps | ~5.3% | ~53% |
+| 4 | ~1.4M pps | ~5.8% | ~58% |
+| 8 | ~1.3M pps | ~6.3% | ~63% |
 
-**Notes**: 
-- **TLS**: Hash-based flow dispatch (TCP reassembly with TtlCache) - similar throughput with 2-4 workers (96-97K pps)
-- **TCP**: Hash-based routing (source IP → worker) - maintains per-connection state consistency
-- **HTTP**: Flow-based routing (src_ip, dst_ip, src_port, dst_port → worker) - maintains request/response pairs
-- TCP shows stable parallel performance with 2-4 workers (2.10-2.11M pps, ~38.5% CPU @ 10 Gbps)
-- HTTP shows best performance with 2 workers (1.54M pps, 52.7% CPU @ 10 Gbps)
-- TLS shows similar performance with 2-4 workers (97K pps, 84% CPU @ 1 Gbps, 12% of 10 Gbps capacity)
-- TLS throughput reduced due to TCP reassembly overhead but enables proper handling of fragmented ClientHello messages
-- HTTP's 4-8 workers show similar performance (1.38-1.40M pps) with diminishing returns
-- These benchmarks measured on laptop hardware (8 CPU cores)
-- Current optimal worker counts are specific to 8-core systems
+All three protocols use the same dispatch architecture: hash-based flow routing (4-tuple src/dst IP+port → worker) so the same TCP flow always lands on the same worker, enabling stateful per-worker processing.
 
-## Key Performance Insights
+## Key Insights
 
-### Protocol Efficiency Ranking
-1. **TCP**: Fastest (975.6K pps sequential, 2.11M pps parallel @ 4 workers) - excellent balance of speed and analysis depth
-2. **HTTP**: Fast (526.6K pps sequential, 1.54M pps parallel @ 2 workers) - comprehensive application-layer analysis with flow tracking
-3. **TLS**: Moderate (45K pps sequential, 97K pps parallel @ 2-4 workers) - cryptographic complexity with TCP reassembly overhead
+### Protocol Ranking by Throughput
 
-### Parallel Processing Support
-- **TCP**: Full parallel support with hash-based worker assignment
-  - Stable performance with 2-4 workers (2.10-2.11M pps, ~38.5% CPU @ 10 Gbps)
-  - Parallel mode: 2 workers (2.10M pps), 4 workers (2.11M pps), 8 workers (2.03M pps)
-  - Sequential mode: 975.6K pps (83.3% CPU @ 10 Gbps)
-  - Hash-based routing maintains per-connection state consistency
-  - Same source IP always routes to same worker
-  - Each worker has isolated connection tracker and cache
-  - Production ready: Handles 10 Gbps with parallel mode at ~40% CPU
-  
-- **TLS**: Full parallel support with worker pool architecture
-  - Best throughput: 97K pps with 2-4 workers (84% CPU @ 1 Gbps)
-  - Sequential mode: 45K pps (212% CPU @ 1 Gbps [OVERLOAD])
-  - Parallel (2 workers): 97K pps (84% CPU @ 1 Gbps)
-  - Parallel (4 workers): 97K pps (84% CPU @ 1 Gbps, 12% of 10 Gbps capacity)
-  - Parallel (8 workers): 96K pps (85% CPU @ 1 Gbps)
-  - Uses hash-based flow dispatch (TCP reassembly with TtlCache)
-  - Maximum throughput is 12% of 10 Gbps packet rate (97K of 812K pps)
-  - TCP reassembly overhead reduces throughput but enables proper handling of fragmented ClientHello messages
-  
-- **HTTP**: Full parallel support with flow-based hash routing
-  - Best performance at 2 workers (1.54M pps, 52.7% CPU @ 10 Gbps)
-  - Parallel mode: 2 workers (1.54M pps), 4 workers (1.38M pps), 8 workers (1.40M pps)
-  - Sequential mode: 526.6K pps (154.3% CPU @ 10 Gbps [OVERLOAD])
-  - Flow-based routing maintains request/response consistency
-  - 4-8 workers show diminishing returns due to flow-based hashing
-  - Each worker has isolated flow cache and state
-  - Production ready: 2 workers handle 10 Gbps at 52.7% CPU
+1. **TCP** — ~2M pps sequential, ~4M pps parallel. Handles 10 Gbps on a single core (~41% CPU); parallel adds headroom.
+2. **HTTP** — ~1.05M pps sequential, ~1.53M pps parallel. Handles 10 Gbps sequential at ~77% CPU; 2 workers recommended for production headroom.
+3. **TLS** — ~50K pps sequential, ~97K pps parallel. TLS is the only protocol that requires parallel mode to handle even 1 Gbps; JA4 calculation + TCP reassembly dominate cost.
 
-### PCAP Effectiveness
-- **HTTP**: 6.2% effectiveness with repeated dataset (16,000 packets from 16 original)
-- **TCP**: 102.3% effectiveness with repeated dataset (43,000 packets from 43 original)
-- **TLS**: 100% effectiveness with repeated dataset (1,000 packets from 1 original)
+### Feature Overhead
 
-## Performance Optimization Recommendations
+| Protocol | Feature | Without | With | Overhead |
+|----------|---------|---------|------|----------|
+| TCP | OS matching | ~270 ns | ~400 ns | ~130–140% |
+| TCP | MTU/link matching | ~300 ns | ~530 ns | ~100% |
+| HTTP | Browser matching | ~850 ns | ~730 ns | **−14%** (early exit) |
+| HTTP | Server matching | ~860 ns | ~990 ns | +15% |
 
-### For Maximum Performance
-**Use protocol-specific libraries instead of the generic `huginn-net`:**
+> HTTP browser matching is faster with the matcher enabled because `HttpSignatureMatcher` short-circuits flow processing on early UA match. Server matching adds overhead since full response header scanning is required before the label is known.
 
-- **TCP Analysis**: Use `huginn-net-tcp` directly
-- **TLS Analysis**: Use `huginn-net-tls` directly  
-- **HTTP Analysis**: Use `huginn-net-http` directly
+### Parallel Scaling Behavior
 
-### Protocol-Specific Optimizations
-
-#### TCP Optimization
-- **Parallel mode (2-4 workers)**: 2.10-2.11M pps throughput (~38.5% CPU for 10 Gbps) - **Recommended**
-- **Sequential mode**: 975.6K pps throughput (83.3% CPU for 10 Gbps)
-- Use `HuginnNetTcp::with_config(Some(db), 1000, 4, 100, 32, 10)` for balanced performance
-- Disable OS matching when not needed (87% faster)
-- Disable link matching when not needed (110% faster)
-- Use large cache (10K connections) for high volumes (55% faster)
-- Use small cache (100 connections) for better CPU cache locality (28% faster)
-- Hash-based routing ensures consistent per-connection state
-
-#### TLS Optimization
-- **Sequential Mode**: 45K pps throughput (212% CPU @ 1 Gbps [OVERLOAD] - requires parallel mode)
-- **Parallel Mode (2-4 workers)**: 97K pps throughput (84% CPU @ 1 Gbps, 12% of 10 Gbps capacity) - **Recommended**
-- Use `HuginnNetTls::with_config(2, 100)` or `with_config(4, 100)` for optimal throughput
-- Similar performance with 2-4 workers on 8-core systems (96-97K pps)
-- TCP reassembly with TtlCache enables proper handling of fragmented ClientHello messages
-- Hash-based flow dispatch ensures packets from same flow go to same worker
-- Pre-filter non-TLS packets for significant gains
-- JA4 calculation is front-loaded during processing
-
-#### HTTP Optimization
-- **Sequential Mode**: 526.6K pps throughput (154.3% CPU for 10 Gbps [OVERLOAD] - requires parallel mode)
-- **Parallel Mode (2 workers)**: 1.54M pps throughput (52.7% CPU for 10 Gbps) - **Recommended**
-- Use `HuginnNetHttp::with_config(Some(db), 1000, 2, 100, 16, 10)` for optimal throughput
-- Disable browser matching when not needed (reduces overhead by 44.3%)
-- Disable server matching when not needed (reduces overhead by 29.9%)
-- Use large cache (10K flows) for +3.2% throughput improvement
-- 4-8 workers show diminishing returns (1.38-1.40M pps) on 8-core systems
+- **TLS**: 2 and 4 workers plateau at ~97K pps; adding more workers yields no gain. Bottleneck is TCP reassembly per packet, not worker count.
+- **TCP**: Mild monotonic improvement 2→8 workers (~3.6M→4.2M pps), though differences are within measurement noise (high outlier counts). All configurations comfortably handle 10 Gbps.
+- **HTTP**: 2 workers is optimal (~1.53M pps); 4–8 workers degrade slightly due to flow distribution overhead.
 
 ## Detailed Analysis Reports
 
-Each protocol has a dedicated analysis report with comprehensive performance data:
-
-- **[TLS Analysis Report](README-TLS.md)** - JA4 fingerprinting performance
-- **[TCP Analysis Report](README-TCP.md)** - OS fingerprinting and network analysis
-- **[HTTP Analysis Report](README-HTTP.md)** - Browser and server detection
+- **[TLS Analysis](README-TLS.md)** — JA4 fingerprinting, TCP reassembly architecture
+- **[TCP Analysis](README-TCP.md)** — OS fingerprinting, MTU detection, uptime calculation
+- **[HTTP Analysis](README-HTTP.md)** — Browser/server detection, flow tracking
 
 ## Technical Notes
 
-- All benchmarks run in release mode with full compiler optimizations
-- Results measured using Criterion.rs with statistical analysis
-- Timing measurements include complete analysis pipelines
-- PCAP effectiveness varies based on protocol handshake presence
-- Sequential mode results are single-thread measurements on x86_64 architecture
-- TLS parallel mode uses hash-based flow dispatch (similar throughput with 2-4 workers: 96-97K pps, includes TCP reassembly overhead)
-- TCP parallel mode uses hash-based worker assignment (stable performance 2-4 workers: 2.10-2.11M pps)
-- TLS, TCP, and HTTP benchmarks use repeated datasets (1000x) for statistical stability
-- Parallel benchmarks include worker pool creation/dispatch/shutdown overhead
-
-## Contributing
-
-When adding new benchmarks:
-1. Follow the existing benchmark structure and naming conventions
-2. Include comprehensive performance analysis in protocol-specific READMEs
-3. Use real-world PCAP data for accurate performance measurements
-4. Document any new optimization techniques or performance insights
-5. Include parallel mode benchmarks when applicable
+- Benchmarks run in release mode with full optimizations (Criterion.rs, 100 samples)
+- Datasets repeated 1000x per run for statistical stability
+- Parallel benchmarks include worker pool creation/dispatch/shutdown per `b.iter()` call
+- TCP and HTTP datasets use PCAPs with mixed traffic; effectiveness ratios reflect real-world packet distribution
+- Results measured on x86_64, 8-core laptop — parallel optimal worker counts are hardware-specific

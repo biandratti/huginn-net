@@ -91,12 +91,13 @@ huginn-net-db = "1.7.5"
 ### Basic Usage
 
 ```rust
-use huginn_net_db::Database;
+use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::{FilterConfig, HuginnNetHttp, HuginnNetHttpError, IpFilter, PortFilter, HttpAnalysisResult};
 use std::sync::{Arc, mpsc};
 
 fn main() -> Result<(), HuginnNetHttpError> {
-    // Load database for browser/server fingerprinting
+    // Load database for browser/server fingerprinting (optional)
     let db = match Database::load_default() {
         Ok(db) => Arc::new(db),
         Err(e) => {
@@ -104,10 +105,12 @@ fn main() -> Result<(), HuginnNetHttpError> {
             return Err(HuginnNetHttpError::Parse(format!("Database error: {e}")));
         }
     };
-    
-    // Create analyzer
-    let mut analyzer = match HuginnNetHttp::new(Some(db), 1000) {
-        Ok(analyzer) => analyzer,
+    let matcher: Arc<dyn HttpMatcher + Send + Sync> =
+        Arc::new(SharedHttpSignatureMatcher::new(db));
+
+    // Create analyzer (builder pattern)
+    let mut analyzer = match HuginnNetHttp::new(1000) {
+        Ok(analyzer) => analyzer.with_matcher(matcher),
         Err(e) => {
             eprintln!("Failed to create analyzer: {e}");
             return Err(e);
