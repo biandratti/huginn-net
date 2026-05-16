@@ -26,3 +26,16 @@ impl fmt::Display for Type {
         write!(f, "{self:?}")
     }
 }
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{}:{}:{}",
+            self.ty,
+            self.class.as_deref().unwrap_or_default(),
+            self.name,
+            self.flavor.as_deref().unwrap_or_default()
+        )
+    }
+}

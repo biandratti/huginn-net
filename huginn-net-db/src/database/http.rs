@@ -6,7 +6,7 @@ use crate::database::collection::FingerprintCollection;
 use crate::database::constants::DEFAULT_FP_CONTENTS;
 use crate::database::keys::HttpIndexKey;
 use crate::http;
-use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
+use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 /// HTTP-only fingerprint database: HTTP (layer-7) signatures plus User-Agent → OS mappings.
 ///

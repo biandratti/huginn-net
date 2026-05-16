@@ -5,8 +5,8 @@ use std::str::FromStr;
 use crate::database::collection::FingerprintCollection;
 use crate::database::constants::DEFAULT_FP_CONTENTS;
 use crate::database::keys::TcpIndexKey;
-use crate::observable_signals::TcpObservation;
 use crate::tcp;
+use huginn_net_tcp::observable::TcpObservation;
 
 /// TCP-only fingerprint database: IP/TCP (layer-3/4) signatures plus MTU mappings.
 ///

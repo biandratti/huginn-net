@@ -2,10 +2,10 @@
 
 #[cfg(any(feature = "tcp", feature = "http"))]
 use crate::db_matching_trait::IndexKey;
-#[cfg(feature = "http")]
-use huginn_net_http::http::Version as HttpVersion;
 #[cfg(feature = "tcp")]
 use crate::tcp::{IpVersion, PayloadSize};
+#[cfg(feature = "http")]
+use huginn_net_http::http::Version as HttpVersion;
 
 /// Index key for TCP signatures, used to optimize database lookups.
 #[cfg(feature = "tcp")]

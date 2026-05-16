@@ -1,8 +1,8 @@
 use crate::database::{Label, TcpDatabase, Type};
 use crate::db_matching_trait::FingerprintDb;
-use crate::observable_signals::TcpObservation;
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
 use huginn_net_tcp::observable::ObservableTcp;
+use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::{OperativeSystem, OsKind};
 use std::sync::Arc;
 

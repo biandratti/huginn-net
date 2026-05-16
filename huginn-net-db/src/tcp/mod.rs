@@ -9,5 +9,7 @@ pub use huginn_net_tcp::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, Win
 mod distances;
 mod signature;
 
-pub use distances::{distance_ip_version, distance_payload_size, distance_ttl, distance_window_size};
+pub use distances::{
+    distance_ip_version, distance_payload_size, distance_ttl, distance_window_size,
+};
 pub use signature::{Signature, TcpMatchQuality};

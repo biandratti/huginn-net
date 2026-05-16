@@ -1,5 +1,5 @@
-use super::{IpVersion, PayloadSize, Ttl, WindowSize};
 use super::signature::TcpMatchQuality;
+use super::{IpVersion, PayloadSize, Ttl, WindowSize};
 use tracing::debug;
 
 /// Distance score between an observed `IpVersion` and a database `IpVersion`.

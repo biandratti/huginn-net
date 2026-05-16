@@ -1,4 +1,8 @@
 use crate::db_matching_trait::MatchQuality;
+use core::fmt;
+use huginn_net_http::display::HttpDisplayFormat;
+use huginn_net_http::http::{Header, Version};
+use std::fmt::Formatter;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
@@ -48,5 +52,26 @@ impl MatchQuality for HttpMatchQuality {
             d if d <= Self::MAX_DISTANCE => 0.10,
             _ => 0.05,
         }
+    }
+}
+
+impl HttpDisplayFormat for Signature {
+    fn get_version(&self) -> Version {
+        self.version
+    }
+    fn get_horder(&self) -> &[Header] {
+        &self.horder
+    }
+    fn get_habsent(&self) -> &[Header] {
+        &self.habsent
+    }
+    fn get_expsw(&self) -> &str {
+        &self.expsw
+    }
+}
+
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.format_http_display(f)
     }
 }
