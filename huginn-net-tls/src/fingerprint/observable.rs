@@ -1,4 +1,5 @@
-use crate::tls::{Ja4Payload, TlsVersion};
+use super::ja4::Ja4Payload;
+use super::version::TlsVersion;
 
 /// Observable TLS Client signals
 #[derive(Debug, Clone)]

@@ -1,7 +1,7 @@
 use crate::error::HuginnNetTlsError;
-use crate::observable::ObservableTlsClient;
-use crate::observable::ObservableTlsPackage;
-use crate::tls::{Signature, TlsVersion, TLS_GREASE_VALUES};
+use crate::fingerprint::{
+    ObservableTlsClient, ObservableTlsPackage, Signature, TlsVersion, TLS_GREASE_VALUES,
+};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -62,11 +62,8 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
     );
 
     if !is_tls {
-        // Log first few non-TLS packets for debugging
-        // Note: This will log multiple times but that's OK for debugging
         if !payload.is_empty() && (payload[0] == 0x17 || payload[0] == 0x15 || payload[0] == 0x14) {
-            // These are TLS Application Data, Alert, or Change Cipher Spec - might be interesting
-            debug!("Not TLS Handshake but TLS-like: first_byte=0x{:02x}, payload_len={}, first_bytes={:02x?}", 
+            debug!("Not TLS Handshake but TLS-like: first_byte=0x{:02x}, payload_len={}, first_bytes={:02x?}",
                    first_byte, payload.len(),
                    payload.get(0..10.min(payload.len())).map(|s| s.to_vec()).unwrap_or_default());
         }
@@ -119,16 +116,14 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
 }
 
 /// Detect TLS traffic based on packet content only
-/// This is more reliable than port-based detection since TLS can run on any port
 #[inline(always)]
 pub fn is_tls_traffic(payload: &[u8]) -> bool {
-    // Check for TLS record header (0x16 = Handshake, followed by version)
     if payload.len() < 5 {
         return false;
     }
 
     let content_type = payload[0];
-    let is_handshake = content_type == 0x16; // TLS Handshake
+    let is_handshake = content_type == 0x16;
 
     if is_handshake {
         let version = u16::from_be_bytes([payload[1], payload[2]]);
@@ -153,15 +148,13 @@ pub fn is_tls_traffic(payload: &[u8]) -> bool {
 /// Parse TLS ClientHello from raw bytes
 ///
 /// # Returns
-/// - `Ok(Some(Signature))` if ClientHello was found and parsed successfully
-/// - `Ok(None)` if TLS record is valid but doesn't contain ClientHello (e.g., ServerHello, Alert)
+/// - `Ok(Signature)` if ClientHello was found and parsed successfully
+/// - `Err(HuginnNetTlsError::NotClientHello)` if TLS record is valid but not a ClientHello
 /// - `Err(HuginnNetTlsError)` if parsing failed
 pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsError> {
     debug!("Parsing TLS ClientHello, data_len={}", data.len());
 
-    // Try to extract only the first complete TLS record if data is fragmented
     let data_to_parse = if data.len() >= 5 {
-        // Read TLS record length from bytes 3-4
         let record_len = u16::from_be_bytes([data[3], data[4]]) as usize;
         let needed = record_len.saturating_add(5);
 
@@ -206,7 +199,6 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
                     }
                 }
             }
-            // Valid TLS record but not a ClientHello (e.g., ServerHello, Alert)
             debug!(
                 "No ClientHello found in TLS record ({} messages, types: {:?})",
                 tls_record.msg.len(),
@@ -235,19 +227,9 @@ pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsErro
 
 /// Parse TLS ClientHello and extract JA4 fingerprint string directly
 ///
-/// This is a convenience function that combines parsing and fingerprint generation
-/// into a single call, returning the JA4 fingerprint string directly.
-///
-/// # Parameters
-/// - `data`: Raw TLS ClientHello bytes
-///
-/// # Returns
-/// - `Some(String)` containing the JA4 fingerprint if parsing succeeds
-/// - `None` if parsing fails or no ClientHello is found
-///
 /// # Example
 /// ```no_run
-/// use huginn_net_tls::tls_process::parse_tls_client_hello_ja4;
+/// use huginn_net_tls::parse_tls_client_hello_ja4;
 ///
 /// let client_hello_bytes = b"\x16\x03\x01\x00\x4a...";
 /// if let Some(ja4) = parse_tls_client_hello_ja4(client_hello_bytes) {
@@ -278,18 +260,14 @@ pub fn extract_tls_signature_from_client_hello(
     let mut elliptic_curves = Vec::new();
     let mut elliptic_curve_point_formats = Vec::new();
 
-    // Parse extensions if present - if not present, we still generate JA4 with empty extension fields
     if let Some(ext_data) = &client_hello.ext {
         match parse_tls_extensions(ext_data) {
             Ok((_remaining, parsed_extensions)) => {
                 for extension in &parsed_extensions {
                     let ext_type: u16 = TlsExtensionType::from(extension).into();
-
-                    // Filter GREASE extensions
                     if !TLS_GREASE_VALUES.contains(&ext_type) {
                         extensions.push(ext_type);
                     }
-
                     match extension {
                         TlsExtension::SNI(sni_list) => {
                             if let Some((_, hostname)) = sni_list.first() {
@@ -338,13 +316,10 @@ pub fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
     extensions: &[u16],
 ) -> TlsVersion {
-    // TLS 1.3 uses supported_versions extension
     if extensions.contains(&TlsExtensionType::SupportedVersions.into()) {
         return TlsVersion::V1_3;
     }
 
-    // Parse legacy version from ClientHello
-    // Note: SSL 2.0 is not supported by tls-parser (too legacy/vulnerable)
     match *legacy_version {
         tls_parser::TlsVersion::Tls13 => TlsVersion::V1_3,
         tls_parser::TlsVersion::Tls12 => TlsVersion::V1_2,
