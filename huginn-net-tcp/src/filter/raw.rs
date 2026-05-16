@@ -1,4 +1,4 @@
-use crate::filter::FilterConfig;
+use super::config::FilterConfig;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use tracing::debug;
 

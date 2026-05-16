@@ -1,11 +1,10 @@
 use crate::error::HuginnNetTcpError;
-use crate::ip_options::IpOptions;
-use crate::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
-use crate::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
-use crate::uptime::check_ts_tcp;
-use crate::uptime::{Connection, ConnectionKey, TcpTimestamp};
-use crate::window_size::detect_win_multiplicator;
-use crate::{mtu, ttl};
+use crate::mtu;
+use crate::mtu::ObservableMtu;
+use crate::tcp;
+use crate::tcp::observable::{ObservableTcp, TcpObservation};
+use crate::tcp::{IpOptions, IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use crate::uptime::{check_ts_tcp, Connection, ConnectionKey, ObservableUptime, TcpTimestamp};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ipv4::{Ipv4Flags, Ipv4Packet},
@@ -92,7 +91,7 @@ pub fn process_tcp_ipv4(
 
     let version = IpVersion::V4;
     let ttl_observed: u8 = packet.get_ttl();
-    let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
+    let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
     let olen: u8 = IpOptions::calculate_ipv4_length(packet);
     let mut quirks = vec![];
 
@@ -147,7 +146,7 @@ pub fn process_tcp_ipv6(
     }
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
-    let ttl: Ttl = ttl::calculate_ttl(ttl_observed);
+    let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
     let olen: u8 = IpOptions::calculate_ipv6_length(packet);
     let mut quirks = vec![];
 
@@ -336,7 +335,7 @@ fn visit_tcp(
         _ => None,
     };
 
-    let wsize: WindowSize = detect_win_multiplicator(
+    let wsize: WindowSize = tcp::detect_win_multiplicator(
         tcp.get_window(),
         mss.unwrap_or(0),
         ip_package_header_length as u16,
@@ -345,7 +344,7 @@ fn visit_tcp(
     );
 
     let tcp_signature: ObservableTcp = ObservableTcp {
-        matching: crate::observable::TcpObservation {
+        matching: TcpObservation {
             version,
             ittl,
             olen,
