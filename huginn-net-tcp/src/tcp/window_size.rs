@@ -1,4 +1,4 @@
-use crate::tcp::{IpVersion, WindowSize};
+use super::{IpVersion, WindowSize};
 
 /// Detects window size patterns following p0f's logic
 pub fn detect_win_multiplicator(

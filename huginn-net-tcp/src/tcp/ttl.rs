@@ -1,4 +1,4 @@
-use crate::tcp::Ttl;
+use super::Ttl;
 
 pub fn guess_distance(ttl: u8) -> u8 {
     if ttl > 128 {

@@ -1,16 +1,22 @@
+pub mod flow;
+pub mod parallel;
+
+use self::flow as tcp_process;
 use crate::error::HuginnNetTcpError;
 use crate::matcher_api::TcpMatcher;
 use crate::output::{
     IpPort, MTUOutput, MTUQualityMatched, MatchQuality, OSQualityMatched, SynAckTCPOutput,
-    SynTCPOutput, UptimeOutput,
+    SynTCPOutput, TcpAnalysisResult, UptimeOutput, UptimeRole,
 };
-use crate::{tcp_process, ConnectionKey, TcpAnalysisResult, TcpTimestamp, UptimeRole};
+use crate::uptime::{ConnectionKey, TcpTimestamp};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
+
+pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 
 pub struct ObservablePackage {
     pub source: IpPort,
