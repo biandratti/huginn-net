@@ -1,11 +1,10 @@
+use crate::error::HuginnNetTlsError;
+use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
 use crate::output::TlsClientOutput;
-use crate::packet_hash;
-use crate::packet_parser::{parse_packet, IpPacket};
-use crate::process::{process_ipv4_packet, process_ipv6_packet};
-use crate::raw_filter;
-use crate::tls_client_hello_reader::TlsClientHelloReader;
-use crate::{FlowKey, HuginnNetTlsError};
+use crate::parser::hash as packet_hash;
+use crate::parser::packet::{parse_packet, IpPacket};
+use crate::parser::TlsClientHelloReader;
 use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::fmt;
 use std::num::NonZeroUsize;
@@ -15,6 +14,8 @@ use std::thread;
 use std::time::Duration;
 use tracing::debug;
 use ttl_cache::TtlCache;
+
+use super::{process_ipv4_packet, process_ipv6_packet, FlowKey};
 
 /// Worker configuration parameters
 struct WorkerConfig {
@@ -183,7 +184,6 @@ impl WorkerPool {
     /// same worker, which is required for per-worker TCP reassembly (`TtlCache`).
     /// Packets that cannot be parsed into a valid flow are dropped.
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
-        // Check if pool is shutting down
         if self.shutdown_flag.load(Ordering::Relaxed) {
             return DispatchResult::Dropped;
         }
@@ -191,7 +191,6 @@ impl WorkerPool {
         let worker_id = match packet_hash::hash_flow(&packet, self.num_workers.get()) {
             Some(id) => id,
             None => {
-                // Packet too malformed to extract flow, discard it
                 self.dropped_count.fetch_add(1, Ordering::Relaxed);
                 return DispatchResult::Dropped;
             }
@@ -256,7 +255,6 @@ impl WorkerPool {
                 break;
             }
 
-            // Blocking recv for first packet (waits if queue is empty)
             let first_packet = match rx.recv_timeout(timeout) {
                 Ok(packet) => packet,
                 Err(RecvTimeoutError::Timeout) => {
@@ -274,7 +272,6 @@ impl WorkerPool {
 
             batch.push(first_packet);
 
-            // Try to fill batch with more packets (non-blocking)
             while batch.len() < config.batch_size {
                 match rx.try_recv() {
                     Ok(packet) => batch.push(packet),
@@ -283,7 +280,6 @@ impl WorkerPool {
                 }
             }
 
-            // Process entire batch
             for packet in batch.drain(..) {
                 match Self::process_packet(&packet, &mut tcp_flows, filter_config.as_deref()) {
                     Ok(Some(result)) => {

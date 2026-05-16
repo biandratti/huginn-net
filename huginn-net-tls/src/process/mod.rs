@@ -1,12 +1,24 @@
+pub mod parallel;
+pub mod tls;
+
+pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
+pub use tls::{
+    determine_tls_version, extract_tls_signature_from_client_hello, is_tls_traffic,
+    parse_tls_client_hello, parse_tls_client_hello_ja4, process_tls_ipv4, process_tls_ipv6,
+    process_tls_tcp,
+};
+
 use crate::error::HuginnNetTlsError;
+use crate::fingerprint::ObservableTlsClient;
 use crate::output::{IpPort, TlsClientOutput};
-use crate::tls_client_hello_reader::TlsClientHelloReader;
-use crate::FlowKey;
-use crate::ObservableTlsClient;
+use crate::parser::TlsClientHelloReader;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
+
+/// Flow key: (Source IP, Destination IP, Source Port, Destination Port)
+pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
 #[derive(Clone)]
 pub struct ObservablePackage {
@@ -73,32 +85,24 @@ fn process_tcp_packet(
         return Ok(None);
     }
 
-    // Check if it's TLS traffic
     let has_active_flow = tcp_flows.contains_key(&flow_key);
     let is_tls = if has_active_flow {
-        // If we have an active flow, assume continuation data is TLS
         true
     } else {
-        // Only check TLS header for new flows
-        crate::tls_process::is_tls_traffic(payload)
+        self::tls::is_tls_traffic(payload)
     };
 
     if !is_tls {
         return Ok(None);
     }
 
-    // Get or create reader for this flow
     use std::time::Duration;
     let reader = tcp_flows.get_mut(&flow_key);
     let reader = if let Some(reader) = reader {
         reader
     } else {
-        // Create new reader for this flow
-        // TTL of 20 seconds: fragmented ClientHello packets should arrive within milliseconds.
-        // If no activity for 20s, the connection likely failed or ClientHello won't complete.
         let new_reader = TlsClientHelloReader::new();
         tcp_flows.insert(flow_key, new_reader, Duration::new(20, 0));
-        // After insert, the entry should exist. If get_mut returns None, it's a TtlCache ttl issue.
         tcp_flows.get_mut(&flow_key).ok_or_else(|| {
             HuginnNetTlsError::Parse("Failed to retrieve flow after insert".to_string())
         })?
@@ -132,10 +136,7 @@ fn process_tcp_packet(
                 sig: tls_client,
             }))
         }
-        Ok(None) => {
-            // Still accumulating data
-            Ok(None)
-        }
+        Ok(None) => Ok(None),
         Err(_e) => {
             tcp_flows.remove(&flow_key);
             Ok(None)
