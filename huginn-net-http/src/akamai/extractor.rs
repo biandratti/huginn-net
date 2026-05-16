@@ -1,8 +1,8 @@
-use crate::akamai::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
+use super::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingParameter};
 use crate::error::HuginnNetHttpError;
-use crate::http2_parser::Http2Parser;
-use crate::http2_parser::{Http2Frame, Http2FrameType};
-use crate::http_common::HttpHeader;
+use crate::http::common::HttpHeader;
+use crate::http2::frames::{Http2Frame, Http2FrameType};
+use crate::http2::parser::Http2Parser;
 use hpack_patched::Decoder;
 
 /// Calculate the total number of bytes consumed by parsing the given frames

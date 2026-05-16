@@ -1,7 +1,8 @@
+use super::frames::HTTP2_CONNECTION_PREFACE;
+use super::parser::Http2Parser;
+use crate::akamai::extractor::extract_akamai_fingerprint;
 use crate::akamai::AkamaiFingerprint;
-use crate::akamai_extractor::extract_akamai_fingerprint;
 use crate::error::HuginnNetHttpError;
-use crate::http2_parser::{Http2Parser, HTTP2_CONNECTION_PREFACE};
 
 /// HTTP/2 fingerprint extractor with incremental parsing support
 ///

@@ -1,7 +1,8 @@
 use crate::error::HuginnNetHttpError;
-use crate::http_common::HttpProcessor;
-use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::{http1_process, http2_process};
+use crate::http::common::HttpProcessor;
+use crate::http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+use crate::http1::process as http1_process;
+use crate::http2::process as http2_process;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
@@ -15,7 +16,7 @@ use ttl_cache::TtlCache;
 /// FlowKey: (Client IP, Server IP, Client Port, Server Port)
 pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
-use crate::http_common::HttpParser;
+use crate::http::common::HttpParser;
 
 /// HTTP parser that automatically detects and processes different HTTP versions
 pub struct HttpProcessors {
