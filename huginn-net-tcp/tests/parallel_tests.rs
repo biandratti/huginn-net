@@ -53,13 +53,19 @@ fn test_hash_based_dispatch_consistency() {
     let queue_size = 10;
     let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None));
 
-    // Create packets with the same source IP
-    // Dispatch enough packets to overflow the queue, ensuring some get dropped
-    // This allows us to verify that all packets go to the same worker
     let src_ip = [192, 168, 1, 100];
+    let packet = create_ipv4_packet(src_ip);
+    let expected_worker = pool.worker_index_for_packet(&packet);
+    for _ in 0..256 {
+        assert_eq!(
+            pool.worker_index_for_packet(&create_ipv4_packet(src_ip)),
+            expected_worker,
+            "same source IP must always map to the same worker"
+        );
+    }
+
     let mut queued = 0;
     let mut dropped = 0;
-
     for _ in 0..(queue_size * 2) {
         match pool.dispatch(create_ipv4_packet(src_ip)) {
             DispatchResult::Queued => queued += 1,
@@ -70,18 +76,70 @@ fn test_hash_based_dispatch_consistency() {
     let stats = pool.stats();
     assert_eq!(stats.total_dispatched, queued);
     assert_eq!(stats.total_dropped, dropped);
+    assert!(stats.total_dispatched + stats.total_dropped > 0);
 
-    // All packets should go to the same worker (hash-based routing)
-    // Since we overflowed the queue, at least one worker should have dropped packets
-    // and only one worker should have dropped packets (the one handling this IP)
-    let workers_with_drops = stats.workers.iter().filter(|w| w.dropped > 0).count();
+    if stats.total_dropped > 0 {
+        let workers_with_drops = stats.workers.iter().filter(|w| w.dropped > 0).count();
+        assert_eq!(workers_with_drops, 1, "drops for one source IP must accrue on a single worker");
+    }
+}
+
+#[test]
+fn test_same_ip_drops_only_on_routed_worker_under_pressure() {
+    let (tx, _rx) = mpsc::channel();
+    let queue_size = 1;
+    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None));
+
+    let src_ip = [192, 168, 1, 42];
+    let expected_worker = pool.worker_index_for_packet(&create_ipv4_packet(src_ip));
+
+    let bursts: u64 = 100_000;
+    let mut queued = 0u64;
+    let mut dropped = 0u64;
+    for _ in 0..bursts {
+        match pool.dispatch(create_ipv4_packet(src_ip)) {
+            DispatchResult::Queued => queued += 1,
+            DispatchResult::Dropped => dropped += 1,
+        }
+    }
 
     assert_eq!(
-        workers_with_drops, 1,
-        "Expected all packets from same source IP to go to same worker (only one worker should have drops)"
+        queued + dropped,
+        bursts,
+        "every dispatch must be accounted as queued or dropped"
     );
 
-    assert!(stats.total_dispatched > 0, "Expected some packets to be dispatched");
+    assert!(
+        dropped > 0,
+        "expected overflow with queue_size=1 and {bursts} dispatches (queued={queued}, dropped={dropped})"
+    );
+
+    let stats = pool.stats();
+    assert_eq!(stats.total_dispatched, queued);
+    assert_eq!(stats.total_dropped, dropped);
+
+    let workers_with_drops: Vec<usize> = stats
+        .workers
+        .iter()
+        .filter(|w| w.dropped > 0)
+        .map(|w| w.id)
+        .collect();
+
+    assert_eq!(
+        workers_with_drops.len(),
+        1,
+        "all drops for one IP must be on exactly one worker; got {workers_with_drops:?}"
+    );
+
+    assert_eq!(
+        workers_with_drops[0], expected_worker,
+        "drops must occur on the hash-routed worker (expected {expected_worker})"
+    );
+
+    assert_eq!(
+        stats.workers[expected_worker].dropped, dropped,
+        "routed worker must own all drop events"
+    );
 }
 
 #[test]
@@ -115,7 +173,7 @@ fn test_different_ips_distributed() {
     assert!(stats.total_dispatched > 0, "Expected some packets to be dispatched");
 
     // Since we deliberately overflow each worker's queue, `dropped` is cumulative
-    // and not subject to timing — workers with drops > 0 received packets.
+    // and not subject to timing; workers with drops > 0 received packets.
     let workers_with_drops = stats.workers.iter().filter(|w| w.dropped > 0).count();
 
     assert!(

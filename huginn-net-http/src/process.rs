@@ -1,10 +1,11 @@
 use crate::error::HuginnNetHttpError;
+use crate::http::HttpDiagnosis;
+use crate::http_process;
+use crate::matcher_api::HttpMatcher;
 use crate::output::{
-    Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput, IpPort, WebServer,
-    WebServerQualityMatched,
+    BrowserQualityMatched, HttpAnalysisResult, HttpRequestOutput, HttpResponseOutput, IpPort,
+    MatchQuality, WebServerQualityMatched,
 };
-use crate::{http_process, HttpAnalysisResult, SignatureMatcher};
-use huginn_net_db::http::HttpDiagnosis;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
@@ -23,7 +24,7 @@ pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
-    matcher: Option<&SignatureMatcher>,
+    matcher: Option<&dyn HttpMatcher>,
 ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
     let observable_package =
         create_observable_package_ipv4(ipv4, http_flows, http_processors, matcher)?;
@@ -34,7 +35,7 @@ fn create_observable_package_ipv4(
     ipv4: &Ipv4Packet,
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
-    matcher: Option<&SignatureMatcher>,
+    matcher: Option<&dyn HttpMatcher>,
 ) -> Result<ObservablePackage, HuginnNetHttpError> {
     let tcp = TcpPacket::new(ipv4.payload())
         .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
@@ -45,95 +46,7 @@ fn create_observable_package_ipv4(
 
     let http_package = http_process::process_http_ipv4(ipv4, http_flows, http_processors)?;
 
-    let mut http_result = HttpAnalysisResult { http_request: None, http_response: None };
-
-    if let Some(http_request) = http_package.http_request {
-        let browser_quality = if let Some(matcher) = matcher {
-            if let Some((label, _signature, quality)) =
-                matcher.matching_by_http_request(&http_request)
-            {
-                BrowserQualityMatched {
-                    browser: Some(Browser::from(label)),
-                    quality: huginn_net_db::utils::MatchQualityType::Matched(quality),
-                }
-            } else {
-                BrowserQualityMatched {
-                    browser: None,
-                    quality: huginn_net_db::utils::MatchQualityType::NotMatched,
-                }
-            }
-        } else {
-            BrowserQualityMatched {
-                browser: None,
-                quality: huginn_net_db::utils::MatchQualityType::Disabled,
-            }
-        };
-
-        let user_agent = http_request.user_agent.clone();
-        let (signature_matcher, ua_matcher) = if let Some(matcher) = matcher {
-            let sig_match = matcher.matching_by_http_request(&http_request);
-            let ua_match = user_agent
-                .as_ref()
-                .and_then(|ua| matcher.matching_by_user_agent(ua.clone()));
-            (sig_match, ua_match)
-        } else {
-            (None, None)
-        };
-
-        let diagnosis = crate::http_common::get_diagnostic(
-            user_agent,
-            ua_matcher,
-            signature_matcher.map(|(label, _signature, _quality)| label),
-        );
-
-        let request_output = HttpRequestOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
-            lang: http_request.lang.clone(),
-            diagnosis,
-            browser_matched: browser_quality,
-            sig: http_request,
-        };
-        http_result.http_request = Some(request_output);
-    }
-
-    if let Some(http_response) = http_package.http_response {
-        let web_server_quality = if let Some(matcher) = matcher {
-            if let Some((label, _signature, quality)) =
-                matcher.matching_by_http_response(&http_response)
-            {
-                WebServerQualityMatched {
-                    web_server: Some(WebServer::from(label)),
-                    quality: huginn_net_db::utils::MatchQualityType::Matched(quality),
-                }
-            } else {
-                WebServerQualityMatched {
-                    web_server: None,
-                    quality: huginn_net_db::utils::MatchQualityType::NotMatched,
-                }
-            }
-        } else {
-            WebServerQualityMatched {
-                web_server: None,
-                quality: huginn_net_db::utils::MatchQualityType::Disabled,
-            }
-        };
-
-        let response_output = HttpResponseOutput {
-            source: IpPort::new(std::net::IpAddr::V4(ipv4.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V4(ipv4.get_destination()),
-                tcp.get_destination(),
-            ),
-            diagnosis: HttpDiagnosis::None, // Default diagnosis for responses
-            web_server_matched: web_server_quality,
-            sig: http_response,
-        };
-        http_result.http_response = Some(response_output);
-    }
+    let http_result = build_http_result(http_package, source.clone(), destination.clone(), matcher);
 
     Ok(ObservablePackage { source, destination, http_result })
 }
@@ -143,7 +56,7 @@ pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
-    matcher: Option<&SignatureMatcher>,
+    matcher: Option<&dyn HttpMatcher>,
 ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
     let observable_package =
         create_observable_package_ipv6(ipv6, http_flows, http_processors, matcher)?;
@@ -154,9 +67,8 @@ fn create_observable_package_ipv6(
     ipv6: &Ipv6Packet,
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
-    matcher: Option<&SignatureMatcher>,
+    matcher: Option<&dyn HttpMatcher>,
 ) -> Result<ObservablePackage, HuginnNetHttpError> {
-    // Extract TCP info for source/destination ports
     let tcp = TcpPacket::new(ipv6.payload())
         .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
 
@@ -166,54 +78,70 @@ fn create_observable_package_ipv6(
 
     let http_package = http_process::process_http_ipv6(ipv6, http_flows, http_processors)?;
 
+    let http_result = build_http_result(http_package, source.clone(), destination.clone(), matcher);
+
+    Ok(ObservablePackage { source, destination, http_result })
+}
+
+fn build_http_result(
+    http_package: http_process::ObservableHttpPackage,
+    source: IpPort,
+    destination: IpPort,
+    matcher: Option<&dyn HttpMatcher>,
+) -> HttpAnalysisResult {
     let mut http_result = HttpAnalysisResult { http_request: None, http_response: None };
 
-    // Process HTTP request
     if let Some(http_request) = http_package.http_request {
-        let browser_quality = if let Some(matcher) = matcher {
-            if let Some((label, _signature, quality)) =
-                matcher.matching_by_http_request(&http_request)
-            {
-                BrowserQualityMatched {
-                    browser: Some(Browser::from(label)),
-                    quality: huginn_net_db::utils::MatchQualityType::Matched(quality),
+        let (browser_quality, ua_os_family) = match matcher {
+            Some(m) => match m.match_http_request(&http_request.matching) {
+                Some(req_match) => {
+                    let ua_family = http_request
+                        .user_agent
+                        .as_deref()
+                        .and_then(|ua| m.match_user_agent(ua))
+                        .map(|um| um.family);
+                    (
+                        BrowserQualityMatched {
+                            browser: Some(req_match.browser),
+                            quality: MatchQuality::Matched(req_match.quality),
+                        },
+                        ua_family,
+                    )
                 }
-            } else {
-                BrowserQualityMatched {
-                    browser: None,
-                    quality: huginn_net_db::utils::MatchQualityType::NotMatched,
+                None => {
+                    let ua_family = http_request
+                        .user_agent
+                        .as_deref()
+                        .and_then(|ua| m.match_user_agent(ua))
+                        .map(|um| um.family);
+                    (
+                        BrowserQualityMatched { browser: None, quality: MatchQuality::NotMatched },
+                        ua_family,
+                    )
                 }
-            }
-        } else {
-            BrowserQualityMatched {
-                browser: None,
-                quality: huginn_net_db::utils::MatchQualityType::Disabled,
+            },
+            None => {
+                (BrowserQualityMatched { browser: None, quality: MatchQuality::Disabled }, None)
             }
         };
 
-        let user_agent = http_request.user_agent.clone();
-        let (signature_matcher, ua_matcher) = if let Some(matcher) = matcher {
-            let sig_match = matcher.matching_by_http_request(&http_request);
-            let ua_match = user_agent
-                .as_ref()
-                .and_then(|ua| matcher.matching_by_user_agent(ua.clone()));
-            (sig_match, ua_match)
-        } else {
-            (None, None)
-        };
+        // TODO(v2-followup): the value passed as `network_os_name` is currently
+        // `Browser.name` (e.g. "Firefox"), which is *not* an OS. The standalone
+        // `HuginnNetHttp` pipeline has no access to a TCP fingerprint here, so the
+        // diagnostic crossing UA-vs-network-OS is only meaningful when called from
+        // the umbrella crate that can supply the TCP-detected OS. Revisit in a
+        // dedicated PR (see also umbrella callsite in `huginn-net/src/lib.rs`).
+        let network_os_name = browser_quality.browser.as_ref().map(|b| b.name.clone());
 
         let diagnosis = crate::http_common::get_diagnostic(
-            user_agent,
-            ua_matcher,
-            signature_matcher.map(|(label, _signature, _quality)| label),
+            http_request.user_agent.clone(),
+            ua_os_family.as_deref(),
+            network_os_name.as_deref(),
         );
 
         let request_output = HttpRequestOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
+            source: source.clone(),
+            destination: destination.clone(),
             lang: http_request.lang.clone(),
             diagnosis,
             browser_matched: browser_quality,
@@ -222,41 +150,29 @@ fn create_observable_package_ipv6(
         http_result.http_request = Some(request_output);
     }
 
-    // Process HTTP response
     if let Some(http_response) = http_package.http_response {
-        let web_server_quality = if let Some(matcher) = matcher {
-            if let Some((label, _signature, quality)) =
-                matcher.matching_by_http_response(&http_response)
-            {
-                WebServerQualityMatched {
-                    web_server: Some(WebServer::from(label)),
-                    quality: huginn_net_db::utils::MatchQualityType::Matched(quality),
+        let web_server_quality = match matcher {
+            Some(m) => match m.match_http_response(&http_response.matching) {
+                Some(resp_match) => WebServerQualityMatched {
+                    web_server: Some(resp_match.web_server),
+                    quality: MatchQuality::Matched(resp_match.quality),
+                },
+                None => {
+                    WebServerQualityMatched { web_server: None, quality: MatchQuality::NotMatched }
                 }
-            } else {
-                WebServerQualityMatched {
-                    web_server: None,
-                    quality: huginn_net_db::utils::MatchQualityType::NotMatched,
-                }
-            }
-        } else {
-            WebServerQualityMatched {
-                web_server: None,
-                quality: huginn_net_db::utils::MatchQualityType::Disabled,
-            }
+            },
+            None => WebServerQualityMatched { web_server: None, quality: MatchQuality::Disabled },
         };
 
         let response_output = HttpResponseOutput {
-            source: IpPort::new(std::net::IpAddr::V6(ipv6.get_source()), tcp.get_source()),
-            destination: IpPort::new(
-                std::net::IpAddr::V6(ipv6.get_destination()),
-                tcp.get_destination(),
-            ),
-            diagnosis: HttpDiagnosis::None, // Default diagnosis for responses
+            source,
+            destination,
+            diagnosis: HttpDiagnosis::None,
             web_server_matched: web_server_quality,
             sig: http_response,
         };
         http_result.http_response = Some(response_output);
     }
 
-    Ok(ObservablePackage { source, destination, http_result })
+    http_result
 }

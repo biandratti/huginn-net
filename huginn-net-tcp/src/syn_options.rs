@@ -2,7 +2,7 @@
 //!
 //! Provides [`parse_options_raw`] for decoding TCP options from raw bytes (TLV encoding, RFC 793).
 //! Pair it with [`crate::ttl::calculate_ttl`] and [`crate::window_size::detect_win_multiplicator`]
-//! to assemble a complete [`huginn_net_db::observable_signals::TcpObservation`].
+//! to assemble a complete [`crate::observable::TcpObservation`].
 
 use crate::tcp::TcpOption;
 use pnet::packet::tcp::{TcpOptionNumbers::*, TcpOptionPacket};
@@ -28,9 +28,9 @@ pub struct ParsedTcpOptions {
 ///
 /// # Returns
 /// `(olayout, mss, wscale)` where:
-/// - `olayout` — ordered list of options found (used for fingerprint matching).
-/// - `mss`     — Maximum Segment Size if the MSS option was present.
-/// - `wscale`  — Window Scale factor if the WS option was present.
+/// - `olayout`: ordered list of options found (used for fingerprint matching).
+/// - `mss`    : Maximum Segment Size if the MSS option was present.
+/// - `wscale` : Window Scale factor if the WS option was present.
 ///
 /// # Example
 ///

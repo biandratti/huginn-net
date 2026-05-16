@@ -1,3 +1,4 @@
+#![cfg(feature = "http")]
 use huginn_net_db::http::{Header, HttpMatchQuality};
 use huginn_net_db::observable_http_signals_matching::HttpDistance;
 use huginn_net_db::observable_signals::{HttpRequestObservation, HttpResponseObservation};

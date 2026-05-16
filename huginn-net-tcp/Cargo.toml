@@ -15,7 +15,6 @@ categories = ["network-programming"]
 
 [dependencies]
 crossbeam-channel = { workspace = true }
-huginn-net-db = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
 thiserror = { workspace = true }
@@ -26,6 +25,7 @@ ttl_cache = { workspace = true }
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
+huginn-net-db = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }

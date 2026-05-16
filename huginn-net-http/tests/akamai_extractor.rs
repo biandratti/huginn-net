@@ -201,7 +201,7 @@ fn test_headers_priority_flag_truncated_payload_returns_error() {
     use huginn_net_http::HuginnNetHttpError;
     let settings_frame = Http2Frame::new(0x4, 0x00, 0, vec![0x00, 0x03, 0x00, 0x00, 0x00, 0x64]);
 
-    // FLAG_PRIORITY (0x20) set but only 2 bytes — needs 5 for the priority block
+    // FLAG_PRIORITY (0x20) set but only 2 bytes, needs 5 for the priority block
     let headers_frame = Http2Frame::new(0x1, 0x24, 1, vec![0x00, 0x00]);
 
     let result = extract_akamai_fingerprint(&[settings_frame, headers_frame]);

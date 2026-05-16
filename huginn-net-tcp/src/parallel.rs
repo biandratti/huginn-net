@@ -1,17 +1,19 @@
 use crate::error::HuginnNetTcpError;
 use crate::filter::FilterConfig;
+use crate::matcher_api::TcpMatcher;
 use crate::output::TcpAnalysisResult;
 use crate::packet_hash;
 use crate::packet_parser::{parse_packet, IpPacket};
 use crate::process::{process_ipv4_packet, process_ipv6_packet};
 use crate::raw_filter;
-use crate::signature_matcher::SignatureMatcher;
 use crossbeam_channel::{bounded, Sender, TrySendError};
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use ttl_cache::TtlCache;
+
+type SharedMatcher = Arc<dyn TcpMatcher + Send + Sync>;
 
 /// Worker configuration parameters.
 #[derive(Debug, Clone, Copy)]
@@ -99,7 +101,8 @@ impl WorkerPool {
     /// - `batch_size`: Number of packets to process before yielding
     /// - `timeout_ms`: Timeout in milliseconds for blocking receive
     /// - `result_sender`: Channel to send TCP analysis results
-    /// - `database`: Optional database for OS fingerprinting (wrapped in Arc for thread sharing)
+    /// - `matcher`: Optional matcher implementing [`TcpMatcher`] for OS/MTU
+    ///   matching (wrapped in `Arc` for thread sharing).
     /// - `max_connections`: Maximum connections to track per worker
     /// - `filter_config`: Optional filter configuration for packet filtering
     ///
@@ -112,7 +115,7 @@ impl WorkerPool {
         batch_size: usize,
         timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<TcpAnalysisResult>,
-        database: Option<Arc<crate::db::Database>>,
+        matcher: Option<SharedMatcher>,
         max_connections: usize,
         filter_config: Option<FilterConfig>,
     ) -> Result<Self, HuginnNetTcpError> {
@@ -122,7 +125,6 @@ impl WorkerPool {
 
         let mut workers = Vec::new();
         let mut packet_senders = Vec::new();
-        let mut worker_dropped = Vec::new();
         let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         for worker_id in 0..num_workers.get() {
@@ -130,11 +132,9 @@ impl WorkerPool {
             packet_senders.push(tx);
 
             let result_sender_clone = result_sender.clone();
-            let dropped_counter = Arc::new(AtomicU64::new(0));
-            worker_dropped.push(Arc::clone(&dropped_counter));
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
 
-            let worker_database = database.as_ref().map(Arc::clone);
+            let worker_matcher = matcher.as_ref().map(Arc::clone);
             let worker_filter = filter_config.clone();
 
             let handle = thread::Builder::new()
@@ -144,7 +144,7 @@ impl WorkerPool {
                         worker_id,
                         rx,
                         result_sender_clone,
-                        worker_database,
+                        worker_matcher,
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
                         worker_filter,
@@ -159,10 +159,8 @@ impl WorkerPool {
             workers.push(handle);
         }
 
-        let worker_dropped_plain: Vec<AtomicU64> = worker_dropped
-            .iter()
-            .map(|arc| AtomicU64::new(arc.load(Ordering::Relaxed)))
-            .collect();
+        let worker_dropped: Vec<AtomicU64> =
+            (0..num_workers.get()).map(|_| AtomicU64::new(0)).collect();
 
         Ok(Self {
             _workers: workers,
@@ -172,7 +170,7 @@ impl WorkerPool {
             num_workers,
             dispatched_count: AtomicU64::new(0),
             dropped_count: AtomicU64::new(0),
-            worker_dropped: worker_dropped_plain,
+            worker_dropped,
             batch_size,
             timeout_ms,
         })
@@ -182,7 +180,7 @@ impl WorkerPool {
         worker_id: usize,
         rx: crossbeam_channel::Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<TcpAnalysisResult>,
-        database: Option<Arc<crate::db::Database>>,
+        matcher: Option<SharedMatcher>,
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
         filter_config: Option<FilterConfig>,
@@ -192,10 +190,7 @@ impl WorkerPool {
 
         tracing::debug!("TCP worker {worker_id} starting");
 
-        // Each worker creates its own matcher from the shared database
-        let matcher = database
-            .as_ref()
-            .map(|db| SignatureMatcher::new(db.as_ref()));
+        let matcher_ref: Option<&dyn TcpMatcher> = matcher.as_deref().map(|m| m as &dyn TcpMatcher);
 
         // Each worker maintains its own connection tracker (state isolation)
         let mut connection_tracker = TtlCache::new(config.max_connections);
@@ -230,7 +225,7 @@ impl WorkerPool {
             if !Self::process_packet(
                 &first_packet,
                 &mut connection_tracker,
-                matcher.as_ref(),
+                matcher_ref,
                 &result_sender,
                 filter_config.as_ref(),
             ) {
@@ -245,7 +240,7 @@ impl WorkerPool {
                         if !Self::process_packet(
                             &packet,
                             &mut connection_tracker,
-                            matcher.as_ref(),
+                            matcher_ref,
                             &result_sender,
                             filter_config.as_ref(),
                         ) {
@@ -269,7 +264,7 @@ impl WorkerPool {
             crate::uptime::ConnectionKey,
             crate::uptime::TcpTimestamp,
         >,
-        matcher: Option<&SignatureMatcher>,
+        matcher: Option<&dyn TcpMatcher>,
         result_sender: &std::sync::mpsc::Sender<TcpAnalysisResult>,
         filter: Option<&FilterConfig>,
     ) -> bool {
@@ -301,6 +296,18 @@ impl WorkerPool {
         }
     }
 
+    /// Returns the worker index that would receive `packet` (same routing as
+    /// [`Self::dispatch`]).
+    ///
+    /// This is deterministic for a given packet and pool size; callers can use
+    /// it in tests without relying on queue timing.
+    pub fn worker_index_for_packet(&self, packet: &[u8]) -> usize {
+        let source_ip_hash = packet_hash::hash_source_ip(packet);
+        source_ip_hash
+            .checked_rem(self.num_workers.get())
+            .unwrap_or(0)
+    }
+
     /// Dispatches a packet to the appropriate worker based on source IP hash.
     ///
     /// Uses hash-based assignment to ensure packets from the same source IP
@@ -311,13 +318,7 @@ impl WorkerPool {
             return DispatchResult::Dropped;
         }
 
-        // Extract source IP for hashing
-        let source_ip_hash = packet_hash::hash_source_ip(&packet);
-
-        // NonZeroUsize guarantees num_workers.get() > 0
-        let worker_id = source_ip_hash
-            .checked_rem(self.num_workers.get())
-            .unwrap_or(0);
+        let worker_id = self.worker_index_for_packet(&packet);
 
         match self.packet_senders[worker_id].try_send(packet) {
             Ok(()) => {

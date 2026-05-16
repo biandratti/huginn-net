@@ -130,31 +130,35 @@ pub trait HttpProcessor {
     fn name(&self) -> &'static str;
 }
 
-/// HTTP diagnostic function - determines the relationship between User-Agent and OS signature
+/// HTTP diagnostic function - determines the relationship between User-Agent and an
+/// externally-observed OS signal.
 ///
-/// This function analyzes the consistency between the reported User-Agent string and
-/// the detected OS signature from TCP fingerprinting to identify potential spoofing.
+/// This function compares the OS family reported by the User-Agent string against an
+/// OS name observed from the network (typically obtained from TCP fingerprinting by the
+/// caller, but this crate is intentionally agnostic about the source). A mismatch
+/// between the two is a hint of potential spoofing.
 ///
 /// # Arguments
 /// * `user_agent` - Optional User-Agent string from HTTP headers
-/// * `ua_matcher` - Optional tuple of (OS name, browser flavor) extracted from User-Agent
-/// * `signature_os_matcher` - Optional OS label from TCP signature matching
+/// * `ua_os_family` - OS family resolved from the User-Agent (UA→OS mapping in the database)
+/// * `network_os_name` - OS name observed from another source (e.g. TCP fingerprinting).
+///   `huginn-net-http` does not know how this was produced; it just compares strings.
 ///
 /// # Returns
 /// * `HttpDiagnosis::Anonymous` - No User-Agent provided
-/// * `HttpDiagnosis::Generic` - User-Agent OS matches TCP signature OS
-/// * `HttpDiagnosis::Dishonest` - User-Agent OS differs from TCP signature OS (potential spoofing)
+/// * `HttpDiagnosis::Generic` - User-Agent OS matches the externally observed OS
+/// * `HttpDiagnosis::Dishonest` - User-Agent OS differs from the externally observed OS (potential spoofing)
 /// * `HttpDiagnosis::None` - Insufficient data for comparison
 pub fn get_diagnostic(
     user_agent: Option<String>,
-    ua_matcher: Option<(&str, Option<&str>)>,
-    signature_os_matcher: Option<&huginn_net_db::Label>,
+    ua_os_family: Option<&str>,
+    network_os_name: Option<&str>,
 ) -> http::HttpDiagnosis {
     match user_agent {
         None => http::HttpDiagnosis::Anonymous,
-        Some(_ua) => match (ua_matcher, signature_os_matcher) {
-            (Some((ua_name_db, _ua_flavor_db)), Some(signature_label_db)) => {
-                if ua_name_db.eq_ignore_ascii_case(&signature_label_db.name) {
+        Some(_ua) => match (ua_os_family, network_os_name) {
+            (Some(ua_name), Some(net_name)) => {
+                if ua_name.eq_ignore_ascii_case(net_name) {
                     http::HttpDiagnosis::Generic
                 } else {
                     http::HttpDiagnosis::Dishonest

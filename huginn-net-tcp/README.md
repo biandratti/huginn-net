@@ -57,7 +57,8 @@ huginn-net-db = "1.7.5"
 ### Basic Usage
 
 ```rust
-use huginn_net_db::Database;
+use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::{FilterConfig, HuginnNetTcp, HuginnNetTcpError, IpFilter, PortFilter, TcpAnalysisResult};
 use std::sync::{Arc, mpsc};
 
@@ -70,10 +71,12 @@ fn main() -> Result<(), HuginnNetTcpError> {
             return Err(HuginnNetTcpError::Parse(format!("Database error: {e}")));
         }
     };
-    
-    // Create analyzer
-    let mut analyzer = match HuginnNetTcp::new(Some(db), 1000) {
-        Ok(analyzer) => analyzer,
+    let matcher: Arc<dyn TcpMatcher + Send + Sync> =
+        Arc::new(SharedTcpSignatureMatcher::new(db));
+
+    // Create analyzer (matcher is plugged in via the builder)
+    let mut analyzer = match HuginnNetTcp::new(1000) {
+        Ok(analyzer) => analyzer.with_matcher(matcher),
         Err(e) => {
             eprintln!("Failed to create analyzer: {e}");
             return Err(e);

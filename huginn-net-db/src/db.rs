@@ -1,27 +1,62 @@
 use crate::db_matching_trait::{DatabaseSignature, FingerprintDb, IndexKey, ObservedFingerprint};
+#[cfg(feature = "http")]
 use crate::http::{self, Version as HttpVersion};
-use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation, TcpObservation};
+#[cfg(feature = "tcp")]
+use crate::observable_signals::TcpObservation;
+#[cfg(feature = "http")]
+use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
+#[cfg(feature = "tcp")]
 use crate::tcp::{self, IpVersion, PayloadSize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::marker::PhantomData;
+#[cfg(any(feature = "tcp", feature = "http"))]
 use std::str::FromStr;
 use tracing::debug;
 
-/// Represents the database used by `P0f` to store signatures and associated metadata.
-/// The database contains signatures for analyzing TCP and HTTP traffic, as well as
-/// other metadata such as MTU mappings and user agent-to-operating system mappings.
-#[derive(Debug)]
-pub struct Database {
+/// TCP-only fingerprint database: IP/TCP (layer-3/4) signatures plus MTU mappings.
+///
+/// Holds everything needed to match observed TCP traffic against the p0f
+/// database. Independent of HTTP signatures, can be loaded and used on its
+/// own (see `Database::from_str` for the composed `Database` parser).
+#[cfg(feature = "tcp")]
+#[derive(Debug, Clone)]
+pub struct TcpDatabase {
     pub classes: Vec<String>,
     pub mtu: Vec<(String, Vec<u16>)>,
-    pub ua_os: Vec<(String, Option<String>)>,
     pub tcp_request: FingerprintCollection<TcpObservation, tcp::Signature, TcpIndexKey>,
     pub tcp_response: FingerprintCollection<TcpObservation, tcp::Signature, TcpIndexKey>,
+}
+
+/// HTTP-only fingerprint database: HTTP (layer-7) signatures plus User-Agent → OS mappings.
+///
+/// Holds everything needed to match observed HTTP traffic against the p0f
+/// database. Independent of TCP signatures, can be loaded and used on its
+/// own (see `Database::from_str` for the composed `Database` parser).
+#[cfg(feature = "http")]
+#[derive(Debug, Clone)]
+pub struct HttpDatabase {
+    pub classes: Vec<String>,
+    pub ua_os: Vec<(String, Option<String>)>,
     pub http_request: FingerprintCollection<HttpRequestObservation, http::Signature, HttpIndexKey>,
     pub http_response:
         FingerprintCollection<HttpResponseObservation, http::Signature, HttpIndexKey>,
+}
+
+/// Composite p0f database holding both TCP and HTTP sub-databases.
+///
+/// `Database` is the public-facing type loaded from `p0f.fp` (or any
+/// equivalent text). It is a thin composition of [`TcpDatabase`] and
+/// [`HttpDatabase`]; consumers can also work with each sub-database
+/// directly when they only need one protocol.
+///
+/// Available only when both `tcp` and `http` features are enabled.
+#[cfg(all(feature = "tcp", feature = "http"))]
+#[derive(Debug, Clone)]
+pub struct Database {
+    pub tcp: TcpDatabase,
+    pub http: HttpDatabase,
 }
 
 /// Represents a label associated with a signature, which provides metadata about
@@ -49,6 +84,11 @@ impl fmt::Display for Type {
     }
 }
 
+/// Bytes of the bundled p0f fingerprint database, embedded at build time.
+#[cfg(any(feature = "tcp", feature = "http"))]
+pub(crate) const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
+
+#[cfg(all(feature = "tcp", feature = "http"))]
 impl Database {
     /// Creates a default instance of the `Database` by parsing an embedded configuration file.
     /// This file (`config/p0f.fp` relative to the crate root) is expected to define the default
@@ -59,9 +99,31 @@ impl Database {
     /// cannot be parsed. This indicates a critical issue with the bundled fingerprint data
     /// or the parser itself.
     pub fn load_default() -> Result<Self, crate::error::DatabaseError> {
-        const DEFAULT_FP_CONTENTS: &str = include_str!("../config/p0f.fp");
-
         Database::from_str(DEFAULT_FP_CONTENTS).map_err(|e| {
+            crate::error::DatabaseError::InvalidConfiguration(format!(
+                "Failed to parse embedded default p0f database: {e}"
+            ))
+        })
+    }
+}
+
+#[cfg(feature = "tcp")]
+impl TcpDatabase {
+    /// Load only the TCP sub-database from the embedded `p0f.fp`.
+    pub fn load_default() -> Result<Self, crate::error::DatabaseError> {
+        TcpDatabase::from_str(DEFAULT_FP_CONTENTS).map_err(|e| {
+            crate::error::DatabaseError::InvalidConfiguration(format!(
+                "Failed to parse embedded default p0f database: {e}"
+            ))
+        })
+    }
+}
+
+#[cfg(feature = "http")]
+impl HttpDatabase {
+    /// Load only the HTTP sub-database from the embedded `p0f.fp`.
+    pub fn load_default() -> Result<Self, crate::error::DatabaseError> {
+        HttpDatabase::from_str(DEFAULT_FP_CONTENTS).map_err(|e| {
             crate::error::DatabaseError::InvalidConfiguration(format!(
                 "Failed to parse embedded default p0f database: {e}"
             ))
@@ -80,6 +142,7 @@ impl Database {
 /// The fields included are chosen for their balance of providing good
 /// discrimination while not being overly specific to avoid missing matches
 /// due to minor variations (which are handled by the distance calculation).
+#[cfg(feature = "tcp")]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TcpIndexKey {
     pub ip_version_key: IpVersion,
@@ -87,6 +150,7 @@ pub struct TcpIndexKey {
     pub pclass_key: PayloadSize,
 }
 
+#[cfg(feature = "tcp")]
 impl IndexKey for TcpIndexKey {}
 
 /// Index key for HTTP signatures, used to optimize database lookups.
@@ -94,14 +158,16 @@ impl IndexKey for TcpIndexKey {}
 /// This key is generated from a `http::Signature`
 /// to enable faster filtering of HTTP signatures. It combines key characteristics
 /// of an HTTP request or response.
+#[cfg(feature = "http")]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HttpIndexKey {
     pub http_version_key: HttpVersion,
 }
 
+#[cfg(feature = "http")]
 impl IndexKey for HttpIndexKey {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FingerprintCollection<OF, DS, K>
 where
     OF: ObservedFingerprint<Key = K>,

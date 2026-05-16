@@ -13,10 +13,19 @@ homepage.workspace = true
 keywords = ["p0f", "database", "parser", "fingerprinting", "network"]
 categories = ["network-programming"]
 
+[features]
+default = ["tcp", "http"]
+tcp = ["dep:huginn-net-tcp"]
+http = ["dep:huginn-net-http"]
+
 [dependencies]
+huginn-net-http = { workspace = true, optional = true }
+huginn-net-tcp = { workspace = true, optional = true }
 nom = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
 lazy_static = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

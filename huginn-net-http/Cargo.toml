@@ -16,7 +16,6 @@ categories = ["network-programming", "web-programming"]
 [dependencies]
 crossbeam-channel = { workspace = true }
 hpack-patched = { workspace = true }
-huginn-net-db = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
@@ -29,6 +28,7 @@ ttl_cache = { workspace = true }
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
+huginn-net-db = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }

@@ -1,47 +1,57 @@
 use crate::db::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::observable_signals::TcpObservation;
-use crate::tcp::{self, IpVersion, PayloadSize};
+use crate::tcp::{
+    self, distance_ip_version, distance_payload_size, distance_ttl, distance_window_size,
+    IpVersion, PayloadSize,
+};
 
-impl TcpObservation {
-    pub(crate) fn distance_olen(&self, other: &tcp::Signature) -> Option<u32> {
-        if self.olen == other.olen {
-            Some(tcp::TcpMatchQuality::High.as_score())
-        } else {
-            Some(tcp::TcpMatchQuality::Low.as_score())
-        }
+pub(crate) fn distance_olen(observed: &TcpObservation, signature: &tcp::Signature) -> Option<u32> {
+    if observed.olen == signature.olen {
+        Some(tcp::TcpMatchQuality::High.as_score())
+    } else {
+        Some(tcp::TcpMatchQuality::Low.as_score())
     }
+}
 
-    pub(crate) fn distance_mss(&self, other: &tcp::Signature) -> Option<u32> {
-        if other.mss.is_none() || self.mss == other.mss {
-            Some(tcp::TcpMatchQuality::High.as_score())
-        } else {
-            Some(tcp::TcpMatchQuality::Low.as_score())
-        }
+pub(crate) fn distance_mss(observed: &TcpObservation, signature: &tcp::Signature) -> Option<u32> {
+    if signature.mss.is_none() || observed.mss == signature.mss {
+        Some(tcp::TcpMatchQuality::High.as_score())
+    } else {
+        Some(tcp::TcpMatchQuality::Low.as_score())
     }
+}
 
-    pub(crate) fn distance_wscale(&self, other: &tcp::Signature) -> Option<u32> {
-        if other.wscale.is_none() || self.wscale == other.wscale {
-            Some(tcp::TcpMatchQuality::High.as_score())
-        } else {
-            Some(tcp::TcpMatchQuality::Medium.as_score())
-        }
+pub(crate) fn distance_wscale(
+    observed: &TcpObservation,
+    signature: &tcp::Signature,
+) -> Option<u32> {
+    if signature.wscale.is_none() || observed.wscale == signature.wscale {
+        Some(tcp::TcpMatchQuality::High.as_score())
+    } else {
+        Some(tcp::TcpMatchQuality::Medium.as_score())
     }
+}
 
-    pub(crate) fn distance_olayout(&self, other: &tcp::Signature) -> Option<u32> {
-        if self.olayout == other.olayout {
-            Some(tcp::TcpMatchQuality::High.as_score())
-        } else {
-            None
-        }
+pub(crate) fn distance_olayout(
+    observed: &TcpObservation,
+    signature: &tcp::Signature,
+) -> Option<u32> {
+    if observed.olayout == signature.olayout {
+        Some(tcp::TcpMatchQuality::High.as_score())
+    } else {
+        None
     }
+}
 
-    pub(crate) fn distance_quirks(&self, other: &tcp::Signature) -> Option<u32> {
-        if self.quirks == other.quirks {
-            Some(tcp::TcpMatchQuality::High.as_score())
-        } else {
-            None
-        }
+pub(crate) fn distance_quirks(
+    observed: &TcpObservation,
+    signature: &tcp::Signature,
+) -> Option<u32> {
+    if observed.quirks == signature.quirks {
+        Some(tcp::TcpMatchQuality::High.as_score())
+    } else {
+        None
     }
 }
 
@@ -60,21 +70,15 @@ impl ObservedFingerprint for TcpObservation {
 
 impl DatabaseSignature<TcpObservation> for tcp::Signature {
     fn calculate_distance(&self, observed: &TcpObservation) -> Option<u32> {
-        let distance = observed
-            .version
-            .distance_ip_version(&self.version)?
-            .saturating_add(observed.ittl.distance_ttl(&self.ittl)?)
-            .saturating_add(observed.distance_olen(self)?)
-            .saturating_add(observed.distance_mss(self)?)
-            .saturating_add(
-                observed
-                    .wsize
-                    .distance_window_size(&self.wsize, observed.mss)?,
-            )
-            .saturating_add(observed.distance_wscale(self)?)
-            .saturating_add(observed.distance_olayout(self)?)
-            .saturating_add(observed.distance_quirks(self)?)
-            .saturating_add(observed.pclass.distance_payload_size(&self.pclass)?);
+        let distance = distance_ip_version(&observed.version, &self.version)?
+            .saturating_add(distance_ttl(&observed.ittl, &self.ittl)?)
+            .saturating_add(distance_olen(observed, self)?)
+            .saturating_add(distance_mss(observed, self)?)
+            .saturating_add(distance_window_size(&observed.wsize, &self.wsize, observed.mss)?)
+            .saturating_add(distance_wscale(observed, self)?)
+            .saturating_add(distance_olayout(observed, self)?)
+            .saturating_add(distance_quirks(observed, self)?)
+            .saturating_add(distance_payload_size(&observed.pclass, &self.pclass)?);
         Some(distance)
     }
 
