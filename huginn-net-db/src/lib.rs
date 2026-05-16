@@ -24,45 +24,53 @@
 //! protocol; disabling both leaves only [`Label`], [`Type`], the parser
 //! shell, and the database-matching traits.
 
-// Core database functionality
-pub mod db;
+#[path = "matcher/traits.rs"]
 pub mod db_matching_trait;
-pub mod db_parse;
+
+pub mod database;
 pub mod error;
+
+pub mod parse;
+
+pub mod db_parse {
+    #[allow(unused_imports)] // re-export is a no-op when both protocol features are off
+    pub use super::parse::*;
+}
 
 #[cfg(feature = "http")]
 pub mod http;
 #[cfg(feature = "tcp")]
 pub mod tcp;
 
-// Observable signals and matching impls
 #[cfg(feature = "http")]
+#[path = "http/matching.rs"]
 pub mod observable_http_signals_matching;
-pub mod observable_signals;
 #[cfg(feature = "tcp")]
+#[path = "tcp/matching.rs"]
 pub mod observable_tcp_signals_matching;
 
-// Matcher implementations
 #[cfg(feature = "http")]
+#[path = "matcher/http_signature_matcher.rs"]
 pub mod http_signature_matcher;
 #[cfg(feature = "tcp")]
+#[path = "matcher/tcp_signature_matcher.rs"]
 pub mod tcp_signature_matcher;
-
-// Display implementations for database types
-pub mod display;
-pub mod utils;
 
 // Re-export main types for convenience
 #[cfg(all(feature = "tcp", feature = "http"))]
-pub use db::Database;
+pub use database::Database;
 #[cfg(feature = "http")]
-pub use db::HttpDatabase;
+pub use database::HttpDatabase;
 #[cfg(feature = "tcp")]
-pub use db::TcpDatabase;
-pub use db::{Label, Type};
+pub use database::TcpDatabase;
+pub use database::{Label, Type};
 pub use error::DatabaseError;
 #[cfg(feature = "http")]
 pub use http_signature_matcher::{HttpSignatureMatcher, SharedHttpSignatureMatcher};
 #[cfg(feature = "tcp")]
 pub use tcp_signature_matcher::{SharedTcpSignatureMatcher, TcpSignatureMatcher};
-pub use utils::MatchQualityType;
+
+/// Historical module path (`huginn_net_db::db::…`); re-exports [`database`].
+pub mod db {
+    pub use super::database::*;
+}

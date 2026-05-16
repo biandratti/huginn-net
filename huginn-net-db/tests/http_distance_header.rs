@@ -1,7 +1,7 @@
 #![cfg(feature = "http")]
 use huginn_net_db::http::{Header, HttpMatchQuality};
 use huginn_net_db::observable_http_signals_matching::HttpDistance;
-use huginn_net_db::observable_signals::{HttpRequestObservation, HttpResponseObservation};
+use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 #[test]
 fn test_distance_header_with_one_optional_header_mismatch() {
