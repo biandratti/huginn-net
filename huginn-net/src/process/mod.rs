@@ -1,5 +1,5 @@
 use crate::error::HuginnNetError;
-use crate::packet_parser::{parse_packet, IpPacket};
+use crate::parser::packet::{parse_packet, IpPacket};
 use crate::AnalysisConfig;
 use huginn_net_http::error::HuginnNetHttpError;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};

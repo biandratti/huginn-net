@@ -13,12 +13,10 @@
 //!
 //! ## Cargo Features
 //!
-//! - `tcp` (default) - pulls in `huginn-net-tcp` and exposes [`TcpDatabase`],
-//!   [`TcpSignatureMatcher`], the `[tcp:*]` parser branch, and TCP signal
-//!   matching impls.
-//! - `http` (default) - pulls in `huginn-net-http` and exposes [`HttpDatabase`],
-//!   [`HttpSignatureMatcher`], the `[http:*]` parser branch, and HTTP signal
-//!   matching impls.
+//! | Feature | Default | Description |
+//! |---------|---------|-------------|
+//! | `tcp` | Yes | Pulls in [`huginn_net_tcp`] and exposes [`TcpDatabase`], [`TcpSignatureMatcher`], the `[tcp:*]` p0f parser branch, and TCP signal matching impls |
+//! | `http` | Yes | Pulls in [`huginn_net_http`] and exposes [`HttpDatabase`], [`HttpSignatureMatcher`], the `[http:*]` p0f parser branch, and HTTP signal matching impls |
 //!
 //! Disabling either feature keeps the crate compiling against only the other
 //! protocol; disabling both leaves only [`Label`], [`Type`], the parser
