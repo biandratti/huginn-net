@@ -1,10 +1,3 @@
-//! Layer 3 golden test: feed a PCAP through `HuginnNetHttp` with a real
-//! `SharedHttpSignatureMatcher` and verify browser/server identification
-//! against known-good JSON snapshots.
-//!
-//! The snapshots in `tests/snapshots/` extend the Layer 1 shape (raw HTTP
-//! fields) with matcher fields (`browser`, `web_server`, `quality`).
-
 #![cfg(feature = "http")]
 
 use huginn_net_db::{Database, SharedHttpSignatureMatcher};
@@ -15,10 +8,6 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
-
-// ---------------------------------------------------------------------------
-// Snapshot types
-// ---------------------------------------------------------------------------
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {
@@ -58,10 +47,6 @@ struct HttpResponseSnapshot {
     status_code: Option<u16>,
     headers_count: usize,
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 fn load_snapshot(name: &str) -> PcapSnapshot {
     let path = format!("tests/snapshots/{name}.json");
@@ -258,10 +243,6 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
         );
     }
 }
-
-// ---------------------------------------------------------------------------
-// Golden test driver
-// ---------------------------------------------------------------------------
 
 fn run_golden_test(snapshot_name: &str) {
     let snapshot = load_snapshot(snapshot_name);

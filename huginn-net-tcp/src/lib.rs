@@ -178,10 +178,6 @@ impl HuginnNetTcp {
     /// The matcher is shared between this analyzer and any worker pool it
     /// spawns; pass an `Arc<dyn TcpMatcher + Send + Sync>` (alias
     /// [`SharedTcpMatcher`]).
-    ///
-    /// In the default workspace setup, `huginn-net-db` provides
-    /// `TcpSignatureMatcher` (borrowed) and `SharedTcpSignatureMatcher`
-    /// (owned `Arc<Database>`); the latter is what you typically pass here.
     pub fn with_matcher(mut self, matcher: SharedTcpMatcher) -> Self {
         self.matcher = Some(matcher);
         self

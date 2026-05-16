@@ -1,14 +1,3 @@
-//! Golden tests for raw TCP fingerprint extraction.
-//!
-//! **This is the "Layer 1" golden test**: it only checks that
-//! `huginn-net-tcp` extracts the same raw signature / MTU / uptime values
-//! from a given PCAP that it always has *without* any database matching.
-//!
-//! The matching half of what used to be in this file lives in
-//! `huginn-net-db/tests/golden_tcp_matching.rs`, where each captured
-//! `raw_signature` is fed through `TcpSignatureMatcher` and the resulting
-//! OS/quality is verified.
-
 use huginn_net_tcp::{HuginnNetTcp, HuginnNetTcpError, TcpAnalysisResult};
 use serde::{Deserialize, Serialize};
 use std::fs;

@@ -1,11 +1,3 @@
-//! Layer 3 golden test: feed a PCAP through `HuginnNetTcp` with a real
-//! `SharedTcpSignatureMatcher` and verify OS identification and MTU matching
-//! against known-good JSON snapshots.
-//!
-//! The snapshots in `tests/snapshots/` extend the Layer 1 shape (raw TCP
-//! signatures / MTU) with matcher fields (`os_name`, `os_family`,
-//! `os_variant`, `quality`, `link_type`).
-
 #![cfg(feature = "tcp")]
 
 use huginn_net_db::{Database, SharedTcpSignatureMatcher};
@@ -16,10 +8,6 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::Arc;
-
-// ---------------------------------------------------------------------------
-// Snapshot types
-// ---------------------------------------------------------------------------
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {
@@ -70,10 +58,6 @@ struct UptimeSnapshot {
     uptime_days: u32,
     raw_frequency: f64,
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 fn load_snapshot(name: &str) -> PcapSnapshot {
     let path = format!("tests/snapshots/{name}.json");
@@ -279,10 +263,6 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
         );
     }
 }
-
-// ---------------------------------------------------------------------------
-// Golden test driver
-// ---------------------------------------------------------------------------
 
 fn run_golden_test(snapshot_name: &str) {
     let snapshot = load_snapshot(snapshot_name);

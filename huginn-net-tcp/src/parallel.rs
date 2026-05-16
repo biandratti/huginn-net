@@ -190,9 +190,6 @@ impl WorkerPool {
 
         tracing::debug!("TCP worker {worker_id} starting");
 
-        // Borrow as &dyn TcpMatcher for the rest of the loop. The Arc keeps
-        // the implementor alive across calls; we don't rebuild a per-worker
-        // matcher because the trait already abstracts over any lookup state.
         let matcher_ref: Option<&dyn TcpMatcher> = matcher.as_deref().map(|m| m as &dyn TcpMatcher);
 
         // Each worker maintains its own connection tracker (state isolation)

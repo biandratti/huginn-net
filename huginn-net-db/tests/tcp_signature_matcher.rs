@@ -1,8 +1,36 @@
 #![cfg(feature = "tcp")]
 use huginn_net_db::observable_signals::TcpObservation;
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher, Type};
 use huginn_net_tcp::ObservableTcp;
+
+fn observation_from_signature(sig: &Signature) -> TcpObservation {
+    TcpObservation {
+        version: sig.version,
+        ittl: sig.ittl.clone(),
+        olen: sig.olen,
+        mss: sig.mss,
+        wsize: sig.wsize.clone(),
+        wscale: sig.wscale,
+        olayout: sig.olayout.clone(),
+        quirks: sig.quirks.clone(),
+        pclass: sig.pclass,
+    }
+}
+
+/// Parses `raw` as a TCP signature and runs it through `matching_by_tcp_request`.
+fn match_request(
+    matcher: &TcpSignatureMatcher,
+    raw: &str,
+) -> Option<(String, Option<String>, Option<String>, f32)> {
+    let sig: Signature = match raw.parse() {
+        Ok(sig) => sig,
+        Err(e) => panic!("Failed to parse signature {raw}: {e}"),
+    };
+    let obs = ObservableTcp { matching: observation_from_signature(&sig) };
+    let (label, _, quality) = matcher.matching_by_tcp_request(&obs)?;
+    Some((label.name.clone(), label.class.clone(), label.flavor.clone(), quality))
+}
 
 #[test]
 fn matching_linux_by_tcp_request() {
@@ -125,4 +153,20 @@ fn matching_android_by_tcp_request() {
     } else {
         panic!("No match found");
     }
+}
+
+#[test]
+fn unknown_request_signature_does_not_match() {
+    let db = match TcpDatabase::load_default() {
+        Ok(db) => db,
+        Err(e) => panic!("Failed to load default database: {e}"),
+    };
+    let matcher = TcpSignatureMatcher::new(&db);
+
+    let raw = "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1,eol+0:df,ecn:0";
+    let result = match_request(&matcher, raw);
+    assert!(
+        result.is_none(),
+        "expected no match for synthetic signature: {raw}, got {result:?}"
+    );
 }

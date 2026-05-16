@@ -121,3 +121,41 @@ fn matching_android_chrome_by_http_request() {
         None => panic!("No HTTP match found for Android Chrome signature"),
     }
 }
+
+#[test]
+fn unknown_request_signature_does_not_match() {
+    let db = match HttpDatabase::load_default() {
+        Ok(db) => db,
+        Err(e) => panic!("Failed to load default database: {e}"),
+    };
+    let matcher = HttpSignatureMatcher::new(&db);
+
+    let unknown = HttpRequestObservation {
+        version: http::Version::V30,
+        horder: vec![http::Header::new("Totally-Made-Up-Header")],
+        habsent: vec![],
+        expsw: "DefinitelyNotARealBrowser/0.0".to_string(),
+    };
+
+    let result = matcher.matching_by_http_request(&unknown);
+    assert!(
+        result.is_none(),
+        "expected no match for synthetic signature, got {:?}",
+        result.map(|(label, _, q)| (label.name.clone(), q))
+    );
+}
+
+#[test]
+fn ua_lookup_returns_known_family() {
+    let db = match HttpDatabase::load_default() {
+        Ok(db) => db,
+        Err(e) => panic!("Failed to load default database: {e}"),
+    };
+    let matcher = HttpSignatureMatcher::new(&db);
+
+    let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+              (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    if let Some((substr, _family)) = matcher.matching_by_user_agent(ua) {
+        assert!(ua.contains(substr), "matched substring should appear in UA");
+    }
+}

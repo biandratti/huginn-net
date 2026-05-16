@@ -1,10 +1,3 @@
-//! Pure data types describing the shape of a TCP fingerprint.
-//!
-//! These types only carry information observed on the wire; they intentionally
-//! contain **no matching/scoring logic**. The matching logic (and the database
-//! signatures that those scores are computed against) lives in
-//! `huginn-net-db`, which depends on this crate and consumes these types.
-
 use core::fmt;
 use std::fmt::Formatter;
 
