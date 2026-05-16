@@ -177,7 +177,11 @@ impl WorkerPool {
         }
     }
 
-    /// Dispatch packet to a worker (round-robin)
+    /// Dispatch packet to a worker using hash-based flow routing.
+    ///
+    /// Packets belonging to the same TCP flow (src/dst IP + port) always go to the
+    /// same worker, which is required for per-worker TCP reassembly (`TtlCache`).
+    /// Packets that cannot be parsed into a valid flow are dropped.
     pub fn dispatch(&self, packet: Vec<u8>) -> DispatchResult {
         // Check if pool is shutting down
         if self.shutdown_flag.load(Ordering::Relaxed) {

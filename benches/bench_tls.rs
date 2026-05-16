@@ -300,8 +300,11 @@ fn generate_final_report(_c: &mut Criterion) {
             }
 
             println!();
-            println!("Note: TLS uses round-robin dispatch (stateless processing)");
-            println!("      Parallel benchmarks include worker pool overhead");
+            println!("Note: TLS uses hash-based flow dispatch (stateful per-worker TtlCache)");
+            println!("      Same TCP flow always routes to the same worker (required for TCP reassembly)");
+            println!(
+                "      Parallel benchmarks include worker pool creation/dispatch/shutdown overhead"
+            );
         }
     }
     println!();
