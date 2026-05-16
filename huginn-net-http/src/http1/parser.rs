@@ -1,5 +1,5 @@
 use crate::http;
-use crate::http_common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
+use crate::http::common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
 use std::collections::HashMap;
 use std::time::Instant;
 

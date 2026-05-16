@@ -5,13 +5,13 @@
 //! only the source IP, HTTP hashes the complete flow (src_ip, dst_ip, src_port, dst_port)
 //! to ensure requests and responses from the same connection are processed by the same worker.
 
+use super::flow::{FlowKey, HttpProcessors, TcpFlow};
 use crate::error::HuginnNetHttpError;
+use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
-use crate::http_process::{FlowKey, HttpProcessors, TcpFlow};
 use crate::matcher_api::HttpMatcher;
 use crate::output::HttpAnalysisResult;
-use crate::packet_hash;
-use crate::raw_filter;
+use crate::parser::hash as packet_hash;
 use crossbeam_channel::{bounded, Sender};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

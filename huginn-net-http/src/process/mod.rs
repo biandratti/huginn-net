@@ -1,6 +1,12 @@
+pub mod flow;
+pub mod parallel;
+
+pub use flow::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
+pub use parallel::{DispatchResult, PoolStats, SharedHttpMatcher, WorkerPool, WorkerStats};
+
+use self::flow as http_process;
 use crate::error::HuginnNetHttpError;
 use crate::http::HttpDiagnosis;
-use crate::http_process;
 use crate::matcher_api::HttpMatcher;
 use crate::output::{
     BrowserQualityMatched, HttpAnalysisResult, HttpRequestOutput, HttpResponseOutput, IpPort,
@@ -133,7 +139,7 @@ fn build_http_result(
         // dedicated PR (see also umbrella callsite in `huginn-net/src/lib.rs`).
         let network_os_name = browser_quality.browser.as_ref().map(|b| b.name.clone());
 
-        let diagnosis = crate::http_common::get_diagnostic(
+        let diagnosis = crate::http::common::get_diagnostic(
             http_request.user_agent.clone(),
             ua_os_family.as_deref(),
             network_os_name.as_deref(),

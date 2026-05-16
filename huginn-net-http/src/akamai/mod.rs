@@ -1,3 +1,9 @@
+pub mod extractor;
+pub use extractor::{
+    calculate_frames_bytes_consumed, extract_akamai_fingerprint,
+    extract_akamai_fingerprint_from_bytes,
+};
+
 use sha2::{Digest, Sha256};
 use std::fmt;
 use std::fmt::Write;
@@ -230,8 +236,8 @@ impl AkamaiFingerprint {
     /// Create a new Akamai fingerprint directly from its components.
     ///
     /// For production use, prefer
-    /// [`extract_akamai_fingerprint`](crate::akamai_extractor::extract_akamai_fingerprint) or
-    /// [`extract_akamai_fingerprint_from_bytes`](crate::akamai_extractor::extract_akamai_fingerprint_from_bytes),
+    /// [`extract_akamai_fingerprint`] or
+    /// [`extract_akamai_fingerprint_from_bytes`],
     /// which parse and validate HTTP/2 frames and return a typed error on failure.
     ///
     /// # Parameters

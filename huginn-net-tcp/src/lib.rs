@@ -44,7 +44,6 @@ pub use uptime::{
 // ---------------------------------------------------------------------------
 // Public module aliases
 // Convenience paths that expose domain sub-modules at well-known names.
-// Breaking renames (if any) will be documented in MIGRATION.md for v2.0.
 // ---------------------------------------------------------------------------
 
 pub mod display {
