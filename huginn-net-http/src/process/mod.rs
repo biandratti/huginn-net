@@ -131,12 +131,7 @@ fn build_http_result(
             }
         };
 
-        // TODO(v2-followup): the value passed as `network_os_name` is currently
-        // `Browser.name` (e.g. "Firefox"), which is *not* an OS. The standalone
-        // `HuginnNetHttp` pipeline has no access to a TCP fingerprint here, so the
-        // diagnostic crossing UA-vs-network-OS is only meaningful when called from
-        // the umbrella crate that can supply the TCP-detected OS. Revisit in a
-        // dedicated PR (see also umbrella callsite in `huginn-net/src/lib.rs`).
+        // TODO: (p0f-parity) https://github.com/biandratti/huginn-net/issues/278.
         let network_os_name = browser_quality.browser.as_ref().map(|b| b.name.clone());
 
         let diagnosis = crate::http::common::get_diagnostic(

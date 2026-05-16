@@ -43,15 +43,33 @@ huginn-net-db = "1.7.5"
 
 | Feature | Default | Description |
 |---------|---------|-------------|
+| `db` | Yes | Pulls in `huginn-net-db` and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (raw signatures + JA4, no database). |
 | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
 
-Enable with:
+Default build (with database matching):
+
+```toml
+[dependencies]
+huginn-net = "1.7.5"
+huginn-net-db = "1.7.5"
+```
+
+Enable JA4 stable fingerprints:
 
 ```toml
 [dependencies]
 huginn-net = { version = "1.7.5", features = ["tls-stable-v1"] }
 huginn-net-db = "1.7.5"
 ```
+
+Observation-only build (no database, no p0f matching — useful for TLS terminators, sidecars, or custom matchers):
+
+```toml
+[dependencies]
+huginn-net = { version = "1.7.5", default-features = false }
+```
+
+With `db` disabled, use `HuginnNet::new_observable(max_connections, None)` instead of `HuginnNet::new(...)`.
 
 When enabled, `TlsClient` output gains two extra lines:
 
@@ -67,66 +85,104 @@ When enabled, `TlsClient` output gains two extra lines:
 - **PCAP file analysis** - Offline traffic analysis  
 - **Protocol-specific examples** - TCP, HTTP, TLS focused analysis
 
-### Basic Usage
+### Basic Usage — with database (TCP + HTTP + TLS)
+
+Because `HuginnNet<'a>` borrows from `Database`, the typical pattern is to
+load the database and create the analyzer **inside the capture thread**,
+so the borrow lives for the whole capture loop:
 
 ```rust
-use huginn_net::{Database, FilterConfig, HuginnNet, HuginnNetError, IpFilter, PortFilter};
-use std::sync::{Arc, mpsc};
+use huginn_net::{Database, FilterConfig, FingerprintResult, HuginnNet, PortFilter, SubnetFilter};
+use std::sync::mpsc;
 
-fn main() -> Result<(), HuginnNetError> {
-    // Load database for fingerprinting
-    let db = match Database::load_default() {
-        Ok(db) => Arc::new(db),
-        Err(e) => {
-            eprintln!("Failed to load database: {e}");
-            return Err(HuginnNetError::Parse(format!("Database error: {e}")));
-        }
-    };
-    
-    // Create analyzer
-    let mut analyzer = match HuginnNet::new(Some(db), 1000, None) {
-        Ok(analyzer) => analyzer,
-        Err(e) => {
-            eprintln!("Failed to create analyzer: {e}");
-            return Err(e);
-        }
-    };
-    
-    // Optional: Configure filters (can be combined)
-    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
-        let filter = FilterConfig::new()
-            .with_port_filter(PortFilter::new().destination(443))
-            .with_ip_filter(ip_filter);
-        analyzer = analyzer.with_filter(filter);
-    }
-    
-    let (sender, receiver) = mpsc::channel();
-    
-    // Live capture
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let (sender, receiver) = mpsc::channel::<FingerprintResult>();
+
     std::thread::spawn(move || {
+        // Load p0f database inside the thread — the analyzer borrows from it
+        let db = match Database::load_default() {
+            Ok(db) => db,
+            Err(e) => {
+                eprintln!("Failed to load database: {e}");
+                return;
+            }
+        };
+
+        let mut analyzer = match HuginnNet::new(Some(&db), 1000, None) {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("Failed to create analyzer: {e}");
+                return;
+            }
+        };
+
+        // Optional: Configure filters (can be combined)
+        if let Ok(subnet_filter) = SubnetFilter::new().allow("192.168.1.0/24") {
+            let filter = FilterConfig::new()
+                .with_port_filter(PortFilter::new().destination(443))
+                .with_subnet_filter(subnet_filter);
+            analyzer = analyzer.with_filter(filter);
+        }
+
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+
+        // Or PCAP analysis:
+        // if let Err(e) = analyzer.analyze_pcap("traffic.pcap", sender, None) {
+        //     eprintln!("Analysis error: {e}");
+        // }
+    });
+
+    for result in receiver {
+        if let Some(tcp_syn)            = result.tcp_syn            { println!("{tcp_syn}"); }
+        if let Some(tcp_syn_ack)        = result.tcp_syn_ack        { println!("{tcp_syn_ack}"); }
+        if let Some(tcp_mtu)            = result.tcp_mtu            { println!("{tcp_mtu}"); }
+        if let Some(tcp_client_uptime)  = result.tcp_client_uptime  { println!("{tcp_client_uptime}"); }
+        if let Some(tcp_server_uptime)  = result.tcp_server_uptime  { println!("{tcp_server_uptime}"); }
+        if let Some(http_request)       = result.http_request       { println!("{http_request}"); }
+        if let Some(http_response)      = result.http_response      { println!("{http_response}"); }
+        if let Some(tls_client)         = result.tls_client         { println!("{tls_client}"); }
+    }
+
+    Ok(())
+}
+```
+
+### Basic Usage — observation only (no database)
+
+If you build with `default-features = false`, the `db` feature is off
+and `HuginnNet::new(...)` is **not compiled**. Use `HuginnNet::new_observable`
+instead to get raw TCP/HTTP signatures + JA4 with all `*QualityMatched`
+fields set to `Disabled`:
+
+```rust
+// Requires `huginn-net = { version = "...", default-features = false }`
+// in your Cargo.toml.
+use huginn_net::{FingerprintResult, HuginnNet};
+use std::sync::mpsc;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let (sender, receiver) = mpsc::channel::<FingerprintResult>();
+
+    std::thread::spawn(move || {
+        let mut analyzer = match HuginnNet::new_observable(1000, None) {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("Failed to create analyzer: {e}");
+                return;
+            }
+        };
+
         if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
             eprintln!("Analysis error: {e}");
         }
     });
-    
-    // Or PCAP analysis
-    // std::thread::spawn(move || {
-    //     if let Err(e) = analyzer.analyze_pcap("traffic.pcap", sender, None) {
-    //         eprintln!("Analysis error: {e}");
-    //     }
-    // });
-    
+
     for result in receiver {
-        if let Some(tcp_syn) = result.tcp_syn { println!("{tcp_syn}"); }
-        if let Some(tcp_syn_ack) = result.tcp_syn_ack { println!("{tcp_syn_ack}"); }
-        if let Some(tcp_mtu) = result.tcp_mtu { println!("{tcp_mtu}"); }
-        if let Some(tcp_client_uptime) = result.tcp_client_uptime { println!("{tcp_client_uptime}"); }
-        if let Some(tcp_server_uptime) = result.tcp_server_uptime { println!("{tcp_server_uptime}"); }
-        if let Some(http_request) = result.http_request { println!("{http_request}"); }
-        if let Some(http_response) = result.http_response { println!("{http_response}"); }
         if let Some(tls_client) = result.tls_client { println!("{tls_client}"); }
     }
-    
+
     Ok(())
 }
 ```

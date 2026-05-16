@@ -85,67 +85,98 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net-http = "1.7.5"
-huginn-net-db = "1.7.5"
+# Optional: only needed if you want browser/server fingerprint matching.
+# Skip it for an observation-only build (raw HTTP signatures, Akamai
+# HTTP/2 fingerprints, etc.). With `default-features = false, features =
+# ["http"]` you only pull in the HTTP half of the p0f database (no TCP
+# parser, no TCP signatures embedded).
+huginn-net-db = { version = "1.7.5", default-features = false, features = ["http"] }
 ```
 
-### Basic Usage
+### Cargo Features
+
+This crate has no Cargo features of its own. Database support is opt-in
+at the dependency level by adding `huginn-net-db` and calling
+[`HuginnNetHttp::with_matcher`].
+
+### Basic Usage — with database (browser/server fingerprinting)
 
 ```rust
-use huginn_net_db::{Database, SharedHttpSignatureMatcher};
-use huginn_net_http::matcher_api::HttpMatcher;
-use huginn_net_http::{FilterConfig, HuginnNetHttp, HuginnNetHttpError, IpFilter, PortFilter, HttpAnalysisResult};
-use std::sync::{Arc, mpsc};
+use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
+use huginn_net_http::{
+    FilterConfig, HttpAnalysisResult, HuginnNetHttp, PortFilter, SharedHttpMatcher, SubnetFilter,
+};
+use std::sync::{mpsc, Arc};
 
-fn main() -> Result<(), HuginnNetHttpError> {
-    // Load database for browser/server fingerprinting (optional)
-    let db = match Database::load_default() {
-        Ok(db) => Arc::new(db),
-        Err(e) => {
-            eprintln!("Failed to load database: {e}");
-            return Err(HuginnNetHttpError::Parse(format!("Database error: {e}")));
-        }
-    };
-    let matcher: Arc<dyn HttpMatcher + Send + Sync> =
-        Arc::new(SharedHttpSignatureMatcher::new(db));
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load only the HTTP half of the p0f database and build a shared matcher
+    let http_db = Arc::new(HttpDatabase::load_default()?);
+    let matcher: SharedHttpMatcher = Arc::new(SharedHttpSignatureMatcher::new(http_db));
 
-    // Create analyzer (builder pattern)
-    let mut analyzer = match HuginnNetHttp::new(1000) {
-        Ok(analyzer) => analyzer.with_matcher(matcher),
-        Err(e) => {
-            eprintln!("Failed to create analyzer: {e}");
-            return Err(e);
-        }
-    };
-    
+    // Create analyzer with matching enabled
+    let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher);
+
     // Optional: Configure filters (can be combined)
-    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+    if let Ok(subnet_filter) = SubnetFilter::new().allow("192.168.1.0/24") {
         let filter = FilterConfig::new()
             .with_port_filter(PortFilter::new().destination(80))
-            .with_ip_filter(ip_filter);
+            .with_subnet_filter(subnet_filter);
         analyzer = analyzer.with_filter(filter);
     }
-    
+
     let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
-    
+
     // Live capture (use parallel mode for high throughput)
     std::thread::spawn(move || {
         if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
             eprintln!("Analysis error: {e}");
         }
     });
-    
+
     // Or PCAP analysis (always use sequential mode)
     // std::thread::spawn(move || {
     //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
     //         eprintln!("Analysis error: {e}");
     //     }
     // });
-    
+
     for result in receiver {
         if let Some(http_request) = result.http_request { println!("{http_request}"); }
         if let Some(http_response) = result.http_response { println!("{http_response}"); }
     }
-    
+
+    Ok(())
+}
+```
+
+### Basic Usage — observation only (no database)
+
+If you don't need browser/server matching (e.g. you only consume the raw
+HTTP signature, Akamai HTTP/2 fingerprint, etc.) you can skip
+`huginn-net-db` entirely. Match-quality fields will report `Disabled`,
+but the observable signatures are still produced.
+
+```rust
+use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp, HuginnNetHttpError};
+use std::sync::mpsc;
+
+fn main() -> Result<(), HuginnNetHttpError> {
+    // No matcher → observation-only mode
+    let mut analyzer = HuginnNetHttp::new(1000);
+
+    let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
+
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
+
+    for result in receiver {
+        if let Some(http_request) = result.http_request { println!("{http_request}"); }
+        if let Some(http_response) = result.http_response { println!("{http_response}"); }
+    }
+
     Ok(())
 }
 ```

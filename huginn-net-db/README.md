@@ -18,7 +18,12 @@
 
 This crate provides p0f database parsing and signature matching capabilities. It handles parsing of p0f signature databases and provides efficient matching algorithms for TCP and HTTP fingerprinting.
 
-**Note**: This crate is automatically included when using `huginn-net-tcp` or `huginn-net-http`. Most users don't need to use it directly.
+**Note**: `huginn-net-db` depends on `huginn-net-tcp` and `huginn-net-http`
+(via Cargo features) and provides the bridge between them and a p0f-style
+signature database. When using the umbrella `huginn-net` crate, this is
+pulled in automatically through the default `db` feature. You only need
+to depend on `huginn-net-db` directly if you use `huginn-net-tcp` /
+`huginn-net-http` standalone and want database-backed matching.
 
 ## Features
 
@@ -27,9 +32,50 @@ This crate provides p0f database parsing and signature matching capabilities. It
 - **Quality Scoring** - Distance-based quality metrics for matches
 - **Extensible Design** - Easy to add new signature types
 
+## Cargo Features
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `tcp` | Yes | Pulls in `huginn-net-tcp` and exposes `TcpDatabase`, `TcpSignatureMatcher`, `SharedTcpSignatureMatcher`, the `[tcp:*]` p0f parser branch, and TCP signal matching impls |
+| `http` | Yes | Pulls in `huginn-net-http` and exposes `HttpDatabase`, `HttpSignatureMatcher`, `SharedHttpSignatureMatcher`, the `[http:*]` p0f parser branch, and HTTP signal matching impls |
+
+The composite `Database` type and the `from_database(&db)` helpers on
+`SharedTcpSignatureMatcher` / `SharedHttpSignatureMatcher` are only
+available when **both** features are enabled (the default). Partial
+builds (e.g. `--no-default-features --features tcp`) expose only the
+single-protocol `TcpDatabase` / `HttpDatabase` and the matching `new(Arc<...>)`
+constructors.
+
+Default build (both protocols):
+
+```toml
+[dependencies]
+huginn-net-db = "1.7.5"
+```
+
+TCP-only build:
+
+```toml
+[dependencies]
+huginn-net-db = { version = "1.7.5", default-features = false, features = ["tcp"] }
+```
+
 ## Usage
 
-This crate is used internally by other huginn-net crates and is not intended for direct use.
+Typical use is to build a `SharedTcpSignatureMatcher` /
+`SharedHttpSignatureMatcher` from the bundled p0f database and plug it
+into a standalone analyzer via `.with_matcher(...)`:
+
+```rust
+use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_tcp::{HuginnNetTcp, SharedTcpMatcher};
+use std::sync::Arc;
+
+let db = Database::load_default()?;
+let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
+# Ok::<_, Box<dyn std::error::Error>>(())
+```
 
 ## Documentation
 
