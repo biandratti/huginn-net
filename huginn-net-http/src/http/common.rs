@@ -1,4 +1,4 @@
-use crate::http;
+use super::{HttpDiagnosis, Version};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -78,12 +78,12 @@ impl Default for ParsingMetadata {
     }
 }
 
-use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
+use super::observable::{ObservableHttpRequest, ObservableHttpResponse};
 
 /// Common trait for all HTTP parsers across different versions
 pub trait HttpParser {
     /// Get the HTTP version this parser supports
-    fn supported_version(&self) -> http::Version;
+    fn supported_version(&self) -> Version;
 
     /// Check if this parser can handle the given data
     fn can_parse(&self, data: &[u8]) -> bool;
@@ -124,7 +124,7 @@ pub trait HttpProcessor {
     ) -> Result<Option<ObservableHttpResponse>, crate::error::HuginnNetHttpError>;
 
     /// Get the HTTP version this processor handles
-    fn supported_version(&self) -> http::Version;
+    fn supported_version(&self) -> Version;
 
     /// Get a human-readable name for this processor
     fn name(&self) -> &'static str;
@@ -153,18 +153,18 @@ pub fn get_diagnostic(
     user_agent: Option<String>,
     ua_os_family: Option<&str>,
     network_os_name: Option<&str>,
-) -> http::HttpDiagnosis {
+) -> HttpDiagnosis {
     match user_agent {
-        None => http::HttpDiagnosis::Anonymous,
+        None => HttpDiagnosis::Anonymous,
         Some(_ua) => match (ua_os_family, network_os_name) {
             (Some(ua_name), Some(net_name)) => {
                 if ua_name.eq_ignore_ascii_case(net_name) {
-                    http::HttpDiagnosis::Generic
+                    HttpDiagnosis::Generic
                 } else {
-                    http::HttpDiagnosis::Dishonest
+                    HttpDiagnosis::Dishonest
                 }
             }
-            _ => http::HttpDiagnosis::None,
+            _ => HttpDiagnosis::None,
         },
     }
 }
