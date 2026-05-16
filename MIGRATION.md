@@ -12,7 +12,16 @@ Architectural refactor: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls
 
 ### Most users (umbrella crate `huginn-net`)
 
-If you depend on `huginn-net` as a single crate, **most code keeps working** thanks to compatibility re-exports. The most likely thing you need to update is direct imports from `huginn_net_db::tcp` / `huginn_net_db::http`:
+If you depend on `huginn-net` as a single crate, **most code keeps working** thanks to compatibility re-exports. The `HuginnNet::new(Some(&db), max_connections, config)` signature is unchanged:
+
+```rust
+use huginn_net::{Database, HuginnNet};
+
+let db = Database::load_default()?;
+let mut analyzer = HuginnNet::new(Some(&db), 1000, None)?; // same as v1.x
+```
+
+The most likely thing you need to update is direct imports from `huginn_net_db::tcp` / `huginn_net_db::http`:
 
 ```diff
 -use huginn_net_db::tcp::{IpVersion, Ttl};
@@ -47,29 +56,30 @@ let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
 **After (v2.0) — full database (TCP + HTTP), with matching:**
 
 ```rust
-use huginn_net_tcp::HuginnNetTcp;
-use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_tcp::{HuginnNetTcp, SharedTcpMatcher};
 use huginn_net_db::{Database, SharedTcpSignatureMatcher};
 use std::sync::Arc;
 
 let db = Database::load_default()?;
-let matcher: Arc<dyn TcpMatcher + Send + Sync> =
-    Arc::new(SharedTcpSignatureMatcher::from_database(&db));
-let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
+let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let mut tcp = HuginnNetTcp::new(1000).with_matcher(matcher);
 ```
+
+> `SharedTcpSignatureMatcher::from_database(&db)` is only available when
+> `huginn-net-db` is built with both `tcp` and `http` features (the default).
+> For partial builds use `SharedTcpSignatureMatcher::new(Arc<TcpDatabase>)`
+> as shown below.
 
 **After (v2.0) — TCP-only database (no HTTP signatures loaded):**
 
 ```rust
-use huginn_net_tcp::HuginnNetTcp;
-use huginn_net_tcp::matcher_api::TcpMatcher;
+use huginn_net_tcp::{HuginnNetTcp, SharedTcpMatcher};
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use std::sync::Arc;
 
 let tcp_db = Arc::new(TcpDatabase::load_default()?);
-let matcher: Arc<dyn TcpMatcher + Send + Sync> =
-    Arc::new(SharedTcpSignatureMatcher::new(tcp_db));
-let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
+let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::new(tcp_db));
+let mut tcp = HuginnNetTcp::new(1000).with_matcher(matcher);
 ```
 
 To turn off the HTTP signatures entirely (no parsing cost, no embedded data),
@@ -79,22 +89,20 @@ build `huginn-net-db` with `--no-default-features --features tcp`.
 
 ```rust
 use huginn_net_tcp::HuginnNetTcp;
-let mut tcp = HuginnNetTcp::new(1000)?;
+let mut tcp = HuginnNetTcp::new(1000);
 ```
 
 The same pattern applies to `HuginnNetHttp` — full database, HTTP-only or no
 matching at all:
 
 ```rust
-use huginn_net_http::HuginnNetHttp;
-use huginn_net_http::matcher_api::HttpMatcher;
+use huginn_net_http::{HuginnNetHttp, SharedHttpMatcher};
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use std::sync::Arc;
 
 let http_db = Arc::new(HttpDatabase::load_default()?);
-let matcher: Arc<dyn HttpMatcher + Send + Sync> =
-    Arc::new(SharedHttpSignatureMatcher::new(http_db));
-let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
+let matcher: SharedHttpMatcher = Arc::new(SharedHttpSignatureMatcher::new(http_db));
+let mut http = HuginnNetHttp::new(1000).with_matcher(matcher);
 ```
 
 ### Type paths moved
@@ -113,7 +121,9 @@ let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
 
 ### Database split
 
-`Database` is now a composition of `TcpDatabase` and `HttpDatabase`. Field access requires one extra hop:
+When `huginn-net-db` is built with both `tcp` and `http` features (the
+default — what `huginn-net` always uses), `Database` is a composition of
+`TcpDatabase` and `HttpDatabase`. Field access requires one extra hop:
 
 | Old field (v1.x) | New path (v2.0) |
 |---|---|
@@ -127,19 +137,28 @@ Load only what you need:
 ```rust
 let tcp_db  = huginn_net_db::TcpDatabase::load_default()?;
 let http_db = huginn_net_db::HttpDatabase::load_default()?;
-let full_db = huginn_net_db::Database::load_default()?;
+let full_db = huginn_net_db::Database::load_default()?;  // requires both features
 ```
+
+If you depend on `huginn-net-db` directly and disable one of the features
+(`--no-default-features --features tcp` or `--features http`), only the
+corresponding standalone database type is compiled — the composite
+`Database` type and `from_database(&db)` helpers are not available. Use
+`SharedTcpSignatureMatcher::new(Arc<TcpDatabase>)` /
+`SharedHttpSignatureMatcher::new(Arc<HttpDatabase>)` instead.
 
 ### Constructor changes — `new()` no longer returns `Result`
 
 `HuginnNetTcp::new` and `HuginnNetHttp::new` now return `Self` directly. They
-never failed in practice, so the `Result` wrapper was misleading.
+never failed in practice, so the `Result` wrapper was misleading. (The umbrella
+`HuginnNet::new` and `HuginnNet::new_observable` still return `Result` because
+they validate the `database` argument against the `matcher_enabled` flag.)
 
 ```diff
--let mut tcp = HuginnNetTcp::new(1000)?.with_matcher(matcher);
+-let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
 +let mut tcp = HuginnNetTcp::new(1000).with_matcher(matcher);
 
--let mut http = HuginnNetHttp::new(1000)?.with_matcher(matcher);
+-let mut http = HuginnNetHttp::new(Some(db), 1000)?;
 +let mut http = HuginnNetHttp::new(1000).with_matcher(matcher);
 ```
 
@@ -149,20 +168,25 @@ never failed in practice, so the `Result` wrapper was misleading.
 
 The old parallel-mode constructors are removed. All analyzers now follow the same
 builder pattern: `new(max_connections)` for sequential mode, then optionally
-`.with_parallel(...)` to enable multi-threaded processing.
+`.with_parallel(...)` to enable multi-threaded processing. `.with_parallel(...)`
+and `.with_matcher(...)` are independent and chainable in any order.
 
 **`huginn-net-tcp`**
 
 ```diff
 -HuginnNetTcp::with_config(num_workers, queue_size, batch_size, timeout_ms, max_connections)?
-+HuginnNetTcp::new(max_connections)?.with_parallel(num_workers, queue_size, batch_size, timeout_ms)
++HuginnNetTcp::new(max_connections)
++    .with_parallel(num_workers, queue_size, batch_size, timeout_ms)
++    .with_matcher(matcher) // optional
 ```
 
 **`huginn-net-http`**
 
 ```diff
 -HuginnNetHttp::with_config(num_workers, queue_size, batch_size, timeout_ms, max_connections)?
-+HuginnNetHttp::new(max_connections)?.with_parallel(num_workers, queue_size, batch_size, timeout_ms)
++HuginnNetHttp::new(max_connections)
++    .with_parallel(num_workers, queue_size, batch_size, timeout_ms)
++    .with_matcher(matcher) // optional
 ```
 
 **`huginn-net-tls`**

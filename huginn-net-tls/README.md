@@ -75,7 +75,7 @@ When enabled, `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field an
 ### Basic Usage
 
 ```rust
-use huginn_net_tls::{FilterConfig, HuginnNetTls, HuginnNetTlsError, IpFilter, PortFilter, TlsClientOutput};
+use huginn_net_tls::{FilterConfig, HuginnNetTls, HuginnNetTlsError, PortFilter, SubnetFilter, TlsClientOutput};
 use std::sync::mpsc;
 
 fn main() -> Result<(), HuginnNetTlsError> {
@@ -83,10 +83,10 @@ fn main() -> Result<(), HuginnNetTlsError> {
     let mut analyzer = HuginnNetTls::new(10000);
     
     // Optional: Configure filters (can be combined)
-    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+    if let Ok(subnet_filter) = SubnetFilter::new().allow("192.168.1.0/24") {
         let filter = FilterConfig::new()
             .with_port_filter(PortFilter::new().destination(443))
-            .with_ip_filter(ip_filter);
+            .with_subnet_filter(subnet_filter);
         analyzer = analyzer.with_filter(filter);
     }
     

@@ -50,16 +50,18 @@ pub use huginn_net_tls::ObservableTlsClient;
 pub use huginn_net_tcp::observable::ObservableTcp;
 
 pub use huginn_net_tcp;
-pub use huginn_net_tcp::{FilterConfig, IpFilter, PortFilter};
+pub use huginn_net_tcp::{FilterConfig, IpFilter, PortFilter, SubnetFilter};
 
 pub use huginn_net_http;
 pub use huginn_net_http::{
     FilterConfig as HttpFilterConfig, IpFilter as HttpIpFilter, PortFilter as HttpPortFilter,
+    SubnetFilter as HttpSubnetFilter,
 };
 
 pub use huginn_net_tls;
 pub use huginn_net_tls::{
     FilterConfig as TlsFilterConfig, IpFilter as TlsIpFilter, PortFilter as TlsPortFilter,
+    SubnetFilter as TlsSubnetFilter,
 };
 
 // ---------------------------------------------------------------------------

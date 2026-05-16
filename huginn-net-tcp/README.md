@@ -51,62 +51,61 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 huginn-net-tcp = "1.7.5"
-huginn-net-db = "1.7.5"
+# Optional: only needed if you want OS fingerprint matching against the
+# bundled p0f database. Skip it for an observation-only build (raw TCP
+# signatures + MTU + uptime). With `default-features = false, features =
+# ["tcp"]` you only pull in the TCP half of the p0f database (no HTTP
+# parser, no HTTP signatures embedded).
+huginn-net-db = { version = "1.7.5", default-features = false, features = ["tcp"] }
 ```
 
-### Basic Usage
+### Cargo Features
+
+This crate has no Cargo features of its own. Database support is opt-in
+at the dependency level by adding `huginn-net-db` and calling
+[`HuginnNetTcp::with_matcher`].
+
+### Basic Usage — with database (OS fingerprinting)
 
 ```rust
-use huginn_net_db::{Database, SharedTcpSignatureMatcher};
-use huginn_net_tcp::matcher_api::TcpMatcher;
-use huginn_net_tcp::{FilterConfig, HuginnNetTcp, HuginnNetTcpError, IpFilter, PortFilter, TcpAnalysisResult};
-use std::sync::{Arc, mpsc};
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
+use huginn_net_tcp::{
+    FilterConfig, HuginnNetTcp, PortFilter, SharedTcpMatcher, SubnetFilter, TcpAnalysisResult,
+};
+use std::sync::{mpsc, Arc};
 
-fn main() -> Result<(), HuginnNetTcpError> {
-    // Load database for OS fingerprinting
-    let db = match Database::load_default() {
-        Ok(db) => Arc::new(db),
-        Err(e) => {
-            eprintln!("Failed to load database: {e}");
-            return Err(HuginnNetTcpError::Parse(format!("Database error: {e}")));
-        }
-    };
-    let matcher: Arc<dyn TcpMatcher + Send + Sync> =
-        Arc::new(SharedTcpSignatureMatcher::new(db));
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load only the TCP half of the p0f database and build a shared matcher
+    let tcp_db = Arc::new(TcpDatabase::load_default()?);
+    let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::new(tcp_db));
 
-    // Create analyzer (matcher is plugged in via the builder)
-    let mut analyzer = match HuginnNetTcp::new(1000) {
-        Ok(analyzer) => analyzer.with_matcher(matcher),
-        Err(e) => {
-            eprintln!("Failed to create analyzer: {e}");
-            return Err(e);
-        }
-    };
-    
+    // Create analyzer with matching enabled
+    let mut analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
+
     // Optional: Configure filters (can be combined)
-    if let Ok(ip_filter) = IpFilter::new().allow("192.168.1.0/24") {
+    if let Ok(subnet_filter) = SubnetFilter::new().allow("192.168.1.0/24") {
         let filter = FilterConfig::new()
             .with_port_filter(PortFilter::new().destination(443))
-            .with_ip_filter(ip_filter);
+            .with_subnet_filter(subnet_filter);
         analyzer = analyzer.with_filter(filter);
     }
-    
+
     let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
-    
+
     // Live capture (use parallel mode for high throughput)
     std::thread::spawn(move || {
         if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
             eprintln!("Analysis error: {e}");
         }
     });
-    
+
     // Or PCAP analysis (always use sequential mode)
     // std::thread::spawn(move || {
     //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
     //         eprintln!("Analysis error: {e}");
     //     }
     // });
-    
+
     for result in receiver {
         if let Some(syn) = result.syn { println!("{syn}"); }
         if let Some(syn_ack) = result.syn_ack { println!("{syn_ack}"); }
@@ -114,7 +113,41 @@ fn main() -> Result<(), HuginnNetTcpError> {
         if let Some(client_uptime) = result.client_uptime { println!("{client_uptime}"); }
         if let Some(server_uptime) = result.server_uptime { println!("{server_uptime}"); }
     }
-    
+
+    Ok(())
+}
+```
+
+### Basic Usage — observation only (no database)
+
+Without a matcher, `analyze_*` still extracts the raw TCP signature, MTU
+and uptime observations — only the `*QualityMatched` fields will report
+`Disabled`.
+
+```rust
+use huginn_net_tcp::{HuginnNetTcp, HuginnNetTcpError, TcpAnalysisResult};
+use std::sync::mpsc;
+
+fn main() -> Result<(), HuginnNetTcpError> {
+    // No matcher → observation-only mode
+    let mut analyzer = HuginnNetTcp::new(1000);
+
+    let (sender, receiver) = mpsc::channel::<TcpAnalysisResult>();
+
+    std::thread::spawn(move || {
+        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
+            eprintln!("Analysis error: {e}");
+        }
+    });
+
+    for result in receiver {
+        if let Some(syn) = result.syn { println!("{syn}"); }
+        if let Some(syn_ack) = result.syn_ack { println!("{syn_ack}"); }
+        if let Some(mtu) = result.mtu { println!("{mtu}"); }
+        if let Some(client_uptime) = result.client_uptime { println!("{client_uptime}"); }
+        if let Some(server_uptime) = result.server_uptime { println!("{server_uptime}"); }
+    }
+
     Ok(())
 }
 ```
