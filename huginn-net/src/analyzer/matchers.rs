@@ -172,12 +172,7 @@ impl<'a> HuginnNet<'a> {
                 }
             );
 
-            // TODO(v2-followup): the third argument should be the OS name from
-            // the TCP fingerprint match (network-observed OS), not the HTTP
-            // signature label name (which is a *browser* name like "Firefox"
-            // when the matcher is HTTP). Revisit in a dedicated PR by wiring
-            // the TCP `OSQualityMatched` produced for `syn`/`syn_ack` of the
-            // same packet into this diagnostic.
+            // TODO: (p0f-parity) https://github.com/biandratti/huginn-net/issues/278.
             let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
                 observable_http_request.user_agent.clone(),
                 ua_matcher.and_then(|(_, family)| family),
