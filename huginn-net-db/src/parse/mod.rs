@@ -3,12 +3,12 @@
 //! The entry points are the `FromStr` impls on [`crate::database::Database`],
 //! [`crate::database::TcpDatabase`] and [`crate::database::HttpDatabase`].
 //!
-//! Internals are split by responsibility:
-//! - [`common`]: parsers and macros shared by both branches (label/type,
+//! Internals are split by responsibility (all submodules are private):
+//! - `common`: parsers and macros shared by both branches (label/type,
 //!   classes, module headers, the `impl_from_str!` / `str_parser!` macros).
-//! - [`tcp`]: TCP-specific leaf parsers and `parse_*_str` helpers
+//! - `tcp`: TCP-specific leaf parsers and `parse_*_str` helpers
 //!   (gated by `feature = "tcp"`).
-//! - [`http`]: HTTP-specific leaf parsers, the `ua_os` table, and
+//! - `http`: HTTP-specific leaf parsers, the `ua_os` table, and
 //!   `parse_*_str` helpers (gated by `feature = "http"`).
 //!
 //! This module ties everything together by walking the line-oriented input,

@@ -5,8 +5,9 @@
 //! - `pub(crate)` distance helpers that read fields off a `TcpObservation`
 //!   (`distance_olen`, `distance_mss`, `distance_wscale`, `distance_olayout`,
 //!   `distance_quirks`). The pure helpers that compare two raw signature
-//!   types (`distance_ttl`, `distance_window_size`, …) live in
-//!   [`super::distances`].
+//!   types ([`crate::tcp::distance_ttl`], [`crate::tcp::distance_window_size`],
+//!   …) live in `crate::tcp::distances` (private module; re-exported through
+//!   [`crate::tcp`]).
 //! - The [`crate::db_matching_trait::ObservedFingerprint`] impl that turns an
 //!   observation into a [`crate::database::TcpIndexKey`].
 //! - The [`crate::db_matching_trait::DatabaseSignature`] impl that scores a

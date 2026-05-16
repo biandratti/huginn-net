@@ -3,10 +3,12 @@
 //!
 //! Provides:
 //! - The [`HttpDistance`] bridge trait. Each method delegates to a pure free
-//!   function in [`super::distances`]; the trait exists to preserve the
-//!   public API (external callers use `<X as HttpDistance>::distance_header`)
-//!   and to give observation types a uniform interface. New internal code
-//!   should call the free functions directly, mirroring TCP.
+//!   function ([`crate::http::distance_header`], etc., re-exported from the
+//!   private `crate::http::distances` module); the trait exists to preserve
+//!   the public API (external callers use
+//!   `<X as HttpDistance>::distance_header`) and to give observation types a
+//!   uniform interface. New internal code should call the free functions
+//!   directly, mirroring TCP.
 //! - The [`crate::db_matching_trait::ObservedFingerprint`] impls for
 //!   [`HttpRequestObservation`] and [`HttpResponseObservation`].
 //! - The [`crate::db_matching_trait::DatabaseSignature`] impls scoring
