@@ -1,7 +1,7 @@
 #![cfg(feature = "tcp")]
-use huginn_net_db::observable_signals::TcpObservation;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher, Type};
+use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
 
 fn observation_from_signature(sig: &Signature) -> TcpObservation {
