@@ -1,4 +1,4 @@
-use crate::db::Label;
+use crate::database::Label;
 use core::fmt;
 use std::fmt::Formatter;
 

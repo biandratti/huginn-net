@@ -1,4 +1,4 @@
-use crate::db::{HttpDatabase, Label, Type};
+use crate::database::{HttpDatabase, Label, Type};
 use crate::db_matching_trait::FingerprintDb;
 use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};

@@ -1,17 +1,13 @@
-pub use huginn_net_http::http::{
-    request_common_headers, request_optional_headers, request_skip_value_headers,
-    response_common_headers, response_optional_headers, response_skip_value_headers, Header,
-    HttpDiagnosis, Version,
-};
+use crate::db_matching_trait::MatchQuality;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
     /// HTTP version
-    pub version: Version,
+    pub version: super::Version,
     /// ordered list of headers that should appear in matching traffic.
-    pub horder: Vec<Header>,
+    pub horder: Vec<super::Header>,
     /// list of headers that must *not* appear in matching traffic.
-    pub habsent: Vec<Header>,
+    pub habsent: Vec<super::Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
 }
@@ -35,7 +31,7 @@ impl HttpMatchQuality {
     }
 }
 
-impl crate::db_matching_trait::MatchQuality for HttpMatchQuality {
+impl MatchQuality for HttpMatchQuality {
     // HTTP has 4 components, each can contribute max 3 points (Bad)
     const MAX_DISTANCE: u32 = 12;
 

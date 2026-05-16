@@ -1,4 +1,4 @@
-use crate::db::TcpIndexKey;
+use crate::database::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::observable_signals::TcpObservation;
 use crate::tcp::{

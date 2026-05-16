@@ -57,7 +57,7 @@ PCAP dataset: `macos_tcp_flags.pcap` repeated 1000x for statistical stability.
 
 **Worker Architecture**: Hash-based worker assignment (same TCP flow always routes to the same worker). Each worker maintains its own `TtlCache<ConnectionKey, …>` for stateful SYN/SYN-ACK correlation.
 
-**Scaling behavior**: Unlike HTTP and TLS, TCP parallel shows mild monotonic improvement from 2 → 8 workers in the two most stable runs. The high outlier counts (15–23%) across all parallel benchmarks indicate the 43K-packet workload approaches the noise floor — pool creation/shutdown overhead is non-negligible per iteration. Absolute differences between worker counts are within measurement noise.
+**Scaling behavior**: TCP parallel shows mild monotonic improvement from 2 → 8 workers in the two most stable runs. The high outlier counts (15–23%) across all parallel benchmarks indicate the 43K-packet workload approaches the noise floor — pool creation/shutdown overhead is non-negligible per iteration. Absolute differences between worker counts are within measurement noise.
 
 ### Network Capacity
 

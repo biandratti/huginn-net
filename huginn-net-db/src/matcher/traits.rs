@@ -1,4 +1,4 @@
-use crate::db::Label;
+use crate::database::Label;
 use std::fmt::Debug;
 use std::hash::Hash;
 

@@ -1,4 +1,4 @@
-use crate::db::{Label, TcpDatabase, Type};
+use crate::database::{Label, TcpDatabase, Type};
 use crate::db_matching_trait::FingerprintDb;
 use crate::observable_signals::TcpObservation;
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};

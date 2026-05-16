@@ -1,4 +1,4 @@
-use crate::db::HttpIndexKey;
+use crate::database::HttpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::http::{self, Header, HttpMatchQuality, Version};
 use crate::observable_signals::{HttpRequestObservation, HttpResponseObservation};

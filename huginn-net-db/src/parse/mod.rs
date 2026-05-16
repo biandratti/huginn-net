@@ -1,14 +1,14 @@
 use std::str::FromStr;
 
 #[cfg(all(feature = "tcp", feature = "http"))]
-use crate::db::Database;
+use crate::database::Database;
 #[cfg(any(feature = "tcp", feature = "http"))]
-use crate::db::FingerprintCollection;
+use crate::database::FingerprintCollection;
 #[cfg(feature = "http")]
-use crate::db::HttpDatabase;
+use crate::database::HttpDatabase;
 #[cfg(feature = "tcp")]
-use crate::db::TcpDatabase;
-use crate::db::{Label, Type};
+use crate::database::TcpDatabase;
+use crate::database::{Label, Type};
 use crate::error::DatabaseError;
 #[cfg(feature = "http")]
 use crate::http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion};
