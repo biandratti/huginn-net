@@ -33,8 +33,8 @@ pub use error::*;
 pub use filter::*;
 pub use mtu::ObservableMtu;
 pub use output::*;
-pub use process::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::{process_ipv4_packet, process_ipv6_packet};
+pub use process::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use tcp::observable::{ObservableTcp, TcpObservation};
 pub use uptime::{
     calculate_uptime_improved, Connection, ConnectionKey, FrequencyState, TcpTimestamp,
