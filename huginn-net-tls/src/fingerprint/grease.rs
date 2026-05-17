@@ -35,7 +35,6 @@ pub(super) fn filter_grease_values(values: &[u16]) -> Vec<u16> {
 }
 
 #[cfg(feature = "stable-v1")]
-#[inline]
 pub(super) fn filter_ephemeral_extensions(values: &[u16]) -> Cow<'_, [u16]> {
     if values
         .iter()

@@ -71,7 +71,6 @@ pub fn process_ipv6_packet(
     )
 }
 
-#[inline]
 fn process_tcp_packet(
     tcp: TcpPacket,
     src_ip: IpAddr,

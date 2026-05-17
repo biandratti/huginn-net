@@ -15,7 +15,6 @@ pub enum TlsVersion {
 }
 
 impl fmt::Display for TlsVersion {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TlsVersion::V1_3 => write!(f, "13"),
