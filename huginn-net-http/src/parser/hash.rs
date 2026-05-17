@@ -12,6 +12,7 @@ use std::hash::{Hash, Hasher};
 /// Hashes the complete flow (src_ip, dst_ip, src_port, dst_port) to ensure
 /// all packets from the same connection go to the same worker for proper
 /// request/response tracking.
+#[inline]
 pub fn hash_flow(packet: &[u8], num_workers: usize) -> usize {
     // Skip Ethernet header (14 bytes) if present
     let ip_start: usize = if packet.len() > 14
