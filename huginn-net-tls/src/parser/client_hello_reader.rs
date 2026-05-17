@@ -49,6 +49,7 @@ impl TlsClientHelloReader {
     /// - `Ok(Some(Signature))` if ClientHello was successfully parsed
     /// - `Ok(None)` if more data is needed or signature already parsed
     /// - `Err(HuginnNetTlsError)` if parsing fails
+    #[inline]
     pub fn add_bytes(&mut self, data: &[u8]) -> Result<Option<Signature>, HuginnNetTlsError> {
         if self.signature.is_some() {
             debug!("Signature already parsed, skipping new bytes.");

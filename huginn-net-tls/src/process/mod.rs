@@ -27,6 +27,7 @@ pub struct ObservablePackage {
     pub tls_client: Option<ObservableTlsClient>,
 }
 
+#[inline]
 pub fn process_ipv4_packet(
     ipv4: &pnet::packet::ipv4::Ipv4Packet,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
@@ -48,6 +49,7 @@ pub fn process_ipv4_packet(
     )
 }
 
+#[inline]
 pub fn process_ipv6_packet(
     ipv6: &pnet::packet::ipv6::Ipv6Packet,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
@@ -69,6 +71,7 @@ pub fn process_ipv6_packet(
     )
 }
 
+#[inline]
 fn process_tcp_packet(
     tcp: TcpPacket,
     src_ip: IpAddr,

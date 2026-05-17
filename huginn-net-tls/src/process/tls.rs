@@ -13,6 +13,7 @@ use tls_parser::{
 };
 use tracing::{debug, error};
 
+#[inline]
 pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         debug!("IPv4 packet with non-TCP protocol: {:?}", packet.get_next_level_protocol());
@@ -27,6 +28,7 @@ pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, Hug
     }
 }
 
+#[inline]
 pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         debug!("IPv6 packet with non-TCP protocol: {:?}", packet.get_next_header());
@@ -41,6 +43,7 @@ pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, Hug
     }
 }
 
+#[inline]
 pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     let payload = tcp.payload();
     let src_port = tcp.get_source();
@@ -151,6 +154,7 @@ pub fn is_tls_traffic(payload: &[u8]) -> bool {
 /// - `Ok(Signature)` if ClientHello was found and parsed successfully
 /// - `Err(HuginnNetTlsError::NotClientHello)` if TLS record is valid but not a ClientHello
 /// - `Err(HuginnNetTlsError)` if parsing failed
+#[inline]
 pub fn parse_tls_client_hello(data: &[u8]) -> Result<Signature, HuginnNetTlsError> {
     debug!("Parsing TLS ClientHello, data_len={}", data.len());
 
@@ -243,6 +247,7 @@ pub fn parse_tls_client_hello_ja4(data: &[u8]) -> Option<String> {
         .map(|sig| sig.generate_ja4().full.value().to_string())
 }
 
+#[inline]
 pub fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, HuginnNetTlsError> {
@@ -312,6 +317,7 @@ pub fn extract_tls_signature_from_client_hello(
     })
 }
 
+#[inline]
 pub fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
     extensions: &[u16],
