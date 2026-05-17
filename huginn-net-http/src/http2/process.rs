@@ -183,9 +183,6 @@ fn build_absent_headers_from_http2(
         http::response_common_headers()
     };
 
-    // For typical HTTP requests N (current headers) and M (common_list) are both ~10,
-    // so a Vec + linear scan with `contains` beats a HashSet here (constant factor wins
-    // over asymptotic complexity at small N).
     let current_headers: Vec<String> = headers.iter().map(|h| h.name.to_lowercase()).collect();
 
     let mut headers_absent: Vec<Header> = Vec::with_capacity(common_list.len());

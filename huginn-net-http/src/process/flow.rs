@@ -45,7 +45,6 @@ const MIN_HTTP_PAYLOAD_LEN: usize = 4;
 ///
 /// Also rejects fragments smaller than `MIN_HTTP_PAYLOAD_LEN`, so callers don't
 /// need to do their own length guard — the function is self-validating.
-#[inline]
 fn looks_like_http_request(data: &[u8]) -> bool {
     if data.len() < MIN_HTTP_PAYLOAD_LEN {
         return false;
@@ -59,10 +58,6 @@ fn looks_like_http_request(data: &[u8]) -> bool {
 ///   payload whose first 9 bytes look like a valid frame header (reasonable length and
 ///   a known frame type byte). Same structural test used by
 ///   `crate::http2::process::looks_like_http2_response`.
-///
-/// Self-validating: rejects fragments too small for either branch, so callers
-/// don't need to add a separate length guard.
-#[inline]
 fn looks_like_http_response(data: &[u8]) -> bool {
     if data.starts_with(b"HTTP") {
         return true;
@@ -362,11 +357,6 @@ fn process_tcp_packet(
                 if !flow.server_http_parsed {
                     flow.server_data.push(tcp_data);
                     let full_data = flow.get_full_data(is_client);
-
-                    // Single-pass parse: the parser already returns `Ok(None)` for
-                    // incomplete or non-HTTP data (the fast-reject inside
-                    // `HttpProcessors::parse_response` handles length and structural
-                    // checks), so we don't need a separate "has-complete-data" probe.
                     match parse_http_response(&full_data, processors) {
                         Ok(Some(http_response_parsed)) => {
                             observable_http_package.http_response = Some(http_response_parsed);

@@ -47,9 +47,9 @@ impl HttpProcessor for Http1Processor {
         let first_line = data_str.lines().next().unwrap_or("");
 
         // SPECIFIC: Must be exact HTTP/1.x request line format (exactly 3 tokens).
-        // Iterate without allocating a Vec for the tokens (called once per packet).
         let mut tokens = first_line.split_whitespace();
-        let (Some(method), Some(uri), Some(version)) = (tokens.next(), tokens.next(), tokens.next())
+        let (Some(method), Some(uri), Some(version)) =
+            (tokens.next(), tokens.next(), tokens.next())
         else {
             return false;
         };
@@ -98,7 +98,6 @@ impl HttpProcessor for Http1Processor {
         let first_line = data_str.lines().next().unwrap_or("");
 
         // SPECIFIC: Must be exact HTTP/1.x response line format.
-        // Iterate without allocating a Vec for the tokens (called once per packet).
         let mut tokens = first_line.splitn(3, ' ');
         let (Some(version_str), Some(status_str)) = (tokens.next(), tokens.next()) else {
             return false;
@@ -244,9 +243,6 @@ pub fn build_absent_headers_from_new_parser(
         http::response_common_headers()
     };
 
-    // For typical HTTP requests N (current headers) and M (common_list) are both ~10,
-    // so a Vec + linear scan with `contains` beats a HashSet here (constant factor wins
-    // over asymptotic complexity at small N).
     let current_headers: Vec<String> = headers.iter().map(|h| h.name.to_lowercase()).collect();
 
     let mut headers_absent: Vec<Header> = Vec::with_capacity(common_list.len());
@@ -318,7 +314,6 @@ pub fn looks_like_http1_response(data: &[u8]) -> bool {
     let first_line = data_str.lines().next().unwrap_or("");
 
     // Must be exact HTTP/1.x response line format.
-    // Iterate without allocating a Vec for the tokens.
     let mut tokens = first_line.split_whitespace();
     let (Some(version_str), Some(status_str)) = (tokens.next(), tokens.next()) else {
         return false;
