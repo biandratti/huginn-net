@@ -75,6 +75,7 @@ pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
         || tcp_type == 0)
 }
 
+#[inline]
 pub fn process_tcp_ipv4(
     packet: &Ipv4Packet,
     connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
@@ -137,6 +138,7 @@ pub fn process_tcp_ipv4(
         })
 }
 
+#[inline]
 pub fn process_tcp_ipv6(
     packet: &Ipv6Packet,
     connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,

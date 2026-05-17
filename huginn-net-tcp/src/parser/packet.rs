@@ -44,6 +44,7 @@ pub enum DatalinkFormat {
 ///
 /// # Returns
 /// * `IpPacket` - The parsed IP packet or None if no valid format found
+#[inline]
 pub fn parse_packet(packet: &[u8]) -> IpPacket<'_> {
     // Strategy 1: Try Ethernet first (most common)
     if let Some(parsed) = try_ethernet_format(packet) {
