@@ -8,6 +8,7 @@ use pnet::packet::Packet;
 /// Utility struct for handling IP header options and extension headers.
 /// Provides methods to calculate the length of optional headers in both IPv4 and IPv6 packets.
 impl IpOptions {
+    #[inline]
     pub fn calculate_ipv4_length(packet: &Ipv4Packet) -> u8 {
         // IHL (Internet Header Length) is in 32-bit words
         // Subtract minimum header length (20 bytes = 5 words)
@@ -21,6 +22,7 @@ impl IpOptions {
         options_length
     }
 
+    #[inline]
     pub fn calculate_ipv6_length(packet: &Ipv6Packet) -> u8 {
         // Most packets will be direct TCP
         if packet.get_next_header() == IpNextHeaderProtocols::Tcp {
