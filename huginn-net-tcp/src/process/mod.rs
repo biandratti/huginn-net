@@ -25,6 +25,7 @@ pub struct ObservablePackage {
 }
 
 /// Processes an IPv4 packet for TCP content.
+#[inline]
 pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
     connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
@@ -125,6 +126,7 @@ fn create_observable_package_ipv4(
 }
 
 /// Processes an IPv6 packet for TCP content.
+#[inline]
 pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
     connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,

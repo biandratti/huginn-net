@@ -28,6 +28,7 @@ const MAX_HOPS_ACCEPTABLE: u8 = 30;
 /// 3. If ttl_observed is 0, return Ttl::Bad(0)
 /// 4. If the distance is reasonable (e.g., <= MAX_HOPS_ACCEPTABLE hops), consider it a valid distance calculation
 /// 5. If the ttl doesn't match common patterns, classify it as Ttl::Value (raw ttl)
+#[inline]
 pub fn calculate_ttl(ttl_observed: u8) -> Ttl {
     if ttl_observed == 0 {
         return Ttl::Bad(ttl_observed);

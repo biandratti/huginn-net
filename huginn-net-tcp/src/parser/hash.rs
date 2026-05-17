@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 /// Parses the IP header to extract source IP and returns its hash.
 /// This ensures packets from the same source always go to the same worker,
 /// maintaining connection state consistency.
+#[inline]
 pub fn hash_source_ip(packet: &[u8]) -> usize {
     // Skip Ethernet header (14 bytes) if present
     // Both IPv4 (0x0800) and IPv6 (0x86DD) use same offset
