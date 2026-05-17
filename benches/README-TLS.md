@@ -12,17 +12,17 @@ PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1,000,000 t
 
 | Operation | Time/Packet | Throughput | Notes |
 |-----------|-------------|------------|-------|
-| TLS Detection | ~7 ns | ~140M pps | `is_tls_traffic` byte check only |
-| Packet Parsing | ~3 ns | ~333M pps | Ethernet/IP/TCP header parsing |
+| TLS Detection | ~18 ns | ~56M pps | `is_tls_traffic` byte check only |
+| Packet Parsing | ~6 ns | ~167M pps | Ethernet/IP/TCP header parsing |
 | Full TLS Processing | ~20 µs | ~50K pps | ClientHello parse + JA4 calculation via TtlCache |
 
 ### Parallel Mode (Multi-Worker)
 
 | Workers | Throughput | 1 Gbps CPU | 10 Gbps CPU | Notes |
 |---------|------------|------------|-------------|-------|
-| 2 | ~97K pps | ~84% | ~837% | Hash-based flow dispatch |
-| 4 | ~97K pps | ~84% | ~837% | Hash-based flow dispatch |
-| 8 | ~96K pps | ~85% | ~845% | Hash-based flow dispatch |
+| 2 | ~97K pps | ~84% | ~838% | Hash-based flow dispatch |
+| 4 | ~96K pps | ~84% | ~839% | Hash-based flow dispatch |
+| 8 | ~96K pps | ~84% | ~843% | Hash-based flow dispatch |
 
 **Worker Architecture**: Hash-based flow dispatch — packets from the same TCP flow (src/dst IP + port) always route to the same worker. Each worker maintains its own `TtlCache<FlowKey, TlsClientHelloReader>` for stateful TCP reassembly, required to handle fragmented ClientHello messages.
 
@@ -32,8 +32,8 @@ PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1,000,000 t
 
 | Scenario | Sequential (1 worker) | Parallel (2 workers) | Parallel (4 workers) |
 |----------|-----------------------|----------------------|----------------------|
-| 1 Gbps (81,274 pps) | ~162% CPU [OVERLOAD] | ~84% CPU [OK] | ~84% CPU [OK] |
-| 10 Gbps (812,740 pps) | ~1621% CPU [OVERLOAD] | ~837% CPU [OVERLOAD] | ~837% CPU [OVERLOAD] |
+| 1 Gbps (81,274 pps) | ~163% CPU [OVERLOAD] | ~84% CPU [OK] | ~84% CPU [OK] |
+| 10 Gbps (812,740 pps) | ~1625% CPU [OVERLOAD] | ~838% CPU [OVERLOAD] | ~839% CPU [OVERLOAD] |
 
 **Note**: Tested on 8-core system. Maximum measured throughput is **~97K pps** with 2–4 workers, representing ~12% of 10 Gbps packet rate. Results are stable across repeated runs; the 2-worker configuration is the recommended minimum for 1 Gbps environments.
 
@@ -41,11 +41,11 @@ PCAP dataset: `tls12.pcap` repeated 1000x for statistical stability (1,000,000 t
 
 ### Performance Characteristics
 
-1. **Fast Detection**: TLS byte-level validation in ~7 nanoseconds per packet
+1. **Fast Detection**: TLS byte-level validation in ~18 nanoseconds per packet
 2. **JA4 Processing**: Complete fingerprinting in ~20 microseconds per packet (sequential), dominated by TCP reassembly state management
-3. **Overhead**: ~2800x from raw parsing to full JA4 processing (hash + string formatting)
-4. **Worker Performance**: 2 and 4 workers achieve identical throughput (~97K pps); adding more workers does not help on 8-core hardware due to TCP reassembly overhead being the bottleneck
-5. **Parallel Scaling**: 2 workers provide ~2x throughput improvement over sequential (97K vs ~50K pps)
+3. **Overhead**: ~1100x from detection to full JA4 processing; ~3300x from raw parsing to full processing (JA4 calculation only)
+4. **Worker Performance**: 2 and 4 workers achieve nearly identical throughput (~97K pps); adding more workers does not help on 8-core hardware due to TCP reassembly overhead being the bottleneck
+5. **Parallel Scaling**: 2 workers provide ~1.9x throughput improvement over sequential (97K vs ~50K pps)
 6. **10 Gbps Limit**: Maximum throughput of ~97K pps is ~12% of 10 Gbps requirements (812K pps)
 7. **TCP Reassembly Impact**: Per-worker `TtlCache` state management adds overhead but enables correct handling of fragmented ClientHello across multiple TCP segments
 
