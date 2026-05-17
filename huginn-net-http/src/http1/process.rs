@@ -46,9 +46,14 @@ impl HttpProcessor for Http1Processor {
         let data_str = String::from_utf8_lossy(data);
         let first_line = data_str.lines().next().unwrap_or("");
 
-        // SPECIFIC: Must be exact HTTP/1.x request line format
-        let parts: Vec<&str> = first_line.split_whitespace().collect();
-        if parts.len() != 3 {
+        // SPECIFIC: Must be exact HTTP/1.x request line format (exactly 3 tokens).
+        // Iterate without allocating a Vec for the tokens (called once per packet).
+        let mut tokens = first_line.split_whitespace();
+        let (Some(method), Some(uri), Some(version)) = (tokens.next(), tokens.next(), tokens.next())
+        else {
+            return false;
+        };
+        if tokens.next().is_some() {
             return false;
         }
 
@@ -73,9 +78,9 @@ impl HttpProcessor for Http1Processor {
         ];
 
         // SPECIFIC: Must be exact HTTP/1.0 or HTTP/1.1
-        methods.contains(&parts[0])
-            && (parts[2] == "HTTP/1.0" || parts[2] == "HTTP/1.1")
-            && !parts[1].is_empty() // Must have URI
+        methods.contains(&method)
+            && (version == "HTTP/1.0" || version == "HTTP/1.1")
+            && !uri.is_empty() // Must have URI
     }
 
     fn can_process_response(&self, data: &[u8]) -> bool {
@@ -92,16 +97,17 @@ impl HttpProcessor for Http1Processor {
         let data_str = String::from_utf8_lossy(data);
         let first_line = data_str.lines().next().unwrap_or("");
 
-        // SPECIFIC: Must be exact HTTP/1.x response line format
-        let parts: Vec<&str> = first_line.splitn(3, ' ').collect();
-        if parts.len() < 2 {
+        // SPECIFIC: Must be exact HTTP/1.x response line format.
+        // Iterate without allocating a Vec for the tokens (called once per packet).
+        let mut tokens = first_line.splitn(3, ' ');
+        let (Some(version_str), Some(status_str)) = (tokens.next(), tokens.next()) else {
             return false;
-        }
+        };
 
         // SPECIFIC: Must be exact HTTP/1.0 or HTTP/1.1 with valid status code
-        (parts[0] == "HTTP/1.0" || parts[0] == "HTTP/1.1")
-            && parts[1].len() == 3  // Status code must be 3 digits
-            && parts[1].chars().all(|c| c.is_ascii_digit()) // Must be numeric
+        (version_str == "HTTP/1.0" || version_str == "HTTP/1.1")
+            && status_str.len() == 3
+            && status_str.chars().all(|c| c.is_ascii_digit())
     }
 
     fn has_complete_data(&self, data: &[u8]) -> bool {
@@ -200,7 +206,7 @@ pub fn convert_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<Header> {
-    let mut headers_in_order: Vec<Header> = Vec::new();
+    let mut headers_in_order: Vec<Header> = Vec::with_capacity(headers.len());
     let optional_list = if is_request {
         http::request_optional_headers()
     } else {
@@ -232,14 +238,18 @@ pub fn build_absent_headers_from_new_parser(
     headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<Header> {
-    let mut headers_absent: Vec<Header> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
     } else {
         http::response_common_headers()
     };
+
+    // For typical HTTP requests N (current headers) and M (common_list) are both ~10,
+    // so a Vec + linear scan with `contains` beats a HashSet here (constant factor wins
+    // over asymptotic complexity at small N).
     let current_headers: Vec<String> = headers.iter().map(|h| h.name.to_lowercase()).collect();
 
+    let mut headers_absent: Vec<Header> = Vec::with_capacity(common_list.len());
     for header in &common_list {
         if !current_headers.contains(&header.to_lowercase()) {
             headers_absent.push(Header::new(header));
@@ -307,19 +317,16 @@ pub fn looks_like_http1_response(data: &[u8]) -> bool {
     let data_str = String::from_utf8_lossy(data);
     let first_line = data_str.lines().next().unwrap_or("");
 
-    // Must be exact HTTP/1.x response line format
-    let parts: Vec<&str> = first_line.split_whitespace().collect();
-    if parts.len() < 2 {
+    // Must be exact HTTP/1.x response line format.
+    // Iterate without allocating a Vec for the tokens.
+    let mut tokens = first_line.split_whitespace();
+    let (Some(version_str), Some(status_str)) = (tokens.next(), tokens.next()) else {
         return false;
-    }
+    };
 
-    // Check HTTP version
-    let version_str = parts[0];
     if version_str != "HTTP/1.0" && version_str != "HTTP/1.1" {
         return false;
     }
 
-    // Check status code (must be 3 digits)
-    let status_str = parts[1];
     status_str.len() == 3 && status_str.chars().all(|c| c.is_ascii_digit())
 }

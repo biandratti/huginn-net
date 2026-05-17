@@ -18,6 +18,65 @@ pub type FlowKey = (IpAddr, IpAddr, u16, u16);
 
 use crate::http::common::HttpParser;
 
+/// Valid first bytes for an HTTP request payload.
+///
+/// Union of first letters of:
+/// - HTTP/1.x methods (RFC 7231): `GET, POST, PUT, DELETE, HEAD, OPTIONS, TRACE, CONNECT, PATCH`
+/// - WebDAV (RFC 4918): `PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK`
+/// - WebDAV Versioning (RFC 3253): `REPORT`
+/// - HTTP/2 connection preface (RFC 7540): `"PRI * HTTP/2.0..."` (starts with `P`)
+///
+/// Same fast-reject strategy used by nDPI's `http_fs = "CDGHLMOPRU"` table in
+/// `src/lib/protocols/http.c` (we additionally include `T` for `TRACE`).
+const HTTP_REQUEST_FIRST_BYTES: &[u8] = b"CDGHLMOPRTU";
+
+/// Maximum legal frame length for an HTTP/2 frame using the default `SETTINGS_MAX_FRAME_SIZE`
+/// (RFC 7540 §6.5.2). Used to discriminate HTTP/2 frames from random binary noise.
+const HTTP2_MAX_FRAME_LEN: u32 = 16384;
+
+/// Minimum payload size we attempt to parse. Below this we treat the data as
+/// incomplete and wait for more TCP segments — avoids paying the trait-dispatch
+/// cost on fragments that obviously can't contain an HTTP request or response.
+const MIN_HTTP_PAYLOAD_LEN: usize = 4;
+
+/// Cheap pre-filter: does this payload plausibly start an HTTP request (or HTTP/2
+/// connection preface)? Rejects binary protocols (TLS, SSH, etc.) on flows tracked
+/// by `huginn-net-http` before reaching the trait-dispatched parser path.
+///
+/// Also rejects fragments smaller than `MIN_HTTP_PAYLOAD_LEN`, so callers don't
+/// need to do their own length guard — the function is self-validating.
+#[inline]
+fn looks_like_http_request(data: &[u8]) -> bool {
+    if data.len() < MIN_HTTP_PAYLOAD_LEN {
+        return false;
+    }
+    HTTP_REQUEST_FIRST_BYTES.contains(&data[0])
+}
+
+/// Cheap pre-filter: does this payload plausibly start an HTTP response?
+/// - HTTP/1.x responses always start with the literal `"HTTP"` (then `/1.0` or `/1.1`).
+/// - HTTP/2 responses are sequences of frames with no magic prefix, so we accept any
+///   payload whose first 9 bytes look like a valid frame header (reasonable length and
+///   a known frame type byte). Same structural test used by
+///   `crate::http2::process::looks_like_http2_response`.
+///
+/// Self-validating: rejects fragments too small for either branch, so callers
+/// don't need to add a separate length guard.
+#[inline]
+fn looks_like_http_response(data: &[u8]) -> bool {
+    if data.starts_with(b"HTTP") {
+        return true;
+    }
+    if data.len() < 9 {
+        return false;
+    }
+    let frame_length = u32::from_be_bytes([0, data[0], data[1], data[2]]);
+    if frame_length > HTTP2_MAX_FRAME_LEN {
+        return false;
+    }
+    matches!(data[3], 0..=10)
+}
+
 /// HTTP parser that automatically detects and processes different HTTP versions
 pub struct HttpProcessors {
     parsers: Vec<Box<dyn HttpParser>>,
@@ -31,7 +90,13 @@ impl HttpProcessors {
     }
 
     /// Parse HTTP request data using the appropriate parser
+    #[inline]
     pub fn parse_request(&self, data: &[u8]) -> Option<ObservableHttpRequest> {
+        // Fast-reject: skip the trait-dispatched parser loop for payloads that
+        // obviously can't start an HTTP request or HTTP/2 preface.
+        if !looks_like_http_request(data) {
+            return None;
+        }
         for parser in &self.parsers {
             if parser.can_parse(data) {
                 if let Some(result) = parser.parse_request(data) {
@@ -43,7 +108,13 @@ impl HttpProcessors {
     }
 
     /// Parse HTTP response data using the appropriate parser
+    #[inline]
     pub fn parse_response(&self, data: &[u8]) -> Option<ObservableHttpResponse> {
+        // Fast-reject: skip the parser loop for payloads that don't look like an
+        // HTTP/1.x response line or a valid HTTP/2 frame header.
+        if !looks_like_http_response(data) {
+            return None;
+        }
         for parser in &self.parsers {
             if parser.can_parse(data) {
                 if let Some(result) = parser.parse_response(data) {
@@ -154,20 +225,6 @@ pub struct TcpFlow {
     server_http_parsed: bool,
 }
 
-/// Quick check if HTTP data is complete for parsing (supports HTTP/1.x and HTTP/2)
-fn has_complete_http_data(data: &[u8], processors: &HttpProcessors) -> bool {
-    // Strategy: Don't make early decisions about protocol due to TCP fragmentation
-    // Wait until we have enough data to make a reliable determination
-
-    if data.len() < 4 {
-        // Not enough data yet, wait for more TCP packets
-        return false;
-    }
-
-    // Try to parse with any available parser - if successful, data is complete
-    processors.parse_request(data).is_some() || processors.parse_response(data).is_some()
-}
-
 impl TcpFlow {
     fn init(
         src_ip: IpAddr,
@@ -210,6 +267,7 @@ impl TcpFlow {
     }
 }
 
+#[inline]
 pub fn process_http_ipv4(
     packet: &Ipv4Packet,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
@@ -231,6 +289,7 @@ pub fn process_http_ipv4(
     }
 }
 
+#[inline]
 pub fn process_http_ipv6(
     packet: &Ipv6Packet,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
@@ -287,17 +346,13 @@ fn process_tcp_packet(
                 if !flow.client_http_parsed {
                     flow.client_data.push(tcp_data);
                     let full_data = flow.get_full_data(is_client);
-
-                    // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
-                    if has_complete_http_data(&full_data, processors) {
-                        match parse_http_request(&full_data, processors) {
-                            Ok(Some(http_request_parsed)) => {
-                                observable_http_package.http_request = Some(http_request_parsed);
-                                flow.client_http_parsed = true;
-                            }
-                            Ok(None) => {}
-                            Err(_e) => {}
+                    match parse_http_request(&full_data, processors) {
+                        Ok(Some(http_request_parsed)) => {
+                            observable_http_package.http_request = Some(http_request_parsed);
+                            flow.client_http_parsed = true;
                         }
+                        Ok(None) => {}
+                        Err(_e) => {}
                     }
                 } else {
                     debug!("CLIENT: HTTP already parsed, discarding additional data");
@@ -308,18 +363,19 @@ fn process_tcp_packet(
                     flow.server_data.push(tcp_data);
                     let full_data = flow.get_full_data(is_client);
 
-                    // Quick check before expensive parsing (supports HTTP/1.x and HTTP/2)
-                    if has_complete_http_data(&full_data, processors) {
-                        match parse_http_response(&full_data, processors) {
-                            Ok(Some(http_response_parsed)) => {
-                                observable_http_package.http_response = Some(http_response_parsed);
-                                flow.server_http_parsed = true;
-                            }
-                            Ok(None) => {}
-                            Err(_e) => {}
+                    // Single-pass parse: the parser already returns `Ok(None)` for
+                    // incomplete or non-HTTP data (the fast-reject inside
+                    // `HttpProcessors::parse_response` handles length and structural
+                    // checks), so we don't need a separate "has-complete-data" probe.
+                    match parse_http_response(&full_data, processors) {
+                        Ok(Some(http_response_parsed)) => {
+                            observable_http_package.http_response = Some(http_response_parsed);
+                            flow.server_http_parsed = true;
                         }
-                    } else {
-                        debug!("SERVER: Data not complete yet, waiting for more");
+                        Ok(None) => {
+                            debug!("SERVER: Data not complete yet, waiting for more");
+                        }
+                        Err(_e) => {}
                     }
                 } else {
                     debug!("SERVER: HTTP already parsed, discarding additional data");

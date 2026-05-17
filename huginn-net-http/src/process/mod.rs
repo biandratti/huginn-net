@@ -26,6 +26,7 @@ pub struct ObservablePackage {
 }
 
 /// Processes an IPv4 packet for HTTP content.
+#[inline]
 pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
@@ -58,6 +59,7 @@ fn create_observable_package_ipv4(
 }
 
 /// Processes an IPv6 packet for HTTP content.
+#[inline]
 pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
