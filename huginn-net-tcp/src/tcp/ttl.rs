@@ -1,6 +1,5 @@
 use super::Ttl;
 
-#[inline]
 pub fn guess_distance(ttl: u8) -> u8 {
     if ttl > 128 {
         255u8.saturating_sub(ttl)

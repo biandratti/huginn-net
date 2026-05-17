@@ -1,7 +1,6 @@
 use super::{IpVersion, WindowSize};
 
 /// Detects window size patterns following p0f's logic
-#[inline]
 pub fn detect_win_multiplicator(
     window_size: u16,
     mss: u16,
