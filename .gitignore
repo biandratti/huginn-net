@@ -6,3 +6,4 @@ cobertura.xml
 **/Cargo.lock
 !Cargo.lock
 /data
+/benches/reports/

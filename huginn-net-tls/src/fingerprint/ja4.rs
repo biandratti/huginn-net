@@ -99,15 +99,18 @@ pub(super) enum Ja4Mode {
 }
 
 impl Ja4Mode {
+    #[inline(always)]
     pub(super) fn is_original_order(&self) -> bool {
         matches!(self, Ja4Mode::Unsorted)
     }
 
     #[cfg(feature = "stable-v1")]
+    #[inline(always)]
     pub(super) fn is_exclude_ephemeral(&self) -> bool {
         matches!(self, Ja4Mode::StableV1)
     }
 
+    #[inline]
     pub(super) fn into_fingerprints(
         self,
         hashed: String,

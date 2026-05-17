@@ -29,6 +29,7 @@ pub struct Signature {
 }
 
 /// Extract first and last characters from ALPN string, replacing non-ASCII with '9'
+#[inline]
 pub fn first_last_alpn(s: &str) -> (char, char) {
     let replace_nonascii_with_9 = |c: char| if c.is_ascii() { c } else { '9' };
     let mut chars = s.chars();
@@ -41,6 +42,7 @@ pub fn first_last_alpn(s: &str) -> (char, char) {
 }
 
 /// Generate 12-character hash (first 12 chars of SHA256)
+#[inline]
 pub fn hash12(input: &str) -> String {
     use std::fmt::Write;
     Sha256::digest(input.as_bytes())[..6]
@@ -70,6 +72,7 @@ impl Signature {
     }
 
     /// Core JA4 computation
+    #[inline]
     fn compute_ja4(&self, mode: Ja4Mode) -> Ja4Payload {
         let original_order = mode.is_original_order();
 

@@ -19,11 +19,13 @@ pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 3] =
     [TLS_EXT_SESSION_TICKET, TLS_EXT_PRE_SHARED_KEY, TLS_EXT_PADDING];
 
 /// Check if a value is a GREASE value according to RFC 8701
+#[inline(always)]
 pub(super) fn is_grease_value(value: u16) -> bool {
     TLS_GREASE_VALUES.contains(&value)
 }
 
 /// Filter out GREASE values from a list of u16 values
+#[inline]
 pub(super) fn filter_grease_values(values: &[u16]) -> Vec<u16> {
     values
         .iter()
@@ -33,6 +35,7 @@ pub(super) fn filter_grease_values(values: &[u16]) -> Vec<u16> {
 }
 
 #[cfg(feature = "stable-v1")]
+#[inline]
 pub(super) fn filter_ephemeral_extensions(values: &[u16]) -> Cow<'_, [u16]> {
     if values
         .iter()
