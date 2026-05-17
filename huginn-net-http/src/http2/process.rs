@@ -146,7 +146,7 @@ fn convert_http2_headers_to_http_format(
     headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<Header> {
-    let mut headers_in_order: Vec<Header> = Vec::new();
+    let mut headers_in_order: Vec<Header> = Vec::with_capacity(headers.len());
     let optional_list = if is_request {
         http::request_optional_headers()
     } else {
@@ -177,14 +177,15 @@ fn build_absent_headers_from_http2(
     headers: &[http_common::HttpHeader],
     is_request: bool,
 ) -> Vec<Header> {
-    let mut headers_absent: Vec<Header> = Vec::new();
     let common_list: Vec<&str> = if is_request {
         http::request_common_headers()
     } else {
         http::response_common_headers()
     };
+
     let current_headers: Vec<String> = headers.iter().map(|h| h.name.to_lowercase()).collect();
 
+    let mut headers_absent: Vec<Header> = Vec::with_capacity(common_list.len());
     for header in &common_list {
         if !current_headers.contains(&header.to_lowercase()) {
             headers_absent.push(http::Header::new(header));
