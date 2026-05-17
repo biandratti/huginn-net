@@ -6,6 +6,7 @@ use super::version::TlsVersion;
 use sha2::{Digest, Sha256};
 #[cfg(feature = "stable-v1")]
 use std::borrow::Cow;
+use std::fmt::Write as _;
 
 /// TLS ClientHello Signature
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +45,6 @@ pub fn first_last_alpn(s: &str) -> (char, char) {
 /// Generate 12-character hash (first 12 chars of SHA256)
 #[inline]
 pub fn hash12(input: &str) -> String {
-    use std::fmt::Write;
     Sha256::digest(input.as_bytes())[..6]
         .iter()
         .fold(String::with_capacity(12), |mut acc, b| {
@@ -109,11 +109,13 @@ impl Signature {
         if !original_order {
             ciphers_for_b.sort_unstable();
         }
-        let ja4_b_raw = ciphers_for_b
-            .iter()
-            .map(|c| format!("{c:04x}"))
-            .collect::<Vec<String>>()
-            .join(",");
+        let mut ja4_b_raw = String::with_capacity(ciphers_for_b.len() * 5);
+        for (i, &c) in ciphers_for_b.iter().enumerate() {
+            if i > 0 {
+                ja4_b_raw.push(',');
+            }
+            let _ = write!(ja4_b_raw, "{c:04x}");
+        }
 
         let mut extensions_for_c = filtered_extensions;
         if !original_order {
@@ -121,17 +123,21 @@ impl Signature {
             extensions_for_c.sort_unstable();
         }
 
-        let extensions_str = extensions_for_c
-            .iter()
-            .map(|e| format!("{e:04x}"))
-            .collect::<Vec<String>>()
-            .join(",");
+        let mut extensions_str = String::with_capacity(extensions_for_c.len() * 5);
+        for (i, &e) in extensions_for_c.iter().enumerate() {
+            if i > 0 {
+                extensions_str.push(',');
+            }
+            let _ = write!(extensions_str, "{e:04x}");
+        }
 
-        let sig_algs_str = filtered_sig_algs
-            .iter()
-            .map(|s| format!("{s:04x}"))
-            .collect::<Vec<String>>()
-            .join(",");
+        let mut sig_algs_str = String::with_capacity(filtered_sig_algs.len() * 5);
+        for (i, &s) in filtered_sig_algs.iter().enumerate() {
+            if i > 0 {
+                sig_algs_str.push(',');
+            }
+            let _ = write!(sig_algs_str, "{s:04x}");
+        }
 
         let ja4_c_raw = if sig_algs_str.is_empty() {
             extensions_str
