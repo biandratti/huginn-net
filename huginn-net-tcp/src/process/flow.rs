@@ -94,7 +94,7 @@ pub fn process_tcp_ipv4(
     let ttl_observed: u8 = packet.get_ttl();
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
     let olen: u8 = IpOptions::calculate_ipv4_length(packet);
-    let mut quirks = vec![];
+    let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
         quirks.push(Quirk::Ecn);
@@ -150,7 +150,7 @@ pub fn process_tcp_ipv6(
     let ttl_observed: u8 = packet.get_hop_limit();
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
     let olen: u8 = IpOptions::calculate_ipv6_length(packet);
-    let mut quirks = vec![];
+    let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
 
     if packet.get_flow_label() != 0 {
         quirks.push(Quirk::FlowID);
@@ -229,7 +229,7 @@ fn visit_tcp(
     let mut buf = tcp.get_options_raw();
     let mut mss = None;
     let mut wscale = None;
-    let mut olayout = vec![];
+    let mut olayout: Vec<TcpOption> = Vec::with_capacity(8);
     let mut client_uptime: Option<ObservableUptime> = None;
     let mut server_uptime: Option<ObservableUptime> = None;
 
@@ -363,18 +363,16 @@ fn visit_tcp(
         },
     };
 
+    let (tcp_request, tcp_response, mtu_out) = if from_client {
+        (Some(tcp_signature), None, mtu)
+    } else {
+        (None, Some(tcp_signature), None)
+    };
+
     Ok(ObservableTCPPackage {
-        tcp_request: if from_client {
-            Some(tcp_signature.clone())
-        } else {
-            None
-        },
-        tcp_response: if !from_client {
-            Some(tcp_signature)
-        } else {
-            None
-        },
-        mtu: if from_client { mtu } else { None },
+        tcp_request,
+        tcp_response,
+        mtu: mtu_out,
         client_uptime,
         server_uptime,
     })
