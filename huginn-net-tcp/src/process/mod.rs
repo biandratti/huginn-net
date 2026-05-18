@@ -6,17 +6,43 @@ use crate::error::HuginnNetTcpError;
 use crate::matcher_api::TcpMatcher;
 use crate::output::{
     IpPort, MTUOutput, MTUQualityMatched, MatchQuality, OSQualityMatched, SynAckTCPOutput,
-    SynTCPOutput, TcpAnalysisResult, UptimeOutput, UptimeRole,
+    SynTCPOutput, TcpAnalysisResult,
 };
-use crate::uptime::{ConnectionKey, TcpTimestamp};
+#[cfg(feature = "uptime")]
+use crate::output::{UptimeOutput, UptimeRole};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use std::net::IpAddr;
-use ttl_cache::TtlCache;
 
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
+
+/// Per-flow connection state used by uptime tracking.
+///
+/// When the `uptime` feature is enabled, this wraps a `TtlCache` of TCP
+/// timestamp samples keyed by connection direction. When the feature is
+/// disabled, it is a zero-sized stub and all operations on it are no-ops, so
+/// builds without uptime tracking drop the `ttl_cache` dependency entirely
+/// without changing public function signatures.
+pub struct ConnectionTracker {
+    #[cfg(feature = "uptime")]
+    pub(crate) inner:
+        ttl_cache::TtlCache<crate::uptime::ConnectionKey, crate::uptime::TcpTimestamp>,
+}
+
+impl ConnectionTracker {
+    /// Creates a new connection tracker.
+    ///
+    /// `max_connections` is the upper bound on tracked flows. When the
+    /// `uptime` feature is disabled the argument is ignored.
+    pub fn new(_max_connections: usize) -> Self {
+        Self {
+            #[cfg(feature = "uptime")]
+            inner: ttl_cache::TtlCache::new(_max_connections),
+        }
+    }
+}
 
 pub struct ObservablePackage {
     pub source: IpPort,
@@ -28,7 +54,7 @@ pub struct ObservablePackage {
 #[inline]
 pub fn process_ipv4_packet(
     ipv4: &Ipv4Packet,
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
     create_observable_package_ipv4(ipv4, connection_tracker, matcher).map(|pkg| pkg.tcp_result)
@@ -36,7 +62,7 @@ pub fn process_ipv4_packet(
 
 fn create_observable_package_ipv4(
     ipv4: &Ipv4Packet,
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<ObservablePackage, HuginnNetTcpError> {
     let tcp = TcpPacket::new(ipv4.payload())
@@ -52,7 +78,9 @@ fn create_observable_package_ipv4(
         syn: None,
         syn_ack: None,
         mtu: None,
+        #[cfg(feature = "uptime")]
         client_uptime: None,
+        #[cfg(feature = "uptime")]
         server_uptime: None,
     };
 
@@ -94,6 +122,7 @@ fn create_observable_package_ipv4(
         tcp_result.mtu = Some(mtu_output);
     }
 
+    #[cfg(feature = "uptime")]
     if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
@@ -108,6 +137,7 @@ fn create_observable_package_ipv4(
         tcp_result.client_uptime = Some(uptime_output);
     }
 
+    #[cfg(feature = "uptime")]
     if let Some(uptime) = tcp_package.server_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
@@ -129,7 +159,7 @@ fn create_observable_package_ipv4(
 #[inline]
 pub fn process_ipv6_packet(
     ipv6: &Ipv6Packet,
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
     create_observable_package_ipv6(ipv6, connection_tracker, matcher).map(|pkg| pkg.tcp_result)
@@ -137,7 +167,7 @@ pub fn process_ipv6_packet(
 
 fn create_observable_package_ipv6(
     ipv6: &Ipv6Packet,
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<ObservablePackage, HuginnNetTcpError> {
     let tcp = TcpPacket::new(ipv6.payload())
@@ -153,7 +183,9 @@ fn create_observable_package_ipv6(
         syn: None,
         syn_ack: None,
         mtu: None,
+        #[cfg(feature = "uptime")]
         client_uptime: None,
+        #[cfg(feature = "uptime")]
         server_uptime: None,
     };
 
@@ -195,6 +227,7 @@ fn create_observable_package_ipv6(
         tcp_result.mtu = Some(mtu_output);
     }
 
+    #[cfg(feature = "uptime")]
     if let Some(uptime) = tcp_package.client_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
@@ -209,6 +242,7 @@ fn create_observable_package_ipv6(
         tcp_result.client_uptime = Some(uptime_output);
     }
 
+    #[cfg(feature = "uptime")]
     if let Some(uptime) = tcp_package.server_uptime {
         let uptime_output = UptimeOutput {
             source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),

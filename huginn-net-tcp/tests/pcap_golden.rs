@@ -87,11 +87,17 @@ fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNe
 
 /// Check if a TCP analysis result has meaningful data for golden tests.
 fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
-    result.syn.is_some()
-        || result.syn_ack.is_some()
-        || result.mtu.is_some()
-        || result.client_uptime.is_some()
-        || result.server_uptime.is_some()
+    let has_uptime = {
+        #[cfg(feature = "uptime")]
+        {
+            result.client_uptime.is_some() || result.server_uptime.is_some()
+        }
+        #[cfg(not(feature = "uptime"))]
+        {
+            false
+        }
+    };
+    result.syn.is_some() || result.syn_ack.is_some() || result.mtu.is_some() || has_uptime
 }
 
 fn assert_connection_matches_snapshot(
@@ -151,30 +157,33 @@ fn assert_connection_matches_snapshot(
         );
     }
 
-    if let (Some(actual_uptime), Some(expected_uptime)) =
-        (&actual.client_uptime, &expected.tcp_analysis.client_uptime)
+    #[cfg(feature = "uptime")]
     {
-        assert_eq!(
-            actual_uptime.freq, expected_uptime.raw_frequency,
-            "Connection {connection_index}: Client uptime raw frequency mismatch"
-        );
-        assert_eq!(
-            actual_uptime.days, expected_uptime.uptime_days,
-            "Connection {connection_index}: Client uptime days mismatch"
-        );
-    }
+        if let (Some(actual_uptime), Some(expected_uptime)) =
+            (&actual.client_uptime, &expected.tcp_analysis.client_uptime)
+        {
+            assert_eq!(
+                actual_uptime.freq, expected_uptime.raw_frequency,
+                "Connection {connection_index}: Client uptime raw frequency mismatch"
+            );
+            assert_eq!(
+                actual_uptime.days, expected_uptime.uptime_days,
+                "Connection {connection_index}: Client uptime days mismatch"
+            );
+        }
 
-    if let (Some(actual_uptime), Some(expected_uptime)) =
-        (&actual.server_uptime, &expected.tcp_analysis.server_uptime)
-    {
-        assert_eq!(
-            actual_uptime.freq, expected_uptime.raw_frequency,
-            "Connection {connection_index}: Server uptime raw frequency mismatch"
-        );
-        assert_eq!(
-            actual_uptime.days, expected_uptime.uptime_days,
-            "Connection {connection_index}: Server uptime days mismatch"
-        );
+        if let (Some(actual_uptime), Some(expected_uptime)) =
+            (&actual.server_uptime, &expected.tcp_analysis.server_uptime)
+        {
+            assert_eq!(
+                actual_uptime.freq, expected_uptime.raw_frequency,
+                "Connection {connection_index}: Server uptime raw frequency mismatch"
+            );
+            assert_eq!(
+                actual_uptime.days, expected_uptime.uptime_days,
+                "Connection {connection_index}: Server uptime days mismatch"
+            );
+        }
     }
 }
 

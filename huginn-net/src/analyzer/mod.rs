@@ -8,7 +8,7 @@ use huginn_net_http::http::HttpDiagnosis;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, TcpFlow};
 use huginn_net_http::output::{HttpRequestOutput, HttpResponseOutput};
 use huginn_net_tcp::output::{MTUOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput, UptimeRole};
-use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
+use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tls::output::TlsClientOutput;
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
@@ -97,7 +97,7 @@ pub struct HuginnNet<'a> {
     pub tcp_matcher: Option<huginn_net_db::TcpSignatureMatcher<'a>>,
     #[cfg(feature = "db")]
     pub http_matcher: Option<huginn_net_db::HttpSignatureMatcher<'a>>,
-    connection_tracker: TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: ConnectionTracker,
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: HttpProcessors,
     pub(crate) config: AnalysisConfig,
@@ -160,7 +160,7 @@ impl<'a> HuginnNet<'a> {
         Ok(Self {
             tcp_matcher,
             http_matcher,
-            connection_tracker: TtlCache::new(connection_tracker_size),
+            connection_tracker: ConnectionTracker::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
             http_processors: HttpProcessors::new(),
             config,
@@ -188,7 +188,7 @@ impl<'a> HuginnNet<'a> {
         let (connection_tracker_size, http_flows_size) = cache_sizes(&config, max_connections);
 
         Ok(Self {
-            connection_tracker: TtlCache::new(connection_tracker_size),
+            connection_tracker: ConnectionTracker::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
             http_processors: HttpProcessors::new(),
             config,

@@ -1,10 +1,12 @@
 use crate::error::HuginnNetTcpError;
 use crate::mtu;
 use crate::mtu::ObservableMtu;
+use crate::process::ConnectionTracker;
 use crate::tcp;
 use crate::tcp::observable::{ObservableTcp, TcpObservation};
 use crate::tcp::{IpOptions, IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
-use crate::uptime::{check_ts_tcp, Connection, ConnectionKey, ObservableUptime, TcpTimestamp};
+#[cfg(feature = "uptime")]
+use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
     ipv4::{Ipv4Flags, Ipv4Packet},
@@ -14,7 +16,6 @@ use pnet::packet::{
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
-use ttl_cache::TtlCache;
 
 /// Congestion encountered
 const IP_TOS_CE: u8 = 0x01;
@@ -28,7 +29,9 @@ pub struct ObservableTCPPackage {
     pub tcp_request: Option<ObservableTcp>,
     pub tcp_response: Option<ObservableTcp>,
     pub mtu: Option<ObservableMtu>,
+    #[cfg(feature = "uptime")]
     pub client_uptime: Option<ObservableUptime>,
+    #[cfg(feature = "uptime")]
     pub server_uptime: Option<ObservableUptime>,
 }
 
@@ -78,7 +81,7 @@ pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 #[inline]
 pub fn process_tcp_ipv4(
     packet: &Ipv4Packet,
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetTcpError::UnsupportedProtocol("IPv4".to_string()));
@@ -141,7 +144,7 @@ pub fn process_tcp_ipv4(
 #[inline]
 pub fn process_tcp_ipv6(
     packet: &Ipv6Packet,
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetTcpError::UnsupportedProtocol("IPv6".to_string()));
@@ -182,8 +185,9 @@ pub fn process_tcp_ipv6(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(feature = "uptime"), allow(unused_variables))]
 fn visit_tcp(
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
@@ -230,7 +234,9 @@ fn visit_tcp(
     let mut mss = None;
     let mut wscale = None;
     let mut olayout: Vec<TcpOption> = Vec::with_capacity(8);
+    #[cfg(feature = "uptime")]
     let mut client_uptime: Option<ObservableUptime> = None;
+    #[cfg(feature = "uptime")]
     let mut server_uptime: Option<ObservableUptime> = None;
 
     while let Some(opt) = TcpOptionPacket::new(buf) {
@@ -298,6 +304,7 @@ fn visit_tcp(
                     }
                 }
 
+                #[cfg(feature = "uptime")]
                 if data.len() >= 8 {
                     let ts_val_bytes: [u8; 4] = data[..4].try_into().map_err(|_| {
                         HuginnNetTcpError::Parse(
@@ -315,8 +322,12 @@ fn visit_tcp(
                     let is_from_client =
                         is_packet_from_client(flags, tcp.get_source(), tcp.get_destination());
 
-                    let (cli_uptime, srv_uptime) =
-                        check_ts_tcp(connection_tracker, &connection, is_from_client, ts_val);
+                    let (cli_uptime, srv_uptime) = check_ts_tcp(
+                        &mut connection_tracker.inner,
+                        &connection,
+                        is_from_client,
+                        ts_val,
+                    );
                     client_uptime = cli_uptime;
                     server_uptime = srv_uptime;
                 }
@@ -373,7 +384,9 @@ fn visit_tcp(
         tcp_request,
         tcp_response,
         mtu: mtu_out,
+        #[cfg(feature = "uptime")]
         client_uptime,
+        #[cfg(feature = "uptime")]
         server_uptime,
     })
 }
