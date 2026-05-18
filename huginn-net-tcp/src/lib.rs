@@ -20,6 +20,7 @@ pub mod analyzer;
 pub mod error;
 pub mod filter;
 pub mod matcher_api;
+#[cfg(feature = "mtu")]
 pub mod mtu;
 pub mod output;
 pub mod parser;
@@ -32,6 +33,7 @@ pub mod uptime;
 pub use analyzer::{HuginnNetTcp, SharedTcpMatcher};
 pub use error::*;
 pub use filter::*;
+#[cfg(feature = "mtu")]
 pub use mtu::ObservableMtu;
 pub use output::*;
 pub use process::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
@@ -57,6 +59,7 @@ pub mod ip_options {
 }
 
 pub mod observable {
+    #[cfg(feature = "mtu")]
     pub use crate::mtu::ObservableMtu;
     pub use crate::tcp::observable::{ObservableTcp, TcpObservation};
     #[cfg(feature = "uptime")]

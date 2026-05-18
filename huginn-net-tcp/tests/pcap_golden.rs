@@ -97,7 +97,17 @@ fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
             false
         }
     };
-    result.syn.is_some() || result.syn_ack.is_some() || result.mtu.is_some() || has_uptime
+    let has_mtu = {
+        #[cfg(feature = "mtu")]
+        {
+            result.mtu.is_some()
+        }
+        #[cfg(not(feature = "mtu"))]
+        {
+            false
+        }
+    };
+    result.syn.is_some() || result.syn_ack.is_some() || has_mtu || has_uptime
 }
 
 fn assert_connection_matches_snapshot(
@@ -150,6 +160,7 @@ fn assert_connection_matches_snapshot(
         );
     }
 
+    #[cfg(feature = "mtu")]
     if let (Some(actual_mtu), Some(expected_mtu)) = (&actual.mtu, &expected.tcp_analysis.mtu) {
         assert_eq!(
             actual_mtu.mtu, expected_mtu.raw_mtu,

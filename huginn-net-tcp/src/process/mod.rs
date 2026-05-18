@@ -5,9 +5,10 @@ use self::flow as tcp_process;
 use crate::error::HuginnNetTcpError;
 use crate::matcher_api::TcpMatcher;
 use crate::output::{
-    IpPort, MTUOutput, MTUQualityMatched, MatchQuality, OSQualityMatched, SynAckTCPOutput,
-    SynTCPOutput, TcpAnalysisResult,
+    IpPort, MatchQuality, OSQualityMatched, SynAckTCPOutput, SynTCPOutput, TcpAnalysisResult,
 };
+#[cfg(feature = "mtu")]
+use crate::output::{MTUOutput, MTUQualityMatched};
 #[cfg(feature = "uptime")]
 use crate::output::{UptimeOutput, UptimeRole};
 use pnet::packet::ipv4::Ipv4Packet;
@@ -77,6 +78,7 @@ fn create_observable_package_ipv4(
     let mut tcp_result = TcpAnalysisResult {
         syn: None,
         syn_ack: None,
+        #[cfg(feature = "mtu")]
         mtu: None,
         #[cfg(feature = "uptime")]
         client_uptime: None,
@@ -110,6 +112,7 @@ fn create_observable_package_ipv4(
         tcp_result.syn_ack = Some(syn_ack_output);
     }
 
+    #[cfg(feature = "mtu")]
     if let Some(mtu) = tcp_package.mtu {
         let link_quality = classify_mtu_match(matcher, mtu.value);
 
@@ -182,6 +185,7 @@ fn create_observable_package_ipv6(
     let mut tcp_result = TcpAnalysisResult {
         syn: None,
         syn_ack: None,
+        #[cfg(feature = "mtu")]
         mtu: None,
         #[cfg(feature = "uptime")]
         client_uptime: None,
@@ -215,6 +219,7 @@ fn create_observable_package_ipv6(
         tcp_result.syn_ack = Some(syn_ack_output);
     }
 
+    #[cfg(feature = "mtu")]
     if let Some(mtu) = tcp_package.mtu {
         let link_quality = classify_mtu_match(matcher, mtu.value);
 
@@ -276,6 +281,7 @@ where
     }
 }
 
+#[cfg(feature = "mtu")]
 fn classify_mtu_match(matcher: Option<&dyn TcpMatcher>, mtu: u16) -> MTUQualityMatched {
     match matcher {
         Some(m) => match m.match_mtu(mtu) {

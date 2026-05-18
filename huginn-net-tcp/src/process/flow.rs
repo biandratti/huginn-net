@@ -1,5 +1,7 @@
 use crate::error::HuginnNetTcpError;
+#[cfg(feature = "mtu")]
 use crate::mtu;
+#[cfg(feature = "mtu")]
 use crate::mtu::ObservableMtu;
 use crate::process::ConnectionTracker;
 use crate::tcp;
@@ -28,6 +30,7 @@ const IP4_MBZ: u8 = 0b0100;
 pub struct ObservableTCPPackage {
     pub tcp_request: Option<ObservableTcp>,
     pub tcp_response: Option<ObservableTcp>,
+    #[cfg(feature = "mtu")]
     pub mtu: Option<ObservableMtu>,
     #[cfg(feature = "uptime")]
     pub client_uptime: Option<ObservableUptime>,
@@ -338,6 +341,7 @@ fn visit_tcp(
         }
     }
 
+    #[cfg(feature = "mtu")]
     let mtu: Option<ObservableMtu> = match (mss, &version) {
         (Some(mss_value), IpVersion::V4) => {
             mtu::extract_from_ipv4(tcp, ip_package_header_length, mss_value)
@@ -374,16 +378,17 @@ fn visit_tcp(
         },
     };
 
-    let (tcp_request, tcp_response, mtu_out) = if from_client {
-        (Some(tcp_signature), None, mtu)
+    let (tcp_request, tcp_response) = if from_client {
+        (Some(tcp_signature), None)
     } else {
-        (None, Some(tcp_signature), None)
+        (None, Some(tcp_signature))
     };
 
     Ok(ObservableTCPPackage {
         tcp_request,
         tcp_response,
-        mtu: mtu_out,
+        #[cfg(feature = "mtu")]
+        mtu: if from_client { mtu } else { None },
         #[cfg(feature = "uptime")]
         client_uptime,
         #[cfg(feature = "uptime")]
