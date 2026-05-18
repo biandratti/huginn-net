@@ -277,6 +277,7 @@ impl WorkerPool {
             IpPacket::None => Ok(TcpAnalysisResult {
                 syn: None,
                 syn_ack: None,
+                #[cfg(feature = "mtu")]
                 mtu: None,
                 #[cfg(feature = "uptime")]
                 client_uptime: None,

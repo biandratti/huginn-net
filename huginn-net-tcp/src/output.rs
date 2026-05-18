@@ -17,6 +17,9 @@ pub struct TcpAnalysisResult {
     pub syn_ack: Option<SynAckTCPOutput>,
 
     /// Information about the Maximum Transmission Unit (MTU).
+    ///
+    /// Present only when the `mtu` feature is enabled.
+    #[cfg(feature = "mtu")]
     pub mtu: Option<MTUOutput>,
 
     /// Information about the client system uptime.
@@ -196,6 +199,7 @@ impl fmt::Display for SynAckTCPOutput {
     }
 }
 
+#[cfg(feature = "mtu")]
 #[derive(Debug)]
 pub struct MTUQualityMatched {
     pub link: Option<String>,
@@ -203,6 +207,7 @@ pub struct MTUQualityMatched {
 }
 
 /// Holds information about the estimated Maximum Transmission Unit (MTU) of a link.
+#[cfg(feature = "mtu")]
 #[derive(Debug)]
 pub struct MTUOutput {
     /// The source IP address and port (usually the client).
@@ -215,6 +220,7 @@ pub struct MTUOutput {
     pub mtu: u16,
 }
 
+#[cfg(feature = "mtu")]
 impl fmt::Display for MTUOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
