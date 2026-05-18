@@ -140,6 +140,6 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-ca
 
 #### Differences between examples:
 - **`capture`**: Full analysis (TCP fingerprinting, HTTP analysis, TLS JA4, database matching)
-- **`capture-tls`**: TLS-only analysis (JA4 fingerprinting, supports sequential and parallel modes with round-robin dispatch)
+- **`capture-tls`**: TLS-only analysis (JA4 fingerprinting, supports sequential and parallel modes with hash-based worker assignment)
 - **`capture-tcp`**: TCP-only analysis (OS fingerprinting, MTU detection, uptime estimation, requires database, supports sequential and parallel modes with hash-based worker assignment)
 - **`capture-http`**: HTTP-only analysis (browser fingerprinting, web server detection, language detection, requires database, supports sequential and parallel modes with flow-based routing)

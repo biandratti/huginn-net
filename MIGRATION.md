@@ -241,11 +241,37 @@ just one.
 
 | Crate | New features (v2.0) |
 |---|---|
-| `huginn-net-tcp` | none (always standalone) |
+| `huginn-net-tcp` | `syn` (default), `mtu` (default), `uptime` (default) |
 | `huginn-net-http` | none (always standalone) |
 | `huginn-net-tls` | `stable-v1` (unchanged) |
 | `huginn-net-db` | `tcp` (default), `http` (default) |
 | `huginn-net` | `db` (default), `tls-stable-v1` |
+
+### New: optional TCP analysis features in `huginn-net-tcp`
+
+`huginn-net-tcp` now exposes three opt-out features — all enabled by default, so existing
+`Cargo.toml` entries require no change.
+
+| Feature | What it enables | Extra dependency |
+|---|---|---|
+| `syn` | TCP SYN / SYN+ACK OS fingerprinting | — |
+| `mtu` | MTU extraction from MSS option | — |
+| `uptime` | uptime estimation from TCP timestamps | `ttl_cache` |
+
+Builds that disable `uptime` drop the `ttl_cache` dependency entirely. To opt out of one or more
+features:
+
+```toml
+# SYN fingerprinting only — no MTU, no uptime, no ttl_cache dependency
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
+
+# SYN + MTU, no uptime
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn", "mtu"] }
+```
+
+`TcpAnalysisResult` keeps all fields (`mtu`, `client_uptime`, `server_uptime`) in every build —
+they are always `Option<_>` and will be `None` when the corresponding feature is disabled, so no
+match arms or field accesses need to change.
 
 ---
 
