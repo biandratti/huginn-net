@@ -4,8 +4,9 @@ use crate::filter::FilterConfig;
 use crate::matcher_api::TcpMatcher;
 use crate::output::TcpAnalysisResult;
 use crate::parser::packet::{parse_packet, IpPacket};
-use crate::process::{process_ipv4_packet, process_ipv6_packet, PoolStats, WorkerPool};
-use crate::uptime::{ConnectionKey, TcpTimestamp};
+use crate::process::{
+    process_ipv4_packet, process_ipv6_packet, ConnectionTracker, PoolStats, WorkerPool,
+};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
@@ -13,7 +14,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tracing::{debug, error};
-use ttl_cache::TtlCache;
 
 #[derive(Debug, Clone, Copy)]
 struct ParallelConfig {
@@ -216,7 +216,7 @@ impl HuginnNetTcp {
     where
         F: FnMut() -> Option<Result<Vec<u8>, HuginnNetTcpError>>,
     {
-        let mut connection_tracker = TtlCache::new(self.max_connections);
+        let mut connection_tracker = ConnectionTracker::new(self.max_connections);
 
         while let Some(packet_result) = packet_fn() {
             if let Some(ref cancel) = cancel_signal {
@@ -354,7 +354,7 @@ impl HuginnNetTcp {
     fn process_packet(
         &self,
         packet: &[u8],
-        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+        connection_tracker: &mut ConnectionTracker,
     ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
         if let Some(ref filter) = self.filter_config {
             if !raw_filter::apply(packet, filter) {
@@ -363,7 +363,9 @@ impl HuginnNetTcp {
                     syn: None,
                     syn_ack: None,
                     mtu: None,
+                    #[cfg(feature = "uptime")]
                     client_uptime: None,
+                    #[cfg(feature = "uptime")]
                     server_uptime: None,
                 });
             }
@@ -379,7 +381,9 @@ impl HuginnNetTcp {
                 syn: None,
                 syn_ack: None,
                 mtu: None,
+                #[cfg(feature = "uptime")]
                 client_uptime: None,
+                #[cfg(feature = "uptime")]
                 server_uptime: None,
             }),
         }

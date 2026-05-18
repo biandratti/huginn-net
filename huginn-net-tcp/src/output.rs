@@ -6,7 +6,8 @@ use std::fmt::Formatter;
 /// Represents the output from TCP analysis.
 ///
 /// This struct contains various optional outputs that can be derived
-/// from analyzing TCP packets.
+/// from analyzing TCP packets. Some fields are only present when the
+/// corresponding Cargo feature is enabled.
 #[derive(Debug)]
 pub struct TcpAnalysisResult {
     /// Information derived from SYN packets.
@@ -19,9 +20,15 @@ pub struct TcpAnalysisResult {
     pub mtu: Option<MTUOutput>,
 
     /// Information about the client system uptime.
+    ///
+    /// Present only when the `uptime` feature is enabled.
+    #[cfg(feature = "uptime")]
     pub client_uptime: Option<UptimeOutput>,
 
     /// Information about the server system uptime.
+    ///
+    /// Present only when the `uptime` feature is enabled.
+    #[cfg(feature = "uptime")]
     pub server_uptime: Option<UptimeOutput>,
 }
 
@@ -229,12 +236,14 @@ impl fmt::Display for MTUOutput {
 }
 
 /// Represents the role of the host in the connection for uptime tracking.
+#[cfg(feature = "uptime")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UptimeRole {
     Client,
     Server,
 }
 
+#[cfg(feature = "uptime")]
 impl fmt::Display for UptimeRole {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -245,6 +254,7 @@ impl fmt::Display for UptimeRole {
 }
 
 /// Holds uptime information derived from TCP timestamp analysis.
+#[cfg(feature = "uptime")]
 #[derive(Debug)]
 pub struct UptimeOutput {
     pub source: IpPort,
@@ -257,6 +267,7 @@ pub struct UptimeOutput {
     pub freq: f64,
 }
 
+#[cfg(feature = "uptime")]
 impl fmt::Display for UptimeOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let role_str = match self.role {

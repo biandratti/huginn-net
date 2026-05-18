@@ -1,4 +1,4 @@
-use super::{process_ipv4_packet, process_ipv6_packet};
+use super::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
 use crate::error::HuginnNetTcpError;
 use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
@@ -11,7 +11,6 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use ttl_cache::TtlCache;
 
 type SharedMatcher = Arc<dyn TcpMatcher + Send + Sync>;
 
@@ -193,7 +192,7 @@ impl WorkerPool {
         let matcher_ref: Option<&dyn TcpMatcher> = matcher.as_deref().map(|m| m as &dyn TcpMatcher);
 
         // Each worker maintains its own connection tracker (state isolation)
-        let mut connection_tracker = TtlCache::new(config.max_connections);
+        let mut connection_tracker = ConnectionTracker::new(config.max_connections);
 
         let timeout = Duration::from_millis(config.timeout_ms);
 
@@ -260,10 +259,7 @@ impl WorkerPool {
     /// Returns `false` if the result channel is closed (signal to exit).
     fn process_packet(
         packet: &[u8],
-        connection_tracker: &mut TtlCache<
-            crate::uptime::ConnectionKey,
-            crate::uptime::TcpTimestamp,
-        >,
+        connection_tracker: &mut ConnectionTracker,
         matcher: Option<&dyn TcpMatcher>,
         result_sender: &std::sync::mpsc::Sender<TcpAnalysisResult>,
         filter: Option<&FilterConfig>,
@@ -282,7 +278,9 @@ impl WorkerPool {
                 syn: None,
                 syn_ack: None,
                 mtu: None,
+                #[cfg(feature = "uptime")]
                 client_uptime: None,
+                #[cfg(feature = "uptime")]
                 server_uptime: None,
             }),
         };

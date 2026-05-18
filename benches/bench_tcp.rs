@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use huginn_net_db::{Database, SharedTcpSignatureMatcher, TcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;
-use huginn_net_tcp::{process_ipv4_packet, process_ipv6_packet, ConnectionKey, TcpTimestamp};
+use huginn_net_tcp::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
 use std::sync::Arc;
 
 fn shared_matcher(db: Arc<Database>) -> Arc<dyn TcpMatcher + Send + Sync> {
@@ -12,7 +12,6 @@ use std::error::Error;
 use std::fs::File;
 use std::sync::Mutex;
 use std::time::Duration;
-use ttl_cache::TtlCache;
 
 /// Number of times to repeat the PCAP dataset for stable benchmarks
 const REPEAT_COUNT: usize = 1000;
@@ -355,7 +354,7 @@ fn load_packets_repeated(pcap_path: &str, repeat: usize) -> Result<Vec<Vec<u8>>,
 /// Process a packet using the public TCP API
 fn process_tcp_packet(
     packet: &[u8],
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Option<huginn_net_tcp::TcpAnalysisResult> {
     match huginn_net_tcp::packet_parser::parse_packet(packet) {
@@ -398,7 +397,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count TCP analysis results
-    let mut connection_tracker = TtlCache::new(1000);
+    let mut connection_tracker = ConnectionTracker::new(1000);
     let mut syn_count: u32 = 0;
     let mut syn_ack_count: u32 = 0;
     let mut mtu_count: u32 = 0;
@@ -445,7 +444,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     group.bench_function("tcp_with_os_matching", |b| {
         b.iter(|| {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
             }
@@ -455,7 +454,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     // Benchmark TCP processing without OS matching
     group.bench_function("tcp_without_os_matching", |b| {
         b.iter(|| {
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, None);
             }
@@ -477,7 +476,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
     let tcp_with_os_time = measure_average_time(
         || {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
             }
@@ -487,7 +486,7 @@ fn bench_tcp_os_fingerprinting(c: &mut Criterion) {
 
     let tcp_without_os_time = measure_average_time(
         || {
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, None);
             }
@@ -547,7 +546,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
 
     // Count MTU detections
     let matcher = TcpSignatureMatcher::new(&db.tcp);
-    let mut connection_tracker = TtlCache::new(1000);
+    let mut connection_tracker = ConnectionTracker::new(1000);
     let mut mtu_detections: u32 = 0;
 
     for packet in &packets {
@@ -567,7 +566,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     group.bench_function("mtu_with_link_matching", |b| {
         b.iter(|| {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, Some(&matcher)) {
                     if let Some(mtu_output) = result.mtu {
@@ -583,7 +582,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     // Benchmark MTU detection without link matching
     group.bench_function("mtu_without_link_matching", |b| {
         b.iter(|| {
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, None) {
                     if let Some(mtu_output) = result.mtu {
@@ -601,7 +600,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
     let mtu_with_link_time = measure_average_time(
         || {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, Some(&matcher)) {
                     if let Some(mtu_output) = result.mtu {
@@ -616,7 +615,7 @@ fn bench_tcp_mtu_detection(c: &mut Criterion) {
 
     let mtu_without_link_time = measure_average_time(
         || {
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, None) {
                     if let Some(mtu_output) = result.mtu {
@@ -659,7 +658,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
     println!("  Total packets: {} (repeated {}x)", packets.len(), REPEAT_COUNT);
 
     // Count uptime calculations
-    let mut connection_tracker = TtlCache::new(1000);
+    let mut connection_tracker = ConnectionTracker::new(1000);
     let mut uptime_calculations: u32 = 0;
 
     for packet in &packets {
@@ -678,7 +677,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
     // Benchmark uptime calculation with connection tracking
     group.bench_function("uptime_with_tracking", |b| {
         b.iter(|| {
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, None) {
                     if let Some(uptime_output) = result.client_uptime {
@@ -701,7 +700,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
     // Benchmark TCP processing with different cache sizes
     group.bench_function("uptime_small_cache", |b| {
         b.iter(|| {
-            let mut tracker = TtlCache::new(100); // Smaller cache
+            let mut tracker = ConnectionTracker::new(100); // Smaller cache
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, None);
             }
@@ -710,7 +709,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
     group.bench_function("uptime_large_cache", |b| {
         b.iter(|| {
-            let mut tracker = TtlCache::new(10000); // Larger cache
+            let mut tracker = ConnectionTracker::new(10000); // Larger cache
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, None);
             }
@@ -722,7 +721,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
     // Measure and store uptime calculation times
     let uptime_with_tracking_time = measure_average_time(
         || {
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, None) {
                     if let Some(uptime_output) = result.client_uptime {
@@ -745,7 +744,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
     let uptime_small_cache_time = measure_average_time(
         || {
-            let mut tracker = TtlCache::new(100);
+            let mut tracker = ConnectionTracker::new(100);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, None);
             }
@@ -755,7 +754,7 @@ fn bench_tcp_uptime_calculation(c: &mut Criterion) {
 
     let uptime_large_cache_time = measure_average_time(
         || {
-            let mut tracker = TtlCache::new(10000);
+            let mut tracker = ConnectionTracker::new(10000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, None);
             }
@@ -820,7 +819,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     group.bench_function("full_tcp_analysis", |b| {
         b.iter(|| {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
             }
@@ -831,7 +830,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     group.bench_function("full_analysis_with_collection", |b| {
         b.iter(|| {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             let mut results = Vec::new();
 
             for packet in packets.iter() {
@@ -869,7 +868,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     let full_tcp_analysis_time = measure_average_time(
         || {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             for packet in packets.iter() {
                 let _ = process_tcp_packet(packet, &mut tracker, Some(&matcher));
             }
@@ -880,7 +879,7 @@ fn bench_tcp_processing_overhead(c: &mut Criterion) {
     let full_analysis_with_collection_time = measure_average_time(
         || {
             let matcher = TcpSignatureMatcher::new(&db.tcp);
-            let mut tracker = TtlCache::new(1000);
+            let mut tracker = ConnectionTracker::new(1000);
             let mut results = Vec::new();
             for packet in packets.iter() {
                 if let Some(result) = process_tcp_packet(packet, &mut tracker, Some(&matcher)) {

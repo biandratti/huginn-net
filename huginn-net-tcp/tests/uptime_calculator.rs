@@ -1,5 +1,7 @@
 //! Tests for uptime calculation validations
 
+#![cfg(feature = "uptime")]
+
 use huginn_net_tcp::uptime::{check_ts_tcp, Connection};
 use std::net::{IpAddr, Ipv4Addr};
 use std::time::Duration;

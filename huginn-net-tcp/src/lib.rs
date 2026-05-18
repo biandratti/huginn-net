@@ -25,6 +25,7 @@ pub mod output;
 pub mod parser;
 pub mod process;
 pub mod tcp;
+#[cfg(feature = "uptime")]
 pub mod uptime;
 
 // Re-exports from new canonical locations
@@ -33,9 +34,10 @@ pub use error::*;
 pub use filter::*;
 pub use mtu::ObservableMtu;
 pub use output::*;
-pub use process::{process_ipv4_packet, process_ipv6_packet};
+pub use process::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
 pub use process::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use tcp::observable::{ObservableTcp, TcpObservation};
+#[cfg(feature = "uptime")]
 pub use uptime::{
     calculate_uptime_improved, Connection, ConnectionKey, FrequencyState, TcpTimestamp,
     UptimeTracker,
@@ -57,6 +59,7 @@ pub mod ip_options {
 pub mod observable {
     pub use crate::mtu::ObservableMtu;
     pub use crate::tcp::observable::{ObservableTcp, TcpObservation};
+    #[cfg(feature = "uptime")]
     pub use crate::uptime::ObservableUptime;
 }
 

@@ -7,7 +7,7 @@ use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse}
 use huginn_net_tcp::error::HuginnNetTcpError;
 use huginn_net_tcp::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
 use huginn_net_tcp::tcp_process::ObservableTCPPackage;
-use huginn_net_tcp::uptime::{ConnectionKey, TcpTimestamp};
+use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tls::error::HuginnNetTlsError;
 use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -37,7 +37,7 @@ pub struct ObservablePackage {
 impl ObservablePackage {
     pub fn extract(
         packet: &[u8],
-        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+        connection_tracker: &mut ConnectionTracker,
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
         config: &AnalysisConfig,
@@ -75,7 +75,7 @@ trait IpPacketProcessor: Packet {
     ) -> Result<ObservableHttpPackage, HuginnNetError>;
     fn process_tcp_with_data(
         data: &[u8],
-        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+        connection_tracker: &mut ConnectionTracker,
     ) -> Result<ObservableTCPPackage, HuginnNetError>;
     fn process_tls_with_data(data: &[u8]) -> Result<ObservableTlsPackage, HuginnNetError>;
 }
@@ -121,7 +121,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
 
     fn process_tcp_with_data(
         data: &[u8],
-        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+        connection_tracker: &mut ConnectionTracker,
     ) -> Result<ObservableTCPPackage, HuginnNetError> {
         if let Some(packet) = Ipv4Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv4(&packet, connection_tracker).map_err(
@@ -203,7 +203,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 
     fn process_tcp_with_data(
         data: &[u8],
-        connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+        connection_tracker: &mut ConnectionTracker,
     ) -> Result<ObservableTCPPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_tcp::tcp_process::process_tcp_ipv6(&packet, connection_tracker).map_err(
@@ -251,7 +251,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
 
 fn execute_analysis<P: IpPacketProcessor>(
     packet_data: &[u8],
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     config: &AnalysisConfig,
@@ -286,7 +286,7 @@ fn execute_analysis<P: IpPacketProcessor>(
 }
 
 fn process_ip<P: IpPacketProcessor>(
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: P,
@@ -317,7 +317,7 @@ fn process_ip<P: IpPacketProcessor>(
 }
 
 pub fn process_ipv4(
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: Ipv4Packet,
@@ -327,7 +327,7 @@ pub fn process_ipv4(
 }
 
 pub fn process_ipv6(
-    connection_tracker: &mut TtlCache<ConnectionKey, TcpTimestamp>,
+    connection_tracker: &mut ConnectionTracker,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
     packet: Ipv6Packet,
