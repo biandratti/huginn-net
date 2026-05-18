@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! TLS fingerprinting and JA4 analysis.
 //!
 //! ## Cargo Features
@@ -5,9 +8,6 @@
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
 //! | `stable-v1` | No | Adds [`Signature::generate_ja4_stable_v1`] / [`ObservableTlsClient::ja4_stable_v1`], ephemeral extensions excluded for stable fingerprints |
-
-#![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod analyzer;
 pub mod error;

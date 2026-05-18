@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4) analysis.
 //!
 //! ## Cargo Features
@@ -6,9 +9,6 @@
 //! |---------|---------|-------------|
 //! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints |
-
-#![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
 
 // ---------------------------------------------------------------------------
 // Domain modules (canonical locations)
