@@ -20,9 +20,26 @@ use huginn_net_tcp::output::MatchQuality as TcpMatchQuality;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::output::OSQualityMatched;
 
-#[cfg(feature = "db")]
+#[cfg(all(
+    feature = "db",
+    any(
+        feature = "tcp-syn",
+        feature = "tcp-syn-ack",
+        feature = "tcp-mtu",
+        feature = "http-p0f-request",
+        feature = "http-p0f-response"
+    )
+))]
 use crate::quality_match;
-#[cfg(feature = "db")]
+#[cfg(all(
+    feature = "db",
+    any(
+        feature = "tcp-syn",
+        feature = "tcp-syn-ack",
+        feature = "tcp-mtu",
+        feature = "http-p0f-response"
+    )
+))]
 use crate::simple_quality_match;
 #[cfg(all(feature = "db", feature = "http-p0f-request"))]
 use huginn_net_http::output::Browser;
