@@ -48,12 +48,20 @@ huginn-net-db = "1.7.5"
 | `tcp-syn-ack` | Yes | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
 | `tcp-mtu` | Yes | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
 | `tcp-uptime` | Yes | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
+| `http-p0f-request` | Yes | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`). |
+| `http-p0f-response` | Yes | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
 | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints. |
 
-Each `tcp-*` feature gates the corresponding field on `FingerprintResult` at
-compile time. Disabling one shrinks the result struct and lets the parser
-skip its work (the TCP layer also early-exits when no enabled feature
-consumes a packet's side).
+Each `tcp-*` / `http-*` feature gates the corresponding field on
+`FingerprintResult` at compile time. Disabling one shrinks the result
+struct and lets the parser skip its work (the TCP layer also early-exits
+when no enabled feature consumes a packet's side; the HTTP layer short-
+circuits flow tracking when both p0f sides are disabled).
+
+The umbrella does **not** expose `huginn-net-http/akamai` — Akamai HTTP/2
+fingerprinting is a standalone API surface on `huginn-net-http`. Add
+`huginn-net-http = { version = "1.7.5", features = ["akamai"] }` as a
+direct dependency if you need it alongside `huginn-net`.
 
 Default build (everything except `tls-stable-v1`):
 
@@ -71,11 +79,23 @@ huginn-net = { version = "1.7.5", features = ["tls-stable-v1"] }
 huginn-net-db = "1.7.5"
 ```
 
-Opt out of TCP work that you don't need (example: SYN-only, no MTU / uptime / SYN+ACK):
+Opt out of TCP work that you don't need (example: SYN-only, no MTU / uptime / SYN+ACK, full HTTP defaults):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false, features = ["db", "tcp-syn"] }
+huginn-net = { version = "1.7.5", default-features = false, features = [
+    "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
+] }
+huginn-net-db = "1.7.5"
+```
+
+Drop one or both HTTP sides (example: TCP + request-only HTTP):
+
+```toml
+[dependencies]
+huginn-net = { version = "1.7.5", default-features = false, features = [
+    "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
+] }
 huginn-net-db = "1.7.5"
 ```
 
@@ -85,6 +105,7 @@ Observation-only build (no database, no p0f matching — useful for TLS terminat
 [dependencies]
 huginn-net = { version = "1.7.5", default-features = false, features = [
     "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
+    "http-p0f-request", "http-p0f-response",
 ] }
 ```
 

@@ -9,11 +9,11 @@ use crate::error::HuginnNetHttpError;
 #[cfg(feature = "p0f-response")]
 use crate::http::HttpDiagnosis;
 use crate::matcher_api::HttpMatcher;
-use crate::output::{HttpAnalysisResult, IpPort};
 #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use crate::output::MatchQuality;
 #[cfg(feature = "p0f-request")]
 use crate::output::{BrowserQualityMatched, HttpRequestOutput};
+use crate::output::{HttpAnalysisResult, IpPort};
 #[cfg(feature = "p0f-response")]
 use crate::output::{HttpResponseOutput, WebServerQualityMatched};
 use pnet::packet::ipv4::Ipv4Packet;

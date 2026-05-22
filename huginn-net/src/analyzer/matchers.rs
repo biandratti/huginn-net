@@ -1,9 +1,16 @@
 use super::HuginnNet;
+#[cfg(feature = "http-p0f-request")]
 use huginn_net_http::http::HttpDiagnosis;
-use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
-use huginn_net_http::output::{
-    BrowserQualityMatched, MatchQuality as HttpMatchQuality, WebServerQualityMatched,
-};
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::observable::ObservableHttpRequest;
+#[cfg(feature = "http-p0f-response")]
+use huginn_net_http::observable::ObservableHttpResponse;
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::output::BrowserQualityMatched;
+#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
+use huginn_net_http::output::MatchQuality as HttpMatchQuality;
+#[cfg(feature = "http-p0f-response")]
+use huginn_net_http::output::WebServerQualityMatched;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::observable::ObservableTcp;
 #[cfg(feature = "tcp-mtu")]
@@ -17,8 +24,10 @@ use huginn_net_tcp::output::OSQualityMatched;
 use crate::quality_match;
 #[cfg(feature = "db")]
 use crate::simple_quality_match;
-#[cfg(feature = "db")]
-use huginn_net_http::output::{Browser, WebServer};
+#[cfg(all(feature = "db", feature = "http-p0f-request"))]
+use huginn_net_http::output::Browser;
+#[cfg(all(feature = "db", feature = "http-p0f-response"))]
+use huginn_net_http::output::WebServer;
 #[cfg(all(feature = "db", any(feature = "tcp-syn", feature = "tcp-syn-ack")))]
 use huginn_net_tcp::output::OperativeSystem;
 
@@ -27,6 +36,7 @@ use crate::AnalysisConfig;
 /// Combined HTTP request matching outcome. Internal helper used by
 /// [`HuginnNet::match_http_request`] so that the cfg-gated branches stay
 /// confined to a single function.
+#[cfg(feature = "http-p0f-request")]
 pub(super) struct HttpRequestMatchResult {
     pub(super) browser_quality: BrowserQualityMatched,
     pub(super) http_diagnosis: HttpDiagnosis,
@@ -136,6 +146,7 @@ impl<'a> HuginnNet<'a> {
         }
     }
 
+    #[cfg(feature = "http-p0f-request")]
     pub(super) fn match_http_request(
         &self,
         observable_http_request: &ObservableHttpRequest,
@@ -207,6 +218,7 @@ impl<'a> HuginnNet<'a> {
         }
     }
 
+    #[cfg(feature = "http-p0f-response")]
     pub(super) fn match_http_response(
         &self,
         observable_http_response: &ObservableHttpResponse,

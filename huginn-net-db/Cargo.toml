@@ -19,13 +19,14 @@ tcp = ["dep:huginn-net-tcp"]
 http = ["dep:huginn-net-http"]
 
 [dependencies]
-huginn-net-http = { workspace = true, optional = true }
+huginn-net-http = { workspace = true, optional = true, default-features = false }
 huginn-net-tcp = { workspace = true, optional = true, default-features = false }
 nom = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+huginn-net-http = { workspace = true, features = ["p0f-request", "p0f-response"] }
 huginn-net-tcp = { workspace = true, features = ["syn", "syn-ack", "mtu", "uptime"] }
 lazy_static = { workspace = true }
 serde = { workspace = true }

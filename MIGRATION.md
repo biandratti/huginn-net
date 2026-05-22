@@ -245,7 +245,7 @@ just one.
 | `huginn-net-http` | `p0f-request` (default), `p0f-response` (default), `akamai` (default) |
 | `huginn-net-tls` | `stable-v1` (unchanged) |
 | `huginn-net-db` | `tcp` (default), `http` (default) |
-| `huginn-net` | `db` (default), `tcp-syn` (default), `tcp-syn-ack` (default), `tcp-mtu` (default), `tcp-uptime` (default), `tls-stable-v1` |
+| `huginn-net` | `db` (default), `tcp-syn` (default), `tcp-syn-ack` (default), `tcp-mtu` (default), `tcp-uptime` (default), `http-p0f-request` (default), `http-p0f-response` (default), `tls-stable-v1` |
 
 ### New: optional TCP analysis features in `huginn-net-tcp`
 
@@ -379,6 +379,66 @@ features. The carrier types it touches (`HttpRequestObservation`,
 feature combination, so the matcher continues to work even when downstream
 code disables one or both p0f sides — only the `HttpAnalysisResult`
 *output* fields are gated.
+
+### New: HTTP feature pass-through in `huginn-net`
+
+The umbrella crate `huginn-net` re-exposes the two p0f-side toggles from
+`huginn-net-http` as `http-p0f-request` and `http-p0f-response` — **both
+default**. Disabling one removes the corresponding field from
+`FingerprintResult` at compile time and forwards the opt-out to
+`huginn-net-http` (the HTTP layer also short-circuits flow tracking when
+both sides are off; see the section above).
+
+| `huginn-net` feature  | Enables in `huginn-net-http` | Gates on `FingerprintResult` |
+|-----------------------|------------------------------|-------------------------------|
+| `http-p0f-request`    | `p0f-request`                | `http_request` |
+| `http-p0f-response`   | `p0f-response`               | `http_response` |
+
+**`akamai` is intentionally not exposed via the umbrella** — Akamai HTTP/2
+fingerprinting is a standalone API surface on `huginn-net-http` that the
+umbrella never invokes. Consumers who need it should add `huginn-net-http`
+as a direct dependency:
+
+```toml
+huginn-net      = "2.0"
+huginn-net-http = { version = "2.0", features = ["akamai"] }
+```
+
+Behaviour matrix for the most common combinations:
+
+| Build flags | `http_request` | `http_response` |
+|---|---|---|
+| default | yes | yes |
+| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime"` | — | — |
+| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request"` | yes | — |
+| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-response"` | — | yes |
+| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request,http-p0f-response"` | yes | yes |
+
+Migration:
+
+```diff
+-huginn-net = "2.0"
++huginn-net = { version = "2.0", default-features = false, features = [
++    "db", "tcp-syn", "http-p0f-request", # add the http-* sides you actually consume
++] }
+```
+
+If you keep the defaults, **nothing changes** — the umbrella behaves
+exactly like before.
+
+The compatibility caveat below applies to any consumer of `huginn-net-db`
+that still relies on the v1.x HTTP output fields being unconditionally
+available:
+
+> `huginn-net-db` now depends on `huginn-net-http` with
+> `default-features = false`, so feature toggles flow through both crates.
+> The `huginn-net-db` integration tests that destructure both
+> `HttpAnalysisResult` fields keep compiling because the crate enables
+> both p0f features explicitly in its `[dev-dependencies]`. Downstream
+> code using `huginn-net-db` directly **and** reaching into
+> `huginn-net-http`'s `HttpAnalysisResult` must enable
+> `huginn-net-http`'s `p0f-request` / `p0f-response` features explicitly
+> (or rely on the umbrella, which does so via its `default` set).
 
 ---
 

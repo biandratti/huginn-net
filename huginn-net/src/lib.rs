@@ -12,14 +12,21 @@
 //! | `tcp-syn-ack` | Yes | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
 //! | `tcp-mtu` | Yes | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
 //! | `tcp-uptime` | Yes | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
+//! | `http-p0f-request` | Yes | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`]). |
+//! | `http-p0f-response` | Yes | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, [`HttpResponseOutput`], [`WebServer`], [`WebServerQualityMatched`]). |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints. |
 //!
-//! Each `tcp-*` feature gates the corresponding field on [`FingerprintResult`]
-//! and the matching re-exports. Disabling a feature removes its field at
-//! compile time and shrinks the result struct. The underlying parser also
-//! early-exits when none of the consumers for a packet's side are enabled,
-//! so disabling features is a zero-cost optimization, not just a build
-//! configuration.
+//! Each `tcp-*` / `http-*` feature gates the corresponding field on
+//! [`FingerprintResult`] and the matching re-exports. Disabling a feature
+//! removes its field at compile time and shrinks the result struct. The
+//! underlying parser also early-exits when none of the consumers for a
+//! packet's side are enabled, so disabling features is a zero-cost
+//! optimization, not just a build configuration.
+//!
+//! Note: the umbrella does **not** expose `huginn-net-http/akamai` —
+//! Akamai HTTP/2 fingerprinting is a standalone API surface on
+//! `huginn-net-http`. Add `huginn-net-http` as a direct dependency with
+//! `features = ["akamai"]` if you need it alongside `huginn-net`.
 
 // ---------------------------------------------------------------------------
 // Domain modules (canonical locations)
@@ -58,11 +65,17 @@ pub use huginn_net_tcp::tcp;
 pub use huginn_net_tcp::tcp::Ttl;
 
 pub use huginn_net_http::http;
-pub use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+#[cfg(feature = "http-p0f-request")]
+pub use huginn_net_http::observable::ObservableHttpRequest;
+#[cfg(feature = "http-p0f-response")]
+pub use huginn_net_http::observable::ObservableHttpResponse;
 pub use huginn_net_http::output::{
-    Browser, BrowserQualityMatched, HttpRequestOutput, HttpResponseOutput,
-    MatchQuality as HttpMatchQuality, OsKind as HttpOsKind, WebServer, WebServerQualityMatched,
+    Browser, MatchQuality as HttpMatchQuality, OsKind as HttpOsKind, WebServer,
 };
+#[cfg(feature = "http-p0f-request")]
+pub use huginn_net_http::output::{BrowserQualityMatched, HttpRequestOutput};
+#[cfg(feature = "http-p0f-response")]
+pub use huginn_net_http::output::{HttpResponseOutput, WebServerQualityMatched};
 
 pub use huginn_net_tls::output::TlsClientOutput;
 pub use huginn_net_tls::ObservableTlsClient;

@@ -6,7 +6,13 @@
 //! that the umbrella crate correctly wires and combines both protocols in a
 //! single `FingerprintResult`.
 
-#![cfg(all(feature = "db", feature = "tcp-syn", feature = "tcp-mtu"))]
+#![cfg(all(
+    feature = "db",
+    feature = "tcp-syn",
+    feature = "tcp-mtu",
+    feature = "http-p0f-request",
+    feature = "http-p0f-response"
+))]
 
 use huginn_net::{Database, HuginnNet, TcpMatchQuality};
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
