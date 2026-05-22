@@ -1,4 +1,6 @@
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::observable::ObservableTcp;
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
@@ -11,9 +13,15 @@ use std::fmt::Formatter;
 #[derive(Debug)]
 pub struct TcpAnalysisResult {
     /// Information derived from SYN packets.
+    ///
+    /// Present only when the `syn` feature is enabled.
+    #[cfg(feature = "syn")]
     pub syn: Option<SynTCPOutput>,
 
     /// Information derived from SYN-ACK packets.
+    ///
+    /// Present only when the `syn-ack` feature is enabled.
+    #[cfg(feature = "syn-ack")]
     pub syn_ack: Option<SynAckTCPOutput>,
 
     /// Information about the Maximum Transmission Unit (MTU).
@@ -102,6 +110,7 @@ pub struct OSQualityMatched {
 }
 
 /// Holds information derived from analyzing a TCP SYN packet (client initiation).
+#[cfg(feature = "syn")]
 #[derive(Debug)]
 pub struct SynTCPOutput {
     /// The source IP address and port of the client sending the SYN.
@@ -114,6 +123,7 @@ pub struct SynTCPOutput {
     pub sig: ObservableTcp,
 }
 
+#[cfg(feature = "syn")]
 impl fmt::Display for SynTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -151,6 +161,7 @@ impl fmt::Display for SynTCPOutput {
 }
 
 /// Holds information derived from analyzing a TCP SYN+ACK packet (server response).
+#[cfg(feature = "syn-ack")]
 #[derive(Debug)]
 pub struct SynAckTCPOutput {
     /// The source IP address and port of the server sending the SYN+ACK.
@@ -163,6 +174,7 @@ pub struct SynAckTCPOutput {
     pub sig: ObservableTcp,
 }
 
+#[cfg(feature = "syn-ack")]
 impl fmt::Display for SynAckTCPOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

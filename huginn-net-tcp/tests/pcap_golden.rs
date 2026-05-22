@@ -107,7 +107,27 @@ fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
             false
         }
     };
-    result.syn.is_some() || result.syn_ack.is_some() || has_mtu || has_uptime
+    let has_syn = {
+        #[cfg(feature = "syn")]
+        {
+            result.syn.is_some()
+        }
+        #[cfg(not(feature = "syn"))]
+        {
+            false
+        }
+    };
+    let has_syn_ack = {
+        #[cfg(feature = "syn-ack")]
+        {
+            result.syn_ack.is_some()
+        }
+        #[cfg(not(feature = "syn-ack"))]
+        {
+            false
+        }
+    };
+    has_syn || has_syn_ack || has_mtu || has_uptime
 }
 
 fn assert_connection_matches_snapshot(
@@ -115,6 +135,7 @@ fn assert_connection_matches_snapshot(
     expected: &ConnectionSnapshot,
     connection_index: usize,
 ) {
+    #[cfg(feature = "syn")]
     if let (Some(actual_syn), Some(expected_syn)) = (&actual.syn, &expected.tcp_analysis.syn) {
         assert_eq!(
             actual_syn.source.ip.to_string(),
@@ -141,6 +162,7 @@ fn assert_connection_matches_snapshot(
         );
     }
 
+    #[cfg(feature = "syn-ack")]
     if let (Some(actual_syn_ack), Some(expected_syn_ack)) =
         (&actual.syn_ack, &expected.tcp_analysis.syn_ack)
     {

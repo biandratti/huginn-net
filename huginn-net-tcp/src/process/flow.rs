@@ -5,8 +5,11 @@ use crate::mtu;
 use crate::mtu::ObservableMtu;
 use crate::process::ConnectionTracker;
 use crate::tcp;
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::observable::{ObservableTcp, TcpObservation};
-use crate::tcp::{IpOptions, IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
+use crate::tcp::{PayloadSize, WindowSize};
+use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
 #[cfg(feature = "uptime")]
 use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -28,7 +31,9 @@ const IP4_MBZ: u8 = 0b0100;
 
 // Internal representation of a TCP package
 pub struct ObservableTCPPackage {
+    #[cfg(feature = "syn")]
     pub tcp_request: Option<ObservableTcp>,
+    #[cfg(feature = "syn-ack")]
     pub tcp_response: Option<ObservableTcp>,
     #[cfg(feature = "mtu")]
     pub mtu: Option<ObservableMtu>,
@@ -36,6 +41,24 @@ pub struct ObservableTCPPackage {
     pub client_uptime: Option<ObservableUptime>,
     #[cfg(feature = "uptime")]
     pub server_uptime: Option<ObservableUptime>,
+}
+
+impl ObservableTCPPackage {
+    #[inline]
+    pub fn empty() -> Self {
+        Self {
+            #[cfg(feature = "syn")]
+            tcp_request: None,
+            #[cfg(feature = "syn-ack")]
+            tcp_response: None,
+            #[cfg(feature = "mtu")]
+            mtu: None,
+            #[cfg(feature = "uptime")]
+            client_uptime: None,
+            #[cfg(feature = "uptime")]
+            server_uptime: None,
+        }
+    }
 }
 
 pub fn from_client(tcp_flags: u8) -> bool {
@@ -188,7 +211,17 @@ pub fn process_tcp_ipv6(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg_attr(not(feature = "uptime"), allow(unused_variables))]
+#[cfg_attr(
+    any(
+        not(feature = "uptime"),
+        not(any(feature = "syn", feature = "syn-ack")),
+    ),
+    allow(unused_variables)
+)]
+#[cfg_attr(
+    not(any(feature = "syn", feature = "syn-ack")),
+    allow(unused_assignments)
+)]
 fn visit_tcp(
     connection_tracker: &mut ConnectionTracker,
     tcp: &TcpPacket,
@@ -207,6 +240,25 @@ fn visit_tcp(
     let tcp_type: u8 = flags & (SYN | ACK | FIN | RST);
     if !is_valid(flags, tcp_type) {
         return Err(HuginnNetTcpError::InvalidTcpFlags(flags));
+    }
+
+    // Cross-feature early-exit: when the packet's side is not consumed by any
+    // enabled feature, return an empty package before parsing TCP options.
+    // In the default build (all four features on) this whole block is removed
+    // by `#[cfg]` and costs nothing.
+    #[cfg(not(all(
+        feature = "syn",
+        feature = "syn-ack",
+        feature = "mtu",
+        feature = "uptime"
+    )))]
+    {
+        let needs_request_side =
+            cfg!(feature = "syn") || cfg!(feature = "mtu") || cfg!(feature = "uptime");
+        let needs_response_side = cfg!(feature = "syn-ack") || cfg!(feature = "uptime");
+        if (from_client && !needs_request_side) || (!from_client && !needs_response_side) {
+            return Ok(ObservableTCPPackage::empty());
+        }
     }
 
     if (flags & (ECE | CWR)) != 0 {
@@ -352,32 +404,40 @@ fn visit_tcp(
         _ => None,
     };
 
-    let wsize: WindowSize = tcp::detect_win_multiplicator(
-        tcp.get_window(),
-        mss.unwrap_or(0),
-        ip_package_header_length as u16,
-        olayout.contains(&TcpOption::TS),
-        &version,
-    );
+    #[cfg(any(feature = "syn", feature = "syn-ack"))]
+    let tcp_signature: ObservableTcp = {
+        let wsize: WindowSize = tcp::detect_win_multiplicator(
+            tcp.get_window(),
+            mss.unwrap_or(0),
+            ip_package_header_length as u16,
+            olayout.contains(&TcpOption::TS),
+            &version,
+        );
 
-    let tcp_signature: ObservableTcp = ObservableTcp {
-        matching: TcpObservation {
-            version,
-            ittl,
-            olen,
-            mss,
-            wsize,
-            wscale,
-            olayout,
-            quirks,
-            pclass: if tcp.payload().is_empty() {
-                PayloadSize::Zero
-            } else {
-                PayloadSize::NonZero
+        ObservableTcp {
+            matching: TcpObservation {
+                version,
+                ittl,
+                olen,
+                mss,
+                wsize,
+                wscale,
+                olayout,
+                quirks,
+                pclass: if tcp.payload().is_empty() {
+                    PayloadSize::Zero
+                } else {
+                    PayloadSize::NonZero
+                },
             },
-        },
+        }
     };
 
+    #[cfg(any(feature = "syn", feature = "syn-ack"))]
+    #[cfg_attr(
+        not(all(feature = "syn", feature = "syn-ack")),
+        allow(unused_variables)
+    )]
     let (tcp_request, tcp_response) = if from_client {
         (Some(tcp_signature), None)
     } else {
@@ -385,7 +445,9 @@ fn visit_tcp(
     };
 
     Ok(ObservableTCPPackage {
+        #[cfg(feature = "syn")]
         tcp_request,
+        #[cfg(feature = "syn-ack")]
         tcp_response,
         #[cfg(feature = "mtu")]
         mtu: if from_client { mtu } else { None },

@@ -61,9 +61,45 @@ huginn-net-db = { version = "1.7.5", default-features = false, features = ["tcp"
 
 ### Cargo Features
 
-This crate has no Cargo features of its own. Database support is opt-in
-at the dependency level by adding `huginn-net-db` and calling
-[`HuginnNetTcp::with_matcher`].
+All four analysis features below are enabled by default — existing
+`Cargo.toml` entries require no change. Disable any of them to strip the
+matching code paths, the corresponding fields on `TcpAnalysisResult`, and
+(for `uptime`) the `ttl_cache` dependency.
+
+| Feature   | Default | What it enables                                                              | Extra dependency |
+|-----------|---------|------------------------------------------------------------------------------|------------------|
+| `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side)                    | —                |
+| `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side)               | —                |
+| `mtu`     | Yes     | MTU extraction from the TCP MSS option                                       | —                |
+| `uptime`  | Yes     | Uptime estimation from TCP timestamps                                        | `ttl_cache`      |
+
+When a build disables every feature that would consume a packet's side
+(request or response), the TCP options parser short-circuits — SYN-only
+builds pay zero per-packet cost for SYN+ACK traffic, and SYN+ACK-only
+builds skip the request-side work entirely.
+
+Opt-out examples:
+
+```toml
+# Fingerprint only clients connecting to you, no MTU/uptime, no ttl_cache
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
+
+# Recon: fingerprint only servers you connect to, with MTU detection
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn-ack", "mtu"] }
+
+# Full OS fingerprinting, no MTU/uptime
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn", "syn-ack"] }
+```
+
+> Fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`,
+> `server_uptime`) are **gated by their respective features** — disabling a
+> feature removes the field from the struct entirely (rather than setting it
+> to `None`). Consumers that construct `TcpAnalysisResult` literals or
+> destructure exhaustively must `#[cfg]` their code to match the enabled
+> features.
+
+Database support is opt-in at the dependency level by adding
+`huginn-net-db` and calling [`HuginnNetTcp::with_matcher`].
 
 ### Basic Usage — with database (OS fingerprinting)
 

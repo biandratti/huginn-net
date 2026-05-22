@@ -137,6 +137,68 @@ jobs:
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net
 
+  # Validates every meaningful feature combination of `huginn-net-tcp` to
+  # guarantee that disabling any feature still produces a clean (warning-free)
+  # library build. The full-features combo additionally runs the test and
+  # bench-link steps.
+  tcp-feature-matrix:
+    name: TCP feature matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          # Single features
+          - ""
+          - "syn"
+          - "syn-ack"
+          - "mtu"
+          - "uptime"
+          # Useful pairs
+          - "syn,syn-ack"
+          - "syn,mtu"
+          - "syn,uptime"
+          - "syn-ack,mtu"
+          - "syn-ack,uptime"
+          - "mtu,uptime"
+          # Three-feature combos
+          - "syn,syn-ack,mtu"
+          - "syn,syn-ack,uptime"
+          - "syn,mtu,uptime"
+          - "syn-ack,mtu,uptime"
+          # All features (equivalent to default)
+          - "syn,syn-ack,mtu,uptime"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+          components: clippy
+      - name: Build huginn-net-tcp (features='${{ matrix.features }}')
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo build -p huginn-net-tcp --no-default-features --lib
+          else
+            cargo build -p huginn-net-tcp --no-default-features \
+              --features "${{ matrix.features }}" --lib
+          fi
+      - name: Clippy huginn-net-tcp (features='${{ matrix.features }}')
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo clippy -p huginn-net-tcp --no-default-features --lib -- -D warnings
+          else
+            cargo clippy -p huginn-net-tcp --no-default-features \
+              --features "${{ matrix.features }}" --lib -- -D warnings
+          fi
+      - name: Tests + bench link (full combo only)
+        if: matrix.features == 'syn,syn-ack,mtu,uptime'
+        run: |
+          cargo test  -p huginn-net-tcp --no-default-features \
+            --features "${{ matrix.features }}" --tests
+          cargo bench -p huginn-net-tcp --no-default-features \
+            --features "${{ matrix.features }}" --no-run
+
   test:
     runs-on: ubuntu-latest
     permissions:
