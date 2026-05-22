@@ -177,6 +177,18 @@ jobs:
           - { crate: huginn-net-db,  features: "http",                   label: "http" }
           - { crate: huginn-net-db,  features: "tcp,http",               label: "all (default)" }
           # ---------------------------------------------------------------
+          # huginn-net-http — features: p0f-request, p0f-response, akamai (all default)
+          # 8 combinations: empty + 7 useful subsets (2^3).
+          # ---------------------------------------------------------------
+          - { crate: huginn-net-http, features: "",                               label: "none (utility-only)" }
+          - { crate: huginn-net-http, features: "akamai",                         label: "akamai" }
+          - { crate: huginn-net-http, features: "p0f-request",                    label: "p0f-request" }
+          - { crate: huginn-net-http, features: "p0f-response",                   label: "p0f-response" }
+          - { crate: huginn-net-http, features: "p0f-request,p0f-response",       label: "p0f-request+p0f-response" }
+          - { crate: huginn-net-http, features: "p0f-request,akamai",             label: "p0f-request+akamai" }
+          - { crate: huginn-net-http, features: "p0f-response,akamai",            label: "p0f-response+akamai" }
+          - { crate: huginn-net-http, features: "p0f-request,p0f-response,akamai", label: "all (default)" }
+          # ---------------------------------------------------------------
           # huginn-net (umbrella) — features:
           #   db, tcp-syn, tcp-syn-ack, tcp-mtu, tcp-uptime (all default)
           #   tls-stable-v1 (opt-in)
@@ -221,6 +233,13 @@ jobs:
           cargo test  -p huginn-net-tcp --no-default-features \
             --features "${{ matrix.features }}" --tests
           cargo bench -p huginn-net-tcp --no-default-features \
+            --features "${{ matrix.features }}" --no-run
+      - name: Tests + bench link (huginn-net-http full combo only)
+        if: matrix.crate == 'huginn-net-http' && matrix.features == 'p0f-request,p0f-response,akamai'
+        run: |
+          cargo test  -p huginn-net-http --no-default-features \
+            --features "${{ matrix.features }}" --tests
+          cargo bench -p huginn-net-http --no-default-features \
             --features "${{ matrix.features }}" --no-run
       - name: Tests (huginn-net umbrella full combo only)
         if: matrix.crate == 'huginn-net' && matrix.features == 'db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime'

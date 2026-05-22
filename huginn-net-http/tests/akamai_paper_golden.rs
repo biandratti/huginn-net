@@ -5,6 +5,8 @@
 //!
 //! Paper: https://blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf
 
+#![cfg(feature = "akamai")]
+
 use huginn_net_http::{extract_akamai_fingerprint, Http2Frame};
 use serde::{Deserialize, Serialize};
 use std::fs;

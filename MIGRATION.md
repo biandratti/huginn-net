@@ -242,7 +242,7 @@ just one.
 | Crate | New features (v2.0) |
 |---|---|
 | `huginn-net-tcp` | `syn` (default), `syn-ack` (default), `mtu` (default), `uptime` (default) |
-| `huginn-net-http` | none (always standalone) |
+| `huginn-net-http` | `p0f-request` (default), `p0f-response` (default), `akamai` (default) |
 | `huginn-net-tls` | `stable-v1` (unchanged) |
 | `huginn-net-db` | `tcp` (default), `http` (default) |
 | `huginn-net` | `db` (default), `tcp-syn` (default), `tcp-syn-ack` (default), `tcp-mtu` (default), `tcp-uptime` (default), `tls-stable-v1` |
@@ -327,6 +327,58 @@ still relies on TCP types being unconditionally available:
 > `huginn-net-db` directly **and** assumed the four TCP features were always on
 > must enable them explicitly (or rely on the umbrella, which does so via
 > its `default` set).
+
+### New: optional HTTP analysis features in `huginn-net-http`
+
+`huginn-net-http` now exposes three opt-out features — all enabled by default,
+so existing `Cargo.toml` entries require no change.
+
+| Feature        | What it enables                                                                                 | Gates on `HttpAnalysisResult` |
+|----------------|-------------------------------------------------------------------------------------------------|-------------------------------|
+| `p0f-request`  | p0f-style fingerprinting of HTTP request side (client → server) — header order, language, browser matching | `http_request` |
+| `p0f-response` | p0f-style fingerprinting of HTTP response side (server → client) — header order, web-server matching       | `http_response` |
+| `akamai`       | Akamai HTTP/2 client fingerprinting — standalone API (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path | (no field) |
+
+Opt-out examples:
+
+```toml
+# Client-side only (request fingerprinting), no akamai, no response parsing.
+huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request"] }
+
+# Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
+huginn-net-http = { version = "2.0", default-features = false, features = ["akamai"] }
+
+# Both p0f sides, no akamai.
+huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request", "p0f-response"] }
+```
+
+The fields on `HttpAnalysisResult` (`http_request`, `http_response`) are
+**gated by their respective features**. When you disable a feature, the
+field disappears from the struct entirely (rather than always being
+`None`), reducing struct size. Consumers that construct
+`HttpAnalysisResult` literals or destructure exhaustively must `#[cfg]`
+their code to match the enabled features; use `HttpAnalysisResult::empty()`
+for cfg-safe fallback construction.
+
+The carrier types referenced by the always-on `HttpMatcher` trait —
+`HttpRequestObservation`, `HttpResponseObservation`, `Browser`, `WebServer`,
+`HttpRequestMatch`, `HttpResponseMatch`, `UaOsMatch` — stay compiled in
+every feature combination, so `huginn-net-db`'s `SharedHttpSignatureMatcher`
+keeps working regardless of which p0f features the consumer enables.
+
+Internally, when a build disables every feature that consumes a packet's
+side (request or response), `process_tcp_packet` short-circuits at the top
+— no flow-cache lookup, no SYN insertion, no payload reassembly. A pure
+`akamai`-only build therefore pays zero per-packet cost for the p0f
+pipeline.
+
+`huginn-net-db`'s `SharedHttpSignatureMatcher` is unaffected by the new
+features. The carrier types it touches (`HttpRequestObservation`,
+`HttpResponseObservation`, `Browser`, `WebServer`, `HttpRequestMatch`,
+`HttpResponseMatch`, `UaOsMatch`, `HttpMatcher`) stay compiled in every
+feature combination, so the matcher continues to work even when downstream
+code disables one or both p0f sides — only the `HttpAnalysisResult`
+*output* fields are gated.
 
 ---
 

@@ -95,9 +95,39 @@ huginn-net-db = { version = "1.7.5", default-features = false, features = ["http
 
 ### Cargo Features
 
-This crate has no Cargo features of its own. Database support is opt-in
-at the dependency level by adding `huginn-net-db` and calling
-[`HuginnNetHttp::with_matcher`].
+All three HTTP analysis axes are **enabled by default**. Disable any to
+strip the matching code paths and the corresponding fields on
+`HttpAnalysisResult`:
+
+| Feature        | Default | Description |
+|----------------|---------|-------------|
+| `p0f-request`  | Yes     | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
+| `p0f-response` | Yes     | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
+| `akamai`       | Yes     | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+
+Opt-out examples:
+
+```toml
+# Client-side only (request fingerprinting), no akamai, no response parsing.
+huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request"] }
+
+# Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
+huginn-net-http = { version = "2.0", default-features = false, features = ["akamai"] }
+
+# Both p0f sides, no akamai.
+huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request", "p0f-response"] }
+```
+
+When neither p0f side is enabled, `process_tcp_packet` short-circuits
+before touching the flow cache or reassembling payloads, so an akamai-only
+build pays zero per-packet cost for the p0f pipeline. The always-on raw
+parsers (`parse_http1_request`, `parse_http2_request`, `Http1Processor`,
+`Http2Processor`) and the `HttpMatcher` trait surface stay compiled in
+every feature combination so external consumers can keep using them.
+
+Database support is opt-in at the dependency level by adding
+`huginn-net-db` and calling
+[`HuginnNetHttp::with_matcher`](https://docs.rs/huginn-net-http/latest/huginn_net_http/struct.HuginnNetHttp.html#method.with_matcher).
 
 ### Basic Usage — with database (browser/server fingerprinting)
 

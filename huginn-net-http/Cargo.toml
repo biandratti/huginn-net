@@ -13,6 +13,12 @@ homepage.workspace = true
 keywords = ["http", "fingerprinting", "browser", "p0f", "security"]
 categories = ["network-programming", "web-programming"]
 
+[features]
+default = ["p0f-request", "p0f-response", "akamai"]
+p0f-request = []
+p0f-response = []
+akamai = []
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 hpack-patched = { workspace = true }
@@ -37,8 +43,10 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "capture-http"
 path = "../examples/capture-http.rs"
+required-features = ["p0f-request", "p0f-response"]
 
 [[bench]]
 name = "bench_http"
 path = "../benches/bench_http.rs"
 harness = false
+required-features = ["p0f-request", "p0f-response"]

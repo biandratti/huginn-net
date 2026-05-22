@@ -9,7 +9,9 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
 use std::net::IpAddr;
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use std::time::Duration;
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use tracing::debug;
 use ttl_cache::TtlCache;
 
@@ -28,15 +30,18 @@ use crate::http::common::HttpParser;
 ///
 /// Same fast-reject strategy used by nDPI's `http_fs = "CDGHLMOPRU"` table in
 /// `src/lib/protocols/http.c` (we additionally include `T` for `TRACE`).
+#[cfg(feature = "p0f-request")]
 const HTTP_REQUEST_FIRST_BYTES: &[u8] = b"CDGHLMOPRTU";
 
 /// Maximum legal frame length for an HTTP/2 frame using the default `SETTINGS_MAX_FRAME_SIZE`
 /// (RFC 7540 §6.5.2). Used to discriminate HTTP/2 frames from random binary noise.
+#[cfg(feature = "p0f-response")]
 const HTTP2_MAX_FRAME_LEN: u32 = 16384;
 
 /// Minimum payload size we attempt to parse. Below this we treat the data as
 /// incomplete and wait for more TCP segments — avoids paying the trait-dispatch
 /// cost on fragments that obviously can't contain an HTTP request or response.
+#[cfg(feature = "p0f-request")]
 const MIN_HTTP_PAYLOAD_LEN: usize = 4;
 
 /// Cheap pre-filter: does this payload plausibly start an HTTP request (or HTTP/2
@@ -45,6 +50,7 @@ const MIN_HTTP_PAYLOAD_LEN: usize = 4;
 ///
 /// Also rejects fragments smaller than `MIN_HTTP_PAYLOAD_LEN`, so callers don't
 /// need to do their own length guard — the function is self-validating.
+#[cfg(feature = "p0f-request")]
 fn looks_like_http_request(data: &[u8]) -> bool {
     if data.len() < MIN_HTTP_PAYLOAD_LEN {
         return false;
@@ -58,6 +64,7 @@ fn looks_like_http_request(data: &[u8]) -> bool {
 ///   payload whose first 9 bytes look like a valid frame header (reasonable length and
 ///   a known frame type byte). Same structural test used by
 ///   `crate::http2::process::looks_like_http2_response`.
+#[cfg(feature = "p0f-response")]
 fn looks_like_http_response(data: &[u8]) -> bool {
     if data.starts_with(b"HTTP") {
         return true;
@@ -85,6 +92,7 @@ impl HttpProcessors {
     }
 
     /// Parse HTTP request data using the appropriate parser
+    #[cfg(feature = "p0f-request")]
     #[inline]
     pub fn parse_request(&self, data: &[u8]) -> Option<ObservableHttpRequest> {
         // Fast-reject: skip the trait-dispatched parser loop for payloads that
@@ -103,6 +111,7 @@ impl HttpProcessors {
     }
 
     /// Parse HTTP response data using the appropriate parser
+    #[cfg(feature = "p0f-response")]
     #[inline]
     pub fn parse_response(&self, data: &[u8]) -> Option<ObservableHttpResponse> {
         // Fast-reject: skip the parser loop for payloads that don't look like an
@@ -199,28 +208,53 @@ impl Default for HttpProcessors {
 }
 
 pub struct ObservableHttpPackage {
+    #[cfg(feature = "p0f-request")]
     pub http_request: Option<ObservableHttpRequest>,
+    #[cfg(feature = "p0f-response")]
     pub http_response: Option<ObservableHttpResponse>,
 }
 
+impl ObservableHttpPackage {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            #[cfg(feature = "p0f-request")]
+            http_request: None,
+            #[cfg(feature = "p0f-response")]
+            http_response: None,
+        }
+    }
+}
+
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 #[derive(Clone)]
 struct TcpData {
     sequence: u32,
     data: Vec<u8>,
 }
 
+#[cfg_attr(
+    not(any(feature = "p0f-request", feature = "p0f-response")),
+    allow(dead_code)
+)]
 pub struct TcpFlow {
     client_ip: IpAddr,
     server_ip: IpAddr,
     client_port: u16,
     server_port: u16,
+    #[cfg(feature = "p0f-request")]
     client_data: Vec<TcpData>,
+    #[cfg(feature = "p0f-response")]
     server_data: Vec<TcpData>,
+    #[cfg(feature = "p0f-request")]
     client_http_parsed: bool,
+    #[cfg(feature = "p0f-response")]
     server_http_parsed: bool,
 }
 
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 impl TcpFlow {
+    #[cfg_attr(not(feature = "p0f-request"), allow(unused_variables))]
     fn init(
         src_ip: IpAddr,
         src_port: u16,
@@ -233,33 +267,42 @@ impl TcpFlow {
             server_ip: dst_ip,
             client_port: src_port,
             server_port: dst_port,
+            #[cfg(feature = "p0f-request")]
             client_data: vec![tcp_data],
+            #[cfg(feature = "p0f-response")]
             server_data: Vec::new(),
+            #[cfg(feature = "p0f-request")]
             client_http_parsed: false,
+            #[cfg(feature = "p0f-response")]
             server_http_parsed: false,
         }
     }
-    /// Traversing all the data in sequence in the correct order to build the full data
-    ///
-    /// # Parameters
-    /// - `is_client`: If the data comes from the client.
-    fn get_full_data(&self, is_client: bool) -> Vec<u8> {
-        let data: &Vec<TcpData> = if is_client {
-            &self.client_data
-        } else {
-            &self.server_data
-        };
 
-        let mut sorted_data = data.clone();
-
-        sorted_data.sort_by_key(|tcp_data| tcp_data.sequence);
-
-        let mut full_data = Vec::new();
-        for tcp_data in sorted_data {
-            full_data.extend_from_slice(&tcp_data.data);
+    fn is_fully_parsed(&self) -> bool {
+        #[cfg(all(feature = "p0f-request", feature = "p0f-response"))]
+        {
+            self.client_http_parsed && self.server_http_parsed
         }
-        full_data
+        #[cfg(all(feature = "p0f-request", not(feature = "p0f-response")))]
+        {
+            self.client_http_parsed
+        }
+        #[cfg(all(not(feature = "p0f-request"), feature = "p0f-response"))]
+        {
+            self.server_http_parsed
+        }
     }
+}
+
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+fn ordered_payload(data: &[TcpData]) -> Vec<u8> {
+    let mut sorted_data = data.to_vec();
+    sorted_data.sort_by_key(|tcp_data| tcp_data.sequence);
+    let mut full_data = Vec::new();
+    for tcp_data in sorted_data {
+        full_data.extend_from_slice(&tcp_data.data);
+    }
+    full_data
 }
 
 #[inline]
@@ -280,7 +323,7 @@ pub fn process_http_ipv4(
             processors,
         )
     } else {
-        Ok(ObservableHttpPackage { http_request: None, http_response: None })
+        Ok(ObservableHttpPackage::empty())
     }
 }
 
@@ -302,10 +345,14 @@ pub fn process_http_ipv6(
             processors,
         )
     } else {
-        Ok(ObservableHttpPackage { http_request: None, http_response: None })
+        Ok(ObservableHttpPackage::empty())
     }
 }
 
+#[cfg_attr(
+    not(any(feature = "p0f-request", feature = "p0f-response")),
+    allow(unused_variables)
+)]
 fn process_tcp_packet(
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     tcp: TcpPacket,
@@ -313,91 +360,112 @@ fn process_tcp_packet(
     dst_ip: IpAddr,
     processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
-    let src_port: u16 = tcp.get_source();
-    let dst_port: u16 = tcp.get_destination();
-    let mut observable_http_package =
-        ObservableHttpPackage { http_request: None, http_response: None };
-
-    let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
-    let (tcp_flow, is_client) = {
-        if let Some(flow) = http_flows.get_mut(&flow_key) {
-            (Some(flow), true)
-        } else {
-            let reversed_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
-            if let Some(flow) = http_flows.get_mut(&reversed_key) {
-                (Some(flow), false)
-            } else {
-                (None, false)
-            }
-        }
-    };
-
-    if let Some(flow) = tcp_flow {
-        if !tcp.payload().is_empty() {
-            let tcp_data = TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
-
-            if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
-                // Only add data and parse if not already parsed
-                if !flow.client_http_parsed {
-                    flow.client_data.push(tcp_data);
-                    let full_data = flow.get_full_data(is_client);
-                    match parse_http_request(&full_data, processors) {
-                        Ok(Some(http_request_parsed)) => {
-                            observable_http_package.http_request = Some(http_request_parsed);
-                            flow.client_http_parsed = true;
-                        }
-                        Ok(None) => {}
-                        Err(_e) => {}
-                    }
-                } else {
-                    debug!("CLIENT: HTTP already parsed, discarding additional data");
-                }
-            } else if src_ip == flow.server_ip && src_port == flow.server_port {
-                // Only add data and parse if not already parsed
-                if !flow.server_http_parsed {
-                    flow.server_data.push(tcp_data);
-                    let full_data = flow.get_full_data(is_client);
-                    match parse_http_response(&full_data, processors) {
-                        Ok(Some(http_response_parsed)) => {
-                            observable_http_package.http_response = Some(http_response_parsed);
-                            flow.server_http_parsed = true;
-                        }
-                        Ok(None) => {
-                            debug!("SERVER: Data not complete yet, waiting for more");
-                        }
-                        Err(_e) => {}
-                    }
-                } else {
-                    debug!("SERVER: HTTP already parsed, discarding additional data");
-                }
-            }
-
-            // Remove from http_flows if both request and response are parsed
-            if flow.client_http_parsed && flow.server_http_parsed {
-                debug!("Both HTTP request and response parsed, removing from http_flows early");
-                http_flows.remove(&flow_key);
-                return Ok(observable_http_package);
-            }
-
-            // Clean up on connection close
-            if tcp.get_flags()
-                & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
-                != 0
-            {
-                debug!("Connection closed or reset");
-                http_flows.remove(&flow_key);
-            }
-        }
-    } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
-        let tcp_data: TcpData =
-            TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
-        let flow: TcpFlow = TcpFlow::init(src_ip, src_port, dst_ip, dst_port, tcp_data);
-        http_flows.insert(flow_key, flow, Duration::new(60, 0));
+    #[cfg(not(any(feature = "p0f-request", feature = "p0f-response")))]
+    {
+        Ok(ObservableHttpPackage::empty())
     }
 
-    Ok(observable_http_package)
+    #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+    {
+        let src_port: u16 = tcp.get_source();
+        let dst_port: u16 = tcp.get_destination();
+        let mut observable_http_package = ObservableHttpPackage::empty();
+
+        let flow_key: FlowKey = (src_ip, dst_ip, src_port, dst_port);
+        let (tcp_flow, is_client) = {
+            if let Some(flow) = http_flows.get_mut(&flow_key) {
+                (Some(flow), true)
+            } else {
+                let reversed_key: FlowKey = (dst_ip, src_ip, dst_port, src_port);
+                if let Some(flow) = http_flows.get_mut(&reversed_key) {
+                    (Some(flow), false)
+                } else {
+                    (None, false)
+                }
+            }
+        };
+
+        if let Some(flow) = tcp_flow {
+            if !tcp.payload().is_empty() {
+                let tcp_data =
+                    TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
+
+                if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
+                    #[cfg(feature = "p0f-request")]
+                    {
+                        if !flow.client_http_parsed {
+                            flow.client_data.push(tcp_data);
+                            let full_data = ordered_payload(&flow.client_data);
+                            match parse_http_request(&full_data, processors) {
+                                Ok(Some(http_request_parsed)) => {
+                                    observable_http_package.http_request =
+                                        Some(http_request_parsed);
+                                    flow.client_http_parsed = true;
+                                }
+                                Ok(None) => {}
+                                Err(_e) => {}
+                            }
+                        } else {
+                            debug!("CLIENT: HTTP already parsed, discarding additional data");
+                        }
+                    }
+                    #[cfg(not(feature = "p0f-request"))]
+                    let _ = (&tcp_data, processors);
+                } else if src_ip == flow.server_ip && src_port == flow.server_port {
+                    #[cfg(feature = "p0f-response")]
+                    {
+                        // Only add data and parse if not already parsed.
+                        if !flow.server_http_parsed {
+                            flow.server_data.push(tcp_data);
+                            let full_data = ordered_payload(&flow.server_data);
+                            match parse_http_response(&full_data, processors) {
+                                Ok(Some(http_response_parsed)) => {
+                                    observable_http_package.http_response =
+                                        Some(http_response_parsed);
+                                    flow.server_http_parsed = true;
+                                }
+                                Ok(None) => {
+                                    debug!("SERVER: Data not complete yet, waiting for more");
+                                }
+                                Err(_e) => {}
+                            }
+                        } else {
+                            debug!("SERVER: HTTP already parsed, discarding additional data");
+                        }
+                    }
+                    #[cfg(not(feature = "p0f-response"))]
+                    let _ = (&tcp_data, processors);
+                }
+
+                // Remove from http_flows once every parsing slot enabled by
+                // the active features has fired.
+                if flow.is_fully_parsed() {
+                    debug!("All enabled HTTP sides parsed, removing flow from http_flows early");
+                    http_flows.remove(&flow_key);
+                    return Ok(observable_http_package);
+                }
+
+                // Clean up on connection close
+                if tcp.get_flags()
+                    & (pnet::packet::tcp::TcpFlags::FIN | pnet::packet::tcp::TcpFlags::RST)
+                    != 0
+                {
+                    debug!("Connection closed or reset");
+                    http_flows.remove(&flow_key);
+                }
+            }
+        } else if tcp.get_flags() & pnet::packet::tcp::TcpFlags::SYN != 0 {
+            let tcp_data: TcpData =
+                TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
+            let flow: TcpFlow = TcpFlow::init(src_ip, src_port, dst_ip, dst_port, tcp_data);
+            http_flows.insert(flow_key, flow, Duration::new(60, 0));
+        }
+
+        Ok(observable_http_package)
+    }
 }
 
+#[cfg(feature = "p0f-request")]
 fn parse_http_request(
     data: &[u8],
     processors: &HttpProcessors,
@@ -414,6 +482,7 @@ fn parse_http_request(
     }
 }
 
+#[cfg(feature = "p0f-response")]
 fn parse_http_response(
     data: &[u8],
     processors: &HttpProcessors,
