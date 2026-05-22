@@ -245,7 +245,7 @@ just one.
 | `huginn-net-http` | none (always standalone) |
 | `huginn-net-tls` | `stable-v1` (unchanged) |
 | `huginn-net-db` | `tcp` (default), `http` (default) |
-| `huginn-net` | `db` (default), `tls-stable-v1` |
+| `huginn-net` | `db` (default), `tcp-syn` (default), `tcp-syn-ack` (default), `tcp-mtu` (default), `tcp-uptime` (default), `tls-stable-v1` |
 
 ### New: optional TCP analysis features in `huginn-net-tcp`
 
@@ -257,7 +257,7 @@ just one.
 | `syn` | TCP SYN OS fingerprinting (client → server, request side) | — |
 | `syn-ack` | TCP SYN+ACK OS fingerprinting (server → client, response side) | — |
 | `mtu` | MTU extraction from MSS option | — |
-| `uptime` | uptime estimation from TCP timestamps | `ttl_cache` |
+| `uptime` | uptime estimation from TCP timestamps for **both client and server** sides | `ttl_cache` |
 
 Builds that disable `uptime` drop the `ttl_cache` dependency entirely. To opt out of one or more
 features:
@@ -282,6 +282,51 @@ locality. Consumers that construct `TcpAnalysisResult` literals or destructure e
 Internally, when a build disables every feature that consumes a packet's side, `visit_tcp` returns
 immediately without parsing TCP options — so SYN-only builds pay zero per-packet cost for SYN+ACK
 packets, and the bare `--no-default-features` build pays only the IP-header quirks cost.
+
+### New: TCP feature pass-through in `huginn-net`
+
+The umbrella crate `huginn-net` re-exposes the four `huginn-net-tcp` toggles as
+`tcp-syn`, `tcp-syn-ack`, `tcp-mtu`, and `tcp-uptime` — **all default**. Disabling
+one removes the corresponding field from `FingerprintResult` at compile time
+and forwards the opt-out to `huginn-net-tcp` (the underlying parser skips the
+work; see the section above).
+
+| `huginn-net` feature | Enables in `huginn-net-tcp` | Gates field on `FingerprintResult` |
+|---|---|---|
+| `tcp-syn` | `syn` | `tcp_syn` |
+| `tcp-syn-ack` | `syn-ack` | `tcp_syn_ack` |
+| `tcp-mtu` | `mtu` | `tcp_mtu` |
+| `tcp-uptime` | `uptime` | `tcp_client_uptime` + `tcp_server_uptime` |
+
+Behaviour matrix for the most common combinations:
+
+| Build flags | `tcp_syn` | `tcp_syn_ack` | `tcp_mtu` | `tcp_client_uptime` / `tcp_server_uptime` | `ttl_cache` dep |
+|---|---|---|---|---|---|
+| default | yes | yes | yes | yes | yes |
+| `--no-default-features --features db` | — | — | — | — | no |
+| `--no-default-features --features "db,tcp-syn"` | yes | — | — | — | no |
+| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu"` | yes | yes | yes | — | no |
+| `--no-default-features --features "db,tcp-uptime"` | — | — | — | yes | yes |
+
+Migration:
+
+```diff
+-huginn-net = "2.0"
++huginn-net = { version = "2.0", default-features = false, features = [
++    "db", "tcp-syn", # add the tcp-* fields you actually consume
++] }
+```
+
+If you keep the defaults, **nothing changes** — the umbrella behaves exactly like before.
+
+The compatibility caveat below applies to any consumer of `huginn-net-db` that
+still relies on TCP types being unconditionally available:
+
+> `huginn-net-db` now depends on `huginn-net-tcp` with `default-features = false`,
+> so that feature toggles flow through both crates. Downstream code that uses
+> `huginn-net-db` directly **and** assumed the four TCP features were always on
+> must enable them explicitly (or rely on the umbrella, which does so via
+> its `default` set).
 
 ---
 

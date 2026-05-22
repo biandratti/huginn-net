@@ -4,10 +4,14 @@ use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse}
 use huginn_net_http::output::{
     BrowserQualityMatched, MatchQuality as HttpMatchQuality, WebServerQualityMatched,
 };
+#[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::observable::ObservableTcp;
-use huginn_net_tcp::output::{
-    MTUQualityMatched, MatchQuality as TcpMatchQuality, OSQualityMatched,
-};
+#[cfg(feature = "tcp-mtu")]
+use huginn_net_tcp::output::MTUQualityMatched;
+#[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack", feature = "tcp-mtu"))]
+use huginn_net_tcp::output::MatchQuality as TcpMatchQuality;
+#[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
+use huginn_net_tcp::output::OSQualityMatched;
 
 #[cfg(feature = "db")]
 use crate::quality_match;
@@ -15,7 +19,7 @@ use crate::quality_match;
 use crate::simple_quality_match;
 #[cfg(feature = "db")]
 use huginn_net_http::output::{Browser, WebServer};
-#[cfg(feature = "db")]
+#[cfg(all(feature = "db", any(feature = "tcp-syn", feature = "tcp-syn-ack")))]
 use huginn_net_tcp::output::OperativeSystem;
 
 use crate::AnalysisConfig;
@@ -45,6 +49,7 @@ pub(super) fn cache_sizes(config: &AnalysisConfig, max_connections: usize) -> (u
 }
 
 impl<'a> HuginnNet<'a> {
+    #[cfg(feature = "tcp-mtu")]
     pub(super) fn match_mtu(&self, mtu: &u16) -> MTUQualityMatched {
         #[cfg(feature = "db")]
         {
@@ -73,6 +78,7 @@ impl<'a> HuginnNet<'a> {
         }
     }
 
+    #[cfg(feature = "tcp-syn")]
     pub(super) fn match_tcp_request(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
@@ -101,6 +107,7 @@ impl<'a> HuginnNet<'a> {
         }
     }
 
+    #[cfg(feature = "tcp-syn-ack")]
     pub(super) fn match_tcp_response(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {

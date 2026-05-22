@@ -44,9 +44,18 @@ huginn-net-db = "1.7.5"
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `db` | Yes | Pulls in `huginn-net-db` and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (raw signatures + JA4, no database). |
-| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
+| `tcp-syn` | Yes | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
+| `tcp-syn-ack` | Yes | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
+| `tcp-mtu` | Yes | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
+| `tcp-uptime` | Yes | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
+| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints. |
 
-Default build (with database matching):
+Each `tcp-*` feature gates the corresponding field on `FingerprintResult` at
+compile time. Disabling one shrinks the result struct and lets the parser
+skip its work (the TCP layer also early-exits when no enabled feature
+consumes a packet's side).
+
+Default build (everything except `tls-stable-v1`):
 
 ```toml
 [dependencies]
@@ -62,11 +71,21 @@ huginn-net = { version = "1.7.5", features = ["tls-stable-v1"] }
 huginn-net-db = "1.7.5"
 ```
 
+Opt out of TCP work that you don't need (example: SYN-only, no MTU / uptime / SYN+ACK):
+
+```toml
+[dependencies]
+huginn-net = { version = "1.7.5", default-features = false, features = ["db", "tcp-syn"] }
+huginn-net-db = "1.7.5"
+```
+
 Observation-only build (no database, no p0f matching — useful for TLS terminators, sidecars, or custom matchers):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false }
+huginn-net = { version = "1.7.5", default-features = false, features = [
+    "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
+] }
 ```
 
 With `db` disabled, use `HuginnNet::new_observable(max_connections, None)` instead of `HuginnNet::new(...)`.

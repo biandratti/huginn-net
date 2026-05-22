@@ -5,7 +5,12 @@ use huginn_net_http::error::HuginnNetHttpError;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use huginn_net_tcp::error::HuginnNetTcpError;
-use huginn_net_tcp::observable::{ObservableMtu, ObservableTcp, ObservableUptime};
+#[cfg(feature = "tcp-mtu")]
+use huginn_net_tcp::observable::ObservableMtu;
+#[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
+use huginn_net_tcp::observable::ObservableTcp;
+#[cfg(feature = "tcp-uptime")]
+use huginn_net_tcp::observable::ObservableUptime;
 use huginn_net_tcp::tcp_process::ObservableTCPPackage;
 use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tls::error::HuginnNetTlsError;
@@ -24,10 +29,15 @@ pub struct IpPort {
 pub struct ObservablePackage {
     pub source: IpPort,
     pub destination: IpPort,
+    #[cfg(feature = "tcp-syn")]
     pub tcp_request: Option<ObservableTcp>,
+    #[cfg(feature = "tcp-syn-ack")]
     pub tcp_response: Option<ObservableTcp>,
+    #[cfg(feature = "tcp-mtu")]
     pub mtu: Option<ObservableMtu>,
+    #[cfg(feature = "tcp-uptime")]
     pub client_uptime: Option<ObservableUptime>,
+    #[cfg(feature = "tcp-uptime")]
     pub server_uptime: Option<ObservableUptime>,
     pub http_request: Option<ObservableHttpRequest>,
     pub http_response: Option<ObservableHttpResponse>,
@@ -267,13 +277,7 @@ fn execute_analysis<P: IpPacketProcessor>(
     let tcp_response: ObservableTCPPackage = if config.tcp_enabled {
         P::process_tcp_with_data(packet_data, connection_tracker)?
     } else {
-        ObservableTCPPackage {
-            tcp_request: None,
-            tcp_response: None,
-            mtu: None,
-            client_uptime: None,
-            server_uptime: None,
-        }
+        ObservableTCPPackage::empty()
     };
 
     let tls_response = if config.tls_enabled {
@@ -344,13 +348,27 @@ fn handle_http_tcp_tlc(
     destination: IpPort,
 ) -> Result<ObservablePackage, HuginnNetError> {
     match (http_response, tcp_response, tls_response) {
+        #[cfg_attr(
+            not(any(
+                feature = "tcp-syn",
+                feature = "tcp-syn-ack",
+                feature = "tcp-mtu",
+                feature = "tcp-uptime"
+            )),
+            allow(unused_variables)
+        )]
         (Ok(http_package), Ok(tcp_package), Ok(tls_package)) => Ok(ObservablePackage {
             source,
             destination,
+            #[cfg(feature = "tcp-syn")]
             tcp_request: tcp_package.tcp_request,
+            #[cfg(feature = "tcp-syn-ack")]
             tcp_response: tcp_package.tcp_response,
+            #[cfg(feature = "tcp-mtu")]
             mtu: tcp_package.mtu,
+            #[cfg(feature = "tcp-uptime")]
             client_uptime: tcp_package.client_uptime,
+            #[cfg(feature = "tcp-uptime")]
             server_uptime: tcp_package.server_uptime,
             http_request: http_package.http_request,
             http_response: http_package.http_response,
