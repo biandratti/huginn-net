@@ -241,7 +241,7 @@ just one.
 
 | Crate | New features (v2.0) |
 |---|---|
-| `huginn-net-tcp` | `syn` (default), `mtu` (default), `uptime` (default) |
+| `huginn-net-tcp` | `syn` (default), `syn-ack` (default), `mtu` (default), `uptime` (default) |
 | `huginn-net-http` | none (always standalone) |
 | `huginn-net-tls` | `stable-v1` (unchanged) |
 | `huginn-net-db` | `tcp` (default), `http` (default) |
@@ -249,12 +249,13 @@ just one.
 
 ### New: optional TCP analysis features in `huginn-net-tcp`
 
-`huginn-net-tcp` now exposes three opt-out features — all enabled by default, so existing
+`huginn-net-tcp` now exposes four opt-out features — all enabled by default, so existing
 `Cargo.toml` entries require no change.
 
 | Feature | What it enables | Extra dependency |
 |---|---|---|
-| `syn` | TCP SYN / SYN+ACK OS fingerprinting | — |
+| `syn` | TCP SYN OS fingerprinting (client → server, request side) | — |
+| `syn-ack` | TCP SYN+ACK OS fingerprinting (server → client, response side) | — |
 | `mtu` | MTU extraction from MSS option | — |
 | `uptime` | uptime estimation from TCP timestamps | `ttl_cache` |
 
@@ -262,16 +263,25 @@ Builds that disable `uptime` drop the `ttl_cache` dependency entirely. To opt ou
 features:
 
 ```toml
-# SYN fingerprinting only — no MTU, no uptime, no ttl_cache dependency
+# Only fingerprint clients connecting to you, no MTU, no uptime, no ttl_cache dependency
 huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
 
-# SYN + MTU, no uptime
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn", "mtu"] }
+# Recon: only fingerprint servers you connect to, with MTU detection
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn-ack", "mtu"] }
+
+# Full OS fingerprinting, no MTU/uptime
+huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn", "syn-ack"] }
 ```
 
-`TcpAnalysisResult` keeps all fields (`mtu`, `client_uptime`, `server_uptime`) in every build —
-they are always `Option<_>` and will be `None` when the corresponding feature is disabled, so no
-match arms or field accesses need to change.
+The fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`, `server_uptime`) are
+**gated by their respective features**. When you disable a feature, the field disappears from the
+struct entirely (rather than always being `None`), reducing struct size and improving cache
+locality. Consumers that construct `TcpAnalysisResult` literals or destructure exhaustively must
+`#[cfg]` their code to match the enabled features.
+
+Internally, when a build disables every feature that consumes a packet's side, `visit_tcp` returns
+immediately without parsing TCP options — so SYN-only builds pay zero per-packet cost for SYN+ACK
+packets, and the bare `--no-default-features` build pays only the IP-header quirks cost.
 
 ---
 

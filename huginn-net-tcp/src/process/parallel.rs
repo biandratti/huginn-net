@@ -275,7 +275,9 @@ impl WorkerPool {
             IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, connection_tracker, matcher),
             IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, connection_tracker, matcher),
             IpPacket::None => Ok(TcpAnalysisResult {
+                #[cfg(feature = "syn")]
                 syn: None,
+                #[cfg(feature = "syn-ack")]
                 syn_ack: None,
                 #[cfg(feature = "mtu")]
                 mtu: None,

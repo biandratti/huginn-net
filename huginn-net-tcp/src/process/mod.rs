@@ -4,11 +4,17 @@ pub mod parallel;
 use self::flow as tcp_process;
 use crate::error::HuginnNetTcpError;
 use crate::matcher_api::TcpMatcher;
-use crate::output::{
-    IpPort, MatchQuality, OSQualityMatched, SynAckTCPOutput, SynTCPOutput, TcpAnalysisResult,
-};
+use crate::output::{IpPort, TcpAnalysisResult};
+#[cfg(any(feature = "syn", feature = "syn-ack", feature = "mtu"))]
+use crate::output::MatchQuality;
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
+use crate::output::OSQualityMatched;
 #[cfg(feature = "mtu")]
 use crate::output::{MTUOutput, MTUQualityMatched};
+#[cfg(feature = "syn")]
+use crate::output::SynTCPOutput;
+#[cfg(feature = "syn-ack")]
+use crate::output::SynAckTCPOutput;
 #[cfg(feature = "uptime")]
 use crate::output::{UptimeOutput, UptimeRole};
 use pnet::packet::ipv4::Ipv4Packet;
@@ -61,6 +67,14 @@ pub fn process_ipv4_packet(
     create_observable_package_ipv4(ipv4, connection_tracker, matcher).map(|pkg| pkg.tcp_result)
 }
 
+#[cfg_attr(
+    not(any(feature = "syn", feature = "syn-ack")),
+    allow(unused_variables)
+)]
+#[cfg_attr(
+    not(any(feature = "syn", feature = "syn-ack", feature = "mtu", feature = "uptime")),
+    allow(unused_mut)
+)]
 fn create_observable_package_ipv4(
     ipv4: &Ipv4Packet,
     connection_tracker: &mut ConnectionTracker,
@@ -76,7 +90,9 @@ fn create_observable_package_ipv4(
     let tcp_package = tcp_process::process_tcp_ipv4(ipv4, connection_tracker)?;
 
     let mut tcp_result = TcpAnalysisResult {
+        #[cfg(feature = "syn")]
         syn: None,
+        #[cfg(feature = "syn-ack")]
         syn_ack: None,
         #[cfg(feature = "mtu")]
         mtu: None,
@@ -86,6 +102,7 @@ fn create_observable_package_ipv4(
         server_uptime: None,
     };
 
+    #[cfg(feature = "syn")]
     if let Some(tcp_request) = tcp_package.tcp_request {
         let os_quality =
             classify_tcp_match(matcher, |m| m.match_tcp_request(&tcp_request.matching));
@@ -99,6 +116,7 @@ fn create_observable_package_ipv4(
         tcp_result.syn = Some(syn_output);
     }
 
+    #[cfg(feature = "syn-ack")]
     if let Some(tcp_response) = tcp_package.tcp_response {
         let os_quality =
             classify_tcp_match(matcher, |m| m.match_tcp_response(&tcp_response.matching));
@@ -168,6 +186,14 @@ pub fn process_ipv6_packet(
     create_observable_package_ipv6(ipv6, connection_tracker, matcher).map(|pkg| pkg.tcp_result)
 }
 
+#[cfg_attr(
+    not(any(feature = "syn", feature = "syn-ack")),
+    allow(unused_variables)
+)]
+#[cfg_attr(
+    not(any(feature = "syn", feature = "syn-ack", feature = "mtu", feature = "uptime")),
+    allow(unused_mut)
+)]
 fn create_observable_package_ipv6(
     ipv6: &Ipv6Packet,
     connection_tracker: &mut ConnectionTracker,
@@ -183,7 +209,9 @@ fn create_observable_package_ipv6(
     let tcp_package = tcp_process::process_tcp_ipv6(ipv6, connection_tracker)?;
 
     let mut tcp_result = TcpAnalysisResult {
+        #[cfg(feature = "syn")]
         syn: None,
+        #[cfg(feature = "syn-ack")]
         syn_ack: None,
         #[cfg(feature = "mtu")]
         mtu: None,
@@ -193,6 +221,7 @@ fn create_observable_package_ipv6(
         server_uptime: None,
     };
 
+    #[cfg(feature = "syn")]
     if let Some(tcp_request) = tcp_package.tcp_request {
         let os_quality =
             classify_tcp_match(matcher, |m| m.match_tcp_request(&tcp_request.matching));
@@ -206,6 +235,7 @@ fn create_observable_package_ipv6(
         tcp_result.syn = Some(syn_output);
     }
 
+    #[cfg(feature = "syn-ack")]
     if let Some(tcp_response) = tcp_package.tcp_response {
         let os_quality =
             classify_tcp_match(matcher, |m| m.match_tcp_response(&tcp_response.matching));

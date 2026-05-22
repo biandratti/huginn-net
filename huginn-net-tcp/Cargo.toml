@@ -41,10 +41,10 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "capture-tcp"
 path = "../examples/capture-tcp.rs"
-required-features = ["mtu", "uptime"]
+required-features = ["syn", "syn-ack", "mtu", "uptime"]
 
 [[bench]]
 name = "bench_tcp"
 path = "../benches/bench_tcp.rs"
 harness = false
-required-features = ["mtu", "uptime"]
+required-features = ["syn", "syn-ack", "mtu", "uptime"]

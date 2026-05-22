@@ -15,6 +15,30 @@
 //! In the default workspace setup, `huginn-net-db` provides
 //! `TcpSignatureMatcher`, which loads p0f-style signatures and implements
 //! [`matcher_api::TcpMatcher`].
+//!
+//! ## Cargo Features
+//!
+//! All four analysis features are enabled by default. Disable any of them to
+//! strip the matching code paths, the corresponding fields on
+//! [`TcpAnalysisResult`], and (for `uptime`) the `ttl_cache` dependency.
+//!
+//! | Feature   | Default | Description                                                                                |
+//! |-----------|---------|--------------------------------------------------------------------------------------------|
+//! | `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].         |
+//! | `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`]. |
+//! | `mtu`     | Yes     | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                   |
+//! | `uptime`  | Yes     | Uptime estimation from TCP timestamps. Gates [`uptime`] and pulls in `ttl_cache`.          |
+//!
+//! When a build disables every feature that would consume a packet's side
+//! (request or response), `visit_tcp` short-circuits before parsing TCP
+//! options. SYN-only builds therefore pay zero per-packet cost for SYN+ACK
+//! traffic, and SYN+ACK-only builds skip the request-side work entirely.
+//!
+//! Example — fingerprint clients only, no MTU/uptime, no extra dependencies:
+//!
+//! ```toml
+//! huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
+//! ```
 
 pub mod analyzer;
 pub mod error;

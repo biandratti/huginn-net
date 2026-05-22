@@ -360,7 +360,9 @@ impl HuginnNetTcp {
             if !raw_filter::apply(packet, filter) {
                 debug!("Filtered out packet before parsing");
                 return Ok(TcpAnalysisResult {
+                    #[cfg(feature = "syn")]
                     syn: None,
+                    #[cfg(feature = "syn-ack")]
                     syn_ack: None,
                     #[cfg(feature = "mtu")]
                     mtu: None,
@@ -379,7 +381,9 @@ impl HuginnNetTcp {
             IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, connection_tracker, matcher_ref),
             IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, connection_tracker, matcher_ref),
             IpPacket::None => Ok(TcpAnalysisResult {
+                #[cfg(feature = "syn")]
                 syn: None,
+                #[cfg(feature = "syn-ack")]
                 syn_ack: None,
                 #[cfg(feature = "mtu")]
                 mtu: None,
