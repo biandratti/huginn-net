@@ -7,9 +7,9 @@ use crate::process::ConnectionTracker;
 use crate::tcp;
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::observable::{ObservableTcp, TcpObservation};
+use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::{PayloadSize, WindowSize};
-use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
 #[cfg(feature = "uptime")]
 use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
 use pnet::packet::ip::IpNextHeaderProtocols;

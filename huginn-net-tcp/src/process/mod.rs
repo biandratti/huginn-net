@@ -4,17 +4,17 @@ pub mod parallel;
 use self::flow as tcp_process;
 use crate::error::HuginnNetTcpError;
 use crate::matcher_api::TcpMatcher;
-use crate::output::{IpPort, TcpAnalysisResult};
 #[cfg(any(feature = "syn", feature = "syn-ack", feature = "mtu"))]
 use crate::output::MatchQuality;
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::output::OSQualityMatched;
-#[cfg(feature = "mtu")]
-use crate::output::{MTUOutput, MTUQualityMatched};
-#[cfg(feature = "syn")]
-use crate::output::SynTCPOutput;
 #[cfg(feature = "syn-ack")]
 use crate::output::SynAckTCPOutput;
+#[cfg(feature = "syn")]
+use crate::output::SynTCPOutput;
+use crate::output::{IpPort, TcpAnalysisResult};
+#[cfg(feature = "mtu")]
+use crate::output::{MTUOutput, MTUQualityMatched};
 #[cfg(feature = "uptime")]
 use crate::output::{UptimeOutput, UptimeRole};
 use pnet::packet::ipv4::Ipv4Packet;
@@ -72,7 +72,12 @@ pub fn process_ipv4_packet(
     allow(unused_variables)
 )]
 #[cfg_attr(
-    not(any(feature = "syn", feature = "syn-ack", feature = "mtu", feature = "uptime")),
+    not(any(
+        feature = "syn",
+        feature = "syn-ack",
+        feature = "mtu",
+        feature = "uptime"
+    )),
     allow(unused_mut)
 )]
 fn create_observable_package_ipv4(
@@ -191,7 +196,12 @@ pub fn process_ipv6_packet(
     allow(unused_variables)
 )]
 #[cfg_attr(
-    not(any(feature = "syn", feature = "syn-ack", feature = "mtu", feature = "uptime")),
+    not(any(
+        feature = "syn",
+        feature = "syn-ack",
+        feature = "mtu",
+        feature = "uptime"
+    )),
     allow(unused_mut)
 )]
 fn create_observable_package_ipv6(
@@ -295,6 +305,7 @@ fn create_observable_package_ipv6(
     Ok(ObservablePackage { source, destination, tcp_result })
 }
 
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
 fn classify_tcp_match<F>(matcher: Option<&dyn TcpMatcher>, call: F) -> OSQualityMatched
 where
     F: FnOnce(&dyn TcpMatcher) -> Option<crate::matcher_api::TcpMatch>,
