@@ -137,37 +137,59 @@ jobs:
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net
 
-  # Validates every meaningful feature combination of `huginn-net-tcp` to
-  # guarantee that disabling any feature still produces a clean (warning-free)
-  # library build. The full-features combo additionally runs the test and
-  # bench-link steps.
-  tcp-feature-matrix:
-    name: TCP feature matrix
+  # Validates every meaningful feature combination of each crate that exposes
+  # Cargo features. Guarantees that disabling any feature still produces a
+  # clean (warning-free) library build. For `huginn-net-tcp`, the full-features
+  # combo additionally runs the test suite and the bench-link step.
+  #
+  # `huginn-net-http` is intentionally absent — it exposes no Cargo features
+  # and is fully covered by the workspace-wide `build`/`lint` jobs.
+  feature-matrix:
+    name: Feature matrix - ${{ matrix.crate }} (${{ matrix.label }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        features:
-          # Single features
-          - ""
-          - "syn"
-          - "syn-ack"
-          - "mtu"
-          - "uptime"
-          # Useful pairs
-          - "syn,syn-ack"
-          - "syn,mtu"
-          - "syn,uptime"
-          - "syn-ack,mtu"
-          - "syn-ack,uptime"
-          - "mtu,uptime"
-          # Three-feature combos
-          - "syn,syn-ack,mtu"
-          - "syn,syn-ack,uptime"
-          - "syn,mtu,uptime"
-          - "syn-ack,mtu,uptime"
-          # All features (equivalent to default)
-          - "syn,syn-ack,mtu,uptime"
+        include:
+          # ---------------------------------------------------------------
+          # huginn-net-tcp — features: syn, syn-ack, mtu, uptime (all default)
+          # 16 combinations: empty + 15 useful subsets.
+          # ---------------------------------------------------------------
+          - { crate: huginn-net-tcp, features: "",                       label: "none" }
+          - { crate: huginn-net-tcp, features: "syn",                    label: "syn" }
+          - { crate: huginn-net-tcp, features: "syn-ack",                label: "syn-ack" }
+          - { crate: huginn-net-tcp, features: "mtu",                    label: "mtu" }
+          - { crate: huginn-net-tcp, features: "uptime",                 label: "uptime" }
+          - { crate: huginn-net-tcp, features: "syn,syn-ack",            label: "syn+syn-ack" }
+          - { crate: huginn-net-tcp, features: "syn,mtu",                label: "syn+mtu" }
+          - { crate: huginn-net-tcp, features: "syn,uptime",             label: "syn+uptime" }
+          - { crate: huginn-net-tcp, features: "syn-ack,mtu",            label: "syn-ack+mtu" }
+          - { crate: huginn-net-tcp, features: "syn-ack,uptime",         label: "syn-ack+uptime" }
+          - { crate: huginn-net-tcp, features: "mtu,uptime",             label: "mtu+uptime" }
+          - { crate: huginn-net-tcp, features: "syn,syn-ack,mtu",        label: "syn+syn-ack+mtu" }
+          - { crate: huginn-net-tcp, features: "syn,syn-ack,uptime",     label: "syn+syn-ack+uptime" }
+          - { crate: huginn-net-tcp, features: "syn,mtu,uptime",         label: "syn+mtu+uptime" }
+          - { crate: huginn-net-tcp, features: "syn-ack,mtu,uptime",     label: "syn-ack+mtu+uptime" }
+          - { crate: huginn-net-tcp, features: "syn,syn-ack,mtu,uptime", label: "all (default)" }
+          # ---------------------------------------------------------------
+          # huginn-net-tls — feature: stable-v1 (NOT default)
+          # ---------------------------------------------------------------
+          - { crate: huginn-net-tls, features: "",                       label: "none (default)" }
+          - { crate: huginn-net-tls, features: "stable-v1",              label: "stable-v1" }
+          # ---------------------------------------------------------------
+          # huginn-net-db — features: tcp, http (both default)
+          # ---------------------------------------------------------------
+          - { crate: huginn-net-db,  features: "",                       label: "none" }
+          - { crate: huginn-net-db,  features: "tcp",                    label: "tcp" }
+          - { crate: huginn-net-db,  features: "http",                   label: "http" }
+          - { crate: huginn-net-db,  features: "tcp,http",               label: "all (default)" }
+          # ---------------------------------------------------------------
+          # huginn-net (umbrella) — features: db (default), tls-stable-v1
+          # ---------------------------------------------------------------
+          - { crate: huginn-net,     features: "",                       label: "none" }
+          - { crate: huginn-net,     features: "db",                     label: "db (default)" }
+          - { crate: huginn-net,     features: "tls-stable-v1",          label: "tls-stable-v1" }
+          - { crate: huginn-net,     features: "db,tls-stable-v1",       label: "db+tls-stable-v1" }
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust ${{ env.rust_stable }}
@@ -175,24 +197,24 @@ jobs:
         with:
           toolchain: ${{ env.rust_stable }}
           components: clippy
-      - name: Build huginn-net-tcp (features='${{ matrix.features }}')
+      - name: Build ${{ matrix.crate }} (features='${{ matrix.features }}')
         run: |
           if [ -z "${{ matrix.features }}" ]; then
-            cargo build -p huginn-net-tcp --no-default-features --lib
+            cargo build -p ${{ matrix.crate }} --no-default-features --lib
           else
-            cargo build -p huginn-net-tcp --no-default-features \
+            cargo build -p ${{ matrix.crate }} --no-default-features \
               --features "${{ matrix.features }}" --lib
           fi
-      - name: Clippy huginn-net-tcp (features='${{ matrix.features }}')
+      - name: Clippy ${{ matrix.crate }} (features='${{ matrix.features }}')
         run: |
           if [ -z "${{ matrix.features }}" ]; then
-            cargo clippy -p huginn-net-tcp --no-default-features --lib -- -D warnings
+            cargo clippy -p ${{ matrix.crate }} --no-default-features --lib -- -D warnings
           else
-            cargo clippy -p huginn-net-tcp --no-default-features \
+            cargo clippy -p ${{ matrix.crate }} --no-default-features \
               --features "${{ matrix.features }}" --lib -- -D warnings
           fi
-      - name: Tests + bench link (full combo only)
-        if: matrix.features == 'syn,syn-ack,mtu,uptime'
+      - name: Tests + bench link (huginn-net-tcp full combo only)
+        if: matrix.crate == 'huginn-net-tcp' && matrix.features == 'syn,syn-ack,mtu,uptime'
         run: |
           cargo test  -p huginn-net-tcp --no-default-features \
             --features "${{ matrix.features }}" --tests
