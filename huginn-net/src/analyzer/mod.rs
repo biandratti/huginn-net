@@ -7,7 +7,14 @@ use crate::process::ObservablePackage;
 use huginn_net_http::http::HttpDiagnosis;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, TcpFlow};
 use huginn_net_http::output::{HttpRequestOutput, HttpResponseOutput};
-use huginn_net_tcp::output::{MTUOutput, SynAckTCPOutput, SynTCPOutput, UptimeOutput, UptimeRole};
+#[cfg(feature = "tcp-mtu")]
+use huginn_net_tcp::output::MTUOutput;
+#[cfg(feature = "tcp-syn-ack")]
+use huginn_net_tcp::output::SynAckTCPOutput;
+#[cfg(feature = "tcp-syn")]
+use huginn_net_tcp::output::SynTCPOutput;
+#[cfg(feature = "tcp-uptime")]
+use huginn_net_tcp::output::{UptimeOutput, UptimeRole};
 use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tls::output::TlsClientOutput;
 use pcap_file::pcap::PcapReader;
@@ -358,20 +365,30 @@ impl<'a> HuginnNet<'a> {
             &self.config,
         ) {
             Ok(observable_package) => {
-                let (
-                    syn,
-                    syn_ack,
-                    mtu,
-                    client_uptime,
-                    server_uptime,
-                    http_request,
-                    http_response,
-                    tls_client,
-                ) = {
-                    let mtu: Option<MTUOutput> = observable_package.mtu.map(|observable_mtu| {
-                        let link_quality = self.match_mtu(&observable_mtu.value);
+                #[cfg(feature = "tcp-mtu")]
+                let mtu: Option<MTUOutput> = observable_package.mtu.map(|observable_mtu| {
+                    let link_quality = self.match_mtu(&observable_mtu.value);
 
-                        MTUOutput {
+                    MTUOutput {
+                        source: huginn_net_tcp::output::IpPort::new(
+                            observable_package.source.ip,
+                            observable_package.source.port,
+                        ),
+                        destination: huginn_net_tcp::output::IpPort::new(
+                            observable_package.destination.ip,
+                            observable_package.destination.port,
+                        ),
+                        link: link_quality,
+                        mtu: observable_mtu.value,
+                    }
+                });
+
+                #[cfg(feature = "tcp-syn")]
+                let syn: Option<SynTCPOutput> =
+                    observable_package.tcp_request.map(|observable_tcp| {
+                        let os_quality = self.match_tcp_request(&observable_tcp);
+
+                        SynTCPOutput {
                             source: huginn_net_tcp::output::IpPort::new(
                                 observable_package.source.ip,
                                 observable_package.source.port,
@@ -380,49 +397,17 @@ impl<'a> HuginnNet<'a> {
                                 observable_package.destination.ip,
                                 observable_package.destination.port,
                             ),
-                            link: link_quality,
-                            mtu: observable_mtu.value,
+                            os_matched: os_quality,
+                            sig: observable_tcp,
                         }
                     });
 
-                    let syn: Option<SynTCPOutput> =
-                        observable_package.tcp_request.map(|observable_tcp| {
-                            let os_quality = self.match_tcp_request(&observable_tcp);
+                #[cfg(feature = "tcp-syn-ack")]
+                let syn_ack: Option<SynAckTCPOutput> =
+                    observable_package.tcp_response.map(|observable_tcp| {
+                        let os_quality = self.match_tcp_response(&observable_tcp);
 
-                            SynTCPOutput {
-                                source: huginn_net_tcp::output::IpPort::new(
-                                    observable_package.source.ip,
-                                    observable_package.source.port,
-                                ),
-                                destination: huginn_net_tcp::output::IpPort::new(
-                                    observable_package.destination.ip,
-                                    observable_package.destination.port,
-                                ),
-                                os_matched: os_quality,
-                                sig: observable_tcp,
-                            }
-                        });
-
-                    let syn_ack: Option<SynAckTCPOutput> =
-                        observable_package.tcp_response.map(|observable_tcp| {
-                            let os_quality = self.match_tcp_response(&observable_tcp);
-
-                            SynAckTCPOutput {
-                                source: huginn_net_tcp::output::IpPort::new(
-                                    observable_package.source.ip,
-                                    observable_package.source.port,
-                                ),
-                                destination: huginn_net_tcp::output::IpPort::new(
-                                    observable_package.destination.ip,
-                                    observable_package.destination.port,
-                                ),
-                                os_matched: os_quality,
-                                sig: observable_tcp,
-                            }
-                        });
-
-                    let client_uptime: Option<UptimeOutput> =
-                        observable_package.client_uptime.map(|update| UptimeOutput {
+                        SynAckTCPOutput {
                             source: huginn_net_tcp::output::IpPort::new(
                                 observable_package.source.ip,
                                 observable_package.source.port,
@@ -431,33 +416,51 @@ impl<'a> HuginnNet<'a> {
                                 observable_package.destination.ip,
                                 observable_package.destination.port,
                             ),
-                            role: UptimeRole::Client,
-                            days: update.days,
-                            hours: update.hours,
-                            min: update.min,
-                            up_mod_days: update.up_mod_days,
-                            freq: update.freq,
-                        });
+                            os_matched: os_quality,
+                            sig: observable_tcp,
+                        }
+                    });
 
-                    let server_uptime: Option<UptimeOutput> =
-                        observable_package.server_uptime.map(|update| UptimeOutput {
-                            source: huginn_net_tcp::output::IpPort::new(
-                                observable_package.source.ip,
-                                observable_package.source.port,
-                            ),
-                            destination: huginn_net_tcp::output::IpPort::new(
-                                observable_package.destination.ip,
-                                observable_package.destination.port,
-                            ),
-                            role: UptimeRole::Server,
-                            days: update.days,
-                            hours: update.hours,
-                            min: update.min,
-                            up_mod_days: update.up_mod_days,
-                            freq: update.freq,
-                        });
+                #[cfg(feature = "tcp-uptime")]
+                let client_uptime: Option<UptimeOutput> =
+                    observable_package.client_uptime.map(|update| UptimeOutput {
+                        source: huginn_net_tcp::output::IpPort::new(
+                            observable_package.source.ip,
+                            observable_package.source.port,
+                        ),
+                        destination: huginn_net_tcp::output::IpPort::new(
+                            observable_package.destination.ip,
+                            observable_package.destination.port,
+                        ),
+                        role: UptimeRole::Client,
+                        days: update.days,
+                        hours: update.hours,
+                        min: update.min,
+                        up_mod_days: update.up_mod_days,
+                        freq: update.freq,
+                    });
 
-                    let http_request: Option<HttpRequestOutput> = observable_package
+                #[cfg(feature = "tcp-uptime")]
+                let server_uptime: Option<UptimeOutput> =
+                    observable_package.server_uptime.map(|update| UptimeOutput {
+                        source: huginn_net_tcp::output::IpPort::new(
+                            observable_package.source.ip,
+                            observable_package.source.port,
+                        ),
+                        destination: huginn_net_tcp::output::IpPort::new(
+                            observable_package.destination.ip,
+                            observable_package.destination.port,
+                        ),
+                        role: UptimeRole::Server,
+                        days: update.days,
+                        hours: update.hours,
+                        min: update.min,
+                        up_mod_days: update.up_mod_days,
+                        freq: update.freq,
+                    });
+
+                let http_request: Option<HttpRequestOutput> =
+                    observable_package
                         .http_request
                         .map(|observable_http_request| {
                             let HttpRequestMatchResult { browser_quality, http_diagnosis } =
@@ -479,59 +482,52 @@ impl<'a> HuginnNet<'a> {
                             }
                         });
 
-                    let http_response: Option<HttpResponseOutput> = observable_package
-                        .http_response
-                        .map(|observable_http_response| {
-                            let web_server_quality =
-                                self.match_http_response(&observable_http_response);
+                let http_response: Option<HttpResponseOutput> = observable_package
+                    .http_response
+                    .map(|observable_http_response| {
+                        let web_server_quality =
+                            self.match_http_response(&observable_http_response);
 
-                            HttpResponseOutput {
-                                source: huginn_net_http::output::IpPort::new(
-                                    observable_package.source.ip,
-                                    observable_package.source.port,
-                                ),
-                                destination: huginn_net_http::output::IpPort::new(
-                                    observable_package.destination.ip,
-                                    observable_package.destination.port,
-                                ),
-                                web_server_matched: web_server_quality,
-                                diagnosis: HttpDiagnosis::None,
-                                sig: observable_http_response,
-                            }
+                        HttpResponseOutput {
+                            source: huginn_net_http::output::IpPort::new(
+                                observable_package.source.ip,
+                                observable_package.source.port,
+                            ),
+                            destination: huginn_net_http::output::IpPort::new(
+                                observable_package.destination.ip,
+                                observable_package.destination.port,
+                            ),
+                            web_server_matched: web_server_quality,
+                            diagnosis: HttpDiagnosis::None,
+                            sig: observable_http_response,
+                        }
+                    });
+
+                let tls_client: Option<TlsClientOutput> =
+                    observable_package
+                        .tls_client
+                        .map(|observable_tls| TlsClientOutput {
+                            source: huginn_net_tls::output::IpPort::new(
+                                observable_package.source.ip,
+                                observable_package.source.port,
+                            ),
+                            destination: huginn_net_tls::output::IpPort::new(
+                                observable_package.destination.ip,
+                                observable_package.destination.port,
+                            ),
+                            sig: observable_tls,
                         });
 
-                    let tls_client: Option<TlsClientOutput> =
-                        observable_package
-                            .tls_client
-                            .map(|observable_tls| TlsClientOutput {
-                                source: huginn_net_tls::output::IpPort::new(
-                                    observable_package.source.ip,
-                                    observable_package.source.port,
-                                ),
-                                destination: huginn_net_tls::output::IpPort::new(
-                                    observable_package.destination.ip,
-                                    observable_package.destination.port,
-                                ),
-                                sig: observable_tls,
-                            });
-
-                    (
-                        syn,
-                        syn_ack,
-                        mtu,
-                        client_uptime,
-                        server_uptime,
-                        http_request,
-                        http_response,
-                        tls_client,
-                    )
-                };
-
                 FingerprintResult {
+                    #[cfg(feature = "tcp-syn")]
                     tcp_syn: syn,
+                    #[cfg(feature = "tcp-syn-ack")]
                     tcp_syn_ack: syn_ack,
+                    #[cfg(feature = "tcp-mtu")]
                     tcp_mtu: mtu,
+                    #[cfg(feature = "tcp-uptime")]
                     tcp_client_uptime: client_uptime,
+                    #[cfg(feature = "tcp-uptime")]
                     tcp_server_uptime: server_uptime,
                     http_request,
                     http_response,
@@ -541,10 +537,15 @@ impl<'a> HuginnNet<'a> {
             Err(error) => {
                 debug!("Fail to process signature: {}", error);
                 FingerprintResult {
+                    #[cfg(feature = "tcp-syn")]
                     tcp_syn: None,
+                    #[cfg(feature = "tcp-syn-ack")]
                     tcp_syn_ack: None,
+                    #[cfg(feature = "tcp-mtu")]
                     tcp_mtu: None,
+                    #[cfg(feature = "tcp-uptime")]
                     tcp_client_uptime: None,
+                    #[cfg(feature = "tcp-uptime")]
                     tcp_server_uptime: None,
                     http_request: None,
                     http_response: None,

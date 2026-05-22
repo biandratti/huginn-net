@@ -22,12 +22,12 @@
 //! strip the matching code paths, the corresponding fields on
 //! [`TcpAnalysisResult`], and (for `uptime`) the `ttl_cache` dependency.
 //!
-//! | Feature   | Default | Description                                                                                |
-//! |-----------|---------|--------------------------------------------------------------------------------------------|
-//! | `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].         |
-//! | `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`]. |
-//! | `mtu`     | Yes     | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                   |
-//! | `uptime`  | Yes     | Uptime estimation from TCP timestamps. Gates [`uptime`] and pulls in `ttl_cache`.          |
+//! | Feature   | Default | Description                                                                                                            |
+//! |-----------|---------|------------------------------------------------------------------------------------------------------------------------|
+//! | `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].                                     |
+//! | `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`].                             |
+//! | `mtu`     | Yes     | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                                               |
+//! | `uptime`  | Yes     | Uptime estimation from TCP timestamps for **both client and server** sides. Gates [`uptime`] and pulls in `ttl_cache`. |
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `visit_tcp` short-circuits before parsing TCP

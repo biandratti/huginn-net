@@ -242,10 +242,6 @@ fn visit_tcp(
         return Err(HuginnNetTcpError::InvalidTcpFlags(flags));
     }
 
-    // Cross-feature early-exit: when the packet's side is not consumed by any
-    // enabled feature, return an empty package before parsing TCP options.
-    // In the default build (all four features on) this whole block is removed
-    // by `#[cfg]` and costs nothing.
     #[cfg(not(all(
         feature = "syn",
         feature = "syn-ack",

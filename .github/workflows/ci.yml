@@ -137,13 +137,6 @@ jobs:
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net
 
-  # Validates every meaningful feature combination of each crate that exposes
-  # Cargo features. Guarantees that disabling any feature still produces a
-  # clean (warning-free) library build. For `huginn-net-tcp`, the full-features
-  # combo additionally runs the test suite and the bench-link step.
-  #
-  # `huginn-net-http` is intentionally absent — it exposes no Cargo features
-  # and is fully covered by the workspace-wide `build`/`lint` jobs.
   feature-matrix:
     name: Feature matrix - ${{ matrix.crate }} (${{ matrix.label }})
     runs-on: ubuntu-latest
@@ -184,12 +177,21 @@ jobs:
           - { crate: huginn-net-db,  features: "http",                   label: "http" }
           - { crate: huginn-net-db,  features: "tcp,http",               label: "all (default)" }
           # ---------------------------------------------------------------
-          # huginn-net (umbrella) — features: db (default), tls-stable-v1
+          # huginn-net (umbrella) — features:
+          #   db, tcp-syn, tcp-syn-ack, tcp-mtu, tcp-uptime (all default)
+          #   tls-stable-v1 (opt-in)
+          # 10 curated entries exercise every toggle plus tls-stable-v1.
           # ---------------------------------------------------------------
-          - { crate: huginn-net,     features: "",                       label: "none" }
-          - { crate: huginn-net,     features: "db",                     label: "db (default)" }
-          - { crate: huginn-net,     features: "tls-stable-v1",          label: "tls-stable-v1" }
-          - { crate: huginn-net,     features: "db,tls-stable-v1",       label: "db+tls-stable-v1" }
+          - { crate: huginn-net,     features: "",                                                       label: "none" }
+          - { crate: huginn-net,     features: "db",                                                     label: "db only" }
+          - { crate: huginn-net,     features: "tcp-syn",                                                label: "tcp-syn only" }
+          - { crate: huginn-net,     features: "tcp-mtu",                                                label: "tcp-mtu only" }
+          - { crate: huginn-net,     features: "tcp-uptime",                                             label: "tcp-uptime only" }
+          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack",                                 label: "db+tcp-syn+tcp-syn-ack" }
+          - { crate: huginn-net,     features: "db,tcp-mtu,tcp-uptime",                                  label: "db+tcp-mtu+tcp-uptime" }
+          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime",              label: "all defaults" }
+          - { crate: huginn-net,     features: "tls-stable-v1",                                          label: "tls-stable-v1" }
+          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,tls-stable-v1", label: "all + tls-stable-v1" }
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust ${{ env.rust_stable }}
@@ -220,6 +222,11 @@ jobs:
             --features "${{ matrix.features }}" --tests
           cargo bench -p huginn-net-tcp --no-default-features \
             --features "${{ matrix.features }}" --no-run
+      - name: Tests (huginn-net umbrella full combo only)
+        if: matrix.crate == 'huginn-net' && matrix.features == 'db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime'
+        run: |
+          cargo test -p huginn-net --no-default-features \
+            --features "${{ matrix.features }}" --tests
 
   test:
     runs-on: ubuntu-latest

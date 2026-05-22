@@ -71,7 +71,7 @@ matching code paths, the corresponding fields on `TcpAnalysisResult`, and
 | `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side)                    | —                |
 | `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side)               | —                |
 | `mtu`     | Yes     | MTU extraction from the TCP MSS option                                       | —                |
-| `uptime`  | Yes     | Uptime estimation from TCP timestamps                                        | `ttl_cache`      |
+| `uptime`  | Yes     | Uptime estimation from TCP timestamps for **both client and server** sides   | `ttl_cache`      |
 
 When a build disables every feature that would consume a packet's side
 (request or response), the TCP options parser short-circuits — SYN-only

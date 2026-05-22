@@ -19,14 +19,18 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["db"]
+default = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime"]
 db = ["dep:huginn-net-db", "huginn-net-db/tcp", "huginn-net-db/http"]
+tcp-mtu = ["huginn-net-tcp/mtu"]
+tcp-syn = ["huginn-net-tcp/syn"]
+tcp-syn-ack = ["huginn-net-tcp/syn-ack"]
+tcp-uptime = ["huginn-net-tcp/uptime"]
 tls-stable-v1 = ["huginn-net-tls/stable-v1"]
 
 [dependencies]
 huginn-net-db = { workspace = true, optional = true }
 huginn-net-http = { workspace = true }
-huginn-net-tcp = { workspace = true }
+huginn-net-tcp = { workspace = true, default-features = false }
 huginn-net-tls = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
@@ -44,4 +48,4 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "capture"
 path = "../examples/capture.rs"
-required-features = ["db"]
+required-features = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime"]
