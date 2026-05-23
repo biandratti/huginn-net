@@ -137,25 +137,9 @@ jobs:
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net --features full
 
-  gen-feature-matrix:
-    name: Generate feature matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v6
-      - id: set
-        run: |
-          matrix=$(jq -c '{include: .}' scripts/feature-matrix.json)
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-
   feature-matrix:
-    name: Feature matrix - ${{ matrix.crate }} (${{ matrix.label }})
-    needs: gen-feature-matrix
+    name: Feature matrix
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.gen-feature-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust ${{ env.rust_stable }}
@@ -163,17 +147,8 @@ jobs:
         with:
           toolchain: ${{ env.rust_stable }}
           components: clippy
-      - name: Check ${{ matrix.crate }} (${{ matrix.label }})
-        run: |
-          flags=()
-          if [[ "${{ matrix.with_tests }}" == "true" ]]; then
-            flags+=(--with-tests)
-          fi
-          if [[ "${{ matrix.with_bench }}" == "true" ]]; then
-            flags+=(--with-bench)
-          fi
-          ./scripts/check-features.sh \
-            "${{ matrix.crate }}" "${{ matrix.features }}" "${flags[@]}"
+      - name: Run feature matrix
+        run: ./scripts/run-feature-matrix.sh
 
   test:
     runs-on: ubuntu-latest
