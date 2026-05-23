@@ -216,7 +216,7 @@ compatibility. Opt out to ship a binary without the database (raw signatures
 only — useful for TLS terminators, sidecars, custom matchers):
 
 ```toml
-huginn-net = { version = "2.0", default-features = false }
+huginn-net = { version = "2.0.0", default-features = false }
 ```
 
 With `db` disabled, the database-aware constructor `HuginnNet::new` is *not
@@ -264,13 +264,13 @@ features:
 
 ```toml
 # Only fingerprint clients connecting to you, no MTU, no uptime, no ttl_cache dependency
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
+huginn-net-tcp = { version = "2.0.0", default-features = false, features = ["syn"] }
 
 # Recon: only fingerprint servers you connect to, with MTU detection
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn-ack", "mtu"] }
+huginn-net-tcp = { version = "2.0.0", default-features = false, features = ["syn-ack", "mtu"] }
 
 # Full OS fingerprinting, no MTU/uptime
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn", "syn-ack"] }
+huginn-net-tcp = { version = "2.0.0", default-features = false, features = ["syn", "syn-ack"] }
 ```
 
 The fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`, `server_uptime`) are
@@ -311,8 +311,8 @@ Behaviour matrix for the most common combinations:
 Migration:
 
 ```diff
--huginn-net = "2.0"
-+huginn-net = { version = "2.0", default-features = false, features = [
+-huginn-net = "2.0.0"
++huginn-net = { version = "2.0.0", default-features = false, features = [
 +    "db", "tcp-syn", # add the tcp-* fields you actually consume
 +] }
 ```
@@ -343,13 +343,13 @@ Opt-out examples:
 
 ```toml
 # Client-side only (request fingerprinting), no akamai, no response parsing.
-huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request"] }
+huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
-huginn-net-http = { version = "2.0", default-features = false, features = ["akamai"] }
+huginn-net-http = { version = "2.0.0", default-features = false, features = ["akamai"] }
 
 # Both p0f sides, no akamai.
-huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request", "p0f-response"] }
+huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request", "p0f-response"] }
 ```
 
 The fields on `HttpAnalysisResult` (`http_request`, `http_response`) are
@@ -400,8 +400,8 @@ umbrella never invokes. Consumers who need it should add `huginn-net-http`
 as a direct dependency:
 
 ```toml
-huginn-net      = "2.0"
-huginn-net-http = { version = "2.0", features = ["akamai"] }
+huginn-net      = "2.0.0"
+huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 ```
 
 Behaviour matrix for the most common combinations:
@@ -417,8 +417,8 @@ Behaviour matrix for the most common combinations:
 Migration:
 
 ```diff
--huginn-net = "2.0"
-+huginn-net = { version = "2.0", default-features = false, features = [
+-huginn-net = "2.0.0"
++huginn-net = { version = "2.0.0", default-features = false, features = [
 +    "db", "tcp-syn", "http-p0f-request", # add the http-* sides you actually consume
 +] }
 ```

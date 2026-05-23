@@ -437,8 +437,6 @@ fn process_tcp_packet(
                     let _ = (&tcp_data, processors);
                 }
 
-                // Remove from http_flows once every parsing slot enabled by
-                // the active features has fired.
                 if flow.is_fully_parsed() {
                     debug!("All enabled HTTP sides parsed, removing flow from http_flows early");
                     http_flows.remove(&flow_key);

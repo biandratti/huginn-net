@@ -50,14 +50,14 @@ Default build (both protocols):
 
 ```toml
 [dependencies]
-huginn-net-db = "1.7.5"
+huginn-net-db = "2.0.0"
 ```
 
 TCP-only build:
 
 ```toml
 [dependencies]
-huginn-net-db = { version = "1.7.5", default-features = false, features = ["tcp"] }
+huginn-net-db = { version = "2.0.0", default-features = false, features = ["tcp"] }
 ```
 
 ## Usage

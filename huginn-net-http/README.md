@@ -84,13 +84,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-http = "1.7.5"
+huginn-net-http = "2.0.0"
 # Optional: only needed if you want browser/server fingerprint matching.
 # Skip it for an observation-only build (raw HTTP signatures, Akamai
 # HTTP/2 fingerprints, etc.). With `default-features = false, features =
 # ["http"]` you only pull in the HTTP half of the p0f database (no TCP
 # parser, no TCP signatures embedded).
-huginn-net-db = { version = "1.7.5", default-features = false, features = ["http"] }
+huginn-net-db = { version = "2.0.0", default-features = false, features = ["http"] }
 ```
 
 ### Cargo Features
@@ -109,13 +109,13 @@ Opt-out examples:
 
 ```toml
 # Client-side only (request fingerprinting), no akamai, no response parsing.
-huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request"] }
+huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
-huginn-net-http = { version = "2.0", default-features = false, features = ["akamai"] }
+huginn-net-http = { version = "2.0.0", default-features = false, features = ["akamai"] }
 
 # Both p0f sides, no akamai.
-huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request", "p0f-response"] }
+huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request", "p0f-response"] }
 ```
 
 When neither p0f side is enabled, `process_tcp_packet` short-circuits

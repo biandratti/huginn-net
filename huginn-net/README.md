@@ -35,8 +35,8 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-huginn-net = "1.7.5"
-huginn-net-db = "1.7.5"
+huginn-net = "2.0.0"
+huginn-net-db = "2.0.0"
 ```
 
 ### Cargo Features
@@ -60,50 +60,50 @@ circuits flow tracking when both p0f sides are disabled).
 
 The umbrella does **not** expose `huginn-net-http/akamai` — Akamai HTTP/2
 fingerprinting is a standalone API surface on `huginn-net-http`. Add
-`huginn-net-http = { version = "1.7.5", features = ["akamai"] }` as a
+`huginn-net-http = { version = "2.0.0", features = ["akamai"] }` as a
 direct dependency if you need it alongside `huginn-net`.
 
 Default build (everything except `tls-stable-v1`):
 
 ```toml
 [dependencies]
-huginn-net = "1.7.5"
-huginn-net-db = "1.7.5"
+huginn-net = "2.0.0"
+huginn-net-db = "2.0.0"
 ```
 
 Enable JA4 stable fingerprints:
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", features = ["tls-stable-v1"] }
-huginn-net-db = "1.7.5"
+huginn-net = { version = "2.0.0", features = ["tls-stable-v1"] }
+huginn-net-db = "2.0.0"
 ```
 
 Opt out of TCP work that you don't need (example: SYN-only, no MTU / uptime / SYN+ACK, full HTTP defaults):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false, features = [
+huginn-net = { version = "2.0.0", default-features = false, features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
-huginn-net-db = "1.7.5"
+huginn-net-db = "2.0.0"
 ```
 
 Drop one or both HTTP sides (example: TCP + request-only HTTP):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false, features = [
+huginn-net = { version = "2.0.0", default-features = false, features = [
     "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
 ] }
-huginn-net-db = "1.7.5"
+huginn-net-db = "2.0.0"
 ```
 
 Observation-only build (no database, no p0f matching — useful for TLS terminators, sidecars, or custom matchers):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false, features = [
+huginn-net = { version = "2.0.0", default-features = false, features = [
     "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
     "http-p0f-request", "http-p0f-response",
 ] }
