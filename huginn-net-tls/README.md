@@ -45,27 +45,42 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 
 ### Installation
 
-Add this to your `Cargo.toml`:
+Add this to your `Cargo.toml`. The default build provides the core JA4
+fingerprinting flow — that covers most TLS analysis use cases:
 
 ```toml
 [dependencies]
 huginn-net-tls = "2.0.0"
 ```
 
+If you also want `JA4_s1` / `JA4_rs1` (or want to opt into every TLS
+analysis this version offers, including future additions), enable the
+`full` alias:
+
+```toml
+[dependencies]
+huginn-net-tls = { version = "2.0.0", features = ["full"] }
+```
+
 ### Cargo Features
 
-| Feature | Default | Description                                                                                    |
-|---------|---------|------------------------------------------------------------------------------------------------|
-| `stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints |
+All features are **opt-in** (default = `[]`). The default build provides the
+core JA4 flow; opt into `full` for everything this version offers (including
+future axes added in later releases):
 
-Enable with:
+| Feature     | Default | Description                                                                                    |
+|-------------|---------|------------------------------------------------------------------------------------------------|
+| `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades — additions land here automatically. |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints. |
+
+Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:
 
 ```toml
 [dependencies]
 huginn-net-tls = { version = "2.0.0", features = ["stable-v1"] }
 ```
 
-When enabled, `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
+When `stable-v1` is enabled (included by the `full` alias), `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
 
 ```text
   JA4_s1:  t13d1416h2_8daaf6152771_b0da82dd1658

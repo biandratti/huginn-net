@@ -41,8 +41,8 @@ tls-stable-v1 = ["huginn-net-tls/stable-v1"]
 
 [dependencies]
 huginn-net-db = { workspace = true, optional = true }
-huginn-net-http = { workspace = true, default-features = false }
-huginn-net-tcp = { workspace = true, default-features = false }
+huginn-net-http = { workspace = true }
+huginn-net-tcp = { workspace = true }
 huginn-net-tls = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }

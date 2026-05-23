@@ -20,8 +20,8 @@ tcp = ["dep:huginn-net-tcp"]
 http = ["dep:huginn-net-http"]
 
 [dependencies]
-huginn-net-http = { workspace = true, optional = true, default-features = false }
-huginn-net-tcp = { workspace = true, optional = true, default-features = false }
+huginn-net-http = { workspace = true, optional = true }
+huginn-net-tcp = { workspace = true, optional = true }
 nom = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

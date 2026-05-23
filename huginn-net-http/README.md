@@ -84,38 +84,43 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-http = "2.0.0"
+# Pick the analyses you want via `features` (see "Cargo Features" below).
+# `full` is the convenience alias for "everything this version offers".
+huginn-net-http = { version = "2.0.0", features = ["full"] }
 # Optional: only needed if you want browser/server fingerprint matching.
 # Skip it for an observation-only build (raw HTTP signatures, Akamai
-# HTTP/2 fingerprints, etc.). With `default-features = false, features =
-# ["http"]` you only pull in the HTTP half of the p0f database (no TCP
-# parser, no TCP signatures embedded).
-huginn-net-db = { version = "2.0.0", default-features = false, features = ["http"] }
+# HTTP/2 fingerprints, etc.). With `features = ["http"]` you only pull in
+# the HTTP half of the p0f database (no TCP parser, no TCP signatures
+# embedded).
+huginn-net-db = { version = "2.0.0", features = ["http"] }
 ```
 
 ### Cargo Features
 
-All three HTTP analysis axes are **enabled by default**. Disable any to
-strip the matching code paths and the corresponding fields on
-`HttpAnalysisResult`:
+All features are **opt-in** (default = `[]`). Pick the analyses you actually
+consume, or use `full` to opt into everything this version offers:
 
 | Feature        | Default | Description |
 |----------------|---------|-------------|
-| `p0f-request`  | Yes     | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
-| `p0f-response` | Yes     | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
-| `akamai`       | Yes     | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+| `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai`). Stable across version upgrades. |
+| `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
+| `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
+| `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
 
-Opt-out examples:
+Common opt-in patterns:
 
 ```toml
+# Everything this version offers (forward-compatible with future axes).
+huginn-net-http = { version = "2.0.0", features = ["full"] }
+
 # Client-side only (request fingerprinting), no akamai, no response parsing.
-huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request"] }
+huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
-huginn-net-http = { version = "2.0.0", default-features = false, features = ["akamai"] }
+huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 
 # Both p0f sides, no akamai.
-huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request", "p0f-response"] }
+huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"] }
 ```
 
 When neither p0f side is enabled, `process_tcp_packet` short-circuits

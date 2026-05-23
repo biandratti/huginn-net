@@ -8,20 +8,62 @@ This document helps you migrate between versions of the `huginn-net` ecosystem t
 
 ### Summary
 
-Architectural refactor: `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+Two breaking changes ship together in v2.0.0:
+
+1. **Architectural refactor.** `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` no longer depend on `huginn-net-db`. The database is now an **optional layer** that depends on the protocol crates. The single `Database` is split into `TcpDatabase` and `HttpDatabase` (composed by `Database` when both are loaded). The `SignatureMatcher` types move from the protocol crates into `huginn-net-db`.
+2. **Default feature set is now empty.** Every crate in the workspace adopts a Tokio-style `default = []` + `full = [<everything>]` policy. The default build is a bare shell — you opt into the analyses you actually consume. To replicate v1.x behaviour in one line, depend on `huginn-net = { version = "2.0.0", features = ["full"] }` (see [Default feature set is now empty](#default-feature-set-is-now-empty) below).
+
+### Default feature set is now empty
+
+In v1.x, depending on `huginn-net = "1.x"` gave you every analysis axis (TCP SYN/SYN+ACK/MTU/uptime, HTTP p0f request/response, p0f database matching). In v2.0.0, **the default build is an empty shell**: you must explicitly enable the features you want.
+
+Two compatible migrations:
+
+```toml
+# Option A — keep v1.x behaviour in one line (recommended for existing apps).
+# `full` is a forward-compatible alias: it includes every analysis this
+# version offers (and any added in future 2.x releases).
+huginn-net = { version = "2.0.0", features = ["full"] }
+
+# Option B — opt into only what you actually consume (smallest binary,
+# fastest compile, smallest `FingerprintResult`).
+huginn-net = { version = "2.0.0", features = [
+    "db",                # p0f signature matching (required for labelled output)
+    "tcp-syn",           # client OS fingerprinting
+    "http-p0f-request",  # client browser fingerprinting
+] }
+```
+
+The same `default = []` + `full` policy applies to every workspace crate, so if you depend on a sub-crate directly:
+
+```toml
+huginn-net-tcp  = { version = "2.0.0", features = ["full"] }   # all four TCP analyses
+huginn-net-http = { version = "2.0.0", features = ["full"] }   # p0f request + response + akamai
+huginn-net-tls  = { version = "2.0.0", features = ["full"] }   # core JA4 + stable-v1
+huginn-net-db   = { version = "2.0.0", features = ["full"] }   # tcp + http signature databases
+```
+
+Why this change? It matches the convention adopted by Tokio, Reqwest, and the rest of the modern Rust ecosystem: the default is a minimal shell, `full` is the convenience knob, and feature additions in future minor releases land inside `full` automatically — never inside `default`. That means future feature additions can no longer accidentally pull in heavy dependencies, and downstream binaries shrink to exactly the analyses they use.
+
+Every feature gate is a **compile-time** toggle: disabled features remove their fields from output structs, drop their dependencies from the build, and short-circuit their parsing paths. The matrix in each "feature pass-through" section below shows the precise effect on `FingerprintResult` / `TcpAnalysisResult` / `HttpAnalysisResult`.
 
 ### Most users (umbrella crate `huginn-net`)
 
-If you depend on `huginn-net` as a single crate, **most code keeps working** thanks to compatibility re-exports. The `HuginnNet::new(Some(&db), max_connections, config)` signature is unchanged:
+If you depend on `huginn-net` as a single crate, **the API of `HuginnNet::new` is unchanged**, but you must opt into the features you used to get for free. The fastest path is `features = ["full"]`:
+
+```toml
+# Cargo.toml
+huginn-net = { version = "2.0.0", features = ["full"] }
+```
 
 ```rust
 use huginn_net::{Database, HuginnNet};
 
 let db = Database::load_default()?;
-let mut analyzer = HuginnNet::new(Some(&db), 1000, None)?; // same as v1.x
+let mut analyzer = HuginnNet::new(Some(&db), 1000, None)?; // same call site as v1.x
 ```
 
-The most likely thing you need to update is direct imports from `huginn_net_db::tcp` / `huginn_net_db::http`:
+The most likely thing you need to update in your Rust code is direct imports from `huginn_net_db::tcp` / `huginn_net_db::http`:
 
 ```diff
 -use huginn_net_db::tcp::{IpVersion, Ttl};
@@ -211,12 +253,17 @@ If you were calling these directly, use `TcpSignatureMatcher` instead — it wra
 
 ### New: optional matching in `huginn-net`
 
-`huginn-net` gains a `db` feature, **enabled by default** for backward
-compatibility. Opt out to ship a binary without the database (raw signatures
-only — useful for TLS terminators, sidecars, custom matchers):
+`huginn-net` gains a `db` feature. In v2.0.0 it is **opt-in** (consistent
+with the new `default = []` policy), but it is automatically included by
+the `full` alias, so `features = ["full"]` keeps the v1.x experience.
+
+To ship a binary without the database (raw signatures only — useful for
+TLS terminators, sidecars, custom matchers), omit `db` from your feature
+list. For example:
 
 ```toml
-huginn-net = { version = "2.0.0", default-features = false }
+# Observation-only build: JA4 + raw TCP/HTTP signals, no p0f matching.
+huginn-net = { version = "2.0.0", features = ["tcp-syn", "http-p0f-request", "tls-stable-v1"] }
 ```
 
 With `db` disabled, the database-aware constructor `HuginnNet::new` is *not
@@ -232,45 +279,58 @@ All `*QualityMatched` fields in the resulting `FingerprintResult` will report
 `MatchQuality::Disabled`, and the observable signatures (raw TCP signature,
 JA4, Akamai, etc.) are produced as usual.
 
-`huginn-net-db` itself also exposes `tcp` and `http` features (both default).
-The umbrella's `db` feature pulls in **both** to preserve the v1.x feature
-set; downstream consumers depending on `huginn-net-db` directly may opt into
-just one.
+`huginn-net-db` itself also exposes `tcp` and `http` features (both opt-in;
+both included by its `full` alias). The umbrella's `db` feature pulls in
+**both** to preserve the v1.x output shape; downstream consumers depending
+on `huginn-net-db` directly may opt into just one.
 
 ### Cargo features summary
 
-| Crate | New features (v2.0) |
-|---|---|
-| `huginn-net-tcp` | `syn` (default), `syn-ack` (default), `mtu` (default), `uptime` (default) |
-| `huginn-net-http` | `p0f-request` (default), `p0f-response` (default), `akamai` (default) |
-| `huginn-net-tls` | `stable-v1` (unchanged) |
-| `huginn-net-db` | `tcp` (default), `http` (default) |
-| `huginn-net` | `db` (default), `tcp-syn` (default), `tcp-syn-ack` (default), `tcp-mtu` (default), `tcp-uptime` (default), `http-p0f-request` (default), `http-p0f-response` (default), `tls-stable-v1` |
+Every crate uses `default = []` and exposes a `full` alias that includes
+every analysis this version offers. The table below lists the individual
+gates plus the alias.
+
+| Crate            | Default | `full` alias includes                                                                                            | Individual features                                                                                                          |
+|------------------|---------|------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `huginn-net-tcp` | `[]`    | `syn`, `syn-ack`, `mtu`, `uptime`                                                                                | same as `full` (cherry-pick any subset)                                                                                      |
+| `huginn-net-http`| `[]`    | `p0f-request`, `p0f-response`, `akamai`                                                                          | same as `full` (cherry-pick any subset)                                                                                      |
+| `huginn-net-tls` | `[]`    | `stable-v1`                                                                                                       | `stable-v1` only                                                                                                              |
+| `huginn-net-db`  | `[]`    | `tcp`, `http`                                                                                                     | same as `full` (cherry-pick any subset)                                                                                      |
+| `huginn-net`     | `[]`    | `db`, `tcp-syn`, `tcp-syn-ack`, `tcp-mtu`, `tcp-uptime`, `http-p0f-request`, `http-p0f-response`, `tls-stable-v1` | same as `full`; `tcp-*` / `http-*` are pass-throughs to the sub-crates, `db` enables p0f matching, `tls-stable-v1` adds JA4_s1 |
+
+Note: `huginn-net-http/akamai` is intentionally **not** re-exported by the
+umbrella crate. Add `huginn-net-http = { version = "2.0.0", features = ["akamai"] }`
+as a direct dependency if you need Akamai HTTP/2 fingerprinting alongside
+`huginn-net`.
 
 ### New: optional TCP analysis features in `huginn-net-tcp`
 
-`huginn-net-tcp` now exposes four opt-out features — all enabled by default, so existing
-`Cargo.toml` entries require no change.
+`huginn-net-tcp` now exposes four opt-in features. `default = []` ships an
+empty shell; `full` is the alias that enables every TCP analysis this
+version offers.
 
-| Feature | What it enables | Extra dependency |
-|---|---|---|
-| `syn` | TCP SYN OS fingerprinting (client → server, request side) | — |
-| `syn-ack` | TCP SYN+ACK OS fingerprinting (server → client, response side) | — |
-| `mtu` | MTU extraction from MSS option | — |
-| `uptime` | uptime estimation from TCP timestamps for **both client and server** sides | `ttl_cache` |
+| Feature | What it enables                                                              | Extra dependency |
+|---------|------------------------------------------------------------------------------|------------------|
+| `full`  | Convenience alias for "everything" (currently `syn` + `syn-ack` + `mtu` + `uptime`) | depends on the included features |
+| `syn`   | TCP SYN OS fingerprinting (client → server, request side)                    | —                |
+| `syn-ack` | TCP SYN+ACK OS fingerprinting (server → client, response side)             | —                |
+| `mtu`   | MTU extraction from MSS option                                               | —                |
+| `uptime`| uptime estimation from TCP timestamps for **both client and server** sides   | `ttl_cache`      |
 
-Builds that disable `uptime` drop the `ttl_cache` dependency entirely. To opt out of one or more
-features:
+Builds that disable `uptime` drop the `ttl_cache` dependency entirely. Common opt-in patterns:
 
 ```toml
-# Only fingerprint clients connecting to you, no MTU, no uptime, no ttl_cache dependency
-huginn-net-tcp = { version = "2.0.0", default-features = false, features = ["syn"] }
+# Everything this version offers (forward-compatible with future axes).
+huginn-net-tcp = { version = "2.0.0", features = ["full"] }
 
-# Recon: only fingerprint servers you connect to, with MTU detection
-huginn-net-tcp = { version = "2.0.0", default-features = false, features = ["syn-ack", "mtu"] }
+# Only fingerprint clients connecting to you, no MTU, no uptime, no ttl_cache dependency.
+huginn-net-tcp = { version = "2.0.0", features = ["syn"] }
 
-# Full OS fingerprinting, no MTU/uptime
-huginn-net-tcp = { version = "2.0.0", default-features = false, features = ["syn", "syn-ack"] }
+# Recon: only fingerprint servers you connect to, with MTU detection.
+huginn-net-tcp = { version = "2.0.0", features = ["syn-ack", "mtu"] }
+
+# Full OS fingerprinting, no MTU/uptime.
+huginn-net-tcp = { version = "2.0.0", features = ["syn", "syn-ack"] }
 ```
 
 The fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`, `server_uptime`) are
@@ -281,15 +341,17 @@ locality. Consumers that construct `TcpAnalysisResult` literals or destructure e
 
 Internally, when a build disables every feature that consumes a packet's side, `visit_tcp` returns
 immediately without parsing TCP options — so SYN-only builds pay zero per-packet cost for SYN+ACK
-packets, and the bare `--no-default-features` build pays only the IP-header quirks cost.
+packets, and the bare default build (no features) compiles only the trait surface and entry points.
 
 ### New: TCP feature pass-through in `huginn-net`
 
 The umbrella crate `huginn-net` re-exposes the four `huginn-net-tcp` toggles as
-`tcp-syn`, `tcp-syn-ack`, `tcp-mtu`, and `tcp-uptime` — **all default**. Disabling
-one removes the corresponding field from `FingerprintResult` at compile time
-and forwards the opt-out to `huginn-net-tcp` (the underlying parser skips the
-work; see the section above).
+`tcp-syn`, `tcp-syn-ack`, `tcp-mtu`, and `tcp-uptime` — all **opt-in** under
+the new `default = []` policy, all included by the umbrella's `full` alias.
+Enabling one forwards the toggle to `huginn-net-tcp` (the underlying parser
+short-circuits when none of the relevant features are on; see the section
+above) and adds the corresponding field to `FingerprintResult` at compile
+time.
 
 | `huginn-net` feature | Enables in `huginn-net-tcp` | Gates field on `FingerprintResult` |
 |---|---|---|
@@ -298,58 +360,70 @@ work; see the section above).
 | `tcp-mtu` | `mtu` | `tcp_mtu` |
 | `tcp-uptime` | `uptime` | `tcp_client_uptime` + `tcp_server_uptime` |
 
-Behaviour matrix for the most common combinations:
+Behaviour matrix for the most common combinations (every column except the
+first uses `--no-default-features` implicitly, since the v2.0.0 default is
+empty):
 
 | Build flags | `tcp_syn` | `tcp_syn_ack` | `tcp_mtu` | `tcp_client_uptime` / `tcp_server_uptime` | `ttl_cache` dep |
 |---|---|---|---|---|---|
-| default | yes | yes | yes | yes | yes |
-| `--no-default-features --features db` | — | — | — | — | no |
-| `--no-default-features --features "db,tcp-syn"` | yes | — | — | — | no |
-| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu"` | yes | yes | yes | — | no |
-| `--no-default-features --features "db,tcp-uptime"` | — | — | — | yes | yes |
+| `default` (no features) | — | — | — | — | no |
+| `features = ["full"]` (v1.x-equivalent + tls-stable-v1) | yes | yes | yes | yes | yes |
+| `features = ["db"]` | — | — | — | — | no |
+| `features = ["db", "tcp-syn"]` | yes | — | — | — | no |
+| `features = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu"]` | yes | yes | yes | — | no |
+| `features = ["db", "tcp-uptime"]` | — | — | — | yes | yes |
 
 Migration:
 
 ```diff
 -huginn-net = "2.0.0"
-+huginn-net = { version = "2.0.0", default-features = false, features = [
++# Option A: keep v1.x behaviour (and pick up future analyses for free).
++huginn-net = { version = "2.0.0", features = ["full"] }
++
++# Option B: cherry-pick exactly what you consume.
++huginn-net = { version = "2.0.0", features = [
 +    "db", "tcp-syn", # add the tcp-* fields you actually consume
 +] }
 ```
 
-If you keep the defaults, **nothing changes** — the umbrella behaves exactly like before.
-
 The compatibility caveat below applies to any consumer of `huginn-net-db` that
 still relies on TCP types being unconditionally available:
 
-> `huginn-net-db` now depends on `huginn-net-tcp` with `default-features = false`,
-> so that feature toggles flow through both crates. Downstream code that uses
-> `huginn-net-db` directly **and** assumed the four TCP features were always on
-> must enable them explicitly (or rely on the umbrella, which does so via
-> its `default` set).
+> `huginn-net-db` depends on `huginn-net-tcp` without forcing any features
+> on, so feature toggles flow through both crates from the top-level
+> consumer. Downstream code that uses `huginn-net-db` directly **and**
+> assumed the four TCP fields were always on must enable them explicitly
+> via `huginn-net-tcp/full` or specific features (or rely on the umbrella's
+> `full`, which does so transitively).
 
 ### New: optional HTTP analysis features in `huginn-net-http`
 
-`huginn-net-http` now exposes three opt-out features — all enabled by default,
-so existing `Cargo.toml` entries require no change.
+`huginn-net-http` now exposes three opt-in features. `default = []` ships an
+empty shell (the always-on raw parsers and the `HttpMatcher` trait surface
+are still compiled, see below); `full` is the alias that enables every HTTP
+analysis this version offers.
 
 | Feature        | What it enables                                                                                 | Gates on `HttpAnalysisResult` |
 |----------------|-------------------------------------------------------------------------------------------------|-------------------------------|
+| `full`         | Convenience alias for "everything" (currently `p0f-request` + `p0f-response` + `akamai`)        | depends on the included features |
 | `p0f-request`  | p0f-style fingerprinting of HTTP request side (client → server) — header order, language, browser matching | `http_request` |
 | `p0f-response` | p0f-style fingerprinting of HTTP response side (server → client) — header order, web-server matching       | `http_response` |
 | `akamai`       | Akamai HTTP/2 client fingerprinting — standalone API (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path | (no field) |
 
-Opt-out examples:
+Common opt-in patterns:
 
 ```toml
+# Everything this version offers (forward-compatible with future axes).
+huginn-net-http = { version = "2.0.0", features = ["full"] }
+
 # Client-side only (request fingerprinting), no akamai, no response parsing.
-huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request"] }
+huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
-huginn-net-http = { version = "2.0.0", default-features = false, features = ["akamai"] }
+huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 
 # Both p0f sides, no akamai.
-huginn-net-http = { version = "2.0.0", default-features = false, features = ["p0f-request", "p0f-response"] }
+huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"] }
 ```
 
 The fields on `HttpAnalysisResult` (`http_request`, `http_response`) are
@@ -383,11 +457,12 @@ code disables one or both p0f sides — only the `HttpAnalysisResult`
 ### New: HTTP feature pass-through in `huginn-net`
 
 The umbrella crate `huginn-net` re-exposes the two p0f-side toggles from
-`huginn-net-http` as `http-p0f-request` and `http-p0f-response` — **both
-default**. Disabling one removes the corresponding field from
-`FingerprintResult` at compile time and forwards the opt-out to
-`huginn-net-http` (the HTTP layer also short-circuits flow tracking when
-both sides are off; see the section above).
+`huginn-net-http` as `http-p0f-request` and `http-p0f-response` — both
+**opt-in** under the new `default = []` policy, both included by the
+umbrella's `full` alias. Enabling one adds the corresponding field to
+`FingerprintResult` at compile time and forwards the opt-in to
+`huginn-net-http` (the HTTP layer short-circuits flow tracking when both
+sides are off; see the section above).
 
 | `huginn-net` feature  | Enables in `huginn-net-http` | Gates on `FingerprintResult` |
 |-----------------------|------------------------------|-------------------------------|
@@ -400,45 +475,48 @@ umbrella never invokes. Consumers who need it should add `huginn-net-http`
 as a direct dependency:
 
 ```toml
-huginn-net      = "2.0.0"
+huginn-net      = { version = "2.0.0", features = ["full"] }
 huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 ```
 
-Behaviour matrix for the most common combinations:
+Behaviour matrix for the most common combinations (every entry is implicitly
+`--no-default-features` since v2.0.0 ships an empty default):
 
 | Build flags | `http_request` | `http_response` |
 |---|---|---|
-| default | yes | yes |
-| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime"` | — | — |
-| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request"` | yes | — |
-| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-response"` | — | yes |
-| `--no-default-features --features "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request,http-p0f-response"` | yes | yes |
+| `default` (no features) | — | — |
+| `features = ["full"]` | yes | yes |
+| `features = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime"]` | — | — |
+| `features = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request"]` | yes | — |
+| `features = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-response"]` | — | yes |
+| `features = ["db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request", "http-p0f-response"]` | yes | yes |
 
 Migration:
 
 ```diff
 -huginn-net = "2.0.0"
-+huginn-net = { version = "2.0.0", default-features = false, features = [
++# Option A: keep v1.x behaviour (and pick up future analyses for free).
++huginn-net = { version = "2.0.0", features = ["full"] }
++
++# Option B: cherry-pick exactly what you consume.
++huginn-net = { version = "2.0.0", features = [
 +    "db", "tcp-syn", "http-p0f-request", # add the http-* sides you actually consume
 +] }
 ```
-
-If you keep the defaults, **nothing changes** — the umbrella behaves
-exactly like before.
 
 The compatibility caveat below applies to any consumer of `huginn-net-db`
 that still relies on the v1.x HTTP output fields being unconditionally
 available:
 
-> `huginn-net-db` now depends on `huginn-net-http` with
-> `default-features = false`, so feature toggles flow through both crates.
-> The `huginn-net-db` integration tests that destructure both
+> `huginn-net-db` depends on `huginn-net-http` without forcing any features
+> on, so feature toggles flow through both crates from the top-level
+> consumer. The `huginn-net-db` integration tests that destructure both
 > `HttpAnalysisResult` fields keep compiling because the crate enables
-> both p0f features explicitly in its `[dev-dependencies]`. Downstream
-> code using `huginn-net-db` directly **and** reaching into
-> `huginn-net-http`'s `HttpAnalysisResult` must enable
-> `huginn-net-http`'s `p0f-request` / `p0f-response` features explicitly
-> (or rely on the umbrella, which does so via its `default` set).
+> `huginn-net-http/full` in its `[dev-dependencies]`. Downstream code
+> using `huginn-net-db` directly **and** reaching into `huginn-net-http`'s
+> `HttpAnalysisResult` must enable `huginn-net-http/full` or specific
+> `p0f-request` / `p0f-response` features explicitly (or rely on the
+> umbrella's `full`, which does so transitively).
 
 ---
 
