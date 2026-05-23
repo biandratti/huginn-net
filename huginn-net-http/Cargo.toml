@@ -14,7 +14,8 @@ keywords = ["http", "fingerprinting", "browser", "p0f", "security"]
 categories = ["network-programming", "web-programming"]
 
 [features]
-default = ["p0f-request", "p0f-response", "akamai"]
+default = []
+full = ["p0f-request", "p0f-response", "akamai"]
 p0f-request = []
 p0f-response = []
 akamai = []
@@ -34,7 +35,7 @@ ttl_cache = { workspace = true }
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
-huginn-net-db = { workspace = true }
+huginn-net-db = { workspace = true, features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }

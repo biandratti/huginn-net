@@ -18,26 +18,33 @@
 //!
 //! ## Cargo Features
 //!
-//! All four analysis features are enabled by default. Disable any of them to
-//! strip the matching code paths, the corresponding fields on
-//! [`TcpAnalysisResult`], and (for `uptime`) the `ttl_cache` dependency.
+//! **All features are opt-in**: the default build is an empty shell that
+//! exposes only the traits and entry points. Pick the analyses you actually
+//! consume, or use the convenience [`full`](#cargo-features) alias to opt
+//! into everything this version offers (including future axes added in
+//! later releases).
 //!
 //! | Feature   | Default | Description                                                                                                            |
 //! |-----------|---------|------------------------------------------------------------------------------------------------------------------------|
-//! | `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].                                     |
-//! | `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`].                             |
-//! | `mtu`     | Yes     | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                                               |
-//! | `uptime`  | Yes     | Uptime estimation from TCP timestamps for **both client and server** sides. Gates [`uptime`] and pulls in `ttl_cache`. |
+//! | `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades — additions land here automatically. |
+//! | `syn`     | No      | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].                                     |
+//! | `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`].                             |
+//! | `mtu`     | No      | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                                               |
+//! | `uptime`  | No      | Uptime estimation from TCP timestamps for **both client and server** sides. Gates [`uptime`] and pulls in `ttl_cache`. |
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `visit_tcp` short-circuits before parsing TCP
 //! options. SYN-only builds therefore pay zero per-packet cost for SYN+ACK
 //! traffic, and SYN+ACK-only builds skip the request-side work entirely.
 //!
-//! Example — fingerprint clients only, no MTU/uptime, no extra dependencies:
+//! Common opt-in examples:
 //!
 //! ```toml
-//! huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
+//! # Everything this version offers (forward-compatible).
+//! huginn-net-tcp = { version = "2.0.0", features = ["full"] }
+//!
+//! # Cherry-pick only what you need (smallest possible build).
+//! huginn-net-tcp = { version = "2.0.0", features = ["syn"] }
 //! ```
 
 pub mod analyzer;

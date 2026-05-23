@@ -12,15 +12,18 @@
 //!
 //! ## Cargo Features
 //!
-//! All three HTTP analysis axes are enabled by default. Disable any of them
-//! to strip the matching code paths and the corresponding fields on
-//! [`HttpAnalysisResult`].
+//! **All features are opt-in**: the default build is an empty shell that
+//! exposes only the always-on raw parsers and the matcher trait surface.
+//! Pick the analyses you actually consume, or use the convenience
+//! [`full`](#cargo-features) alias to opt into everything this version
+//! offers (including future axes added in later releases).
 //!
 //! | Feature        | Default | Description                                                                                                                                                  |
 //! |----------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-//! | `p0f-request`  | Yes     | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates [`HttpRequestOutput`]. |
-//! | `p0f-response` | Yes     | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates [`HttpResponseOutput`].                           |
-//! | `akamai`       | Yes     | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface ([`Http2FingerprintExtractor`], [`AkamaiFingerprint`], `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+//! | `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai`). Stable across version upgrades.                |
+//! | `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates [`HttpRequestOutput`]. |
+//! | `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates [`HttpResponseOutput`].                           |
+//! | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface ([`Http2FingerprintExtractor`], [`AkamaiFingerprint`], `extract_akamai_fingerprint*`); not invoked by the p0f path. |
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `process_tcp_packet` short-circuits at the top —
@@ -33,10 +36,17 @@
 //! traits) and the `HttpMatcher` trait surface stay compiled regardless of
 //! the feature set so external consumers can keep using them.
 //!
-//! Example — observation-only client side, no database, no `akamai`:
+//! Common opt-in examples:
 //!
 //! ```toml
-//! huginn-net-http = { version = "2.0", default-features = false, features = ["p0f-request"] }
+//! # Everything this version offers (forward-compatible).
+//! huginn-net-http = { version = "2.0.0", features = ["full"] }
+//!
+//! # Observation-only client side, no `akamai`.
+//! huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
+//!
+//! # Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
+//! huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 //! ```
 
 // ---------------------------------------------------------------------------

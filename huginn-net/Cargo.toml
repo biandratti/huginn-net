@@ -19,7 +19,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = [
+default = []
+full = [
     "db",
     "tcp-syn",
     "tcp-syn-ack",
@@ -27,6 +28,7 @@ default = [
     "tcp-uptime",
     "http-p0f-request",
     "http-p0f-response",
+    "tls-stable-v1",
 ]
 db = ["dep:huginn-net-db", "huginn-net-db/tcp", "huginn-net-db/http"]
 http-p0f-request = ["huginn-net-http/p0f-request"]

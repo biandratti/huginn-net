@@ -5,15 +5,21 @@
 //!
 //! ## Cargo Features
 //!
+//! **All features are opt-in**: the default build is an empty shell. Pick the
+//! analyses you actually consume, or use the convenience
+//! [`full`](#cargo-features) alias to opt into everything this version
+//! offers (including future axes added in later releases).
+//!
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
-//! | `db` | Yes | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
-//! | `tcp-syn` | Yes | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
-//! | `tcp-syn-ack` | Yes | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
-//! | `tcp-mtu` | Yes | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
-//! | `tcp-uptime` | Yes | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
-//! | `http-p0f-request` | Yes | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`]). |
-//! | `http-p0f-response` | Yes | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, [`HttpResponseOutput`], [`WebServer`], [`WebServerQualityMatched`]). |
+//! | `full` | No | Convenience alias for "everything this version offers" (currently `db` + every `tcp-*` + every `http-*` + `tls-stable-v1`). Stable across version upgrades — additions land here automatically. |
+//! | `db` | No | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Combine with any `tcp-*` / `http-*` for label-producing builds; omit for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
+//! | `tcp-syn` | No | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
+//! | `tcp-syn-ack` | No | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
+//! | `tcp-mtu` | No | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
+//! | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
+//! | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`]). |
+//! | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, [`HttpResponseOutput`], [`WebServer`], [`WebServerQualityMatched`]). |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints. |
 //!
 //! Each `tcp-*` / `http-*` feature gates the corresponding field on
@@ -27,6 +33,19 @@
 //! Akamai HTTP/2 fingerprinting is a standalone API surface on
 //! `huginn-net-http`. Add `huginn-net-http` as a direct dependency with
 //! `features = ["akamai"]` if you need it alongside `huginn-net`.
+//!
+//! Common opt-in examples:
+//!
+//! ```toml
+//! # Everything this version offers (forward-compatible).
+//! huginn-net = { version = "2.0.0", features = ["full"] }
+//!
+//! # p0f-style TCP+HTTP fingerprinting with database matching.
+//! huginn-net = { version = "2.0.0", features = ["db", "tcp-syn", "tcp-syn-ack", "http-p0f-request", "http-p0f-response"] }
+//!
+//! # Observation-only TCP SYN (no database, no matching).
+//! huginn-net = { version = "2.0.0", features = ["tcp-syn"] }
+//! ```
 
 // ---------------------------------------------------------------------------
 // Domain modules (canonical locations)
