@@ -137,80 +137,25 @@ jobs:
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net --features full
 
+  gen-feature-matrix:
+    name: Generate feature matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: set
+        run: |
+          matrix=$(jq -c '{include: .}' scripts/feature-matrix.json)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   feature-matrix:
     name: Feature matrix - ${{ matrix.crate }} (${{ matrix.label }})
+    needs: gen-feature-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # ---------------------------------------------------------------
-          # huginn-net-tcp — features: syn, syn-ack, mtu, uptime (default=[], full=all)
-          # Default (empty) + every singleton + a few combos + full alias.
-          # ---------------------------------------------------------------
-          - { crate: huginn-net-tcp, features: "",                       label: "none (default)" }
-          - { crate: huginn-net-tcp, features: "syn",                    label: "syn" }
-          - { crate: huginn-net-tcp, features: "syn-ack",                label: "syn-ack" }
-          - { crate: huginn-net-tcp, features: "mtu",                    label: "mtu" }
-          - { crate: huginn-net-tcp, features: "uptime",                 label: "uptime" }
-          - { crate: huginn-net-tcp, features: "syn,syn-ack",            label: "syn+syn-ack" }
-          - { crate: huginn-net-tcp, features: "syn,mtu",                label: "syn+mtu" }
-          - { crate: huginn-net-tcp, features: "syn,uptime",             label: "syn+uptime" }
-          - { crate: huginn-net-tcp, features: "syn-ack,mtu",            label: "syn-ack+mtu" }
-          - { crate: huginn-net-tcp, features: "syn-ack,uptime",         label: "syn-ack+uptime" }
-          - { crate: huginn-net-tcp, features: "mtu,uptime",             label: "mtu+uptime" }
-          - { crate: huginn-net-tcp, features: "syn,syn-ack,mtu",        label: "syn+syn-ack+mtu" }
-          - { crate: huginn-net-tcp, features: "syn,syn-ack,uptime",     label: "syn+syn-ack+uptime" }
-          - { crate: huginn-net-tcp, features: "syn,mtu,uptime",         label: "syn+mtu+uptime" }
-          - { crate: huginn-net-tcp, features: "syn-ack,mtu,uptime",     label: "syn-ack+mtu+uptime" }
-          - { crate: huginn-net-tcp, features: "full",                   label: "full" }
-          # ---------------------------------------------------------------
-          # huginn-net-tls — feature: stable-v1 (default=[], full=stable-v1)
-          # ---------------------------------------------------------------
-          - { crate: huginn-net-tls, features: "",                       label: "none (default)" }
-          - { crate: huginn-net-tls, features: "stable-v1",              label: "stable-v1" }
-          - { crate: huginn-net-tls, features: "full",                   label: "full" }
-          # ---------------------------------------------------------------
-          # huginn-net-db — features: tcp, http (default=[], full=tcp+http)
-          # ---------------------------------------------------------------
-          - { crate: huginn-net-db,  features: "",                       label: "none (default)" }
-          - { crate: huginn-net-db,  features: "tcp",                    label: "tcp" }
-          - { crate: huginn-net-db,  features: "http",                   label: "http" }
-          - { crate: huginn-net-db,  features: "full",                   label: "full" }
-          # ---------------------------------------------------------------
-          # huginn-net-http — features: p0f-request, p0f-response, akamai
-          # (default=[], full=p0f-request+p0f-response+akamai)
-          # ---------------------------------------------------------------
-          - { crate: huginn-net-http, features: "",                               label: "none (default)" }
-          - { crate: huginn-net-http, features: "akamai",                         label: "akamai" }
-          - { crate: huginn-net-http, features: "p0f-request",                    label: "p0f-request" }
-          - { crate: huginn-net-http, features: "p0f-response",                   label: "p0f-response" }
-          - { crate: huginn-net-http, features: "p0f-request,p0f-response",       label: "p0f-request+p0f-response" }
-          - { crate: huginn-net-http, features: "p0f-request,akamai",             label: "p0f-request+akamai" }
-          - { crate: huginn-net-http, features: "p0f-response,akamai",            label: "p0f-response+akamai" }
-          - { crate: huginn-net-http, features: "full",                           label: "full" }
-          # ---------------------------------------------------------------
-          # huginn-net (umbrella) — features:
-          #   db, tcp-syn, tcp-syn-ack, tcp-mtu, tcp-uptime,
-          #   http-p0f-request, http-p0f-response, tls-stable-v1
-          # (default=[], full=every feature above)
-          # Note: the umbrella does NOT expose huginn-net-http/akamai.
-          # ---------------------------------------------------------------
-          - { crate: huginn-net,     features: "",                                                                              label: "none (default)" }
-          - { crate: huginn-net,     features: "db",                                                                            label: "db only" }
-          - { crate: huginn-net,     features: "tcp-syn",                                                                       label: "tcp-syn only" }
-          - { crate: huginn-net,     features: "tcp-mtu",                                                                       label: "tcp-mtu only" }
-          - { crate: huginn-net,     features: "tcp-uptime",                                                                    label: "tcp-uptime only" }
-          - { crate: huginn-net,     features: "http-p0f-request",                                                              label: "http-p0f-request only" }
-          - { crate: huginn-net,     features: "http-p0f-response",                                                             label: "http-p0f-response only" }
-          - { crate: huginn-net,     features: "http-p0f-request,http-p0f-response",                                            label: "http-p0f-request+http-p0f-response" }
-          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack",                                                        label: "db+tcp-syn+tcp-syn-ack" }
-          - { crate: huginn-net,     features: "db,tcp-mtu,tcp-uptime",                                                         label: "db+tcp-mtu+tcp-uptime" }
-          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request",                    label: "all tcp + http-p0f-request" }
-          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-response",                   label: "all tcp + http-p0f-response" }
-          - { crate: huginn-net,     features: "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request,http-p0f-response",  label: "all p0f (no tls-stable-v1)" }
-          - { crate: huginn-net,     features: "tls-stable-v1",                                                                 label: "tls-stable-v1" }
-          - { crate: huginn-net,     features: "full",                                                                          label: "full" }
+      matrix: ${{ fromJson(needs.gen-feature-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust ${{ env.rust_stable }}
@@ -218,41 +163,17 @@ jobs:
         with:
           toolchain: ${{ env.rust_stable }}
           components: clippy
-      - name: Build ${{ matrix.crate }} (features='${{ matrix.features }}')
+      - name: Check ${{ matrix.crate }} (${{ matrix.label }})
         run: |
-          if [ -z "${{ matrix.features }}" ]; then
-            cargo build -p ${{ matrix.crate }} --no-default-features --lib
-          else
-            cargo build -p ${{ matrix.crate }} --no-default-features \
-              --features "${{ matrix.features }}" --lib
+          flags=()
+          if [[ "${{ matrix.with_tests }}" == "true" ]]; then
+            flags+=(--with-tests)
           fi
-      - name: Clippy ${{ matrix.crate }} (features='${{ matrix.features }}')
-        run: |
-          if [ -z "${{ matrix.features }}" ]; then
-            cargo clippy -p ${{ matrix.crate }} --no-default-features --lib -- -D warnings
-          else
-            cargo clippy -p ${{ matrix.crate }} --no-default-features \
-              --features "${{ matrix.features }}" --lib -- -D warnings
+          if [[ "${{ matrix.with_bench }}" == "true" ]]; then
+            flags+=(--with-bench)
           fi
-      - name: Tests + bench link (huginn-net-tcp full combo only)
-        if: matrix.crate == 'huginn-net-tcp' && matrix.features == 'full'
-        run: |
-          cargo test  -p huginn-net-tcp --no-default-features \
-            --features "${{ matrix.features }}" --tests
-          cargo bench -p huginn-net-tcp --no-default-features \
-            --features "${{ matrix.features }}" --no-run
-      - name: Tests + bench link (huginn-net-http full combo only)
-        if: matrix.crate == 'huginn-net-http' && matrix.features == 'full'
-        run: |
-          cargo test  -p huginn-net-http --no-default-features \
-            --features "${{ matrix.features }}" --tests
-          cargo bench -p huginn-net-http --no-default-features \
-            --features "${{ matrix.features }}" --no-run
-      - name: Tests (huginn-net umbrella full combo only)
-        if: matrix.crate == 'huginn-net' && matrix.features == 'full'
-        run: |
-          cargo test -p huginn-net --no-default-features \
-            --features "${{ matrix.features }}" --tests
+          ./scripts/check-features.sh \
+            "${{ matrix.crate }}" "${{ matrix.features }}" "${flags[@]}"
 
   test:
     runs-on: ubuntu-latest
