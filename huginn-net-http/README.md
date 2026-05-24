@@ -23,7 +23,7 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **No third-party tools** - No tshark, wireshark, or external tools required
 - **Comprehensive analysis** - Browser, server, and language detection
 - **Pure Rust implementation** - No system libraries required
-- **High performance** - 562.1K pps for full analysis, 200M pps detection
+- **High performance** - 562.1K pps for full analysis, 200M pps detection (fewer features enabled means higher throughput)
 - **HTTP/1.x & HTTP/2** - Support for both major protocol versions
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
 - **Typed observable data access** - Access to typed HTTP headers, header ordering, language preferences, and other observable signals for custom fingerprinting and analysis
@@ -86,13 +86,13 @@ Add this to your `Cargo.toml`:
 [dependencies]
 # Pick the analyses you want via `features` (see "Cargo Features" below).
 # `full` is the convenience alias for "everything this version offers".
-huginn-net-http = { version = "2.0.0", features = ["full"] }
+huginn-net-http = { version = "2.0.0-rc", features = ["full"] }
 # Optional: only needed if you want browser/server fingerprint matching.
 # Skip it for an observation-only build (raw HTTP signatures, Akamai
 # HTTP/2 fingerprints, etc.). With `features = ["http"]` you only pull in
 # the HTTP half of the p0f database (no TCP parser, no TCP signatures
 # embedded).
-huginn-net-db = { version = "2.0.0", features = ["http"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["http"] }
 ```
 
 ### Cargo Features
@@ -106,21 +106,22 @@ consume, or use `full` to opt into everything this version offers:
 | `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
 | `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
 | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+| `json`          | No      | Derives `serde::Serialize` on all output types (`HttpAnalysisResult`, `HttpRequestOutput`, `HttpResponseOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Common opt-in patterns:
 
 ```toml
 # Everything this version offers (forward-compatible with future axes).
-huginn-net-http = { version = "2.0.0", features = ["full"] }
+huginn-net-http = { version = "2.0.0-rc", features = ["full"] }
 
 # Client-side only (request fingerprinting), no akamai, no response parsing.
-huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
+huginn-net-http = { version = "2.0.0-rc", features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only, no p0f path compiled in at all.
-huginn-net-http = { version = "2.0.0", features = ["akamai"] }
+huginn-net-http = { version = "2.0.0-rc", features = ["akamai"] }
 
 # Both p0f sides, no akamai.
-huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"] }
+huginn-net-http = { version = "2.0.0-rc", features = ["p0f-request", "p0f-response"] }
 ```
 
 When neither p0f side is enabled, `process_tcp_packet` short-circuits

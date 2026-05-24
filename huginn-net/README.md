@@ -21,7 +21,7 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 - **No third-party tools** - No tshark, wireshark, or external tools required
 - **Multi-protocol support** - TCP, HTTP, and TLS analysis in one unified interface
 - **Pure Rust implementation** - No system libraries required
-- **High performance** - TCP: 1.25M pps, HTTP: 562.1K pps, TLS: 84.6K pps
+- **High performance** - TCP: 1.25M pps, HTTP: 562.1K pps, TLS: 84.6K pps (measured with `full`; fewer features enabled means higher throughput)
 - **Same accuracy as p0f** - Validated against extensive device testing
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
 - **Production-ready parallel processing** - Use protocol-specific crates with multi-threaded worker pools for high-throughput live capture
@@ -38,8 +38,8 @@ version offers (and any added in future 2.x releases):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0", features = ["full"] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
+huginn-net = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
 ```
 
 ### Cargo Features
@@ -58,6 +58,7 @@ consume, or use `full` to opt into everything this version offers:
 | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`). |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
 | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `json` | No | Derives `serde::Serialize` on all output types (`FingerprintResult` and its fields). Enables JSON serialization via `serde_json`. Independent of `full` — opt in explicitly: `features = ["full", "json"]`. |
 
 Each `tcp-*` / `http-*` feature gates the corresponding field on
 `FingerprintResult` at compile time. Disabling one shrinks the result
@@ -70,35 +71,35 @@ in `full` automatically):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0", features = ["full"] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
+huginn-net = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
 ```
 
 Opt into only what you need (example: SYN-only, no MTU / uptime / SYN+ACK, both HTTP sides):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0", features = [
+huginn-net = { version = "2.0.0-rc", features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
 ```
 
 Drop one of the HTTP sides (example: full TCP + request-only HTTP):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0", features = [
+huginn-net = { version = "2.0.0-rc", features = [
     "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
 ] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
 ```
 
 Observation-only build (no database, no p0f matching; useful for TLS terminators, sidecars, or custom matchers):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0", features = [
+huginn-net = { version = "2.0.0-rc", features = [
     "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
     "http-p0f-request", "http-p0f-response",
 ] }

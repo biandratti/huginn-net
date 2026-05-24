@@ -54,14 +54,14 @@ Both protocols (composite `Database` available):
 
 ```toml
 [dependencies]
-huginn-net-db = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
 ```
 
 TCP-only build:
 
 ```toml
 [dependencies]
-huginn-net-db = { version = "2.0.0", features = ["tcp"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["tcp"] }
 ```
 
 ## Usage
