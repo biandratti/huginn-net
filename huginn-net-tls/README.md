@@ -130,7 +130,7 @@ fn main() -> Result<(), HuginnNetTlsError> {
 }
 ```
 
-For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/cli-tls.rs`](../examples/cli-tls.rs).
 
 ### Filtering
 

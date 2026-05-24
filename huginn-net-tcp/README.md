@@ -195,7 +195,7 @@ fn main() -> Result<(), HuginnNetTcpError> {
 }
 ```
 
-For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/cli-tcp.rs`](../examples/cli-tcp.rs).
 
 ### Filtering
 

@@ -221,7 +221,7 @@ fn main() -> Result<(), HuginnNetHttpError> {
 }
 ```
 
-For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-http.rs`](../examples/capture-http.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/cli-http.rs`](../examples/cli-http.rs).
 
 ### Filtering
 

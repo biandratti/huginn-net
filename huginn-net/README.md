@@ -223,7 +223,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-For complete working examples with signal handling, error management, and CLI options, see [`examples/capture.rs`](../examples/capture.rs).
+For complete working examples with signal handling, error management, and CLI options, see [`examples/cli.rs`](../examples/cli.rs).
 
 ### Filtering
 
