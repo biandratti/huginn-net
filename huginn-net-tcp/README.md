@@ -23,7 +23,7 @@ This crate provides TCP-based passive fingerprinting capabilities using p0f-styl
 - **No third-party tools** - No tshark, wireshark, or external tools required
 - **Same accuracy as p0f** - Validated against extensive device testing
 - **Pure Rust implementation** - No system libraries required
-- **Exceptional performance** - 1.25M pps for full analysis, 166.7M pps detection
+- **Exceptional performance** - 1.25M pps for full analysis, 166.7M pps detection (fewer features enabled means higher throughput)
 - **Comprehensive testing** - Full unit and integration test coverage
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
 - **Typed observable data access** - Access to typed TCP signatures, MTU values, uptime data, and other observable signals for custom fingerprinting and analysis
@@ -52,13 +52,13 @@ Add this to your `Cargo.toml`:
 [dependencies]
 # Pick the TCP analyses you want via `features` (see "Cargo Features" below).
 # `full` is the convenience alias for "everything this version offers".
-huginn-net-tcp = { version = "2.0.0", features = ["full"] }
+huginn-net-tcp = { version = "2.0.0-rc", features = ["full"] }
 # Optional: only needed if you want OS fingerprint matching against the
 # bundled p0f database. Skip it for an observation-only build (raw TCP
 # signatures + MTU + uptime). With `features = ["tcp"]` you only pull in
 # the TCP half of the p0f database (no HTTP parser, no HTTP signatures
 # embedded).
-huginn-net-db = { version = "2.0.0", features = ["tcp"] }
+huginn-net-db = { version = "2.0.0-rc", features = ["tcp"] }
 ```
 
 ### Cargo Features
@@ -75,6 +75,7 @@ a feature strips the matching code paths, the corresponding field on
 | `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side)               | none             |
 | `mtu`     | No      | MTU extraction from the TCP MSS option                                       | none             |
 | `uptime`  | No      | Uptime estimation from TCP timestamps for **both client and server** sides   | `ttl_cache`      |
+| `json`    | No      | Derives `serde::Serialize` on all output types (`TcpAnalysisResult` and its fields). Opt in explicitly: `features = ["full", "json"]`.           | —                |
 
 When a build disables every feature that would consume a packet's side
 (request or response), the TCP options parser short-circuits: SYN-only
@@ -85,16 +86,16 @@ Common opt-in patterns:
 
 ```toml
 # Everything this version offers (forward-compatible with future axes).
-huginn-net-tcp = { version = "2.0.0", features = ["full"] }
+huginn-net-tcp = { version = "2.0.0-rc", features = ["full"] }
 
 # Fingerprint only clients connecting to you, no MTU/uptime, no ttl_cache.
-huginn-net-tcp = { version = "2.0.0", features = ["syn"] }
+huginn-net-tcp = { version = "2.0.0-rc", features = ["syn"] }
 
 # Recon: fingerprint only servers you connect to, with MTU detection.
-huginn-net-tcp = { version = "2.0.0", features = ["syn-ack", "mtu"] }
+huginn-net-tcp = { version = "2.0.0-rc", features = ["syn-ack", "mtu"] }
 
 # Full OS fingerprinting, no MTU/uptime.
-huginn-net-tcp = { version = "2.0.0", features = ["syn", "syn-ack"] }
+huginn-net-tcp = { version = "2.0.0-rc", features = ["syn", "syn-ack"] }
 ```
 
 > Fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`,
@@ -194,7 +195,7 @@ fn main() -> Result<(), HuginnNetTcpError> {
 }
 ```
 
-For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tcp.rs`](../examples/capture-tcp.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/cli-tcp.rs`](../examples/cli-tcp.rs).
 
 ### Filtering
 

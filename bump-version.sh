@@ -7,16 +7,17 @@ if [ -z "$NEW" ]; then
   exit 1
 fi
 
-OLD=$(grep '^version = ' Cargo.toml | grep -oP '[\d]+\.[\d]+\.[\d]+')
-OLD_ESC=$(echo "$OLD" | sed 's/\./\\./g')
+OLD=$(grep '^version = ' Cargo.toml | grep -oP '[\d]+\.[\d]+\.[\d]+[^"]*')
+OLD_ESC=$(echo "$OLD" | sed 's/[.]/\\./g; s/-/\\-/g')
 
 FILES=(
   Cargo.toml
   README.md
   huginn-net/README.md
-  huginn-net-tls/README.md
+  huginn-net-db/README.md
   huginn-net-tcp/README.md
   huginn-net-http/README.md
+  huginn-net-tls/README.md
 )
 
 echo "Bumping $OLD → $NEW"

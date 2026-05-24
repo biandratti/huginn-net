@@ -23,7 +23,7 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 - **No third-party tools** - No tshark, wireshark, or external tools required
 - **Official JA4 implementation** - Complete spec compliance for TLS fingerprinting
 - **Pure Rust implementation** - No system libraries required
-- **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores)
+- **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores) (fewer features enabled means higher throughput)
 - **Parallel processing** - Multi-threaded worker pool for production workloads
 - **Type-safe architecture** - Prevents entire classes of bugs at compile time
 - **Typed observable data access** - Access to typed TLS extensions, cipher suites, SNI, ALPN, and other observable signals for custom fingerprinting and analysis
@@ -50,7 +50,7 @@ fingerprinting flow; that covers most TLS analysis use cases:
 
 ```toml
 [dependencies]
-huginn-net-tls = "2.0.0"
+huginn-net-tls = "2.0.0-rc"
 ```
 
 If you also want `JA4_s1` / `JA4_rs1` (or want to opt into every TLS
@@ -59,7 +59,7 @@ analysis this version offers, including future additions), enable the
 
 ```toml
 [dependencies]
-huginn-net-tls = { version = "2.0.0", features = ["full"] }
+huginn-net-tls = { version = "2.0.0-rc", features = ["full"] }
 ```
 
 ### Cargo Features
@@ -72,12 +72,13 @@ future axes added in later releases):
 |-------------|---------|------------------------------------------------------------------------------------------------|
 | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
 | `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `json`      | No      | Derives `serde::Serialize` on all output types (`TlsClientOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:
 
 ```toml
 [dependencies]
-huginn-net-tls = { version = "2.0.0", features = ["stable-v1"] }
+huginn-net-tls = { version = "2.0.0-rc", features = ["stable-v1"] }
 ```
 
 When `stable-v1` is enabled (included by the `full` alias), `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
@@ -129,7 +130,7 @@ fn main() -> Result<(), HuginnNetTlsError> {
 }
 ```
 
-For a complete working example with signal handling, error management, and CLI options, see [`examples/capture-tls.rs`](../examples/capture-tls.rs).
+For a complete working example with signal handling, error management, and CLI options, see [`examples/cli-tls.rs`](../examples/cli-tls.rs).
 
 ### Filtering
 

@@ -62,15 +62,15 @@ Passive fingerprinting infers information about remote hosts without sending any
 **For multi-protocol analysis:**
 ```toml
 [dependencies]
-huginn-net = "1.7.5"  # Complete analysis suite
+huginn-net = "2.0.0-rc"  # Complete analysis suite
 ```
 
 **For specific protocols:**
 ```toml
 [dependencies]
-huginn-net-tcp = "1.7.5"   # TCP/OS fingerprinting only
-huginn-net-http = "1.7.5"  # HTTP analysis only
-huginn-net-tls = "1.7.5"   # TLS/JA4 analysis only
+huginn-net-tcp = "2.0.0-rc"   # TCP/OS fingerprinting only
+huginn-net-http = "2.0.0-rc"  # HTTP analysis only
+huginn-net-tls = "2.0.0-rc"   # TLS/JA4 analysis only
 ```
 
 ### Usage & Examples
@@ -94,7 +94,7 @@ For detailed usage examples, installation guides, and complete code samples:
 | **HTTP** | 142.9M pps | 526.6K pps | Browser/server detection |
 | **TLS** | 48M pps | 45K pps | JA4 fingerprinting, TLS analysis |
 
-All protocols scale with multiple workers: TCP to 2.11M pps (4 workers), HTTP to 1.54M pps (2 workers), TLS to 97K pps (2–4 workers). See [benches/README.md](benches/README.md) for methodology and capacity planning.
+All protocols scale with multiple workers: TCP to 2.11M pps (4 workers), HTTP to 1.54M pps (2 workers), TLS to 97K pps (2–4 workers). Numbers above reflect `features = ["full"]`; enabling only the analyses you need (e.g. `tcp-syn` alone) increases throughput further by eliminating unused parsing paths. See [benches/README.md](benches/README.md) for methodology and capacity planning.
 
 ### Validated Device Categories
 - **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
