@@ -44,7 +44,6 @@ huginn-net-db = { workspace = true, optional = true }
 huginn-net-http = { workspace = true }
 huginn-net-tcp = { workspace = true }
 huginn-net-tls = { workspace = true }
-lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
 thiserror = { workspace = true }
@@ -66,6 +65,7 @@ required-features = [
     "tcp-syn-ack",
     "tcp-mtu",
     "tcp-uptime",
+    "tls-stable-v1",
     "http-p0f-request",
     "http-p0f-response",
 ]

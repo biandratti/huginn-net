@@ -7,11 +7,8 @@ ip link show
 
 #### Full Analysis (TCP, HTTP, TLS)
 ```
-# Build package
-cargo build --release --examples -p huginn-net
-
-# Build with tls-stable-v1 feature (adds JA4_s1 / JA4_rs1 fingerprints)
-cargo build --release --examples -p huginn-net --features huginn-net/tls-stable-v1
+# Build example
+cargo build --release --example capture -p huginn-net --features full
 
 # Live capture
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log live -i <INTERFACE>                       
@@ -35,14 +32,8 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture
 
 #### TLS-Only Analysis
 ```
-# Build TLS example
-cargo build --release --examples -p huginn-net-tls
-
-# Build TLS example with stable-v1 feature (adds JA4_s1 / JA4_rs1 fingerprints)
-cargo build --release --examples -p huginn-net-tls --features huginn-net-tls/stable-v1
-
-# Build TLS example with all features
-cargo build --release --examples -p huginn-net-tls --all-features
+# Build example
+cargo build --release --example capture-tls -p huginn-net-tls --features full
 
 # Live capture - Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live single -i <INTERFACE>
@@ -74,8 +65,8 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capt
 
 #### TCP-Only Analysis
 ```
-# Build TCP example
-cargo build --release --examples -p huginn-net-tcp
+# Build example
+cargo build --release --example capture-tcp -p huginn-net-tcp --features full
 
 # Live capture - Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live single -i <INTERFACE>
@@ -107,8 +98,8 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capt
 
 #### HTTP-Only Analysis
 ```
-# Build HTTP example
-cargo build --release --examples -p huginn-net-http
+# Build example
+cargo build --release --example capture-http -p huginn-net-http --features full
 
 # Live capture - Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live single -i <INTERFACE>

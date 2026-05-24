@@ -45,6 +45,7 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "capture-tls"
 path = "../examples/capture-tls.rs"
+required-features = ["stable-v1"]
 
 [[bench]]
 name = "bench_tls"
