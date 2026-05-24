@@ -29,11 +29,6 @@
 //! packet's side are enabled, so disabling features is a zero-cost
 //! optimization, not just a build configuration.
 //!
-//! Note: the umbrella does **not** expose `huginn-net-http/akamai` —
-//! Akamai HTTP/2 fingerprinting is a standalone API surface on
-//! `huginn-net-http`. Add `huginn-net-http` as a direct dependency with
-//! `features = ["akamai"]` if you need it alongside `huginn-net`.
-//!
 //! Common opt-in examples:
 //!
 //! ```toml

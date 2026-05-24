@@ -124,11 +124,15 @@ huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"
 ```
 
 When neither p0f side is enabled, `process_tcp_packet` short-circuits
-before touching the flow cache or reassembling payloads, so an akamai-only
-build pays zero per-packet cost for the p0f pipeline. The always-on raw
-parsers (`parse_http1_request`, `parse_http2_request`, `Http1Processor`,
-`Http2Processor`) and the `HttpMatcher` trait surface stay compiled in
-every feature combination so external consumers can keep using them.
+before touching the flow cache or reassembling payloads, so the per-packet
+pipeline cost drops to zero. The `akamai` feature is orthogonal to that
+pipeline — it only exposes the standalone `Http2FingerprintExtractor` /
+`extract_akamai_fingerprint*` API for callers that parse HTTP/2 frames
+themselves, and is never invoked from `process_tcp_packet` regardless of
+the other features. The always-on raw parsers (`parse_http1_request`,
+`parse_http2_request`, `Http1Processor`, `Http2Processor`) and the
+`HttpMatcher` trait surface stay compiled in every feature combination
+so external consumers can keep using them.
 
 Database support is opt-in at the dependency level by adding
 `huginn-net-db` and calling

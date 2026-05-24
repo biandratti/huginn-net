@@ -65,11 +65,6 @@ struct and lets the parser skip its work (the TCP layer also early-exits
 when no enabled feature consumes a packet's side; the HTTP layer short-
 circuits flow tracking when both p0f sides are disabled).
 
-The umbrella does **not** expose `huginn-net-http/akamai` — Akamai HTTP/2
-fingerprinting is a standalone API surface on `huginn-net-http`. Add
-`huginn-net-http = { version = "2.0.0", features = ["akamai"] }` as a
-direct dependency if you need it alongside `huginn-net`.
-
 Everything this version offers (forward-compatible — future analyses land
 in `full` automatically):
 

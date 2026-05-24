@@ -27,9 +27,11 @@
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `process_tcp_packet` short-circuits at the top —
-//! no flow-cache lookup, no SYN insertion, no payload reassembly. A pure
-//! `akamai`-only build therefore pays zero per-packet cost for the p0f
-//! pipeline.
+//! no flow-cache lookup, no SYN insertion, no payload reassembly. The
+//! `akamai` feature is orthogonal to that pipeline: it only exposes the
+//! standalone [`Http2FingerprintExtractor`] / `extract_akamai_fingerprint*`
+//! API for callers that parse HTTP/2 frames themselves, and is never
+//! invoked from `process_tcp_packet` regardless of the other features.
 //!
 //! The always-on raw parsers (`parse_http1_request`, `parse_http2_request`,
 //! `Http1Processor`, `Http2Processor`, the `HttpParser`/`HttpProcessor`

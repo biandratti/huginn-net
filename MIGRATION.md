@@ -298,11 +298,6 @@ gates plus the alias.
 | `huginn-net-db`  | `[]`    | `tcp`, `http`                                                                                                     | same as `full` (cherry-pick any subset)                                                                                      |
 | `huginn-net`     | `[]`    | `db`, `tcp-syn`, `tcp-syn-ack`, `tcp-mtu`, `tcp-uptime`, `http-p0f-request`, `http-p0f-response`, `tls-stable-v1` | same as `full`; `tcp-*` / `http-*` are pass-throughs to the sub-crates, `db` enables p0f matching, `tls-stable-v1` adds JA4_s1 |
 
-Note: `huginn-net-http/akamai` is intentionally **not** re-exported by the
-umbrella crate. Add `huginn-net-http = { version = "2.0.0", features = ["akamai"] }`
-as a direct dependency if you need Akamai HTTP/2 fingerprinting alongside
-`huginn-net`.
-
 ### New: optional TCP analysis features in `huginn-net-tcp`
 
 `huginn-net-tcp` now exposes four opt-in features. `default = []` ships an
@@ -442,9 +437,11 @@ keeps working regardless of which p0f features the consumer enables.
 
 Internally, when a build disables every feature that consumes a packet's
 side (request or response), `process_tcp_packet` short-circuits at the top
-— no flow-cache lookup, no SYN insertion, no payload reassembly. A pure
-`akamai`-only build therefore pays zero per-packet cost for the p0f
-pipeline.
+— no flow-cache lookup, no SYN insertion, no payload reassembly. The
+`akamai` feature is orthogonal to that pipeline: it only exposes the
+standalone `Http2FingerprintExtractor` / `extract_akamai_fingerprint*`
+API for callers that parse HTTP/2 frames themselves, and is never
+invoked from `process_tcp_packet` regardless of the other features.
 
 `huginn-net-db`'s `SharedHttpSignatureMatcher` is unaffected by the new
 features. The carrier types it touches (`HttpRequestObservation`,
@@ -468,16 +465,6 @@ sides are off; see the section above).
 |-----------------------|------------------------------|-------------------------------|
 | `http-p0f-request`    | `p0f-request`                | `http_request` |
 | `http-p0f-response`   | `p0f-response`               | `http_response` |
-
-**`akamai` is intentionally not exposed via the umbrella** — Akamai HTTP/2
-fingerprinting is a standalone API surface on `huginn-net-http` that the
-umbrella never invokes. Consumers who need it should add `huginn-net-http`
-as a direct dependency:
-
-```toml
-huginn-net      = { version = "2.0.0", features = ["full"] }
-huginn-net-http = { version = "2.0.0", features = ["akamai"] }
-```
 
 Behaviour matrix for the most common combinations (every entry is implicitly
 `--no-default-features` since v2.0.0 ships an empty default):
