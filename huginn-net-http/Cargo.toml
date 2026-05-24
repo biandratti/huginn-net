@@ -13,6 +13,13 @@ homepage.workspace = true
 keywords = ["http", "fingerprinting", "browser", "p0f", "security"]
 categories = ["network-programming", "web-programming"]
 
+[features]
+default = []
+full = ["p0f-request", "p0f-response", "akamai"]
+p0f-request = []
+p0f-response = []
+akamai = []
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 hpack-patched = { workspace = true }
@@ -28,7 +35,7 @@ ttl_cache = { workspace = true }
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
-huginn-net-db = { workspace = true }
+huginn-net-db = { workspace = true, features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }
@@ -37,8 +44,10 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "capture-http"
 path = "../examples/capture-http.rs"
+required-features = ["p0f-request", "p0f-response"]
 
 [[bench]]
 name = "bench_http"
 path = "../benches/bench_http.rs"
 harness = false
+required-features = ["p0f-request", "p0f-response"]

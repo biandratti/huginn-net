@@ -13,14 +13,27 @@
 //!
 //! ## Cargo Features
 //!
+//! **All features are opt-in**: the default build leaves only [`Label`],
+//! [`Type`], the parser shell, and the database-matching traits. Pick the
+//! protocols you actually consume, or use the convenience
+//! [`full`](#cargo-features) alias to opt into everything this version
+//! offers (including future protocols added in later releases).
+//!
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
-//! | `tcp` | Yes | Pulls in [`huginn_net_tcp`] and exposes [`TcpDatabase`], [`TcpSignatureMatcher`], the `[tcp:*]` p0f parser branch, and TCP signal matching impls |
-//! | `http` | Yes | Pulls in [`huginn_net_http`] and exposes [`HttpDatabase`], [`HttpSignatureMatcher`], the `[http:*]` p0f parser branch, and HTTP signal matching impls |
+//! | `full`  | No      | Convenience alias for "everything this version offers" (currently `tcp` + `http`). Stable across version upgrades. |
+//! | `tcp`   | No      | Pulls in [`huginn_net_tcp`] and exposes [`TcpDatabase`], [`TcpSignatureMatcher`], the `[tcp:*]` p0f parser branch, and TCP signal matching impls. |
+//! | `http`  | No      | Pulls in [`huginn_net_http`] and exposes [`HttpDatabase`], [`HttpSignatureMatcher`], the `[http:*]` p0f parser branch, and HTTP signal matching impls. |
 //!
-//! Disabling either feature keeps the crate compiling against only the other
-//! protocol; disabling both leaves only [`Label`], [`Type`], the parser
-//! shell, and the database-matching traits.
+//! Common opt-in examples:
+//!
+//! ```toml
+//! # Everything this version offers (forward-compatible).
+//! huginn-net-db = { version = "2.0.0", features = ["full"] }
+//!
+//! # TCP signatures only.
+//! huginn-net-db = { version = "2.0.0", features = ["tcp"] }
+//! ```
 
 #[path = "matcher/traits.rs"]
 pub mod db_matching_trait;

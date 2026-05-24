@@ -3,7 +3,10 @@ use crate::parser::packet::{parse_packet, IpPacket};
 use crate::AnalysisConfig;
 use huginn_net_http::error::HuginnNetHttpError;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
-use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::observable::ObservableHttpRequest;
+#[cfg(feature = "http-p0f-response")]
+use huginn_net_http::observable::ObservableHttpResponse;
 use huginn_net_tcp::error::HuginnNetTcpError;
 #[cfg(feature = "tcp-mtu")]
 use huginn_net_tcp::observable::ObservableMtu;
@@ -39,7 +42,9 @@ pub struct ObservablePackage {
     pub client_uptime: Option<ObservableUptime>,
     #[cfg(feature = "tcp-uptime")]
     pub server_uptime: Option<ObservableUptime>,
+    #[cfg(feature = "http-p0f-request")]
     pub http_request: Option<ObservableHttpRequest>,
+    #[cfg(feature = "http-p0f-response")]
     pub http_response: Option<ObservableHttpResponse>,
     pub tls_client: Option<ObservableTlsClient>,
 }
@@ -271,7 +276,7 @@ fn execute_analysis<P: IpPacketProcessor>(
     let http_response = if config.http_enabled {
         P::process_http_with_data(packet_data, http_flows, http_processors)?
     } else {
-        ObservableHttpPackage { http_request: None, http_response: None }
+        ObservableHttpPackage::empty()
     };
 
     let tcp_response: ObservableTCPPackage = if config.tcp_enabled {
@@ -353,27 +358,42 @@ fn handle_http_tcp_tlc(
                 feature = "tcp-syn",
                 feature = "tcp-syn-ack",
                 feature = "tcp-mtu",
-                feature = "tcp-uptime"
+                feature = "tcp-uptime",
+                feature = "http-p0f-request",
+                feature = "http-p0f-response"
             )),
             allow(unused_variables)
         )]
-        (Ok(http_package), Ok(tcp_package), Ok(tls_package)) => Ok(ObservablePackage {
-            source,
-            destination,
-            #[cfg(feature = "tcp-syn")]
-            tcp_request: tcp_package.tcp_request,
-            #[cfg(feature = "tcp-syn-ack")]
-            tcp_response: tcp_package.tcp_response,
-            #[cfg(feature = "tcp-mtu")]
-            mtu: tcp_package.mtu,
-            #[cfg(feature = "tcp-uptime")]
-            client_uptime: tcp_package.client_uptime,
-            #[cfg(feature = "tcp-uptime")]
-            server_uptime: tcp_package.server_uptime,
-            http_request: http_package.http_request,
-            http_response: http_package.http_response,
-            tls_client: tls_package.tls_client,
-        }),
+        (Ok(http_package), Ok(tcp_package), Ok(tls_package)) => {
+            #[cfg(not(any(
+                feature = "tcp-syn",
+                feature = "tcp-syn-ack",
+                feature = "tcp-mtu",
+                feature = "tcp-uptime"
+            )))]
+            let _ = &tcp_package;
+            #[cfg(not(any(feature = "http-p0f-request", feature = "http-p0f-response")))]
+            let _ = &http_package;
+            Ok(ObservablePackage {
+                source,
+                destination,
+                #[cfg(feature = "tcp-syn")]
+                tcp_request: tcp_package.tcp_request,
+                #[cfg(feature = "tcp-syn-ack")]
+                tcp_response: tcp_package.tcp_response,
+                #[cfg(feature = "tcp-mtu")]
+                mtu: tcp_package.mtu,
+                #[cfg(feature = "tcp-uptime")]
+                client_uptime: tcp_package.client_uptime,
+                #[cfg(feature = "tcp-uptime")]
+                server_uptime: tcp_package.server_uptime,
+                #[cfg(feature = "http-p0f-request")]
+                http_request: http_package.http_request,
+                #[cfg(feature = "http-p0f-response")]
+                http_response: http_package.http_response,
+                tls_client: tls_package.tls_client,
+            })
+        }
         (Err(http_err), _, _) => Err(http_err),
         (_, Err(tcp_err), _) => Err(tcp_err),
         (_, _, Err(tls_err)) => Err(tls_err),

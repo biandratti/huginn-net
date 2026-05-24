@@ -1,3 +1,5 @@
+#![cfg(all(feature = "p0f-request", feature = "p0f-response"))]
+
 use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp};
 use serde::{Deserialize, Serialize};
 use std::fs;

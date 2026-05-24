@@ -21,9 +21,10 @@ This crate provides p0f database parsing and signature matching capabilities. It
 **Note**: `huginn-net-db` depends on `huginn-net-tcp` and `huginn-net-http`
 (via Cargo features) and provides the bridge between them and a p0f-style
 signature database. When using the umbrella `huginn-net` crate, this is
-pulled in automatically through the default `db` feature. You only need
-to depend on `huginn-net-db` directly if you use `huginn-net-tcp` /
-`huginn-net-http` standalone and want database-backed matching.
+pulled in automatically through its `db` feature (included in the
+umbrella's `full` alias). You only need to depend on `huginn-net-db`
+directly if you use `huginn-net-tcp` / `huginn-net-http` standalone and
+want database-backed matching.
 
 ## Features
 
@@ -34,30 +35,33 @@ to depend on `huginn-net-db` directly if you use `huginn-net-tcp` /
 
 ## Cargo Features
 
+All features are **opt-in** (default = `[]`). Pick the protocol(s) you
+actually consume, or use `full` to opt into everything this version offers.
+
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `tcp` | Yes | Pulls in `huginn-net-tcp` and exposes `TcpDatabase`, `TcpSignatureMatcher`, `SharedTcpSignatureMatcher`, the `[tcp:*]` p0f parser branch, and TCP signal matching impls |
-| `http` | Yes | Pulls in `huginn-net-http` and exposes `HttpDatabase`, `HttpSignatureMatcher`, `SharedHttpSignatureMatcher`, the `[http:*]` p0f parser branch, and HTTP signal matching impls |
+| `full`  | No      | Convenience alias for "everything this version offers" (currently `tcp` + `http`). Stable across version upgrades. |
+| `tcp`   | No      | Pulls in `huginn-net-tcp` and exposes `TcpDatabase`, `TcpSignatureMatcher`, `SharedTcpSignatureMatcher`, the `[tcp:*]` p0f parser branch, and TCP signal matching impls. |
+| `http`  | No      | Pulls in `huginn-net-http` and exposes `HttpDatabase`, `HttpSignatureMatcher`, `SharedHttpSignatureMatcher`, the `[http:*]` p0f parser branch, and HTTP signal matching impls. |
 
 The composite `Database` type and the `from_database(&db)` helpers on
 `SharedTcpSignatureMatcher` / `SharedHttpSignatureMatcher` are only
-available when **both** features are enabled (the default). Partial
-builds (e.g. `--no-default-features --features tcp`) expose only the
-single-protocol `TcpDatabase` / `HttpDatabase` and the matching `new(Arc<...>)`
-constructors.
+available when **both** features are enabled. Partial builds (e.g.
+`features = ["tcp"]`) expose only the single-protocol `TcpDatabase` /
+`HttpDatabase` and the matching `new(Arc<...>)` constructors.
 
-Default build (both protocols):
+Both protocols (composite `Database` available):
 
 ```toml
 [dependencies]
-huginn-net-db = "1.7.5"
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 TCP-only build:
 
 ```toml
 [dependencies]
-huginn-net-db = { version = "1.7.5", default-features = false, features = ["tcp"] }
+huginn-net-db = { version = "2.0.0", features = ["tcp"] }
 ```
 
 ## Usage

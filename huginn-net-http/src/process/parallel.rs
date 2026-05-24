@@ -241,7 +241,7 @@ impl WorkerPool {
         if let Some(filter_cfg) = filter {
             if !raw_filter::apply(packet, filter_cfg) {
                 debug!("Filtered out packet before parsing");
-                return Ok(HttpAnalysisResult { http_request: None, http_response: None });
+                return Ok(HttpAnalysisResult::empty());
             }
         }
 
@@ -255,7 +255,7 @@ impl WorkerPool {
             IpPacket::Ipv6(ipv6) => {
                 process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher)
             }
-            IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
+            IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }
     }
 

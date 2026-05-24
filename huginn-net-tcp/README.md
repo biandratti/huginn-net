@@ -50,49 +50,55 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-tcp = "1.7.5"
+# Pick the TCP analyses you want via `features` (see "Cargo Features" below).
+# `full` is the convenience alias for "everything this version offers".
+huginn-net-tcp = { version = "2.0.0", features = ["full"] }
 # Optional: only needed if you want OS fingerprint matching against the
 # bundled p0f database. Skip it for an observation-only build (raw TCP
-# signatures + MTU + uptime). With `default-features = false, features =
-# ["tcp"]` you only pull in the TCP half of the p0f database (no HTTP
-# parser, no HTTP signatures embedded).
-huginn-net-db = { version = "1.7.5", default-features = false, features = ["tcp"] }
+# signatures + MTU + uptime). With `features = ["tcp"]` you only pull in
+# the TCP half of the p0f database (no HTTP parser, no HTTP signatures
+# embedded).
+huginn-net-db = { version = "2.0.0", features = ["tcp"] }
 ```
 
 ### Cargo Features
 
-All four analysis features below are enabled by default — existing
-`Cargo.toml` entries require no change. Disable any of them to strip the
-matching code paths, the corresponding fields on `TcpAnalysisResult`, and
-(for `uptime`) the `ttl_cache` dependency.
+All features are **opt-in** (default = `[]`). Pick the analyses you actually
+consume, or use `full` to opt into everything this version offers. Disabling
+a feature strips the matching code paths, the corresponding field on
+`TcpAnalysisResult`, and (for `uptime`) the `ttl_cache` dependency.
 
 | Feature   | Default | What it enables                                                              | Extra dependency |
 |-----------|---------|------------------------------------------------------------------------------|------------------|
-| `syn`     | Yes     | TCP SYN OS fingerprinting (client → server, request side)                    | —                |
-| `syn-ack` | Yes     | TCP SYN+ACK OS fingerprinting (server → client, response side)               | —                |
-| `mtu`     | Yes     | MTU extraction from the TCP MSS option                                       | —                |
-| `uptime`  | Yes     | Uptime estimation from TCP timestamps for **both client and server** sides   | `ttl_cache`      |
+| `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades; additions land here automatically. | depends on the included features |
+| `syn`     | No      | TCP SYN OS fingerprinting (client → server, request side)                    | none             |
+| `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side)               | none             |
+| `mtu`     | No      | MTU extraction from the TCP MSS option                                       | none             |
+| `uptime`  | No      | Uptime estimation from TCP timestamps for **both client and server** sides   | `ttl_cache`      |
 
 When a build disables every feature that would consume a packet's side
-(request or response), the TCP options parser short-circuits — SYN-only
+(request or response), the TCP options parser short-circuits: SYN-only
 builds pay zero per-packet cost for SYN+ACK traffic, and SYN+ACK-only
 builds skip the request-side work entirely.
 
-Opt-out examples:
+Common opt-in patterns:
 
 ```toml
-# Fingerprint only clients connecting to you, no MTU/uptime, no ttl_cache
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn"] }
+# Everything this version offers (forward-compatible with future axes).
+huginn-net-tcp = { version = "2.0.0", features = ["full"] }
 
-# Recon: fingerprint only servers you connect to, with MTU detection
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn-ack", "mtu"] }
+# Fingerprint only clients connecting to you, no MTU/uptime, no ttl_cache.
+huginn-net-tcp = { version = "2.0.0", features = ["syn"] }
 
-# Full OS fingerprinting, no MTU/uptime
-huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn", "syn-ack"] }
+# Recon: fingerprint only servers you connect to, with MTU detection.
+huginn-net-tcp = { version = "2.0.0", features = ["syn-ack", "mtu"] }
+
+# Full OS fingerprinting, no MTU/uptime.
+huginn-net-tcp = { version = "2.0.0", features = ["syn", "syn-ack"] }
 ```
 
 > Fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`,
-> `server_uptime`) are **gated by their respective features** — disabling a
+> `server_uptime`) are **gated by their respective features**; disabling a
 > feature removes the field from the struct entirely (rather than setting it
 > to `None`). Consumers that construct `TcpAnalysisResult` literals or
 > destructure exhaustively must `#[cfg]` their code to match the enabled
@@ -101,7 +107,7 @@ huginn-net-tcp = { version = "2.0", default-features = false, features = ["syn",
 Database support is opt-in at the dependency level by adding
 `huginn-net-db` and calling [`HuginnNetTcp::with_matcher`].
 
-### Basic Usage — with database (OS fingerprinting)
+### Basic Usage, with database (OS fingerprinting)
 
 ```rust
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
@@ -154,10 +160,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Basic Usage — observation only (no database)
+### Basic Usage, observation only (no database)
 
 Without a matcher, `analyze_*` still extracts the raw TCP signature, MTU
-and uptime observations — only the `*QualityMatched` fields will report
+and uptime observations; only the `*QualityMatched` fields will report
 `Disabled`.
 
 ```rust

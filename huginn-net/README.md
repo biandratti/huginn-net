@@ -32,65 +32,81 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 
 ### Installation
 
-Add to your `Cargo.toml`:
+Add to your `Cargo.toml`. Every feature is **opt-in** in v2.0.0; the
+fastest path is `features = ["full"]`, which pulls in every analysis this
+version offers (and any added in future 2.x releases):
+
 ```toml
 [dependencies]
-huginn-net = "1.7.5"
-huginn-net-db = "1.7.5"
+huginn-net = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 ### Cargo Features
 
+All features are **opt-in** (default = `[]`). Pick the analyses you actually
+consume, or use `full` to opt into everything this version offers:
+
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `db` | Yes | Pulls in `huginn-net-db` and enables p0f signature matching for TCP and HTTP. Disable for an observation-only build (raw signatures + JA4, no database). |
-| `tcp-syn` | Yes | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
-| `tcp-syn-ack` | Yes | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
-| `tcp-mtu` | Yes | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
-| `tcp-uptime` | Yes | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
-| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints. |
+| `full` | No | Convenience alias for "everything this version offers" (currently `db` + every `tcp-*` + every `http-*` + `tls-stable-v1`). Stable across version upgrades; additions land here automatically. |
+| `db` | No | Pulls in `huginn-net-db` and enables p0f signature matching for TCP and HTTP. Combine with any `tcp-*` / `http-*` for labelled output; omit for an observation-only build (raw signatures + JA4, no database). |
+| `tcp-syn` | No | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
+| `tcp-syn-ack` | No | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
+| `tcp-mtu` | No | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
+| `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
+| `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`). |
+| `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
+| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
 
-Each `tcp-*` feature gates the corresponding field on `FingerprintResult` at
-compile time. Disabling one shrinks the result struct and lets the parser
-skip its work (the TCP layer also early-exits when no enabled feature
-consumes a packet's side).
+Each `tcp-*` / `http-*` feature gates the corresponding field on
+`FingerprintResult` at compile time. Disabling one shrinks the result
+struct and lets the parser skip its work (the TCP layer also early-exits
+when no enabled feature consumes a packet's side; the HTTP layer short-
+circuits flow tracking when both p0f sides are disabled).
 
-Default build (everything except `tls-stable-v1`):
+Everything this version offers (forward-compatible; future analyses land
+in `full` automatically):
 
 ```toml
 [dependencies]
-huginn-net = "1.7.5"
-huginn-net-db = "1.7.5"
+huginn-net = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
-Enable JA4 stable fingerprints:
+Opt into only what you need (example: SYN-only, no MTU / uptime / SYN+ACK, both HTTP sides):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", features = ["tls-stable-v1"] }
-huginn-net-db = "1.7.5"
+huginn-net = { version = "2.0.0", features = [
+    "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
+] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
-Opt out of TCP work that you don't need (example: SYN-only, no MTU / uptime / SYN+ACK):
+Drop one of the HTTP sides (example: full TCP + request-only HTTP):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false, features = ["db", "tcp-syn"] }
-huginn-net-db = "1.7.5"
+huginn-net = { version = "2.0.0", features = [
+    "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
+] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
-Observation-only build (no database, no p0f matching — useful for TLS terminators, sidecars, or custom matchers):
+Observation-only build (no database, no p0f matching; useful for TLS terminators, sidecars, or custom matchers):
 
 ```toml
 [dependencies]
-huginn-net = { version = "1.7.5", default-features = false, features = [
+huginn-net = { version = "2.0.0", features = [
     "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
+    "http-p0f-request", "http-p0f-response",
 ] }
 ```
 
 With `db` disabled, use `HuginnNet::new_observable(max_connections, None)` instead of `HuginnNet::new(...)`.
 
-When enabled, `TlsClient` output gains two extra lines:
+When `tls-stable-v1` is enabled (included by the `full` alias), `TlsClient` output gains two extra lines:
 
 ```text
   JA4_s1:  t13d1416h2_8daaf6152771_b0da82dd1658
@@ -104,7 +120,7 @@ When enabled, `TlsClient` output gains two extra lines:
 - **PCAP file analysis** - Offline traffic analysis  
 - **Protocol-specific examples** - TCP, HTTP, TLS focused analysis
 
-### Basic Usage — with database (TCP + HTTP + TLS)
+### Basic Usage, with database (TCP + HTTP + TLS)
 
 Because `HuginnNet<'a>` borrows from `Database`, the typical pattern is to
 load the database and create the analyzer **inside the capture thread**,
@@ -118,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = mpsc::channel::<FingerprintResult>();
 
     std::thread::spawn(move || {
-        // Load p0f database inside the thread — the analyzer borrows from it
+        // Load p0f database inside the thread; the analyzer borrows from it
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
@@ -168,16 +184,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Basic Usage — observation only (no database)
+### Basic Usage, observation only (no database)
 
-If you build with `default-features = false`, the `db` feature is off
-and `HuginnNet::new(...)` is **not compiled**. Use `HuginnNet::new_observable`
-instead to get raw TCP/HTTP signatures + JA4 with all `*QualityMatched`
-fields set to `Disabled`:
+If you build without the `db` feature (the v2.0.0 default omits it), the
+`HuginnNet::new(...)` constructor is **not compiled**. Use
+`HuginnNet::new_observable` instead to get raw TCP/HTTP signatures + JA4
+with all `*QualityMatched` fields set to `Disabled`:
 
 ```rust
-// Requires `huginn-net = { version = "...", default-features = false }`
-// in your Cargo.toml.
+// Requires `huginn-net` to be declared *without* the `db` feature in your
+// Cargo.toml, e.g. `features = ["tcp-syn", "http-p0f-request"]`.
 use huginn_net::{FingerprintResult, HuginnNet};
 use std::sync::mpsc;
 

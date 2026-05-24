@@ -1,16 +1,43 @@
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use crate::http::HttpDiagnosis;
-use crate::observable::{ObservableHttpRequest, ObservableHttpResponse};
+#[cfg(feature = "p0f-request")]
+use crate::observable::ObservableHttpRequest;
+#[cfg(feature = "p0f-response")]
+use crate::observable::ObservableHttpResponse;
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use std::fmt;
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use std::fmt::Formatter;
 
 /// Result of analyzing HTTP packets, mirrors the database-agnostic shape of
 /// `HuginnNetHttp::analyze_*`.
+///
+/// Field availability depends on the enabled HTTP features:
+/// - [`Self::http_request`] requires the `p0f-request` feature.
+/// - [`Self::http_response`] requires the `p0f-response` feature.
+///
+/// Use [`Self::empty`] to construct a fallback value that is valid under any
+/// feature combination.
 #[derive(Debug)]
 pub struct HttpAnalysisResult {
     /// Information derived from HTTP request packets.
+    #[cfg(feature = "p0f-request")]
     pub http_request: Option<HttpRequestOutput>,
     /// Information derived from HTTP response packets.
+    #[cfg(feature = "p0f-response")]
     pub http_response: Option<HttpResponseOutput>,
+}
+
+impl HttpAnalysisResult {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            #[cfg(feature = "p0f-request")]
+            http_request: None,
+            #[cfg(feature = "p0f-response")]
+            http_response: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,6 +75,7 @@ pub enum MatchQuality {
     Disabled,
 }
 
+#[cfg(feature = "p0f-request")]
 #[derive(Debug)]
 pub struct BrowserQualityMatched {
     pub browser: Option<Browser>,
@@ -63,6 +91,7 @@ pub struct Browser {
     pub kind: OsKind,
 }
 
+#[cfg(feature = "p0f-response")]
 #[derive(Debug)]
 pub struct WebServerQualityMatched {
     pub web_server: Option<WebServer>,
@@ -79,6 +108,7 @@ pub struct WebServer {
 }
 
 /// Holds information derived from analyzing HTTP request headers.
+#[cfg(feature = "p0f-request")]
 #[derive(Debug)]
 pub struct HttpRequestOutput {
     /// The source IP address and port of the client making the request.
@@ -95,6 +125,7 @@ pub struct HttpRequestOutput {
     pub sig: ObservableHttpRequest,
 }
 
+#[cfg(feature = "p0f-request")]
 impl fmt::Display for HttpRequestOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -126,6 +157,7 @@ impl fmt::Display for HttpRequestOutput {
 }
 
 /// Holds information derived from analyzing HTTP response headers.
+#[cfg(feature = "p0f-response")]
 #[derive(Debug)]
 pub struct HttpResponseOutput {
     /// The source IP address and port of the server sending the response.
@@ -140,6 +172,7 @@ pub struct HttpResponseOutput {
     pub sig: ObservableHttpResponse,
 }
 
+#[cfg(feature = "p0f-response")]
 impl fmt::Display for HttpResponseOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

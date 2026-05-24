@@ -84,22 +84,61 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-huginn-net-http = "1.7.5"
+# Pick the analyses you want via `features` (see "Cargo Features" below).
+# `full` is the convenience alias for "everything this version offers".
+huginn-net-http = { version = "2.0.0", features = ["full"] }
 # Optional: only needed if you want browser/server fingerprint matching.
 # Skip it for an observation-only build (raw HTTP signatures, Akamai
-# HTTP/2 fingerprints, etc.). With `default-features = false, features =
-# ["http"]` you only pull in the HTTP half of the p0f database (no TCP
-# parser, no TCP signatures embedded).
-huginn-net-db = { version = "1.7.5", default-features = false, features = ["http"] }
+# HTTP/2 fingerprints, etc.). With `features = ["http"]` you only pull in
+# the HTTP half of the p0f database (no TCP parser, no TCP signatures
+# embedded).
+huginn-net-db = { version = "2.0.0", features = ["http"] }
 ```
 
 ### Cargo Features
 
-This crate has no Cargo features of its own. Database support is opt-in
-at the dependency level by adding `huginn-net-db` and calling
-[`HuginnNetHttp::with_matcher`].
+All features are **opt-in** (default = `[]`). Pick the analyses you actually
+consume, or use `full` to opt into everything this version offers:
 
-### Basic Usage — with database (browser/server fingerprinting)
+| Feature        | Default | Description |
+|----------------|---------|-------------|
+| `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai`). Stable across version upgrades. |
+| `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
+| `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
+| `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+
+Common opt-in patterns:
+
+```toml
+# Everything this version offers (forward-compatible with future axes).
+huginn-net-http = { version = "2.0.0", features = ["full"] }
+
+# Client-side only (request fingerprinting), no akamai, no response parsing.
+huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
+
+# Akamai HTTP/2 fingerprinting only, no p0f path compiled in at all.
+huginn-net-http = { version = "2.0.0", features = ["akamai"] }
+
+# Both p0f sides, no akamai.
+huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"] }
+```
+
+When neither p0f side is enabled, `process_tcp_packet` short-circuits
+before touching the flow cache or reassembling payloads, so the per-packet
+pipeline cost drops to zero. The `akamai` feature is orthogonal to that
+pipeline: it only exposes the standalone `Http2FingerprintExtractor` /
+`extract_akamai_fingerprint*` API for callers that parse HTTP/2 frames
+themselves, and is never invoked from `process_tcp_packet` regardless of
+the other features. The always-on raw parsers (`parse_http1_request`,
+`parse_http2_request`, `Http1Processor`, `Http2Processor`) and the
+`HttpMatcher` trait surface stay compiled in every feature combination
+so external consumers can keep using them.
+
+Database support is opt-in at the dependency level by adding
+`huginn-net-db` and calling
+[`HuginnNetHttp::with_matcher`](https://docs.rs/huginn-net-http/latest/huginn_net_http/struct.HuginnNetHttp.html#method.with_matcher).
+
+### Basic Usage, with database (browser/server fingerprinting)
 
 ```rust
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
@@ -149,7 +188,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Basic Usage — observation only (no database)
+### Basic Usage, observation only (no database)
 
 If you don't need browser/server matching (e.g. you only consume the raw
 HTTP signature, Akamai HTTP/2 fingerprint, etc.) you can skip

@@ -1,4 +1,4 @@
-//! [`Label`] and [`Type`] — signature metadata from the p0f database format.
+//! [`Label`] and [`Type`]: signature metadata from the p0f database format.
 
 use std::fmt;
 

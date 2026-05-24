@@ -19,6 +19,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
+default = []
+full = ["stable-v1"]
 stable-v1 = []
 
 [dependencies]

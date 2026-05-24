@@ -327,7 +327,7 @@ impl HuginnNetHttp {
         if let Some(ref filter) = self.filter_config {
             if !raw_filter::apply(packet, filter) {
                 debug!("Filtered out packet before parsing");
-                return Ok(HttpAnalysisResult { http_request: None, http_response: None });
+                return Ok(HttpAnalysisResult::empty());
             }
         }
 
@@ -347,7 +347,7 @@ impl HuginnNetHttp {
                 &self.http_processors,
                 matcher,
             ),
-            IpPacket::None => Ok(HttpAnalysisResult { http_request: None, http_response: None }),
+            IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }
     }
 }

@@ -1,12 +1,18 @@
 mod matchers;
-use matchers::{cache_sizes, HttpRequestMatchResult};
+use matchers::cache_sizes;
+#[cfg(feature = "http-p0f-request")]
+use matchers::HttpRequestMatchResult;
 
 use crate::error::HuginnNetError;
 use crate::output::FingerprintResult;
 use crate::process::ObservablePackage;
+#[cfg(feature = "http-p0f-response")]
 use huginn_net_http::http::HttpDiagnosis;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, TcpFlow};
-use huginn_net_http::output::{HttpRequestOutput, HttpResponseOutput};
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::output::HttpRequestOutput;
+#[cfg(feature = "http-p0f-response")]
+use huginn_net_http::output::HttpResponseOutput;
 #[cfg(feature = "tcp-mtu")]
 use huginn_net_tcp::output::MTUOutput;
 #[cfg(feature = "tcp-syn-ack")]
@@ -29,7 +35,10 @@ use ttl_cache::TtlCache;
 #[cfg(feature = "db")]
 use huginn_net_db::Database;
 
-pub use huginn_net_http::observable::{ObservableHttpRequest, ObservableHttpResponse};
+#[cfg(feature = "http-p0f-request")]
+pub use huginn_net_http::observable::ObservableHttpRequest;
+#[cfg(feature = "http-p0f-response")]
+pub use huginn_net_http::observable::ObservableHttpResponse;
 pub use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::FilterConfig;
 pub use huginn_net_tls::ObservableTlsClient;
@@ -63,10 +72,10 @@ impl Default for AnalysisConfig {
 ///
 /// # Examples
 ///
-/// **With p0f database — TCP + HTTP matching enabled (requires `db` feature):**
+/// **With p0f database, TCP + HTTP matching enabled (requires `db` feature):**
 ///
 /// ```no_run
-/// # #[cfg(feature = "db")] {
+/// # #[cfg(all(feature = "db", feature = "tcp-syn", feature = "http-p0f-request"))] {
 /// use huginn_net::{Database, HuginnNet};
 /// use std::sync::mpsc;
 ///
@@ -84,7 +93,7 @@ impl Default for AnalysisConfig {
 /// # }
 /// ```
 ///
-/// **Observation-only — no database, all protocols, matching disabled:**
+/// **Observation-only, no database, all protocols, matching disabled:**
 ///
 /// ```no_run
 /// # #[cfg(feature = "db")] {
@@ -459,6 +468,7 @@ impl<'a> HuginnNet<'a> {
                         freq: update.freq,
                     });
 
+                #[cfg(feature = "http-p0f-request")]
                 let http_request: Option<HttpRequestOutput> =
                     observable_package
                         .http_request
@@ -482,6 +492,7 @@ impl<'a> HuginnNet<'a> {
                             }
                         });
 
+                #[cfg(feature = "http-p0f-response")]
                 let http_response: Option<HttpResponseOutput> = observable_package
                     .http_response
                     .map(|observable_http_response| {
@@ -529,7 +540,9 @@ impl<'a> HuginnNet<'a> {
                     tcp_client_uptime: client_uptime,
                     #[cfg(feature = "tcp-uptime")]
                     tcp_server_uptime: server_uptime,
+                    #[cfg(feature = "http-p0f-request")]
                     http_request,
+                    #[cfg(feature = "http-p0f-response")]
                     http_response,
                     tls_client,
                 }
@@ -547,7 +560,9 @@ impl<'a> HuginnNet<'a> {
                     tcp_client_uptime: None,
                     #[cfg(feature = "tcp-uptime")]
                     tcp_server_uptime: None,
+                    #[cfg(feature = "http-p0f-request")]
                     http_request: None,
+                    #[cfg(feature = "http-p0f-response")]
                     http_response: None,
                     tls_client: None,
                 }

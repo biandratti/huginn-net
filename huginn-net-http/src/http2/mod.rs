@@ -1,8 +1,10 @@
+#[cfg(feature = "akamai")]
 pub mod fingerprint;
 pub mod frames;
 pub mod parser;
 pub mod process;
 
+#[cfg(feature = "akamai")]
 pub use fingerprint::Http2FingerprintExtractor;
 pub use frames::{Http2Frame, Http2FrameType, HTTP2_CONNECTION_PREFACE};
 pub use parser::{

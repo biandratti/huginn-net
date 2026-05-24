@@ -6,12 +6,16 @@ pub use parallel::{DispatchResult, PoolStats, SharedHttpMatcher, WorkerPool, Wor
 
 use self::flow as http_process;
 use crate::error::HuginnNetHttpError;
+#[cfg(feature = "p0f-response")]
 use crate::http::HttpDiagnosis;
 use crate::matcher_api::HttpMatcher;
-use crate::output::{
-    BrowserQualityMatched, HttpAnalysisResult, HttpRequestOutput, HttpResponseOutput, IpPort,
-    MatchQuality, WebServerQualityMatched,
-};
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+use crate::output::MatchQuality;
+#[cfg(feature = "p0f-request")]
+use crate::output::{BrowserQualityMatched, HttpRequestOutput};
+use crate::output::{HttpAnalysisResult, IpPort};
+#[cfg(feature = "p0f-response")]
+use crate::output::{HttpResponseOutput, WebServerQualityMatched};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
@@ -91,14 +95,22 @@ fn create_observable_package_ipv6(
     Ok(ObservablePackage { source, destination, http_result })
 }
 
+#[cfg_attr(
+    not(any(feature = "p0f-request", feature = "p0f-response")),
+    allow(unused_mut)
+)]
 fn build_http_result(
     http_package: http_process::ObservableHttpPackage,
     source: IpPort,
     destination: IpPort,
     matcher: Option<&dyn HttpMatcher>,
 ) -> HttpAnalysisResult {
-    let mut http_result = HttpAnalysisResult { http_request: None, http_response: None };
+    #[cfg(not(any(feature = "p0f-request", feature = "p0f-response")))]
+    let _ = (&http_package, &source, &destination, &matcher);
 
+    let mut http_result = HttpAnalysisResult::empty();
+
+    #[cfg(feature = "p0f-request")]
     if let Some(http_request) = http_package.http_request {
         let (browser_quality, ua_os_family) = match matcher {
             Some(m) => match m.match_http_request(&http_request.matching) {
@@ -153,6 +165,7 @@ fn build_http_result(
         http_result.http_request = Some(request_output);
     }
 
+    #[cfg(feature = "p0f-response")]
     if let Some(http_response) = http_package.http_response {
         let web_server_quality = match matcher {
             Some(m) => match m.match_http_response(&http_response.matching) {

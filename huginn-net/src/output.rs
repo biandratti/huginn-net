@@ -1,4 +1,7 @@
-use huginn_net_http::output::{HttpRequestOutput, HttpResponseOutput};
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::output::HttpRequestOutput;
+#[cfg(feature = "http-p0f-response")]
+use huginn_net_http::output::HttpResponseOutput;
 #[cfg(feature = "tcp-mtu")]
 use huginn_net_tcp::output::MTUOutput;
 #[cfg(feature = "tcp-syn-ack")]
@@ -45,9 +48,15 @@ pub struct FingerprintResult {
     pub tcp_server_uptime: Option<UptimeOutput>,
 
     /// Information derived from HTTP request headers.
+    ///
+    /// Present only when the `http-p0f-request` feature is enabled.
+    #[cfg(feature = "http-p0f-request")]
     pub http_request: Option<HttpRequestOutput>,
 
     /// Information derived from HTTP response headers.
+    ///
+    /// Present only when the `http-p0f-response` feature is enabled.
+    #[cfg(feature = "http-p0f-response")]
     pub http_response: Option<HttpResponseOutput>,
 
     /// Information derived from TLS ClientHello analysis using JA4 fingerprinting.
