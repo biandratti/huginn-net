@@ -1,8 +1,8 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{initialize_logging, FilterOptions, OutputFormat};
+use support::{initialize_logging, Commands, FilterOptions, LiveMode, OutputFormat};
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use huginn_net_db::{Database, SharedHttpSignatureMatcher};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::{FilterConfig, HttpAnalysisResult, HuginnNetHttp, IpFilter, PortFilter};
@@ -26,36 +26,6 @@ struct Args {
 
     #[arg(long, value_enum, default_value = "human")]
     format: OutputFormat,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    Live {
-        #[command(subcommand)]
-        mode: LiveMode,
-    },
-    Pcap {
-        #[arg(short = 'f', long = "file")]
-        file: String,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-enum LiveMode {
-    Single {
-        #[arg(short = 'i', long)]
-        interface: String,
-    },
-    Parallel {
-        #[arg(short = 'i', long)]
-        interface: String,
-
-        #[arg(short = 'w', long = "workers")]
-        workers: usize,
-
-        #[arg(short = 'q', long = "queue-size", default_value = "100")]
-        queue_size: usize,
-    },
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {

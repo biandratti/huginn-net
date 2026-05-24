@@ -1,4 +1,4 @@
-use clap::ValueEnum;
+use clap::{Subcommand, ValueEnum};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -18,6 +18,38 @@ pub struct FilterOptions {
 
     #[arg(short = 'I', long = "ip")]
     pub ip: Option<String>,
+}
+
+/// Shared CLI commands for examples with live (single/parallel) + pcap modes.
+/// Used by cli-tcp and cli-http. cli-tls has extra parallel fields; cli has no LiveMode.
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    Live {
+        #[command(subcommand)]
+        mode: LiveMode,
+    },
+    Pcap {
+        #[arg(short = 'f', long = "file")]
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum LiveMode {
+    Single {
+        #[arg(short = 'i', long)]
+        interface: String,
+    },
+    Parallel {
+        #[arg(short = 'i', long)]
+        interface: String,
+
+        #[arg(short = 'w', long = "workers")]
+        workers: usize,
+
+        #[arg(short = 'q', long = "queue-size", default_value = "100")]
+        queue_size: usize,
+    },
 }
 
 pub fn initialize_logging(log_file: Option<String>, use_stderr: bool) {

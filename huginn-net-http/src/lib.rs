@@ -24,6 +24,7 @@
 //! | `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates [`HttpRequestOutput`]. |
 //! | `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates [`HttpResponseOutput`].                           |
 //! | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface ([`Http2FingerprintExtractor`], [`AkamaiFingerprint`], `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+//! | `json`         | No      | Enables [`serde::Serialize`] on [`HttpAnalysisResult`] and HTTP output types for JSON/NDJSON consumers. Not included in `full`. |
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `process_tcp_packet` short-circuits at the top:
