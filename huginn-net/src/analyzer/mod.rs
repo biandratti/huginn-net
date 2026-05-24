@@ -72,7 +72,7 @@ impl Default for AnalysisConfig {
 ///
 /// # Examples
 ///
-/// **With p0f database — TCP + HTTP matching enabled (requires `db` feature):**
+/// **With p0f database, TCP + HTTP matching enabled (requires `db` feature):**
 ///
 /// ```no_run
 /// # #[cfg(all(feature = "db", feature = "tcp-syn", feature = "http-p0f-request"))] {
@@ -93,7 +93,7 @@ impl Default for AnalysisConfig {
 /// # }
 /// ```
 ///
-/// **Observation-only — no database, all protocols, matching disabled:**
+/// **Observation-only, no database, all protocols, matching disabled:**
 ///
 /// ```no_run
 /// # #[cfg(feature = "db")] {

@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 #
-# Run every entry in scripts/feature-matrix.json sequentially on a single
-# runner. For each combo it runs `cargo build` + `cargo clippy` and, when
-# the JSON entry sets `with_tests` / `with_bench`, also `cargo test` /
-# `cargo bench --no-run`.
-#
-# Each combo's output is wrapped in a `::group::` block (collapsible in the
-# GitHub Actions log). When `$GITHUB_STEP_SUMMARY` is set (i.e. under
-# Actions), a PASS/FAIL Markdown table is also appended there so the result
-# is visible directly on the PR check page.
-#
-# A failure inside one combo does NOT abort the run — every combo is
-# exercised so a single CI iteration always shows the complete state.
-# The script exits 0 when every combo passed, 1 otherwise.
-#
+# Run every entry in scripts/feature-matrix.json sequentially on a single runner.
 # Usage:
 #   scripts/feature-matrix.sh                  # run every combo
 #   scripts/feature-matrix.sh huginn-net-tcp   # filter by crate substring
@@ -29,17 +16,11 @@ if [[ ! -f "$MATRIX" ]]; then
     exit 2
 fi
 
-# ASCII Unit Separator: a non-whitespace delimiter for the jq → bash hand-off
-# so empty fields (`features=""` for the default build) survive intact.
-# Bash's `read` collapses consecutive whitespace IFS characters, which would
-# silently shift columns if we used `\t`.
 US=$'\x1f'
 
 group_open()  { [[ -n "${GITHUB_ACTIONS:-}" ]] && echo "::group::$*" || echo ">>> $*"; }
 group_close() { [[ -n "${GITHUB_ACTIONS:-}" ]] && echo "::endgroup::"        || true; }
 
-# Run build + clippy (+ optional tests/bench) for a single combo. Aborts the
-# combo on the first cargo failure but never the whole script.
 check_combo() {
     local crate="$1" features="$2" with_tests="$3" with_bench="$4"
 
@@ -76,7 +57,6 @@ check_combo() {
     return $rc
 }
 
-# --- main loop --------------------------------------------------------------
 
 total=$(jq --arg f "$FILTER" '
     [.[] | select($f == "" or (.crate | contains($f)))] | length

@@ -26,7 +26,7 @@
 //!
 //! | Feature   | Default | Description                                                                                                            |
 //! |-----------|---------|------------------------------------------------------------------------------------------------------------------------|
-//! | `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades — additions land here automatically. |
+//! | `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades; additions land here automatically. |
 //! | `syn`     | No      | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].                                     |
 //! | `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`].                             |
 //! | `mtu`     | No      | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                                               |

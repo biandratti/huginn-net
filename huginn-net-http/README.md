@@ -116,7 +116,7 @@ huginn-net-http = { version = "2.0.0", features = ["full"] }
 # Client-side only (request fingerprinting), no akamai, no response parsing.
 huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
 
-# Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
+# Akamai HTTP/2 fingerprinting only, no p0f path compiled in at all.
 huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 
 # Both p0f sides, no akamai.
@@ -126,7 +126,7 @@ huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"
 When neither p0f side is enabled, `process_tcp_packet` short-circuits
 before touching the flow cache or reassembling payloads, so the per-packet
 pipeline cost drops to zero. The `akamai` feature is orthogonal to that
-pipeline — it only exposes the standalone `Http2FingerprintExtractor` /
+pipeline: it only exposes the standalone `Http2FingerprintExtractor` /
 `extract_akamai_fingerprint*` API for callers that parse HTTP/2 frames
 themselves, and is never invoked from `process_tcp_packet` regardless of
 the other features. The always-on raw parsers (`parse_http1_request`,
@@ -138,7 +138,7 @@ Database support is opt-in at the dependency level by adding
 `huginn-net-db` and calling
 [`HuginnNetHttp::with_matcher`](https://docs.rs/huginn-net-http/latest/huginn_net_http/struct.HuginnNetHttp.html#method.with_matcher).
 
-### Basic Usage — with database (browser/server fingerprinting)
+### Basic Usage, with database (browser/server fingerprinting)
 
 ```rust
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
@@ -188,7 +188,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Basic Usage — observation only (no database)
+### Basic Usage, observation only (no database)
 
 If you don't need browser/server matching (e.g. you only consume the raw
 HTTP signature, Akamai HTTP/2 fingerprint, etc.) you can skip

@@ -70,14 +70,14 @@ a feature strips the matching code paths, the corresponding field on
 
 | Feature   | Default | What it enables                                                              | Extra dependency |
 |-----------|---------|------------------------------------------------------------------------------|------------------|
-| `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades — additions land here automatically. | depends on the included features |
-| `syn`     | No      | TCP SYN OS fingerprinting (client → server, request side)                    | —                |
-| `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side)               | —                |
-| `mtu`     | No      | MTU extraction from the TCP MSS option                                       | —                |
+| `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades; additions land here automatically. | depends on the included features |
+| `syn`     | No      | TCP SYN OS fingerprinting (client → server, request side)                    | none             |
+| `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side)               | none             |
+| `mtu`     | No      | MTU extraction from the TCP MSS option                                       | none             |
 | `uptime`  | No      | Uptime estimation from TCP timestamps for **both client and server** sides   | `ttl_cache`      |
 
 When a build disables every feature that would consume a packet's side
-(request or response), the TCP options parser short-circuits — SYN-only
+(request or response), the TCP options parser short-circuits: SYN-only
 builds pay zero per-packet cost for SYN+ACK traffic, and SYN+ACK-only
 builds skip the request-side work entirely.
 
@@ -98,7 +98,7 @@ huginn-net-tcp = { version = "2.0.0", features = ["syn", "syn-ack"] }
 ```
 
 > Fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`,
-> `server_uptime`) are **gated by their respective features** — disabling a
+> `server_uptime`) are **gated by their respective features**; disabling a
 > feature removes the field from the struct entirely (rather than setting it
 > to `None`). Consumers that construct `TcpAnalysisResult` literals or
 > destructure exhaustively must `#[cfg]` their code to match the enabled
@@ -107,7 +107,7 @@ huginn-net-tcp = { version = "2.0.0", features = ["syn", "syn-ack"] }
 Database support is opt-in at the dependency level by adding
 `huginn-net-db` and calling [`HuginnNetTcp::with_matcher`].
 
-### Basic Usage — with database (OS fingerprinting)
+### Basic Usage, with database (OS fingerprinting)
 
 ```rust
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
@@ -160,10 +160,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Basic Usage — observation only (no database)
+### Basic Usage, observation only (no database)
 
 Without a matcher, `analyze_*` still extracts the raw TCP signature, MTU
-and uptime observations — only the `*QualityMatched` fields will report
+and uptime observations; only the `*QualityMatched` fields will report
 `Disabled`.
 
 ```rust

@@ -12,7 +12,7 @@
 //!
 //! | Feature | Default | Description |
 //! |---------|---------|-------------|
-//! | `full` | No | Convenience alias for "everything this version offers" (currently `db` + every `tcp-*` + every `http-*` + `tls-stable-v1`). Stable across version upgrades — additions land here automatically. |
+//! | `full` | No | Convenience alias for "everything this version offers" (currently `db` + every `tcp-*` + every `http-*` + `tls-stable-v1`). Stable across version upgrades; additions land here automatically. |
 //! | `db` | No | Pulls in [`huginn_net_db`] and enables p0f signature matching for TCP and HTTP. Combine with any `tcp-*` / `http-*` for label-producing builds; omit for an observation-only build (e.g. JA4-only or downstream consumers that bring their own matcher implementation). |
 //! | `tcp-syn` | No | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
 //! | `tcp-syn-ack` | No | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |

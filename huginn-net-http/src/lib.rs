@@ -26,7 +26,7 @@
 //! | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface ([`Http2FingerprintExtractor`], [`AkamaiFingerprint`], `extract_akamai_fingerprint*`); not invoked by the p0f path. |
 //!
 //! When a build disables every feature that would consume a packet's side
-//! (request or response), `process_tcp_packet` short-circuits at the top —
+//! (request or response), `process_tcp_packet` short-circuits at the top:
 //! no flow-cache lookup, no SYN insertion, no payload reassembly. The
 //! `akamai` feature is orthogonal to that pipeline: it only exposes the
 //! standalone [`Http2FingerprintExtractor`] / `extract_akamai_fingerprint*`
@@ -47,7 +47,7 @@
 //! # Observation-only client side, no `akamai`.
 //! huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
 //!
-//! # Akamai HTTP/2 fingerprinting only — no p0f path compiled in at all.
+//! # Akamai HTTP/2 fingerprinting only, no p0f path compiled in at all.
 //! huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 //! ```
 

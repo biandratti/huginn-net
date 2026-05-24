@@ -20,7 +20,7 @@
 //! # Everything this version offers (forward-compatible).
 //! huginn-net-tls = { version = "2.0.0", features = ["full"] }
 //!
-//! # Core JA4 only — no stable variant.
+//! # Core JA4 only, no stable variant.
 //! huginn-net-tls = "2.0.0"
 //! ```
 
@@ -32,7 +32,7 @@ pub mod output;
 pub mod parser;
 pub mod process;
 
-// Backward-compat module shims — re-export so old paths still compile
+// Backward-compat module shims: re-export so old paths still compile
 // (types are the same objects, no mismatch)
 pub mod tls {
     pub use crate::fingerprint::*;
@@ -59,7 +59,7 @@ pub mod raw_filter {
     pub use crate::filter::raw::*;
 }
 
-// Re-exports — public API surface
+// Re-exports: public API surface
 pub use analyzer::HuginnNetTls;
 pub use error::*;
 pub use filter::*;

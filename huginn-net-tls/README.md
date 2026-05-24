@@ -46,7 +46,7 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 ### Installation
 
 Add this to your `Cargo.toml`. The default build provides the core JA4
-fingerprinting flow — that covers most TLS analysis use cases:
+fingerprinting flow; that covers most TLS analysis use cases:
 
 ```toml
 [dependencies]
@@ -70,8 +70,8 @@ future axes added in later releases):
 
 | Feature     | Default | Description                                                                                    |
 |-------------|---------|------------------------------------------------------------------------------------------------|
-| `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades — additions land here automatically. |
-| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints. |
+| `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:
 
@@ -170,7 +170,7 @@ For complete documentation, examples, and JA4 specification details, see the mai
 
 This implementation follows the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
 
-Additional reference: [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) by ntop — analysis of JA4 fingerprinting evolution and limitations.
+Additional reference: [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) by ntop: analysis of JA4 fingerprinting evolution and limitations.
 
 ## License
 

@@ -39,7 +39,7 @@ const HTTP_REQUEST_FIRST_BYTES: &[u8] = b"CDGHLMOPRTU";
 const HTTP2_MAX_FRAME_LEN: u32 = 16384;
 
 /// Minimum payload size we attempt to parse. Below this we treat the data as
-/// incomplete and wait for more TCP segments — avoids paying the trait-dispatch
+/// incomplete and wait for more TCP segments; avoids paying the trait-dispatch
 /// cost on fragments that obviously can't contain an HTTP request or response.
 #[cfg(feature = "p0f-request")]
 const MIN_HTTP_PAYLOAD_LEN: usize = 4;
@@ -49,7 +49,7 @@ const MIN_HTTP_PAYLOAD_LEN: usize = 4;
 /// by `huginn-net-http` before reaching the trait-dispatched parser path.
 ///
 /// Also rejects fragments smaller than `MIN_HTTP_PAYLOAD_LEN`, so callers don't
-/// need to do their own length guard — the function is self-validating.
+/// need to do their own length guard; the function is self-validating.
 #[cfg(feature = "p0f-request")]
 fn looks_like_http_request(data: &[u8]) -> bool {
     if data.len() < MIN_HTTP_PAYLOAD_LEN {

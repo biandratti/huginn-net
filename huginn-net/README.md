@@ -32,7 +32,7 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 
 ### Installation
 
-Add to your `Cargo.toml`. Every feature is **opt-in** in v2.0.0 — the
+Add to your `Cargo.toml`. Every feature is **opt-in** in v2.0.0; the
 fastest path is `features = ["full"]`, which pulls in every analysis this
 version offers (and any added in future 2.x releases):
 
@@ -49,7 +49,7 @@ consume, or use `full` to opt into everything this version offers:
 
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `full` | No | Convenience alias for "everything this version offers" (currently `db` + every `tcp-*` + every `http-*` + `tls-stable-v1`). Stable across version upgrades — additions land here automatically. |
+| `full` | No | Convenience alias for "everything this version offers" (currently `db` + every `tcp-*` + every `http-*` + `tls-stable-v1`). Stable across version upgrades; additions land here automatically. |
 | `db` | No | Pulls in `huginn-net-db` and enables p0f signature matching for TCP and HTTP. Combine with any `tcp-*` / `http-*` for labelled output; omit for an observation-only build (raw signatures + JA4, no database). |
 | `tcp-syn` | No | Pass-through for `huginn-net-tcp/syn`: TCP SYN fingerprinting (`FingerprintResult::tcp_syn`). |
 | `tcp-syn-ack` | No | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
@@ -57,7 +57,7 @@ consume, or use `full` to opt into everything this version offers:
 | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`). |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
-| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints — ephemeral extensions excluded for stable fingerprints. |
+| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
 
 Each `tcp-*` / `http-*` feature gates the corresponding field on
 `FingerprintResult` at compile time. Disabling one shrinks the result
@@ -65,7 +65,7 @@ struct and lets the parser skip its work (the TCP layer also early-exits
 when no enabled feature consumes a packet's side; the HTTP layer short-
 circuits flow tracking when both p0f sides are disabled).
 
-Everything this version offers (forward-compatible — future analyses land
+Everything this version offers (forward-compatible; future analyses land
 in `full` automatically):
 
 ```toml
@@ -94,7 +94,7 @@ huginn-net = { version = "2.0.0", features = [
 huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
-Observation-only build (no database, no p0f matching — useful for TLS terminators, sidecars, or custom matchers):
+Observation-only build (no database, no p0f matching; useful for TLS terminators, sidecars, or custom matchers):
 
 ```toml
 [dependencies]
@@ -120,7 +120,7 @@ When `tls-stable-v1` is enabled (included by the `full` alias), `TlsClient` outp
 - **PCAP file analysis** - Offline traffic analysis  
 - **Protocol-specific examples** - TCP, HTTP, TLS focused analysis
 
-### Basic Usage — with database (TCP + HTTP + TLS)
+### Basic Usage, with database (TCP + HTTP + TLS)
 
 Because `HuginnNet<'a>` borrows from `Database`, the typical pattern is to
 load the database and create the analyzer **inside the capture thread**,
@@ -134,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = mpsc::channel::<FingerprintResult>();
 
     std::thread::spawn(move || {
-        // Load p0f database inside the thread — the analyzer borrows from it
+        // Load p0f database inside the thread; the analyzer borrows from it
         let db = match Database::load_default() {
             Ok(db) => db,
             Err(e) => {
@@ -184,7 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Basic Usage — observation only (no database)
+### Basic Usage, observation only (no database)
 
 If you build without the `db` feature (the v2.0.0 default omits it), the
 `HuginnNet::new(...)` constructor is **not compiled**. Use

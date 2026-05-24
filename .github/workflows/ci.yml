@@ -137,15 +137,6 @@ jobs:
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net --features full
 
-  # Runs every entry in scripts/feature-matrix.json on a single runner so
-  # the PR shows ONE check instead of dozens. Each combo's output is wrapped
-  # in a `::group::` block (collapsible in the Actions log), and a PASS/FAIL
-  # summary table is written to the job's Step Summary (visible directly on
-  # the check page). Combos run independently — a failure does not abort the
-  # rest, so a single CI iteration always reports the complete state.
-  #
-  # Adding / removing combos is an edit to scripts/feature-matrix.json.
-  # Reproducing the exact same run locally: `./scripts/feature-matrix.sh`.
   feature-matrix:
     name: Feature matrix
     runs-on: ubuntu-latest

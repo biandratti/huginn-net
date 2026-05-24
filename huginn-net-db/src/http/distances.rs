@@ -1,7 +1,7 @@
 //! Pure distance helpers between an observed HTTP value and a signature value.
 //!
 //! These functions take **raw types** (versions, header slices, expected
-//! software strings) — no observation structs — so they mirror the shape of
+//! software strings), no observation structs, so they mirror the shape of
 //! [`crate::tcp`]'s `distance_*` helpers and can be reused from both the
 //! `DatabaseSignature` impl and the public [`HttpDistance`] trait.
 //!
