@@ -44,8 +44,8 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture-http"
-path = "../examples/capture-http.rs"
+name = "cli-http"
+path = "../examples/cli-http.rs"
 required-features = ["p0f-request", "p0f-response"]
 
 [[bench]]

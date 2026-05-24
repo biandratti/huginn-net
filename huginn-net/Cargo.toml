@@ -65,8 +65,8 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture"
-path = "../examples/capture.rs"
+name = "cli"
+path = "../examples/cli.rs"
 required-features = [
     "db",
     "tcp-syn",

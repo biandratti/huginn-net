@@ -42,8 +42,8 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture-tcp"
-path = "../examples/capture-tcp.rs"
+name = "cli-tcp"
+path = "../examples/cli-tcp.rs"
 required-features = ["syn", "syn-ack", "mtu", "uptime"]
 
 [[bench]]

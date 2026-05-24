@@ -45,8 +45,8 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture-tls"
-path = "../examples/capture-tls.rs"
+name = "cli-tls"
+path = "../examples/cli-tls.rs"
 required-features = ["stable-v1"]
 
 [[bench]]
