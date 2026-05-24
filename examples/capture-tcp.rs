@@ -145,16 +145,14 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 fn main() {
     let args = Args::parse();
 
+    initialize_logging(args.log_file, matches!(args.format, OutputFormat::Json));
+
     #[cfg(not(feature = "json"))]
     if matches!(args.format, OutputFormat::Json) {
-        eprintln!("error: --format json requires the `json` feature");
-        eprintln!(
-            "hint:  cargo run --example capture-tcp --features full,json -- --format json ..."
-        );
+        error!("error: --format json requires the `json` feature");
+        info!("hint:  cargo run --example capture-tcp --features full,json -- --format json ...");
         std::process::exit(1);
     }
-
-    initialize_logging(args.log_file, matches!(args.format, OutputFormat::Json));
 
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();

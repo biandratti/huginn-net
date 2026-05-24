@@ -24,9 +24,9 @@ uptime = ["dep:ttl_cache"]
 
 [dependencies]
 crossbeam-channel = { workspace = true }
-serde = { workspace = true, optional = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
+serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true, optional = true }

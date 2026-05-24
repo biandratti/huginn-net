@@ -77,10 +77,14 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capt
 
 #### TCP-Only Analysis
 ```
-# Build example
+# Build example (human default)
 cargo build --release --example capture-tcp -p huginn-net-tcp --features full
 
-# Live capture - Sequential mode (single-threaded)
+# Build with JSON output support
+cargo build --release --example capture-tcp -p huginn-net-tcp --features full,json
+
+# NDJSON on stdout
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp --format json live single -i <INTERFACE> | jq -c
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capture.log live single -i <INTERFACE>
 
 # Live capture - Parallel mode (multi-threaded, hash-based worker assignment)
