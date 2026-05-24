@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use huginn_net::output::FingerprintResult;
 use huginn_net::{Database, FilterConfig, HuginnNet, IpFilter, PortFilter};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,6 +12,13 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
+#[derive(ValueEnum, Debug, Clone, Default)]
+enum OutputFormat {
+    #[default]
+    Human,
+    Json,
+}
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -24,6 +31,9 @@ struct Args {
     /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+
+    #[arg(long, value_enum, default_value = "human")]
+    format: OutputFormat,
 }
 
 #[derive(Parser, Debug)]
@@ -49,9 +59,7 @@ enum Commands {
     },
 }
 
-fn initialize_logging(log_file: Option<String>) {
-    let console_writer = std::io::stdout.with_max_level(tracing::Level::INFO);
-
+fn initialize_logging(log_file: Option<String>, use_stderr: bool) {
     let file_appender = if let Some(log_file) = log_file {
         RollingFileAppender::new(Rotation::NEVER, ".", log_file)
             .with_max_level(tracing::Level::INFO)
@@ -60,14 +68,29 @@ fn initialize_logging(log_file: Option<String>) {
             .with_max_level(tracing::Level::INFO)
     };
 
-    let writer = console_writer.and(file_appender);
+    let result = if use_stderr {
+        let writer = std::io::stderr
+            .with_max_level(tracing::Level::INFO)
+            .and(file_appender);
+        tracing::subscriber::set_global_default(
+            fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_writer(writer)
+                .finish(),
+        )
+    } else {
+        let writer = std::io::stdout
+            .with_max_level(tracing::Level::INFO)
+            .and(file_appender);
+        tracing::subscriber::set_global_default(
+            fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_writer(writer)
+                .finish(),
+        )
+    };
 
-    let subscriber = fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_writer(writer)
-        .finish();
-
-    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
+    if let Err(e) = result {
         error!("Failed to set subscriber: {e}");
         std::process::exit(1);
     }
@@ -96,7 +119,7 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
             }
             Err(e) => {
                 error!("Invalid IP address '{}': {}", ip_str, e);
-                std::process::exit(1); // Exit on invalid IP
+                std::process::exit(1);
             }
         }
     }
@@ -105,7 +128,16 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    initialize_logging(args.log_file);
+    let format = args.format;
+
+    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
+
+    #[cfg(not(feature = "json"))]
+    if matches!(format, OutputFormat::Json) {
+        error!("error: --format json requires the `json` feature");
+        info!("hint:  cargo run --example capture --features full,json -- --format json ...");
+        std::process::exit(1);
+    }
 
     let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
         mpsc::channel();
@@ -168,29 +200,43 @@ fn main() {
             break;
         }
 
-        if let Some(tcp_syn) = output.tcp_syn {
-            info!("{tcp_syn}");
-        }
-        if let Some(tcp_syn_ack) = output.tcp_syn_ack {
-            info!("{tcp_syn_ack}");
-        }
-        if let Some(tcp_mtu) = output.tcp_mtu {
-            info!("{tcp_mtu}");
-        }
-        if let Some(tcp_client_uptime) = output.tcp_client_uptime {
-            info!("{tcp_client_uptime}");
-        }
-        if let Some(tcp_server_uptime) = output.tcp_server_uptime {
-            info!("{tcp_server_uptime}");
-        }
-        if let Some(http_request) = output.http_request {
-            info!("{http_request}");
-        }
-        if let Some(http_response) = output.http_response {
-            info!("{http_response}");
-        }
-        if let Some(tls_client) = output.tls_client {
-            info!("{tls_client}");
+        match format {
+            OutputFormat::Human => {
+                if let Some(tcp_syn) = output.tcp_syn {
+                    info!("{tcp_syn}");
+                }
+                if let Some(tcp_syn_ack) = output.tcp_syn_ack {
+                    info!("{tcp_syn_ack}");
+                }
+                if let Some(tcp_mtu) = output.tcp_mtu {
+                    info!("{tcp_mtu}");
+                }
+                if let Some(tcp_client_uptime) = output.tcp_client_uptime {
+                    info!("{tcp_client_uptime}");
+                }
+                if let Some(tcp_server_uptime) = output.tcp_server_uptime {
+                    info!("{tcp_server_uptime}");
+                }
+                if let Some(http_request) = output.http_request {
+                    info!("{http_request}");
+                }
+                if let Some(http_response) = output.http_response {
+                    info!("{http_response}");
+                }
+                if let Some(tls_client) = output.tls_client {
+                    info!("{tls_client}");
+                }
+            }
+            OutputFormat::Json =>
+            {
+                #[cfg(feature = "json")]
+                if !output.is_empty() {
+                    match serde_json::to_string(&output) {
+                        Ok(json) => println!("{json}"),
+                        Err(e) => error!("Failed to serialize output: {e}"),
+                    }
+                }
+            }
         }
     }
 

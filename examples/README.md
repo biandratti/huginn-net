@@ -19,8 +19,15 @@ When using `--format json`, analysis events go to **stdout** and operational mes
 
 #### Full Analysis (TCP, HTTP, TLS)
 ```
-# Build example
+# Build example (human default)
 cargo build --release --example capture -p huginn-net --features full
+
+# Build with JSON output support
+cargo build --release --example capture -p huginn-net --features full,json
+
+# NDJSON on stdout
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture --format json live -i <INTERFACE> | jq -c
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log live -i <INTERFACE>
 
 # Live capture
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture.log live -i <INTERFACE>                       

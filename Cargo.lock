@@ -473,6 +473,8 @@ dependencies = [
  "huginn-net-tls",
  "pcap-file",
  "pnet",
+ "serde",
+ "serde_json",
  "thiserror 2.0.18",
  "tracing",
  "tracing-appender",

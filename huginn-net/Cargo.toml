@@ -33,6 +33,12 @@ full = [
 db = ["dep:huginn-net-db", "huginn-net-db/tcp", "huginn-net-db/http"]
 http-p0f-request = ["huginn-net-http/p0f-request"]
 http-p0f-response = ["huginn-net-http/p0f-response"]
+json = [
+    "dep:serde",
+    "huginn-net-tcp/json",
+    "huginn-net-http/json",
+    "huginn-net-tls/json",
+]
 tcp-mtu = ["huginn-net-tcp/mtu"]
 tcp-syn = ["huginn-net-tcp/syn"]
 tcp-syn-ack = ["huginn-net-tcp/syn-ack"]
@@ -46,6 +52,7 @@ huginn-net-tcp = { workspace = true }
 huginn-net-tls = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
+serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true }
@@ -53,6 +60,7 @@ ttl_cache = { workspace = true }
 [dev-dependencies]
 clap = { workspace = true }
 ctrlc = { workspace = true }
+serde_json = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
