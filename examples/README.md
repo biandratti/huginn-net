@@ -114,8 +114,15 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tcp -l tcp-capt
 
 #### HTTP-Only Analysis
 ```
-# Build example
+# Build example (human default)
 cargo build --release --example capture-http -p huginn-net-http --features full
+
+# Build with JSON output support
+cargo build --release --example capture-http -p huginn-net-http --features full,json
+
+# NDJSON on stdout
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http --format json live single -i <INTERFACE> | jq -c
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live single -i <INTERFACE>
 
 # Live capture - Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-http -l http-capture.log live single -i <INTERFACE>

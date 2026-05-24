@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use huginn_net_db::{Database, SharedHttpSignatureMatcher};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::{FilterConfig, HttpAnalysisResult, HuginnNetHttp, IpFilter, PortFilter};
@@ -12,6 +12,13 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
+#[derive(ValueEnum, Debug, Clone, Default)]
+enum OutputFormat {
+    #[default]
+    Human,
+    Json,
+}
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -23,6 +30,9 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+
+    #[arg(long, value_enum, default_value = "human")]
+    format: OutputFormat,
 }
 
 #[derive(Parser, Debug)]
@@ -64,9 +74,7 @@ enum LiveMode {
     },
 }
 
-fn initialize_logging(log_file: Option<String>) {
-    let console_writer = std::io::stdout.with_max_level(tracing::Level::INFO);
-
+fn initialize_logging(log_file: Option<String>, use_stderr: bool) {
     let file_appender = if let Some(log_file) = log_file {
         RollingFileAppender::new(Rotation::NEVER, ".", log_file)
             .with_max_level(tracing::Level::INFO)
@@ -75,14 +83,29 @@ fn initialize_logging(log_file: Option<String>) {
             .with_max_level(tracing::Level::INFO)
     };
 
-    let writer = console_writer.and(file_appender);
+    let result = if use_stderr {
+        let writer = std::io::stderr
+            .with_max_level(tracing::Level::INFO)
+            .and(file_appender);
+        tracing::subscriber::set_global_default(
+            fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_writer(writer)
+                .finish(),
+        )
+    } else {
+        let writer = std::io::stdout
+            .with_max_level(tracing::Level::INFO)
+            .and(file_appender);
+        tracing::subscriber::set_global_default(
+            fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_writer(writer)
+                .finish(),
+        )
+    };
 
-    let subscriber = fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_writer(writer)
-        .finish();
-
-    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
+    if let Err(e) = result {
         eprintln!("Failed to set subscriber: {e}");
         std::process::exit(1);
     }
@@ -121,7 +144,16 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    initialize_logging(args.log_file);
+    let format = args.format;
+
+    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
+
+    #[cfg(not(feature = "json"))]
+    if matches!(format, OutputFormat::Json) {
+        error!("error: --format json requires the `json` feature");
+        info!("hint:  cargo run --example capture-http --features full,json -- --format json ...");
+        std::process::exit(1);
+    }
 
     info!("Starting HTTP-only capture example");
 
@@ -215,11 +247,25 @@ fn main() {
             break;
         }
 
-        if let Some(http_request) = output.http_request {
-            info!("{http_request}");
-        }
-        if let Some(http_response) = output.http_response {
-            info!("{http_response}");
+        match format {
+            OutputFormat::Human => {
+                if let Some(http_request) = output.http_request {
+                    info!("{http_request}");
+                }
+                if let Some(http_response) = output.http_response {
+                    info!("{http_response}");
+                }
+            }
+            OutputFormat::Json =>
+            {
+                #[cfg(feature = "json")]
+                if !output.is_empty() {
+                    match serde_json::to_string(&output) {
+                        Ok(json) => println!("{json}"),
+                        Err(e) => error!("Failed to serialize output: {e}"),
+                    }
+                }
+            }
         }
     }
 
