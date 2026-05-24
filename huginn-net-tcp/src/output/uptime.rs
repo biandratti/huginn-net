@@ -4,6 +4,7 @@ use std::fmt::Formatter;
 
 /// Represents the role of the host in the connection for uptime tracking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum UptimeRole {
     Client,
     Server,
@@ -20,6 +21,7 @@ impl fmt::Display for UptimeRole {
 
 /// Holds uptime information derived from TCP timestamp analysis.
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct UptimeOutput {
     pub source: IpPort,
     pub destination: IpPort,

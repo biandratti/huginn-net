@@ -1,7 +1,19 @@
-###  Get network Interface
+### Get network interface
 ```
 ip link show
 ```
+
+### Output formats
+
+All examples support `--format human` (default) and `--format json`.
+
+| Format | Output | When to use |
+|--------|--------|-------------|
+| `human` | Multi-line, human-readable (default) | Terminal inspection, debugging |
+| `json` | NDJSON — one JSON object per event on stdout | Pipelines, `jq`, log aggregators |
+
+When using `--format json`, analysis events go to **stdout** and operational messages
+(`Starting capture...`, stats) go to **stderr**, so piping to `jq` works cleanly.
 
 ### Process packages
 

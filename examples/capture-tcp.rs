@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use huginn_net_db::{Database, SharedTcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::{FilterConfig, HuginnNetTcp, IpFilter, PortFilter, TcpAnalysisResult};
@@ -13,6 +13,13 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
+#[derive(ValueEnum, Debug, Clone, Default)]
+enum OutputFormat {
+    #[default]
+    Human,
+    Json,
+}
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -24,6 +31,9 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
+
+    #[arg(long, value_enum, default_value = "human")]
+    format: OutputFormat,
 }
 
 #[derive(Parser, Debug)]
@@ -64,9 +74,7 @@ enum LiveMode {
     },
 }
 
-fn initialize_logging(log_file: Option<String>) {
-    let console_writer = std::io::stdout.with_max_level(tracing::Level::INFO);
-
+fn initialize_logging(log_file: Option<String>, use_stderr: bool) {
     let file_appender = if let Some(log_file) = log_file {
         RollingFileAppender::new(Rotation::NEVER, ".", log_file)
             .with_max_level(tracing::Level::INFO)
@@ -75,14 +83,29 @@ fn initialize_logging(log_file: Option<String>) {
             .with_max_level(tracing::Level::INFO)
     };
 
-    let writer = console_writer.and(file_appender);
+    let result = if use_stderr {
+        let writer = std::io::stderr
+            .with_max_level(tracing::Level::INFO)
+            .and(file_appender);
+        tracing::subscriber::set_global_default(
+            fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_writer(writer)
+                .finish(),
+        )
+    } else {
+        let writer = std::io::stdout
+            .with_max_level(tracing::Level::INFO)
+            .and(file_appender);
+        tracing::subscriber::set_global_default(
+            fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_writer(writer)
+                .finish(),
+        )
+    };
 
-    let subscriber = fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_writer(writer)
-        .finish();
-
-    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
+    if let Err(e) = result {
         eprintln!("Failed to set subscriber: {e}");
         std::process::exit(1);
     }
@@ -121,7 +144,17 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    initialize_logging(args.log_file);
+
+    #[cfg(not(feature = "json"))]
+    if matches!(args.format, OutputFormat::Json) {
+        eprintln!("error: --format json requires the `json` feature");
+        eprintln!(
+            "hint:  cargo run --example capture-tcp --features full,json -- --format json ..."
+        );
+        std::process::exit(1);
+    }
+
+    initialize_logging(args.log_file, matches!(args.format, OutputFormat::Json));
 
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
@@ -239,20 +272,32 @@ fn main() {
             break;
         }
 
-        if let Some(syn) = output.syn {
-            info!("{syn}");
-        }
-        if let Some(syn_ack) = output.syn_ack {
-            info!("{syn_ack}");
-        }
-        if let Some(mtu) = output.mtu {
-            info!("{mtu}");
-        }
-        if let Some(client_uptime) = output.client_uptime {
-            info!("{client_uptime}");
-        }
-        if let Some(server_uptime) = output.server_uptime {
-            info!("{server_uptime}");
+        match args.format {
+            OutputFormat::Human => {
+                if let Some(syn) = output.syn {
+                    info!("{syn}");
+                }
+                if let Some(syn_ack) = output.syn_ack {
+                    info!("{syn_ack}");
+                }
+                if let Some(mtu) = output.mtu {
+                    info!("{mtu}");
+                }
+                if let Some(client_uptime) = output.client_uptime {
+                    info!("{client_uptime}");
+                }
+                if let Some(server_uptime) = output.server_uptime {
+                    info!("{server_uptime}");
+                }
+            }
+            OutputFormat::Json =>
+            {
+                #[cfg(feature = "json")]
+                match serde_json::to_string(&output) {
+                    Ok(json) => println!("{json}"),
+                    Err(e) => error!("Failed to serialize output: {e}"),
+                }
+            }
         }
 
         if let Some(ref pool) = worker_pool_monitor {

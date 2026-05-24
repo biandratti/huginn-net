@@ -6,6 +6,7 @@ use std::fmt::Formatter;
 
 /// Holds information derived from analyzing a TCP SYN packet (client initiation).
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct SynTCPOutput {
     /// The source IP address and port of the client sending the SYN.
     pub source: IpPort,
@@ -14,6 +15,7 @@ pub struct SynTCPOutput {
     /// The operative system with the highest quality that matches the SYN packet.
     pub os_matched: OSQualityMatched,
     /// The raw TCP signature extracted from the SYN packet.
+    #[cfg_attr(feature = "json", serde(serialize_with = "super::serialize_display"))]
     pub sig: ObservableTcp,
 }
 

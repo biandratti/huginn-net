@@ -8,6 +8,14 @@ pub mod syn_ack;
 #[cfg(feature = "uptime")]
 pub mod uptime;
 
+#[cfg(feature = "json")]
+pub(crate) fn serialize_display<T: std::fmt::Display, S: serde::Serializer>(
+    val: &T,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    s.serialize_str(&val.to_string())
+}
+
 pub use common::*;
 #[cfg(feature = "mtu")]
 pub use mtu::*;
@@ -24,6 +32,7 @@ pub use uptime::*;
 /// from analyzing TCP packets. Some fields are only present when the
 /// corresponding Cargo feature is enabled.
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct TcpAnalysisResult {
     /// Information derived from SYN packets.
     ///

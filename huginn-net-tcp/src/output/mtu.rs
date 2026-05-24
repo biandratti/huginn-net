@@ -3,6 +3,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct MTUQualityMatched {
     pub link: Option<String>,
     pub quality: MatchQuality,
@@ -10,6 +11,7 @@ pub struct MTUQualityMatched {
 
 /// Holds information about the estimated Maximum Transmission Unit (MTU) of a link.
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct MTUOutput {
     /// The source IP address and port (usually the client).
     pub source: IpPort,

@@ -6,6 +6,7 @@ use std::fmt::Formatter;
 
 /// Holds information derived from analyzing a TCP SYN+ACK packet (server response).
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct SynAckTCPOutput {
     /// The source IP address and port of the server sending the SYN+ACK.
     pub source: IpPort,
@@ -14,6 +15,7 @@ pub struct SynAckTCPOutput {
     /// The operative system with the highest quality that matches the SYN+ACK packet.
     pub os_matched: OSQualityMatched,
     /// The raw TCP signature extracted from the SYN+ACK packet.
+    #[cfg_attr(feature = "json", serde(serialize_with = "super::serialize_display"))]
     pub sig: ObservableTcp,
 }
 

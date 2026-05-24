@@ -2,6 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct IpPort {
     pub ip: std::net::IpAddr,
     pub port: u16,
@@ -18,6 +19,7 @@ impl IpPort {
 /// expressed as a TCP-local enum, so this crate stays decoupled from any
 /// particular database format.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum OsKind {
     Specified,
     Generic,
@@ -37,6 +39,7 @@ impl fmt::Display for OsKind {
 /// Independent of any specific database type so that consumers of this
 /// crate don't need to depend on `huginn-net-db`.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum MatchQuality {
     /// Successful match. ScThe sre is in `[0.0, 1.0]` with `1.0` being a
     /// perfect match and lower scores indicating fuzzier matches.
@@ -53,6 +56,7 @@ pub enum MatchQuality {
 /// - `name: "Linux"`, `family: Some("unix")`, `variant: Some("2.2.x-3.x")`, `kind: OsKind::Specified`
 /// - `name: "Windows"`, `family: Some("win")`, `variant: Some("NT kernel 6.x")`, `kind: OsKind::Specified`
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct OperativeSystem {
     pub name: String,
     pub family: Option<String>,
@@ -62,6 +66,7 @@ pub struct OperativeSystem {
 
 /// The operative system with the highest quality that matches the packet.
 #[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct OSQualityMatched {
     pub os: Option<OperativeSystem>,
     pub quality: MatchQuality,
