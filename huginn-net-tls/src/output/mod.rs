@@ -1,8 +1,9 @@
-use crate::ObservableTlsClient;
+use crate::fingerprint::ObservableTlsClient;
 use std::fmt;
 use std::fmt::Formatter;
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct IpPort {
     pub ip: std::net::IpAddr,
     pub port: u16,
@@ -18,13 +19,37 @@ impl IpPort {
 ///
 /// This structure contains details about the TLS client based on its ClientHello packet,
 /// including the JA4 Payload and extracted TLS parameters.
+#[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct TlsClientOutput {
     /// The source IP address and port of the client sending the ClientHello.
     pub source: IpPort,
     /// The destination IP address and port of the server receiving the ClientHello.
     pub destination: IpPort,
     /// The raw TLS signature extracted from the ClientHello packet.
+    #[cfg_attr(feature = "json", serde(serialize_with = "serialize_tls_client"))]
     pub sig: ObservableTlsClient,
+}
+
+#[cfg(feature = "json")]
+fn serialize_tls_client<S: serde::Serializer>(
+    val: &ObservableTlsClient,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+    let mut map = s.serialize_map(None)?;
+    map.serialize_entry("sni", &val.sni)?;
+    map.serialize_entry("version", &val.version.to_string())?;
+    map.serialize_entry("alpn", &val.alpn)?;
+    map.serialize_entry("ja4", val.ja4.full.value())?;
+    map.serialize_entry("ja4_r", val.ja4.raw.value())?;
+    map.serialize_entry("ja4_o", val.ja4_original.full.value())?;
+    map.serialize_entry("ja4_or", val.ja4_original.raw.value())?;
+    #[cfg(feature = "stable-v1")]
+    map.serialize_entry("ja4_s1", val.ja4_stable_v1.full.value())?;
+    #[cfg(feature = "stable-v1")]
+    map.serialize_entry("ja4_s1r", val.ja4_stable_v1.raw.value())?;
+    map.end()
 }
 
 impl fmt::Display for TlsClientOutput {

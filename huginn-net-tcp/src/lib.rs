@@ -31,6 +31,7 @@
 //! | `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`].                             |
 //! | `mtu`     | No      | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                                               |
 //! | `uptime`  | No      | Uptime estimation from TCP timestamps for **both client and server** sides. Gates [`uptime`] and pulls in `ttl_cache`. |
+//! | `json`    | No      | Enables [`serde::Serialize`] on [`TcpAnalysisResult`] and TCP output types for JSON/NDJSON consumers. Not included in `full`. |
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `visit_tcp` short-circuits before parsing TCP

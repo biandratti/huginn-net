@@ -1,4 +1,8 @@
-use clap::{Parser, Subcommand};
+#[path = "support/mod.rs"]
+mod support;
+use support::{initialize_logging, Commands, FilterOptions, LiveMode, OutputFormat};
+
+use clap::Parser;
 use huginn_net_db::{Database, SharedTcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::{FilterConfig, HuginnNetTcp, IpFilter, PortFilter, TcpAnalysisResult};
@@ -8,10 +12,6 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use tracing::{debug, error, info};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::fmt;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,68 +24,9 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-}
 
-#[derive(Parser, Debug)]
-struct FilterOptions {
-    #[arg(short = 'p', long = "port")]
-    port: Option<u16>,
-    #[arg(short = 'I', long = "ip")]
-    ip: Option<String>,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    Live {
-        #[command(subcommand)]
-        mode: LiveMode,
-    },
-    Pcap {
-        #[arg(short = 'f', long = "file")]
-        file: String,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-enum LiveMode {
-    Single {
-        #[arg(short = 'i', long)]
-        interface: String,
-    },
-    Parallel {
-        #[arg(short = 'i', long)]
-        interface: String,
-
-        #[arg(short = 'w', long = "workers")]
-        workers: usize,
-
-        #[arg(short = 'q', long = "queue-size", default_value = "100")]
-        queue_size: usize,
-    },
-}
-
-fn initialize_logging(log_file: Option<String>) {
-    let console_writer = std::io::stdout.with_max_level(tracing::Level::INFO);
-
-    let file_appender = if let Some(log_file) = log_file {
-        RollingFileAppender::new(Rotation::NEVER, ".", log_file)
-            .with_max_level(tracing::Level::INFO)
-    } else {
-        RollingFileAppender::new(Rotation::NEVER, ".", "default.log")
-            .with_max_level(tracing::Level::INFO)
-    };
-
-    let writer = console_writer.and(file_appender);
-
-    let subscriber = fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_writer(writer)
-        .finish();
-
-    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
-        eprintln!("Failed to set subscriber: {e}");
-        std::process::exit(1);
-    }
+    #[arg(long, value_enum, default_value = "human")]
+    format: OutputFormat,
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
@@ -121,7 +62,15 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    initialize_logging(args.log_file);
+
+    initialize_logging(args.log_file, matches!(args.format, OutputFormat::Json));
+
+    #[cfg(not(feature = "json"))]
+    if matches!(args.format, OutputFormat::Json) {
+        error!("error: --format json requires the `json` feature");
+        info!("hint:  cargo run --example cli-tcp --features full,json -- --format json ...");
+        std::process::exit(1);
+    }
 
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
@@ -239,20 +188,32 @@ fn main() {
             break;
         }
 
-        if let Some(syn) = output.syn {
-            info!("{syn}");
-        }
-        if let Some(syn_ack) = output.syn_ack {
-            info!("{syn_ack}");
-        }
-        if let Some(mtu) = output.mtu {
-            info!("{mtu}");
-        }
-        if let Some(client_uptime) = output.client_uptime {
-            info!("{client_uptime}");
-        }
-        if let Some(server_uptime) = output.server_uptime {
-            info!("{server_uptime}");
+        match args.format {
+            OutputFormat::Human => {
+                if let Some(syn) = output.syn {
+                    info!("{syn}");
+                }
+                if let Some(syn_ack) = output.syn_ack {
+                    info!("{syn_ack}");
+                }
+                if let Some(mtu) = output.mtu {
+                    info!("{mtu}");
+                }
+                if let Some(client_uptime) = output.client_uptime {
+                    info!("{client_uptime}");
+                }
+                if let Some(server_uptime) = output.server_uptime {
+                    info!("{server_uptime}");
+                }
+            }
+            OutputFormat::Json =>
+            {
+                #[cfg(feature = "json")]
+                match serde_json::to_string(&output) {
+                    Ok(json) => println!("{json}"),
+                    Err(e) => error!("Failed to serialize output: {e}"),
+                }
+            }
         }
 
         if let Some(ref pool) = worker_pool_monitor {

@@ -1,3 +1,7 @@
+#[path = "support/mod.rs"]
+mod support;
+use support::{initialize_logging, FilterOptions, OutputFormat};
+
 use clap::{Parser, Subcommand};
 use huginn_net_tls::{FilterConfig, HuginnNetTls, IpFilter, PortFilter, TlsClientOutput};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -6,10 +10,6 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use tracing::{error, info};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::fmt;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -22,15 +22,9 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-}
 
-#[derive(Parser, Debug)]
-struct FilterOptions {
-    #[arg(short = 'p', long = "port")]
-    port: Option<u16>,
-
-    #[arg(short = 'I', long = "ip")]
-    ip: Option<String>,
+    #[arg(long, value_enum, default_value = "human")]
+    format: OutputFormat,
 }
 
 #[derive(Subcommand, Debug)]
@@ -69,30 +63,6 @@ enum LiveMode {
     },
 }
 
-fn initialize_logging(log_file: Option<String>) {
-    let console_writer = std::io::stdout.with_max_level(tracing::Level::INFO);
-
-    let file_appender = if let Some(log_file) = log_file {
-        RollingFileAppender::new(Rotation::NEVER, ".", log_file)
-            .with_max_level(tracing::Level::INFO)
-    } else {
-        RollingFileAppender::new(Rotation::NEVER, ".", "tls-capture.log")
-            .with_max_level(tracing::Level::INFO)
-    };
-
-    let writer = console_writer.and(file_appender);
-
-    let subscriber = fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_writer(writer)
-        .finish();
-
-    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
-        eprintln!("Failed to set subscriber: {e}");
-        std::process::exit(1);
-    }
-}
-
 fn build_filter(port: Option<u16>, ip: Option<String>) -> Option<FilterConfig> {
     let has_port = port.is_some();
     let has_ip = ip.is_some();
@@ -126,12 +96,21 @@ fn build_filter(port: Option<u16>, ip: Option<String>) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    initialize_logging(args.log_file.clone());
-    let mut packet_count: u64 = 0;
-    // Log stats every N packets
-    const LOG_STATS_EVERY: u64 = 100;
+    let format = args.format;
+
+    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
+
+    #[cfg(not(feature = "json"))]
+    if matches!(format, OutputFormat::Json) {
+        error!("error: --format json requires the `json` feature");
+        info!("hint:  cargo run --example cli-tls --features full,json -- --format json ...");
+        std::process::exit(1);
+    }
 
     info!("Starting TLS-only capture example");
+
+    let mut packet_count: u64 = 0;
+    const LOG_STATS_EVERY: u64 = 100;
 
     let (sender, receiver): (Sender<TlsClientOutput>, Receiver<TlsClientOutput>) = mpsc::channel();
 
@@ -188,12 +167,10 @@ fn main() {
     let worker_pool_monitor = analyzer.worker_pool();
     let worker_pool_shutdown = worker_pool_monitor.clone();
 
-    // Setup Ctrl-C handler with pool shutdown
     if let Err(e) = ctrlc::set_handler(move || {
         info!("Received signal, initiating graceful shutdown...");
         ctrl_c_signal.store(true, Ordering::Relaxed);
 
-        // Shutdown worker pool if it exists
         if let Some(ref pool) = worker_pool_shutdown {
             pool.shutdown();
         }
@@ -245,7 +222,17 @@ fn main() {
             break;
         }
 
-        info!("{output}");
+        match format {
+            OutputFormat::Human => info!("{output}"),
+            OutputFormat::Json =>
+            {
+                #[cfg(feature = "json")]
+                match serde_json::to_string(&output) {
+                    Ok(json) => println!("{json}"),
+                    Err(e) => error!("Failed to serialize output: {e}"),
+                }
+            }
+        }
 
         if let Some(ref pool) = worker_pool_monitor {
             packet_count = packet_count.saturating_add(1);
