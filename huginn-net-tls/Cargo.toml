@@ -21,12 +21,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 full = ["stable-v1"]
+json = ["dep:serde"]
 stable-v1 = []
 
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
+serde = { workspace = true, optional = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 tls-parser = { workspace = true }
@@ -43,8 +45,9 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture-tls"
-path = "../examples/capture-tls.rs"
+name = "cli-tls"
+path = "../examples/cli-tls.rs"
+required-features = ["stable-v1"]
 
 [[bench]]
 name = "bench_tls"

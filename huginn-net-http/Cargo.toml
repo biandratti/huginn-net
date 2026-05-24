@@ -16,6 +16,7 @@ categories = ["network-programming", "web-programming"]
 [features]
 default = []
 full = ["p0f-request", "p0f-response", "akamai"]
+json = ["dep:serde"]
 p0f-request = []
 p0f-response = []
 akamai = []
@@ -26,6 +27,7 @@ hpack-patched = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
+serde = { workspace = true, optional = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
@@ -42,8 +44,8 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture-http"
-path = "../examples/capture-http.rs"
+name = "cli-http"
+path = "../examples/cli-http.rs"
 required-features = ["p0f-request", "p0f-response"]
 
 [[bench]]

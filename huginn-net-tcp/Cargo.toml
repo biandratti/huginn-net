@@ -16,6 +16,7 @@ categories = ["network-programming"]
 [features]
 default = []
 full = ["syn", "syn-ack", "mtu", "uptime"]
+json = ["dep:serde"]
 syn = []
 syn-ack = []
 mtu = []
@@ -25,6 +26,7 @@ uptime = ["dep:ttl_cache"]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
+serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true, optional = true }
@@ -40,8 +42,8 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[example]]
-name = "capture-tcp"
-path = "../examples/capture-tcp.rs"
+name = "cli-tcp"
+path = "../examples/cli-tcp.rs"
 required-features = ["syn", "syn-ack", "mtu", "uptime"]
 
 [[bench]]

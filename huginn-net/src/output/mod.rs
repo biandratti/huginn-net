@@ -16,6 +16,8 @@ use huginn_net_tls::output::TlsClientOutput;
 ///
 /// This struct contains various optional outputs that can be derived
 /// from analyzing TCP, HTTP, and TLS packets.
+#[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct FingerprintResult {
     /// Information derived from TCP SYN packets.
     ///
@@ -62,4 +64,42 @@ pub struct FingerprintResult {
     /// Information derived from TLS ClientHello analysis using JA4 fingerprinting.
     /// JA4 methodology by FoxIO, LLC - implementation from scratch for Huginn Net.
     pub tls_client: Option<TlsClientOutput>,
+}
+
+impl FingerprintResult {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        #[cfg(feature = "tcp-syn")]
+        if self.tcp_syn.is_some() {
+            return false;
+        }
+        #[cfg(feature = "tcp-syn-ack")]
+        if self.tcp_syn_ack.is_some() {
+            return false;
+        }
+        #[cfg(feature = "tcp-mtu")]
+        if self.tcp_mtu.is_some() {
+            return false;
+        }
+        #[cfg(feature = "tcp-uptime")]
+        if self.tcp_client_uptime.is_some() {
+            return false;
+        }
+        #[cfg(feature = "tcp-uptime")]
+        if self.tcp_server_uptime.is_some() {
+            return false;
+        }
+        #[cfg(feature = "http-p0f-request")]
+        if self.http_request.is_some() {
+            return false;
+        }
+        #[cfg(feature = "http-p0f-response")]
+        if self.http_response.is_some() {
+            return false;
+        }
+        if self.tls_client.is_some() {
+            return false;
+        }
+        true
+    }
 }
