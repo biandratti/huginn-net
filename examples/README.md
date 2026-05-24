@@ -44,8 +44,15 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture -l capture
 
 #### TLS-Only Analysis
 ```
-# Build example
+# Build example (human default)
 cargo build --release --example capture-tls -p huginn-net-tls --features full
+
+# Build with JSON output support
+cargo build --release --example capture-tls -p huginn-net-tls --features full,json
+
+# NDJSON on stdout
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls --format json live single -i <INTERFACE> | jq -c
+sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live single -i <INTERFACE>
 
 # Live capture - Sequential mode (single-threaded)
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/capture-tls -l tls-capture.log live single -i <INTERFACE>
