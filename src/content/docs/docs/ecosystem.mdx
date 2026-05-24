@@ -42,9 +42,18 @@ The **Huginn Net ecosystem** consists of **5 specialized Rust crates** designed 
 
 **Use when:** You need comprehensive network analysis across multiple protocols.
 
+All features are **opt-in**; use `full` for everything this version offers, or pick only what you consume:
+
 ```toml
 [dependencies]
-huginn-net = "{{v:huginn-net}}"
+huginn-net = { version = "{{v:huginn-net}}", features = ["full"] }
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["full"] }
+```
+
+Add `json` to serialize all output types with `serde_json`:
+
+```toml
+huginn-net = { version = "{{v:huginn-net}}", features = ["full", "json"] }
 ```
 
 **Key Features:**
@@ -54,6 +63,8 @@ huginn-net = "{{v:huginn-net}}"
 - Comprehensive result aggregation
 - Live capture and PCAP analysis
 - End-to-end TLS parsing and JA4, plus HTTP/2 and Akamai-style fingerprints where applicable
+- Typed observable data access for custom fingerprinting (`ObservableTcp`, `ObservableHttpRequest/Response`, `ObservableTlsClient`)
+- Observation-only mode via `HuginnNet::new_observable` (no database required)
 
 ### huginn-net-tcp - TCP Analysis & OS Detection
 
@@ -63,8 +74,19 @@ huginn-net = "{{v:huginn-net}}"
 
 ```toml
 [dependencies]
-huginn-net-tcp = "{{v:huginn-net-tcp}}"
+huginn-net-tcp = { version = "{{v:huginn-net-tcp}}", features = ["full"] }
+# Optional: only needed for OS fingerprint matching
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["tcp"] }
 ```
+
+| Feature | Description |
+|---------|-------------|
+| `full` | Alias for `syn` + `syn-ack` + `mtu` + `uptime` |
+| `syn` | TCP SYN OS fingerprinting (client → server) |
+| `syn-ack` | TCP SYN+ACK OS fingerprinting (server → client) |
+| `mtu` | MTU extraction from the TCP MSS option |
+| `uptime` | Uptime estimation from TCP timestamps |
+| `json` | `serde::Serialize` on all output types |
 
 **Key Features:**
 
@@ -72,6 +94,7 @@ huginn-net-tcp = "{{v:huginn-net-tcp}}"
 - MTU detection and link type identification
 - System uptime calculation from TCP timestamps
 - Quality scoring for match confidence
+- Typed observable data (`ObservableTcp`, `ObservableMtu`, `ObservableUptime`) for custom fingerprints
 
 ### huginn-net-http - HTTP Analysis & Browser Detection
 
@@ -81,8 +104,18 @@ huginn-net-tcp = "{{v:huginn-net-tcp}}"
 
 ```toml
 [dependencies]
-huginn-net-http = "{{v:huginn-net-http}}"
+huginn-net-http = { version = "{{v:huginn-net-http}}", features = ["full"] }
+# Optional: only needed for browser/server fingerprint matching
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["http"] }
 ```
+
+| Feature | Description |
+|---------|-------------|
+| `full` | Alias for `p0f-request` + `p0f-response` + `akamai` |
+| `p0f-request` | HTTP request fingerprinting (browser detection, Accept-Language, header order) |
+| `p0f-response` | HTTP response fingerprinting (web server detection) |
+| `akamai` | Standalone Akamai HTTP/2 fingerprint extractor (`Http2FingerprintExtractor`) |
+| `json` | `serde::Serialize` on all output types |
 
 **Key Features:**
 
@@ -91,6 +124,7 @@ huginn-net-http = "{{v:huginn-net-http}}"
 - Language preference extraction
 - HTTP/1.x and HTTP/2 frame parsing
 - **Akamai HTTP/2 fingerprinting:** extract fingerprints from SETTINGS, WINDOW_UPDATE, PRIORITY, and HEADERS (Blackhat EU 2017 spec); the standalone `Http2FingerprintExtractor` preserves pseudo-header order for TLS-termination scenarios
+- Typed observable data (`ObservableHttpRequest`, `ObservableHttpResponse`) for custom fingerprints
 
 ### huginn-net-tls - JA4 TLS Client Fingerprinting
 
@@ -100,28 +134,46 @@ huginn-net-http = "{{v:huginn-net-http}}"
 
 ```toml
 [dependencies]
+# Core JA4 (no database needed — computed algorithmically)
 huginn-net-tls = "{{v:huginn-net-tls}}"
+
+# With stable fingerprints (JA4_s1 / JA4_s1r) and everything this version offers
+huginn-net-tls = { version = "{{v:huginn-net-tls}}", features = ["full"] }
 ```
+
+| Feature | Description |
+|---------|-------------|
+| `full` | Alias for `stable-v1` |
+| `stable-v1` | Adds `JA4_s1` / `JA4_s1r`; ephemeral extensions excluded for stable fingerprints |
+| `json` | `serde::Serialize` on all output types |
 
 **Key Features:**
 
 - **TLS parsers:** ClientHello and record-level parsing (via `tls-parser`) for reliable JA4 inputs
-- JA4 fingerprinting (FoxIO specification)
+- JA4 fingerprinting (FoxIO specification) — `JA4`, `JA4_r`, `JA4_o`, `JA4_or`
+- **JA4_s1 / JA4_s1r** — stable variants that exclude ephemeral extensions (Session Ticket, Pre-Shared Key, Padding) so fingerprints stay comparable across sessions
 - TLS 1.0-1.3 and SSL 2.0/3.0 support
 - GREASE filtering per RFC 8701
 - SNI and ALPN extraction
+- Typed observable data (`ObservableTlsClient`) for custom fingerprints
 
 ### huginn-net-db - Database Parser & Matching Engine
 
 **Purpose:** P0f database parsing and signature matching engine.
 
-**Use when:** You need custom signature parsing or advanced database operations.
+**Use when:** You use `huginn-net-tcp` or `huginn-net-http` standalone and want database-backed OS/browser matching.
 
-**Note:** This crate is automatically included with TCP and HTTP crates. Most users don't need to use it directly.
+**Note:** When using the umbrella `huginn-net` crate, this is pulled in automatically through its `db` feature. You only need to depend on `huginn-net-db` directly for protocol-specific crate builds.
 
 ```toml
-[dependencies]
-huginn-net-db = "{{v:huginn-net-db}}"
+# Both protocols
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["full"] }
+
+# TCP only (no HTTP parser embedded)
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["tcp"] }
+
+# HTTP only (no TCP parser embedded)
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["http"] }
 ```
 
 **Key Features:**
@@ -129,7 +181,7 @@ huginn-net-db = "{{v:huginn-net-db}}"
 - P0f signature database parsing
 - Distance-based quality scoring
 - Extensible matching algorithms
-- Custom signature support
+- `SharedTcpSignatureMatcher` / `SharedHttpSignatureMatcher` for use with `.with_matcher(...)`
 
 Dependency versions in the snippets above match each crate’s published `max_version` on [crates.io](https://crates.io/) at site build time.
 

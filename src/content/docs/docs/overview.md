@@ -37,18 +37,21 @@ To get started with cargo, choose your approach:
 
 #### Multi-Protocol Analysis
 
+All features are **opt-in** in v2.x. Use `full` to opt into everything this version offers, or pick only the analyses you consume:
+
 ```toml
 [dependencies]
-huginn-net = "{{v:huginn-net}}"
+huginn-net = { version = "{{v:huginn-net}}", features = ["full"] }
+huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["full"] }
 ```
 
 #### Protocol-Specific Analysis
 
 ```toml
 [dependencies]
-huginn-net-tcp = "{{v:huginn-net-tcp}}"   # TCP/OS fingerprinting only
-huginn-net-http = "{{v:huginn-net-http}}"  # HTTP analysis only
-huginn-net-tls = "{{v:huginn-net-tls}}"   # TLS/JA4 analysis only
+huginn-net-tcp  = { version = "{{v:huginn-net-tcp}}", features = ["full"] }   # TCP/OS fingerprinting only
+huginn-net-http = { version = "{{v:huginn-net-http}}", features = ["full"] }  # HTTP analysis only
+huginn-net-tls  = { version = "{{v:huginn-net-tls}}", features = ["full"] }   # TLS/JA4 analysis only
 ```
 
 The version strings above are resolved when the documentation site is built (each crate’s current `max_version` on [crates.io](https://crates.io/)).
@@ -58,13 +61,16 @@ The version strings above are resolved when the documentation site is built (eac
 - No third-party tools - No tshark, wireshark, or external tools required
 - Same accuracy as p0f - Validated against extensive device testing
 - Modern Rust implementation - Memory safety and zero-cost abstractions
-- Production performance - Processes packets in ~3.1ms with comparable speed to original p0f
+- High performance - disabled features cost zero at runtime; parallel mode scales to production capture rates
 - Type-safe architecture - Prevents entire classes of bugs at compile time
 - Comprehensive testing - Full unit and integration test coverage
 - Simple integration - Pure Rust implementation, no system libraries required
 - Multi-protocol support - TCP, HTTP/1.x, HTTP/2, and TLS analysis in one unified interface
-- Optional packet filtering - Filter by port, IP address, or subnet to reduce processing overhead
+- Opt-in feature system - Enable only the analyses you consume; disabled features cost zero at runtime
+- Optional packet filtering - Filter by port, IP address, or CIDR subnet to reduce processing overhead
 - Parallel processing - Multi-threaded worker pools for high-throughput live capture
+- Typed observable data access - Access typed TCP signatures, HTTP headers, TLS extensions, and other observable signals for custom fingerprinting
+- Extensible fingerprinting - Build custom fingerprints using typed observable data without being limited to predefined signatures
 - Active development - Continuously improved and maintained
 
 ### Use Cases

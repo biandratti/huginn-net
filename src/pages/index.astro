@@ -21,13 +21,6 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
     <link rel="icon" href={`${base}favicon.ico`} />
     <script is:inline>
       const crates = ['huginn-net', 'huginn-net-tcp', 'huginn-net-http', 'huginn-net-tls'];
-      fetch('https://crates.io/api/v1/crates/huginn-net')
-        .then((r) => r.json())
-        .then((data) => {
-          const el = document.getElementById('version');
-          if (el && data.crate && data.crate.max_version) el.textContent = data.crate.max_version;
-        })
-        .catch(() => {});
       crates.forEach((crateName) => {
         fetch(`https://crates.io/api/v1/crates/${crateName}`)
           .then((r) => r.json())
@@ -45,7 +38,7 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
       <header class="hp-hero">
         <div class="hp-hero-layout">
           <div class="hp-hero-text">
-            <span class="hp-badge">Rust library</span>
+            <span class="hp-badge">v<span class="huginn_net_version">…</span></span>
             <h1 class="hp-title">Huginn Net: Multi-Protocol Passive Fingerprinting</h1>
             <p class="hp-tagline">A Rust library for passive analysis of TCP, HTTP, and TLS traffic</p>
             <p class="hp-lede">
@@ -188,7 +181,7 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
         <h3>Multi-Protocol Analysis</h3>
         <p>For complete network analysis (TCP + HTTP + TLS):</p>
         <pre class="hp-code"><code>[dependencies]
-huginn-net = "<span id="version">…</span>"</code></pre>
+huginn-net = "<span class="huginn_net_version">…</span>"</code></pre>
         <h3>Protocol-Specific Analysis</h3>
         <p>For targeted analysis with better performance:</p>
         <pre class="hp-code"><code>[dependencies]
