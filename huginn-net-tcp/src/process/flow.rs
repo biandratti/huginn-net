@@ -302,6 +302,8 @@ fn visit_tcp(
                 if buf.iter().any(|&b| b != 0) {
                     quirks.push(Quirk::TrailinigNonZero);
                 }
+
+                break;
             }
             NOP => {
                 olayout.push(TcpOption::Nop);
