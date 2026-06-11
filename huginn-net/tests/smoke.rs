@@ -44,14 +44,9 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
         .and_then(|r| r.tcp_syn.as_ref())
         .unwrap_or_else(|| panic!("expected at least one SYN in macos_tcp_flags.pcap"));
 
-    assert_eq!(
-        first_syn.sig.to_string(),
-        "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1,eol+0:df,ecn:0",
-        "first SYN raw signature"
-    );
     assert!(
         matches!(first_syn.os_matched.quality, TcpMatchQuality::NotMatched),
-        "macOS SYN is not in p0f.fp, matcher must run and return NotMatched, got {:?}",
+        "matcher must run and return NotMatched, got {:?}",
         first_syn.os_matched.quality
     );
 

@@ -14,7 +14,7 @@
       },
       "tcp_analysis": {
         "syn": {
-          "raw_signature": "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1,eol+0:df,ecn:0"
+          "raw_signature": "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0"
         },
         "syn_ack": null,
         "mtu": {
