@@ -1,6 +1,6 @@
 #![cfg(feature = "tcp")]
 
-use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use huginn_net_tcp::output::{MatchQuality, TcpAnalysisResult};
 use huginn_net_tcp::HuginnNetTcp;
 use serde::Deserialize;
@@ -70,8 +70,8 @@ fn load_snapshot(name: &str) -> PcapSnapshot {
 fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
     assert!(Path::new(pcap_path).exists(), "PCAP not found: {pcap_path}");
 
-    let db = Database::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
-    let matcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+    let db = TcpDatabase::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
+    let matcher = Arc::new(SharedTcpSignatureMatcher::new(Arc::new(db)));
 
     let mut analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
 
