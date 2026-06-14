@@ -111,6 +111,21 @@ jobs:
       - name: Check ${{ matrix.crate }}
         run: cargo check -p ${{ matrix.crate }} --all-features
 
+  test-huginn-net-db-features:
+    name: Test huginn-net-db individual features
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: ["tcp", "http"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+      - name: Test huginn-net-db --features ${{ matrix.features }}
+        run: cargo test -p huginn-net-db --features ${{ matrix.features }}
+
   minrust:
     name: minrust
     runs-on: ubuntu-latest
