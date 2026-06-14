@@ -59,7 +59,8 @@ fn load_snapshot(name: &str) -> PcapSnapshot {
 fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     assert!(Path::new(pcap_path).exists(), "PCAP not found: {pcap_path}");
 
-    let db = HttpDatabase::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
+    let db =
+        HttpDatabase::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
     let matcher = Arc::new(SharedHttpSignatureMatcher::new(Arc::new(db)));
 
     let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher);
