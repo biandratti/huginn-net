@@ -111,6 +111,21 @@ jobs:
       - name: Check ${{ matrix.crate }}
         run: cargo check -p ${{ matrix.crate }} --all-features
 
+  test-huginn-net-db-features:
+    name: Test huginn-net-db individual features
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: ["tcp", "http"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+      - name: Test huginn-net-db --features ${{ matrix.features }}
+        run: cargo test -p huginn-net-db --features ${{ matrix.features }}
+
   minrust:
     name: minrust
     runs-on: ubuntu-latest
@@ -164,7 +179,7 @@ jobs:
         run: |
           cargo +nightly tarpaulin --workspace --verbose --all-features --timeout 120 --out xml --output-dir .
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
