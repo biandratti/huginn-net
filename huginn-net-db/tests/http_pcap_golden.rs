@@ -1,6 +1,6 @@
 #![cfg(feature = "http")]
 
-use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::output::{HttpAnalysisResult, MatchQuality};
 use huginn_net_http::HuginnNetHttp;
 use serde::Deserialize;
@@ -59,8 +59,8 @@ fn load_snapshot(name: &str) -> PcapSnapshot {
 fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     assert!(Path::new(pcap_path).exists(), "PCAP not found: {pcap_path}");
 
-    let db = Database::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
-    let matcher = Arc::new(SharedHttpSignatureMatcher::from_database(&db));
+    let db = HttpDatabase::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
+    let matcher = Arc::new(SharedHttpSignatureMatcher::new(Arc::new(db)));
 
     let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher);
 
