@@ -14,10 +14,10 @@
       },
       "tcp_analysis": {
         "syn": {
-          "os_name": null,
-          "os_family": null,
-          "os_variant": null,
-          "quality": "NotMatched",
+          "os_name": "iOS",
+          "os_family": "unix",
+          "os_variant": "iOS",
+          "quality": "Matched(1.0)",
           "raw_signature": "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0"
         },
         "syn_ack": null,
