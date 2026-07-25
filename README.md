@@ -16,7 +16,7 @@
   [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
 </div>
 
-**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f for TCP and FoxIO's JA4 for TLS. Validated against the original p0f accuracy with ~3.1ms end-to-end per packet.
+**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f v3 for TCP, FoxIO's JA4 for TLS, and the Akamai HTTP/2 fingerprinting spec. All signature databases are open source and community-driven.
 
 #### What is Passive Traffic Fingerprinting?
 Passive fingerprinting infers information about remote hosts without sending any probes. By analyzing TCP/IP packets and TLS handshakes, Huginn Net identifies:
@@ -88,7 +88,7 @@ For detailed usage examples, installation guides, and complete code samples:
 
 Huginn-net is production-ready. It handles millions of packets per second per core, scales with parallel workers, and adds no overhead from parsers or matchers you do not enable.
 
-Unlike p0f and similar tools — single-threaded, monolithic binaries — huginn-net is a **modular Rust library** with built-in parallel processing. Cargo feature flags eliminate unused parsers at compile time, so you only pay for what you actually use, and a worker pool scales throughput across cores without any extra infrastructure.
+Unlike p0f and similar tools, single-threaded, monolithic binaries; huginn-net is a **modular Rust library** with built-in parallel processing. Cargo feature flags eliminate unused parsers at compile time, so you only pay for what you actually use, and a worker pool scales throughput across cores without any extra infrastructure.
 
 See [benches/README.md](benches/README.md) for detailed throughput numbers, 10 Gbps capacity planning, and methodology.
 
@@ -131,7 +131,7 @@ Each match gets a quality score based on the **distance** between the observed p
 
 ## Companion: huginn-proxy
 
-**[huginn-proxy](https://github.com/biandratti/huginn-proxy)** — High-performance reverse proxy forwarding TLS (JA4), HTTP/2 (Akamai), and TCP-SYN (eBPF-powered) fingerprints as HTTP headers.
+**[huginn-proxy](https://github.com/biandratti/huginn-proxy)**: High-performance reverse proxy forwarding TLS (JA4), HTTP/2 (Akamai), and TCP-SYN (eBPF-powered) fingerprints as HTTP headers.
 
 Routes incoming connections to backend services while passively extracting TLS (JA4), HTTP/2 (Akamai), and TCP SYN (p0f-style) fingerprints and injecting them as headers. TCP SYN fingerprinting runs via an XDP/TC eBPF program.
 
@@ -152,6 +152,6 @@ Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
 
 `huginn-net` is an independent Rust implementation inspired by the methodologies of `p0f` and `JA4`.
 
-- **[p0f v3](https://lcamtuf.coredump.cx/p0f3/README)**: TCP SYN fingerprinting follows the p0f v3 specification by Michal Zalewski.
-- **JA4**: TLS fingerprinting follows the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) (BSD 3-Clause). Written from scratch; no JA4+ components (FoxIO License 1.1) are included. JA4 methodology Copyright (c) 2023, FoxIO, LLC.
-- **Akamai HTTP/2**: HTTP/2 fingerprinting follows the [Blackhat EU 2017 specification](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf).
+- **p0f v3** ([spec](https://lcamtuf.coredump.cx/p0f3/README)): TCP SYN fingerprinting follows the p0f v3 specification by Michal Zalewski.
+- **JA4** ([spec](https://github.com/FoxIO-LLC/ja4)): TLS fingerprinting follows the JA4 specification by FoxIO, LLC (BSD 3-Clause). Written from scratch; no JA4+ components (FoxIO License 1.1) are included. Copyright (c) 2023, FoxIO, LLC.
+- **Akamai HTTP/2** ([spec](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf)): HTTP/2 fingerprinting follows the Blackhat EU 2017 specification.
