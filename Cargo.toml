@@ -18,7 +18,7 @@ repository = "https://github.com/biandratti/huginn-net"
 homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
+clap = { version = "4.6.2", features = ["derive"] }
 criterion = { version = "0.8.2", features = ["html_reports"] }
 crossbeam-channel = "0.5.16"
 ctrlc = "3.5.2"
@@ -32,10 +32,10 @@ lazy_static = "1.5.0"
 nom = "8.0.0"
 pcap-file = "3.0.0-rc1"
 pnet = "0.35.0"
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.150"
 sha2 = "0.11.0"
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 tls-parser = "0.12.2"
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
