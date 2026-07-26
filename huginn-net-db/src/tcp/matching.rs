@@ -21,7 +21,7 @@ use crate::database::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::tcp::{
     self, distance_ip_version, distance_payload_size, distance_ttl, distance_window_size,
-    IpVersion, PayloadSize,
+    IpVersion, PayloadSize, Quirk,
 };
 use huginn_net_tcp::observable::TcpObservation;
 
@@ -68,14 +68,77 @@ pub(crate) fn distance_olayout(
     }
 }
 
+/// Quirks a database signature may declare without the observation showing
+/// them (`df` and `id+` in p0f terms).
+const FUZZY_DELETABLE_QUIRKS: [Quirk; 2] = [Quirk::Df, Quirk::NonZeroID];
+
+/// Quirks an observation may show without the database signature declaring
+/// them (`id-` and `ecn` in p0f terms).
+const FUZZY_ADDABLE_QUIRKS: [Quirk; 2] = [Quirk::ZeroID, Quirk::Ecn];
+
+/// Whether a database quirk must be ignored because the signature is
+/// version-agnostic (`ver == *`) and the quirk only exists for the other IP
+/// version. Mirrors the `ref_quirks &= …` masking in
+/// `data/p0f/fp_tcp.c::tcp_find_match`.
+fn quirk_masked_by_ip_version(
+    quirk: &Quirk,
+    signature_version: IpVersion,
+    observed_version: IpVersion,
+) -> bool {
+    if signature_version != IpVersion::Any {
+        return false;
+    }
+    match observed_version {
+        IpVersion::V6 => matches!(quirk, Quirk::Df | Quirk::NonZeroID | Quirk::ZeroID),
+        _ => matches!(quirk, Quirk::FlowID),
+    }
+}
+
+/// Quirks are compared as sets, not as ordered lists, and a narrow set of
+/// differences is tolerated as a fuzzy match: `df`/`id+` may be absent from
+/// the traffic, and `id-`/`ecn` may appear in it. Any other difference
+/// rejects the signature outright (`data/p0f/fp_tcp.c::tcp_find_match`).
+///
+/// The fuzzy case is currently reported as the worst non-rejecting score;
+/// once the match tiers land it becomes `Fuzzy(QuirksWhitelisted)` instead,
+/// which sorts below every exact match regardless of the other fields.
 pub(crate) fn distance_quirks(
     observed: &TcpObservation,
     signature: &tcp::Signature,
 ) -> Option<u32> {
-    if observed.quirks == signature.quirks {
-        Some(tcp::TcpMatchQuality::High.as_score())
+    let declared_by_signature = |quirk: &Quirk| {
+        signature.quirks.contains(quirk)
+            && !quirk_masked_by_ip_version(quirk, signature.version, observed.version)
+    };
+
+    let mut fuzzy = false;
+
+    for quirk in &signature.quirks {
+        if quirk_masked_by_ip_version(quirk, signature.version, observed.version)
+            || observed.quirks.contains(quirk)
+        {
+            continue;
+        }
+        if !FUZZY_DELETABLE_QUIRKS.contains(quirk) {
+            return None;
+        }
+        fuzzy = true;
+    }
+
+    for quirk in &observed.quirks {
+        if declared_by_signature(quirk) {
+            continue;
+        }
+        if !FUZZY_ADDABLE_QUIRKS.contains(quirk) {
+            return None;
+        }
+        fuzzy = true;
+    }
+
+    if fuzzy {
+        Some(tcp::TcpMatchQuality::Low.as_score())
     } else {
-        None
+        Some(tcp::TcpMatchQuality::High.as_score())
     }
 }
 
