@@ -20,24 +20,24 @@ Use `huginn-net` when you need comprehensive analysis across all protocols.
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = ["full"] }
-huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
+huginn-net = { version = "{{huginn-net}}", features = ["full"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
 Pick only what you need (example: SYN fingerprinting + both HTTP sides, no MTU/uptime/TLS-stable):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = [
+huginn-net = { version = "{{huginn-net}}", features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
-huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
 Add `json` to serialize results with `serde_json` (independent of `full`):
 
 ```toml
-huginn-net = { version = "2.0.0-rc", features = ["full", "json"] }
+huginn-net = { version = "{{huginn-net}}", features = ["full", "json"] }
 ```
 
 **Usage:**
@@ -127,19 +127,19 @@ Use `huginn-net-tcp` for OS detection, MTU calculation, and uptime estimation.
 
 ```toml
 [dependencies]
-huginn-net-tcp = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["full"] }
 # Only needed for OS fingerprint matching against the p0f database
-huginn-net-db = { version = "2.0.0-rc", features = ["tcp"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
 ```
 
 Common opt-in patterns:
 
 ```toml
 # Fingerprint only connecting clients — no MTU, no uptime, no ttl_cache
-huginn-net-tcp = { version = "2.0.0-rc", features = ["syn"] }
+huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["syn"] }
 
 # Fingerprint servers you connect to, with MTU detection
-huginn-net-tcp = { version = "2.0.0-rc", features = ["syn-ack", "mtu"] }
+huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["syn-ack", "mtu"] }
 ```
 
 **Usage:**
@@ -190,19 +190,19 @@ Use `huginn-net-http` for browser detection and web server identification.
 
 ```toml
 [dependencies]
-huginn-net-http = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }
 # Only needed for browser/server fingerprint matching
-huginn-net-db = { version = "2.0.0-rc", features = ["http"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
 ```
 
 Common opt-in patterns:
 
 ```toml
 # Client-side only (request fingerprinting), no Akamai, no response parsing
-huginn-net-http = { version = "2.0.0-rc", features = ["p0f-request"] }
+huginn-net-http = { version = "{{huginn-net-http}}", features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only — no p0f path compiled in
-huginn-net-http = { version = "2.0.0-rc", features = ["akamai"] }
+huginn-net-http = { version = "{{huginn-net-http}}", features = ["akamai"] }
 ```
 
 **Usage:**
@@ -250,10 +250,10 @@ Use `huginn-net-tls` for JA4 fingerprinting and TLS client identification.
 
 ```toml
 # Core JA4 fingerprinting
-huginn-net-tls = "2.0.0-rc"
+huginn-net-tls = "{{huginn-net-tls}}"
 
 # With stable fingerprints (JA4_s1 / JA4_s1r) and everything this version offers
-huginn-net-tls = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-tls = { version = "{{huginn-net-tls}}", features = ["full"] }
 ```
 
 **Usage:**

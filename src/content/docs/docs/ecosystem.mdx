@@ -46,14 +46,14 @@ All features are **opt-in**; use `full` for everything this version offers, or p
 
 ```toml
 [dependencies]
-huginn-net = { version = "{{v:huginn-net}}", features = ["full"] }
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["full"] }
+huginn-net = { version = "{{huginn-net}}", features = ["full"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
 Add `json` to serialize all output types with `serde_json`:
 
 ```toml
-huginn-net = { version = "{{v:huginn-net}}", features = ["full", "json"] }
+huginn-net = { version = "{{huginn-net}}", features = ["full", "json"] }
 ```
 
 **Key Features:**
@@ -74,9 +74,9 @@ huginn-net = { version = "{{v:huginn-net}}", features = ["full", "json"] }
 
 ```toml
 [dependencies]
-huginn-net-tcp = { version = "{{v:huginn-net-tcp}}", features = ["full"] }
+huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["full"] }
 # Optional: only needed for OS fingerprint matching
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["tcp"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
 ```
 
 | Feature | Description |
@@ -104,9 +104,9 @@ huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["tcp"] }
 
 ```toml
 [dependencies]
-huginn-net-http = { version = "{{v:huginn-net-http}}", features = ["full"] }
+huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }
 # Optional: only needed for browser/server fingerprint matching
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["http"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
 ```
 
 | Feature | Description |
@@ -135,10 +135,10 @@ huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["http"] }
 ```toml
 [dependencies]
 # Core JA4 (no database needed — computed algorithmically)
-huginn-net-tls = "{{v:huginn-net-tls}}"
+huginn-net-tls = "{{huginn-net-tls}}"
 
 # With stable fingerprints (JA4_s1 / JA4_s1r) and everything this version offers
-huginn-net-tls = { version = "{{v:huginn-net-tls}}", features = ["full"] }
+huginn-net-tls = { version = "{{huginn-net-tls}}", features = ["full"] }
 ```
 
 | Feature | Description |
@@ -167,13 +167,13 @@ huginn-net-tls = { version = "{{v:huginn-net-tls}}", features = ["full"] }
 
 ```toml
 # Both protocols
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["full"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 
 # TCP only (no HTTP parser embedded)
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["tcp"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
 
 # HTTP only (no TCP parser embedded)
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["http"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
 ```
 
 **Key Features:**

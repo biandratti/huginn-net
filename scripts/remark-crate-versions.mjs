@@ -1,5 +1,5 @@
 /**
- * Replaces {{v:crate-name}} in markdown/mdx with versions from crate-versions.json.
+ * Replaces {{crate-name}} in markdown/mdx with versions from crate-versions.json.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -26,7 +26,7 @@ function replaceInString(str, versions) {
   if (!str || typeof str !== 'string') return str;
   let out = str;
   for (const [crate, ver] of Object.entries(versions)) {
-    out = out.split(`{{v:${crate}}}`).join(ver);
+    out = out.split(`{{${crate}}}`).join(ver);
   }
   return out;
 }

@@ -1,32 +1,31 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import remarkCrateVersions from './scripts/remark-crate-versions.mjs';
 
 const site = 'https://biandratti.github.io';
 const base = '/huginn-net';
 
-/** Prepends remark plugin after Starlight sets markdown.remarkPlugins */
-function crateVersionRemarkIntegration() {
-  return {
-    name: 'crate-version-remark',
-    hooks: {
-      'astro:config:setup': ({ config, updateConfig }) => {
-        const existing = config.markdown?.remarkPlugins ?? [];
-        updateConfig({
-          markdown: {
-            remarkPlugins: [remarkCrateVersions, ...existing],
-          },
-        });
-      },
-    },
-  };
-}
-
 export default defineConfig({
   site,
   base,
   trailingSlash: 'always',
+  markdown: {
+    // Astro's default `satteri()` processor doesn't run `remarkPlugins`.
+    // Switch to `unified()` so our crate-version substitution plugin (and
+    // Starlight's own remark plugins, which it appends automatically) run.
+    processor: unified({ remarkPlugins: [remarkCrateVersions] }),
+  },
+  vite: {
+    server: {
+      watch: {
+        // Avoid watching Cargo build output (huge file counts, unrelated
+        // to the docs site); prevents ENOSPC from exhausting inotify watches.
+        ignored: ['**/target/**'],
+      },
+    },
+  },
   integrations: [
     starlight({
       title: 'Huginn Net',
@@ -99,6 +98,5 @@ export default defineConfig({
         },
       ],
     }),
-    crateVersionRemarkIntegration(),
   ],
 });

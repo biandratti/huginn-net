@@ -41,17 +41,17 @@ All features are **opt-in** in v2.x. Use `full` to opt into everything this vers
 
 ```toml
 [dependencies]
-huginn-net = { version = "{{v:huginn-net}}", features = ["full"] }
-huginn-net-db = { version = "{{v:huginn-net-db}}", features = ["full"] }
+huginn-net = { version = "{{huginn-net}}", features = ["full"] }
+huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
 #### Protocol-Specific Analysis
 
 ```toml
 [dependencies]
-huginn-net-tcp  = { version = "{{v:huginn-net-tcp}}", features = ["full"] }   # TCP/OS fingerprinting only
-huginn-net-http = { version = "{{v:huginn-net-http}}", features = ["full"] }  # HTTP analysis only
-huginn-net-tls  = { version = "{{v:huginn-net-tls}}", features = ["full"] }   # TLS/JA4 analysis only
+huginn-net-tcp  = { version = "{{huginn-net-tcp}}", features = ["full"] }   # TCP/OS fingerprinting only
+huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }  # HTTP analysis only
+huginn-net-tls  = { version = "{{huginn-net-tls}}", features = ["full"] }   # TLS/JA4 analysis only
 ```
 
 The version strings above are resolved when the documentation site is built (each crate’s current `max_version` on [crates.io](https://crates.io/)).
