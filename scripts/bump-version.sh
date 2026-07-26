@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# Usage: ./scripts/bump-version.sh <new-version>
+#
+# Replaces the current workspace version (read from Cargo.toml) with
+# <new-version> across Cargo.toml and all crate README.md files.
 set -euo pipefail
 
 NEW=${1:-}

@@ -49,6 +49,7 @@ That's it for most users.
 ```diff
 -huginn-net-tcp = "1.x"
 +huginn-net-tcp = { version = "2.0.0", features = ["full"] }
++huginn-net-db = { version = "2.0.0", features = ["tcp"] }
 ```
 
 **Constructor — before (v1.x):**
@@ -61,10 +62,10 @@ let mut tcp = HuginnNetTcp::new(Some(db), 1000)?;
 **Constructor — after (v2.0):**
 
 ```rust
-use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 
-let db = Database::load_default()?;
-let matcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let db = TcpDatabase::load_default()?;
+let matcher = Arc::new(SharedTcpSignatureMatcher::new(Arc::new(db)));
 let mut tcp = HuginnNetTcp::new(1000).with_matcher(matcher);
 ```
 
@@ -74,12 +75,15 @@ To run without database matching (raw signals only):
 let mut tcp = HuginnNetTcp::new(1000);
 ```
 
-Same pattern applies to `HuginnNetHttp`.
+Same pattern applies to `HuginnNetHttp`, using `HttpDatabase` and `SharedHttpSignatureMatcher` (add `huginn-net-db` with `features = ["http"]` instead).
+
+If you need both TCP and HTTP matching from a single loaded file, use `huginn_net_db::Database` (`features = ["tcp", "http"]`) and `SharedTcpSignatureMatcher::from_database` / `SharedHttpSignatureMatcher::from_database` instead.
 
 **Parallel mode — before (v1.x):**
 
 ```rust
-let tcp = HuginnNetTcp::with_config(workers, queue_size, batch_size, timeout_ms, max_connections)?;
+let db = Arc::new(Database::load_default()?);
+let tcp = HuginnNetTcp::with_config(Some(db), max_connections, workers, queue_size, batch_size, timeout_ms)?;
 ```
 
 **Parallel mode — after (v2.0):**
