@@ -14,6 +14,13 @@ confidence-threshold = 1.0
 [bans]
 multiple-versions = "allow"
 wildcards = "deny"
+# huginn-net-tcp / huginn-net-http depend on huginn-net-db as a
+# version-less path dev-dependency (tests/benches only) to break the
+# publish cycle with huginn-net-db (which has a real, versioned
+# dependency on both). Cargo strips version-less dev-dependencies from
+# the published manifest; this just tells cargo-deny not to flag them
+# as wildcards.
+allow-wildcard-paths = true
 
 [sources]
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -16,7 +16,7 @@
   [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
 </div>
 
-**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f for TCP and FoxIO's JA4 for TLS. Validated against the original p0f accuracy with ~3.1ms end-to-end per packet.
+**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f v3 for TCP, FoxIO's JA4 for TLS, and the Akamai HTTP/2 fingerprinting spec. All signature databases are open source and community-driven.
 
 #### What is Passive Traffic Fingerprinting?
 Passive fingerprinting infers information about remote hosts without sending any probes. By analyzing TCP/IP packets and TLS handshakes, Huginn Net identifies:
@@ -62,15 +62,16 @@ Passive fingerprinting infers information about remote hosts without sending any
 **For multi-protocol analysis:**
 ```toml
 [dependencies]
-huginn-net = "2.0.0-rc"  # Complete analysis suite
+huginn-net = "2.0.0"  # Complete analysis suite
 ```
 
 **For specific protocols:**
 ```toml
 [dependencies]
-huginn-net-tcp = "2.0.0-rc"   # TCP/OS fingerprinting only
-huginn-net-http = "2.0.0-rc"  # HTTP analysis only
-huginn-net-tls = "2.0.0-rc"   # TLS/JA4 analysis only
+huginn-net-tcp = "2.0.0"   # TCP/OS fingerprinting only
+huginn-net-http = "2.0.0"  # HTTP analysis only
+huginn-net-tls = "2.0.0"   # TLS/JA4 analysis only
+huginn-net-db = { version = "2.0.0", features = ["tcp", "http"] }  # signature matching for TCP/HTTP (not needed for TLS)
 ```
 
 ### Usage & Examples
@@ -84,17 +85,13 @@ For detailed usage examples, installation guides, and complete code samples:
 - **PCAP file analysis** - Offline traffic analysis  
 - **Protocol-specific examples** - TCP, HTTP, TLS focused analysis
 
-## 📊 Performance & Benchmarks
+## Performance
 
-### Multi-Protocol Performance Summary
+Huginn-net is production-ready. It handles millions of packets per second per core, scales with parallel workers, and adds no overhead from parsers or matchers you do not enable.
 
-| Protocol | Detection Speed | Full Analysis | Primary Use Case |
-|----------|-----------------|---------------|------------------|
-| **TCP** | 83.3M pps | 975.6K pps | OS fingerprinting, MTU detection |
-| **HTTP** | 142.9M pps | 526.6K pps | Browser/server detection |
-| **TLS** | 48M pps | 45K pps | JA4 fingerprinting, TLS analysis |
+Unlike p0f and similar tools, single-threaded, monolithic binaries; huginn-net is a **modular Rust library** with built-in parallel processing. Cargo feature flags eliminate unused parsers at compile time, so you only pay for what you actually use, and a worker pool scales throughput across cores without any extra infrastructure.
 
-All protocols scale with multiple workers: TCP to 2.11M pps (4 workers), HTTP to 1.54M pps (2 workers), TLS to 97K pps (2–4 workers). Numbers above reflect `features = ["full"]`; enabling only the analyses you need (e.g. `tcp-syn` alone) increases throughput further by eliminating unused parsing paths. See [benches/README.md](benches/README.md) for methodology and capacity planning.
+See [benches/README.md](benches/README.md) for detailed throughput numbers, 10 Gbps capacity planning, and methodology.
 
 ### Validated Device Categories
 - **Desktop Operating Systems** - Windows (XP/7/8/10), Linux distributions, macOS  
@@ -112,6 +109,7 @@ All protocols scale with multiple workers: TCP to 2.11M pps (4 workers), HTTP to
 ### Multi-Protocol Support
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
 - **HTTP Request/Response** analysis for application identification
+- **HTTP/2 Akamai fingerprinting** extracts SETTINGS, WINDOW_UPDATE, PRIORITY, and pseudo-header order; used by huginn-proxy to inject fingerprints as HTTP headers
 - **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant `JA4_s1` / `JA4_s1r`
 - **MTU Discovery** for link type detection
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
@@ -132,34 +130,11 @@ Each match gets a quality score based on the **distance** between the observed p
 - **Low Quality (0.4-0.6)**: Acceptable match but with notable differences
 - **Poor Quality (<0.4)**: Weak match, use with caution
 
-### TLS JA4 Fingerprinting
+## Companion: huginn-proxy
 
-This implementation follows the official [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS client fingerprinting. For full attribution and licensing details, please see the [Attribution](#attribution) section. We do not implement JA4+ components which are under FoxIO License 1.1.
+**[huginn-proxy](https://github.com/biandratti/huginn-proxy)**: High-performance reverse proxy forwarding TLS (JA4), HTTP/2 (Akamai), and TCP-SYN (eBPF-powered) fingerprints as HTTP headers.
 
-## Companion Projects
-
-### Network Scanning & Testing
-
-For visual analysis and experimentation, use our companion web application:
-
-**[huginn-net-profiler: Passive Network Profile Analyzer](https://github.com/biandratti/huginn-net-profiler)**
-
-Features:
-- Real-time fingerprint visualization
-- Interactive signature database exploration
-- Custom pattern testing and validation
-
-### Reverse Proxy
-
-**Experimental**, Not yet ready for production use:
-
-**[huginn-proxy: High-Performance Reverse Proxy with Fingerprinting](https://github.com/biandratti/huginn-proxy)** *(Currently in active development)*
-
-Features:
-- TLS termination with ALPN support
-- Automatic fingerprint extraction (JA4, Akamai HTTP/2)
-- Fingerprint injection as HTTP headers (`x-huginn-net-ja4`, `x-huginn-net-akamai`)
-- Load balancing and path-based routing
+Routes incoming connections to backend services while passively extracting TLS (JA4), HTTP/2 (Akamai), and TCP SYN (p0f-style) fingerprints and injecting them as headers. TCP SYN fingerprinting runs via an XDP/TC eBPF program.
 
 ## 🤝 Contributing
 
@@ -178,5 +153,6 @@ Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
 
 `huginn-net` is an independent Rust implementation inspired by the methodologies of `p0f` and `JA4`.
 
-- **p0f**: The TCP fingerprinting is inspired by the original p0f by Michał Zalewski. The logic has been rewritten from scratch in Rust to ensure memory safety and performance.
-- **JA4**: The TLS fingerprinting adheres to the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4), which is available under the BSD 3-Clause license. Our implementation was written from scratch for `huginn-net` and does not use any code from the original JA4 repository. JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
+- **p0f v3** ([spec](https://lcamtuf.coredump.cx/p0f3/README)): TCP SYN fingerprinting follows the p0f v3 specification by Michal Zalewski.
+- **JA4** ([spec](https://github.com/FoxIO-LLC/ja4)): TLS fingerprinting follows the JA4 specification by FoxIO, LLC (BSD 3-Clause). Written from scratch; no JA4+ components (FoxIO License 1.1) are included. Copyright (c) 2023, FoxIO, LLC.
+- **Akamai HTTP/2** ([spec](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf)): HTTP/2 fingerprinting follows the Blackhat EU 2017 specification.

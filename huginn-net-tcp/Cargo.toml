@@ -35,7 +35,7 @@ ttl_cache = { workspace = true, optional = true }
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
-huginn-net-db = { workspace = true, features = ["full"] }
+huginn-net-db = { path = "../huginn-net-db", features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }
