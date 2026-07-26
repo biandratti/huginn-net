@@ -71,6 +71,7 @@ huginn-net = "2.0.0-rc"  # Complete analysis suite
 huginn-net-tcp = "2.0.0-rc"   # TCP/OS fingerprinting only
 huginn-net-http = "2.0.0-rc"  # HTTP analysis only
 huginn-net-tls = "2.0.0-rc"   # TLS/JA4 analysis only
+huginn-net-db = { version = "2.0.0-rc", features = ["tcp", "http"] }  # signature matching for TCP/HTTP (not needed for TLS)
 ```
 
 ### Usage & Examples
