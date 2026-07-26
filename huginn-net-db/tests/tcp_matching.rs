@@ -2,7 +2,7 @@
 //! Hard-gate behaviour of `Signature::calculate_distance`.
 //!
 //! p0f rejects a candidate signature outright when `olen`, `mss`, `wscale` or
-//! the window size disagree (`data/p0f/fp_tcp.c::tcp_find_match`); none of
+//! the window size disagree; none of
 //! them may degrade into a soft penalty. These tests pin that contract on the
 //! public matching API rather than on the `pub(crate)` per-field helpers.
 

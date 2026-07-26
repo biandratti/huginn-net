@@ -97,7 +97,7 @@ fn quirk_masked_by_ip_version(
 /// Quirks are compared as sets, not as ordered lists, and a narrow set of
 /// differences is tolerated as a fuzzy match: `df`/`id+` may be absent from
 /// the traffic, and `id-`/`ecn` may appear in it. Any other difference
-/// rejects the signature outright (`data/p0f/fp_tcp.c::tcp_find_match`).
+/// rejects the signature outright.
 ///
 /// The fuzzy case is currently reported as the worst non-rejecting score;
 /// once the match tiers land it becomes `Fuzzy(QuirksWhitelisted)` instead,
