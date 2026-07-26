@@ -74,6 +74,69 @@ what the HTTP output already did.
 
 ---
 
+### The observed window is no longer classified
+
+`TcpObservation.wsize` was a `WindowSize`, which meant the window got sorted into
+`Mss(n)`, `Mtu(n)`, `Mod(n)` or `Value(n)` as the packet was parsed. That
+classification is irreversible, and it made **52 of the 117 signatures with a
+literal window unreachable**: a window of 8192 was stored as `Mod(4096)` and
+could no longer be compared against the literal `8192` that Windows 7/8/8.1 and
+the `NT kernel 6.x` catch-all declare. All the Windows literals, both NMap
+signatures, OpenBSD 3.x-5.x, Linux 2.0, Tru64, HP-UX, OpenVMS 7.x and the two
+Nintendo consoles were affected. The one `mtu*n` signature could not match either.
+
+The window is now kept exactly as it came off the wire, and a multiple is derived
+only when a signature asks for one, which is what p0f does:
+
+```rust
+// v2.0
+TcpObservation { wsize: WindowSize::Mss(44), … }
+
+// v2.1
+TcpObservation {
+    wsize: 64240,   // raw, as on the wire
+    tot_hdr: 60,    // IP + TCP header bytes, one of the MTU divisors
+    …
+}
+
+observation.window_multiplier(); // Option<WindowMultiplier> { multiple, of_mtu }
+```
+
+`WindowSize` still describes what a *signature* declares, which is where the five
+forms belong. `detect_win_multiplicator`, which returned the classification, is
+replaced by `detect_win_multi`, which mirrors p0f's divisor list and answers with
+the family the multiple belongs to. The rendered signature is unchanged in shape:
+`mss*n`/`mtu*n` when the window is a multiple of one, the raw value otherwise,
+computed at render time like p0f's `dump_sig`.
+
+Two consequences for output you may be asserting on: a window that is *not* an
+exact multiple of the MSS is no longer reported as one (65535 with an MSS of 1460
+used to round down to `mss*44`, leaving 1295 bytes unaccounted for), and the
+divisors derived from a 1500-byte MTU now answer for the `mss*n` family rather
+than `mtu*n`, as they do in p0f.
+
+---
+
+### Only the handshake produces a TCP signal
+
+A `SynAckTCPOutput` used to be emitted for **every packet that was not a plain
+SYN** — bare ACKs, data segments, `FIN+ACK`, `RST` — because the pipeline routed
+anything not coming from the client into the response slot. Now, as in p0f, only
+the two packets that open a connection are fingerprinted: the SYN and the
+SYN+ACK.
+
+Nothing is lost by it. A mid-stream packet has no MSS and no window scale option,
+and its window is already scaled, while all 101 `[tcp:response]` signatures
+require the MSS option — so those signals could only ever come back as
+`NotMatched`. What you get instead is one signal per handshake rather than one per
+packet: in the macOS pcap of the test corpus, 43 signals became 2.
+
+If you were counting signals, or treating `NotMatched` as evidence of an
+unrecognised stack, expect both numbers to drop sharply on live traffic, where
+most packets are data.
+
+---
+
 ### `HttpDiagnosis` → `HttpParams`
 
 `HttpRequestOutput`/`HttpResponseOutput` carry `params: HttpParams` instead of
@@ -107,6 +170,7 @@ are gone. Each one is replaced by a check that answers the question directly.
 | `FingerprintDb::find_best_match` returning `(&Label, &DS, f32)` | returns `DatabaseMatch`, whose fields are named |
 | `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response` returning tuples | the same `DatabaseMatch` |
 | `tcp::distance_ttl` | `tcp::ttl_fit` (returns the hop distance) |
+| `tcp::detect_win_multiplicator` returning a `WindowSize` | `tcp::detect_win_multi`, returning `Option<WindowMultiplier>` |
 | `tcp::distance_ip_version`, `distance_window_size`, `distance_payload_size` | `ip_version_matches`, `window_size_matches`, `payload_size_matches` (`bool`) |
 | `http::distance_http_version`, `distance_header`, `distance_habsent` | `http_version_matches`, `headers_match`, `absent_headers_match` (`bool`) |
 | `huginn_net_db::http::distance_expsw` | `huginn_net_db::http::expsw_matches` (never part of the match) |

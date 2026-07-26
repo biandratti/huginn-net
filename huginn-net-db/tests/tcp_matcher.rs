@@ -4,13 +4,27 @@ use huginn_net_db::{TcpDatabase, TcpSignatureMatcher, Type};
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
 
+/// Resolves the window a signature declares into a concrete value a packet
+/// could have carried, so the signature can be replayed as an observation.
+fn raw_window(sig: &Signature) -> u16 {
+    let mss = sig.mss.unwrap_or(1460);
+    match sig.wsize {
+        WindowSize::Value(value) => value,
+        WindowSize::Mod(modulus) => modulus,
+        WindowSize::Mss(multiple) => mss.saturating_mul(u16::from(multiple)),
+        WindowSize::Mtu(multiple) => mss.saturating_add(40).saturating_mul(u16::from(multiple)),
+        WindowSize::Any => 65535,
+    }
+}
+
 fn observation_from_signature(sig: &Signature) -> TcpObservation {
     TcpObservation {
         version: sig.version,
         ittl: sig.ittl.clone(),
         olen: sig.olen,
         mss: sig.mss,
-        wsize: sig.wsize.clone(),
+        wsize: raw_window(sig),
+        tot_hdr: 60,
         wscale: sig.wscale,
         olayout: sig.olayout.clone(),
         quirks: sig.quirks.clone(),
@@ -53,7 +67,8 @@ fn matching_linux_by_tcp_request() {
             ittl: Ttl::Distance(58, 6),
             olen: 0,
             mss: Some(1452),
-            wsize: WindowSize::Mss(44),
+            wsize: 1452 * 44,
+            tot_hdr: 60,
             wscale: Some(7),
             olayout: vec![
                 TcpOption::Mss,
@@ -99,7 +114,8 @@ fn matching_android_by_tcp_request() {
             ittl: Ttl::Value(64),
             olen: 0,
             mss: Some(1460),
-            wsize: WindowSize::Value(65535),
+            wsize: 65535,
+            tot_hdr: 60,
             wscale: Some(8),
             olayout: vec![
                 TcpOption::Mss,
@@ -120,7 +136,8 @@ fn matching_android_by_tcp_request() {
             ittl: Ttl::Distance(57, 7),
             olen: 0,
             mss: Some(1460),
-            wsize: WindowSize::Value(65535),
+            wsize: 65535,
+            tot_hdr: 60,
             wscale: Some(8),
             olayout: vec![
                 TcpOption::Mss,

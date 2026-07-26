@@ -7,9 +7,9 @@ use crate::process::ConnectionTracker;
 use crate::tcp;
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::observable::{ObservableTcp, TcpObservation};
-use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
-use crate::tcp::{PayloadSize, WindowSize};
+use crate::tcp::PayloadSize;
+use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
 #[cfg(feature = "uptime")]
 use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -104,6 +104,19 @@ pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
         || tcp_type == 0)
 }
 
+/// Whether the packet is one of the two that open a connection, which are the
+/// only ones worth fingerprinting.
+///
+/// p0f draws the same line (`process.c:1164`): a bare ACK, a data segment, a FIN
+/// or a RST carries neither the MSS nor the window scale that a signature
+/// describes, and its window is already scaled, so there is nothing left to
+/// compare against.
+pub fn is_fingerprintable(tcp_type: u8) -> bool {
+    use TcpFlags::*;
+
+    tcp_type == SYN || tcp_type == (SYN | ACK)
+}
+
 #[inline]
 pub fn process_tcp_ipv4(
     packet: &Ipv4Packet,
@@ -159,6 +172,8 @@ pub fn process_tcp_ipv4(
                 version,
                 ttl,
                 ip_package_header_length,
+                // IHL counts 32-bit words.
+                u16::from(ip_package_header_length).saturating_mul(4),
                 olen,
                 quirks,
                 source_ip,
@@ -202,6 +217,7 @@ pub fn process_tcp_ipv6(
                 version,
                 ttl,
                 ip_package_header_length,
+                u16::from(ip_package_header_length),
                 olen,
                 quirks,
                 source_ip,
@@ -228,6 +244,7 @@ fn visit_tcp(
     version: IpVersion,
     ittl: Ttl,
     ip_package_header_length: u8,
+    ip_header_bytes: u16,
     olen: u8,
     mut quirks: Vec<Quirk>,
     source_ip: IpAddr,
@@ -403,22 +420,27 @@ fn visit_tcp(
     };
 
     #[cfg(any(feature = "syn", feature = "syn-ack"))]
-    let tcp_signature: ObservableTcp = {
-        let wsize: WindowSize = tcp::detect_win_multiplicator(
-            tcp.get_window(),
-            mss.unwrap_or(0),
-            ip_package_header_length as u16,
-            olayout.contains(&TcpOption::TS),
-            &version,
-        );
+    #[cfg_attr(
+        not(all(feature = "syn", feature = "syn-ack")),
+        allow(unused_variables)
+    )]
+    let (tcp_request, tcp_response) = if !is_fingerprintable(tcp_type) {
+        (None, None)
+    } else {
+        // p0f's `tot_hdr`: every header byte ahead of the payload, options
+        // included, which is one of the MTU divisors a window can be a multiple
+        // of.
+        let tot_hdr =
+            ip_header_bytes.saturating_add(u16::from(tcp.get_data_offset()).saturating_mul(4));
 
-        ObservableTcp {
+        let observation = ObservableTcp {
             matching: TcpObservation {
                 version,
                 ittl,
                 olen,
                 mss,
-                wsize,
+                wsize: tcp.get_window(),
+                tot_hdr,
                 wscale,
                 olayout,
                 quirks,
@@ -428,18 +450,13 @@ fn visit_tcp(
                     PayloadSize::NonZero
                 },
             },
-        }
-    };
+        };
 
-    #[cfg(any(feature = "syn", feature = "syn-ack"))]
-    #[cfg_attr(
-        not(all(feature = "syn", feature = "syn-ack")),
-        allow(unused_variables)
-    )]
-    let (tcp_request, tcp_response) = if from_client {
-        (Some(tcp_signature), None)
-    } else {
-        (None, Some(tcp_signature))
+        if tcp_type == SYN {
+            (Some(observation), None)
+        } else {
+            (None, Some(observation))
+        }
     };
 
     Ok(ObservableTCPPackage {
