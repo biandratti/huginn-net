@@ -78,8 +78,8 @@ const FUZZY_ADDABLE_QUIRKS: [Quirk; 2] = [Quirk::ZeroID, Quirk::Ecn];
 
 /// Whether a database quirk must be ignored because the signature is
 /// version-agnostic (`ver == *`) and the quirk only exists for the other IP
-/// version. Mirrors the `ref_quirks &= …` masking in
-/// `data/p0f/fp_tcp.c::tcp_find_match`.
+/// version. Mirrors the `ref_quirks &= …` masking p0f applies before
+/// comparing.
 fn quirk_masked_by_ip_version(
     quirk: &Quirk,
     signature_version: IpVersion,

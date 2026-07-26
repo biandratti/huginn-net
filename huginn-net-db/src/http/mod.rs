@@ -9,5 +9,5 @@ pub use huginn_net_http::http::{
 mod distances;
 mod signature;
 
-pub use distances::{distance_expsw, distance_header, distance_http_version};
+pub use distances::{distance_expsw, distance_habsent, distance_header, distance_http_version};
 pub use signature::{HttpMatchQuality, Signature};

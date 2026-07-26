@@ -18,8 +18,8 @@ pub fn distance_ip_version(observed: &IpVersion, signature: &IpVersion) -> Optio
 
 /// Largest hop count still considered plausible between the fingerprinted
 /// host and the sensor. Beyond it the observed TTL no longer supports the
-/// signature's initial TTL, and the match degrades to fuzzy. Mirrors
-/// `MAX_DIST` in `data/p0f/config.h`.
+/// signature's initial TTL, and the match degrades to fuzzy. Mirrors p0f's
+/// `MAX_DIST`.
 pub const MAX_TTL_DISTANCE: u8 = 40;
 
 /// TTL as seen on the wire, whichever form the observation was classified
@@ -30,9 +30,9 @@ fn observed_ttl(observed: &Ttl) -> u8 {
     }
 }
 
-/// Initial TTL a database signature claims for the OS. Matches p0f's
-/// `.fp` parsing: `nnn+d` sums both
-/// halves, while `nnn` and `nnn-` are used verbatim.
+/// Initial TTL a database signature claims for the OS. Matches p0f's `.fp`
+/// parsing: `nnn+d` sums both halves, while `nnn` and `nnn-` are used
+/// verbatim.
 fn signature_initial_ttl(signature: &Ttl) -> u8 {
     match signature {
         Ttl::Value(ttl) | Ttl::Guess(ttl) | Ttl::Bad(ttl) => *ttl,
@@ -46,7 +46,7 @@ fn signature_initial_ttl(signature: &Ttl) -> u8 {
 /// value is expected to sit *below* the signature's initial TTL, by at most
 /// [`MAX_TTL_DISTANCE`] hops. Within that window the field matches exactly;
 /// outside it the signature still matches, but only as fuzzy — p0f never
-/// rejects on TTL alone (`data/p0f/fp_tcp.c::tcp_find_match`).
+/// rejects on TTL alone.
 ///
 /// The one exception is a signature with a randomised TTL (`nnn-`, parsed as
 /// [`Ttl::Bad`]): the value carries no hop information, so only the upper
