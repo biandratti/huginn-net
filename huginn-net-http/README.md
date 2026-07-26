@@ -86,13 +86,13 @@ Add this to your `Cargo.toml`:
 [dependencies]
 # Pick the analyses you want via `features` (see "Cargo Features" below).
 # `full` is the convenience alias for "everything this version offers".
-huginn-net-http = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-http = { version = "2.0.0", features = ["full"] }
 # Optional: only needed if you want browser/server fingerprint matching.
 # Skip it for an observation-only build (raw HTTP signatures, Akamai
 # HTTP/2 fingerprints, etc.). With `features = ["http"]` you only pull in
 # the HTTP half of the p0f database (no TCP parser, no TCP signatures
 # embedded).
-huginn-net-db = { version = "2.0.0-rc", features = ["http"] }
+huginn-net-db = { version = "2.0.0", features = ["http"] }
 ```
 
 ### Cargo Features
@@ -112,16 +112,16 @@ Common opt-in patterns:
 
 ```toml
 # Everything this version offers (forward-compatible with future axes).
-huginn-net-http = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-http = { version = "2.0.0", features = ["full"] }
 
 # Client-side only (request fingerprinting), no akamai, no response parsing.
-huginn-net-http = { version = "2.0.0-rc", features = ["p0f-request"] }
+huginn-net-http = { version = "2.0.0", features = ["p0f-request"] }
 
 # Akamai HTTP/2 fingerprinting only, no p0f path compiled in at all.
-huginn-net-http = { version = "2.0.0-rc", features = ["akamai"] }
+huginn-net-http = { version = "2.0.0", features = ["akamai"] }
 
 # Both p0f sides, no akamai.
-huginn-net-http = { version = "2.0.0-rc", features = ["p0f-request", "p0f-response"] }
+huginn-net-http = { version = "2.0.0", features = ["p0f-request", "p0f-response"] }
 ```
 
 When neither p0f side is enabled, `process_tcp_packet` short-circuits

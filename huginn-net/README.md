@@ -38,8 +38,8 @@ version offers (and any added in future 2.x releases):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = ["full"] }
-huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
+huginn-net = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 ### Cargo Features
@@ -71,35 +71,35 @@ in `full` automatically):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = ["full"] }
-huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
+huginn-net = { version = "2.0.0", features = ["full"] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 Opt into only what you need (example: SYN-only, no MTU / uptime / SYN+ACK, both HTTP sides):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = [
+huginn-net = { version = "2.0.0", features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
-huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 Drop one of the HTTP sides (example: full TCP + request-only HTTP):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = [
+huginn-net = { version = "2.0.0", features = [
     "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
 ] }
-huginn-net-db = { version = "2.0.0-rc", features = ["full"] }
+huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 Observation-only build (no database, no p0f matching; useful for TLS terminators, sidecars, or custom matchers):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.0.0-rc", features = [
+huginn-net = { version = "2.0.0", features = [
     "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
     "http-p0f-request", "http-p0f-response",
 ] }
