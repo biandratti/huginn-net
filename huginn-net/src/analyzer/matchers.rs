@@ -1,6 +1,13 @@
 use super::HuginnNet;
 #[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
-use huginn_net_http::http::{build_params, HttpParams, MatchedSignatureNotes};
+use huginn_net_http::http::{build_params, HttpParams};
+// Notes about a matched signature only exist when there is a database to match
+// against.
+#[cfg(all(
+    feature = "db",
+    any(feature = "http-p0f-request", feature = "http-p0f-response")
+))]
+use huginn_net_http::http::MatchedSignatureNotes;
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]

@@ -20,6 +20,14 @@ fn observed_syn(
     olayout: Vec<TcpOption>,
     quirks: Vec<Quirk>,
 ) -> ObservableTcp {
+    // Twenty bytes of IP header plus a TCP header of five words and one more per
+    // option, which is close enough for a test that only reads the window.
+    let option_words = u16::try_from(olayout.len()).unwrap_or(0);
+    let tot_hdr = option_words
+        .saturating_add(5)
+        .saturating_mul(4)
+        .saturating_add(20);
+
     ObservableTcp {
         matching: TcpObservation {
             version: IpVersion::V4,
@@ -27,7 +35,7 @@ fn observed_syn(
             olen: 0,
             mss,
             wsize: window,
-            tot_hdr: 20 + 4 * (5 + olayout.len() as u16),
+            tot_hdr,
             wscale,
             olayout,
             quirks,

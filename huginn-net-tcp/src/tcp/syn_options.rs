@@ -1,8 +1,10 @@
 //! Raw TCP options parser.
 //!
 //! Provides [`parse_options_raw`] for decoding TCP options from raw bytes (TLV encoding, RFC 793).
-//! Pair it with [`crate::ttl::calculate_ttl`] and [`crate::window_size::detect_win_multiplicator`]
-//! to assemble a complete [`crate::observable::TcpObservation`].
+//! Pair it with [`crate::ttl::calculate_ttl`] to assemble a complete
+//! [`crate::observable::TcpObservation`], which keeps the window as it came off
+//! the wire and resolves a multiplier on demand with
+//! [`crate::tcp::detect_win_multi`].
 
 use super::TcpOption;
 use pnet::packet::tcp::{TcpOptionNumbers::*, TcpOptionPacket};

@@ -227,8 +227,12 @@ pub fn process_tcp_ipv6(
 }
 
 #[allow(clippy::too_many_arguments)]
+// Each of the arguments below is read by one feature only: the IP header length in
+// words by `mtu`, the same length in bytes by the observation, the timestamps by
+// `uptime`. Whichever is off leaves its argument unread.
 #[cfg_attr(
     any(
+        not(feature = "mtu"),
         not(feature = "uptime"),
         not(any(feature = "syn", feature = "syn-ack")),
     ),

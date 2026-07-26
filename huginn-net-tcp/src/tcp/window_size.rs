@@ -66,7 +66,11 @@ pub fn detect_win_multi(
     ];
 
     divisors.into_iter().find_map(|(divisor, of_mtu)| {
-        (divisor != 0 && wsize % divisor == 0)
-            .then(|| WindowMultiplier { multiple: wsize / divisor, of_mtu })
+        // The checked operations double as the skip: a divisor of zero yields
+        // `None` and the search moves on to the next one.
+        let multiple = wsize.checked_div(divisor)?;
+        let remainder = wsize.checked_rem(divisor)?;
+
+        (remainder == 0).then_some(WindowMultiplier { multiple, of_mtu })
     })
 }
