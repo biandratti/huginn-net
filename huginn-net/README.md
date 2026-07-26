@@ -39,8 +39,14 @@ version offers (and any added in future 2.x releases):
 ```toml
 [dependencies]
 huginn-net = { version = "2.0.0", features = ["full"] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
+
+`huginn-net-db` doesn't need to be added separately: it's an optional
+dependency pulled in automatically by the `db` feature (part of `full`),
+and its `Database` type is re-exported as `huginn_net::Database`. Add
+`huginn-net-db` directly only if you use `huginn-net-tcp` /
+`huginn-net-http` standalone (see their READMEs) or need types not
+re-exported by the umbrella crate.
 
 ### Cargo Features
 
@@ -72,7 +78,6 @@ in `full` automatically):
 ```toml
 [dependencies]
 huginn-net = { version = "2.0.0", features = ["full"] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 Opt into only what you need (example: SYN-only, no MTU / uptime / SYN+ACK, both HTTP sides):
@@ -82,7 +87,6 @@ Opt into only what you need (example: SYN-only, no MTU / uptime / SYN+ACK, both 
 huginn-net = { version = "2.0.0", features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 Drop one of the HTTP sides (example: full TCP + request-only HTTP):
@@ -92,7 +96,6 @@ Drop one of the HTTP sides (example: full TCP + request-only HTTP):
 huginn-net = { version = "2.0.0", features = [
     "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
 ] }
-huginn-net-db = { version = "2.0.0", features = ["full"] }
 ```
 
 Observation-only build (no database, no p0f matching; useful for TLS terminators, sidecars, or custom matchers):
@@ -295,7 +298,7 @@ For production deployments or high-throughput scenarios, use the protocol-specif
 |-------|---------|------------------|----------|
 | **[huginn-net-tcp](../huginn-net-tcp/README.md)** | TCP/OS fingerprinting (p0f-style) | Source IP hash routing | Live capture, connection tracking |
 | **[huginn-net-http](../huginn-net-http/README.md)** | HTTP browser/server detection | Flow-based hash routing | Live capture, request/response matching |
-| **[huginn-net-tls](../huginn-net-tls/README.md)** | TLS/JA4 fingerprinting | Round-robin dispatch | Live capture, stateless processing |
+| **[huginn-net-tls](../huginn-net-tls/README.md)** | TLS/JA4 fingerprinting | Flow-based hash routing | Live capture, stateless processing |
 
 **Performance Notes:**
 > **When to use `huginn-net`:** Quick prototyping, general analysis, PCAP file analysis, or when you need all protocols analyzed simultaneously. For production systems analyzing live network traffic at high rates (1+ Gbps), use the protocol-specific crates with parallel mode.
