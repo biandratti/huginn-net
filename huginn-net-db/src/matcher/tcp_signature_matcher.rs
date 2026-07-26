@@ -1,9 +1,9 @@
 use crate::database::{Label, TcpDatabase, Type};
-use crate::db_matching_trait::FingerprintDb;
+use crate::db_matching_trait::{DatabaseMatch, FingerprintDb};
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
 use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::observable::TcpObservation;
-use huginn_net_tcp::output::{OperativeSystem, OsKind};
+use huginn_net_tcp::output::{FuzzyReason, OperativeSystem, OsKind};
 use std::sync::Arc;
 
 pub struct TcpSignatureMatcher<'a> {
@@ -18,7 +18,7 @@ impl<'a> TcpSignatureMatcher<'a> {
     pub fn matching_by_tcp_request(
         &self,
         signature: &ObservableTcp,
-    ) -> Option<(&'a Label, &'a crate::tcp::Signature, f32)> {
+    ) -> Option<DatabaseMatch<'a, crate::tcp::Signature, FuzzyReason>> {
         self.database
             .tcp_request
             .find_best_match(&signature.matching)
@@ -27,7 +27,7 @@ impl<'a> TcpSignatureMatcher<'a> {
     pub fn matching_by_tcp_response(
         &self,
         signature: &ObservableTcp,
-    ) -> Option<(&'a Label, &'a crate::tcp::Signature, f32)> {
+    ) -> Option<DatabaseMatch<'a, crate::tcp::Signature, FuzzyReason>> {
         self.database
             .tcp_response
             .find_best_match(&signature.matching)
@@ -68,13 +68,21 @@ impl From<&Label> for OperativeSystem {
 // ---------------------------------------------------------------------------
 
 fn match_tcp_request_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
-    let (label, _sig, quality) = db.tcp_request.find_best_match(obs)?;
-    Some(TcpMatch { os: OperativeSystem::from(label), quality })
+    let found = db.tcp_request.find_best_match(obs)?;
+    Some(TcpMatch {
+        os: OperativeSystem::from(found.label),
+        quality: found.quality,
+        fuzzy: found.fuzzy,
+    })
 }
 
 fn match_tcp_response_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
-    let (label, _sig, quality) = db.tcp_response.find_best_match(obs)?;
-    Some(TcpMatch { os: OperativeSystem::from(label), quality })
+    let found = db.tcp_response.find_best_match(obs)?;
+    Some(TcpMatch {
+        os: OperativeSystem::from(found.label),
+        quality: found.quality,
+        fuzzy: found.fuzzy,
+    })
 }
 
 fn match_mtu_impl(db: &TcpDatabase, mtu: u16) -> Option<MtuMatch> {

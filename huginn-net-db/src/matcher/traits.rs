@@ -14,38 +14,49 @@ pub trait ObservedFingerprint: Clone + Debug {
 /// How well a database signature fits an observation, when it fits at all.
 ///
 /// There is no accumulated score here. Every field is either a gate the
-/// signature passes or fails, plus the two narrow tolerances p0f documents,
-/// so what a comparison yields is "does it hold, and did it need a tolerance".
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SignatureFit {
-    /// A tolerance had to be stretched for the match to hold, which ranks this
-    /// candidate below every signature that fit exactly.
-    pub fuzzy: bool,
+/// signature passes or fails, plus the narrow tolerances p0f documents, so what
+/// a comparison yields is "does it hold, and did it need a tolerance".
+///
+/// `F` describes the tolerance that was applied, which is protocol-specific.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignatureFit<F> {
+    /// The tolerance that had to be stretched for the match to hold, which ranks
+    /// this candidate below every signature that fit exactly.
+    pub fuzzy: Option<F>,
     /// How far this candidate sits from the observation *within* its tier.
     /// Used only to break ties between candidates of the same rank; lower is
     /// closer. Protocols with nothing to measure report `0`.
     pub deviation: u32,
 }
 
-impl SignatureFit {
+impl<F> SignatureFit<F> {
     /// Every field matched, nothing was stretched.
     pub fn exact(deviation: u32) -> Self {
-        Self { fuzzy: false, deviation }
+        Self { fuzzy: None, deviation }
     }
 
-    /// The match only holds because a tolerance was applied.
-    pub fn fuzzy(deviation: u32) -> Self {
-        Self { fuzzy: true, deviation }
+    /// The match only holds because `reason` was tolerated.
+    pub fn fuzzy(reason: F, deviation: u32) -> Self {
+        Self { fuzzy: Some(reason), deviation }
     }
 }
+
+/// Placeholder for a protocol with no tolerances at all: being uninhabited, it
+/// makes a fuzzy HTTP match unrepresentable rather than merely unused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoFuzziness {}
 
 /// A fingerprint signature as defined in a database.
 /// `OF` is the type of `ObservedFingerprint` that this database signature can be compared against.
 pub trait DatabaseSignature<OF: ObservedFingerprint> {
+    /// How this protocol describes an applied tolerance. [`NoFuzziness`] for
+    /// protocols that have none.
+    type Fuzziness;
+
     /// Compares this signature against an observation. `None` rejects it: a
     /// signature that fails any gate is not a worse candidate, it is not a
     /// candidate.
-    fn fit(&self, observed: &OF) -> Option<SignatureFit>;
+    fn fit(&self, observed: &OF) -> Option<SignatureFit<Self::Fuzziness>>;
 
     /// Generates index keys from this database signature.
     /// It's a Vec because some DB signatures (like IpVersion::Any) might map to multiple keys.
@@ -89,11 +100,23 @@ impl MatchRank {
     }
 }
 
+/// The candidate that won selection.
+#[derive(Debug)]
+pub struct DatabaseMatch<'a, DS, F> {
+    /// Label of the matched entry.
+    pub label: &'a Label,
+    /// The signature that matched, as written in the database.
+    pub signature: &'a DS,
+    /// Quality score derived from the tier the match landed in.
+    pub quality: f32,
+    /// The tolerance that was applied, when the match is not exact.
+    pub fuzzy: Option<F>,
+}
+
 /// Represents a collection of database signatures of a specific type.
 /// `OF` is the `ObservedFingerprint` type.
 /// `DS` is the `DatabaseSignature` type that can be compared against `OF`.
 pub trait FingerprintDb<OF: ObservedFingerprint, DS: DatabaseSignature<OF>> {
     /// Finds the best match for an observed fingerprint within this database.
-    /// Returns the label of the match, the matching database signature, and a quality score.
-    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, f32)>;
+    fn find_best_match(&self, observed: &OF) -> Option<DatabaseMatch<'_, DS, DS::Fuzziness>>;
 }

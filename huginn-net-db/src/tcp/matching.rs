@@ -24,6 +24,7 @@ use crate::tcp::{
     PayloadSize, Quirk,
 };
 use huginn_net_tcp::observable::TcpObservation;
+use huginn_net_tcp::output::FuzzyReason;
 
 /// `olen` is never wildcarded in p0f's format: a mismatch is a hard reject.
 pub(crate) fn olen_matches(observed: &TcpObservation, signature: &tcp::Signature) -> bool {
@@ -72,19 +73,38 @@ fn quirk_masked_by_ip_version(
     }
 }
 
+/// The quirks that had to be tolerated for a signature to hold. Empty on both
+/// sides when the sets agreed exactly.
+#[derive(Debug, Default)]
+pub(crate) struct QuirksFit {
+    /// Shown by the traffic, not declared by the signature.
+    pub added: Vec<Quirk>,
+    /// Declared by the signature, not shown by the traffic.
+    pub missing: Vec<Quirk>,
+}
+
+impl QuirksFit {
+    fn is_exact(&self) -> bool {
+        self.added.is_empty() && self.missing.is_empty()
+    }
+}
+
 /// Quirks are compared as sets, not as ordered lists, and a narrow set of
 /// differences is tolerated as a fuzzy match: `df`/`id+` may be absent from
 /// the traffic, and `id-`/`ecn` may appear in it. Any other difference
 /// rejects the signature outright.
 ///
-/// Returns whether the tolerance had to be used; `None` rejects.
-pub(crate) fn quirks_fit(observed: &TcpObservation, signature: &tcp::Signature) -> Option<bool> {
+/// Returns which quirks the tolerance had to cover; `None` rejects.
+pub(crate) fn quirks_fit(
+    observed: &TcpObservation,
+    signature: &tcp::Signature,
+) -> Option<QuirksFit> {
     let declared_by_signature = |quirk: &Quirk| {
         signature.quirks.contains(quirk)
             && !quirk_masked_by_ip_version(quirk, signature.version, observed.version)
     };
 
-    let mut fuzzy = false;
+    let mut fit = QuirksFit::default();
 
     for quirk in &signature.quirks {
         if quirk_masked_by_ip_version(quirk, signature.version, observed.version)
@@ -95,7 +115,7 @@ pub(crate) fn quirks_fit(observed: &TcpObservation, signature: &tcp::Signature) 
         if !FUZZY_DELETABLE_QUIRKS.contains(quirk) {
             return None;
         }
-        fuzzy = true;
+        fit.missing.push(quirk.clone());
     }
 
     for quirk in &observed.quirks {
@@ -105,10 +125,10 @@ pub(crate) fn quirks_fit(observed: &TcpObservation, signature: &tcp::Signature) 
         if !FUZZY_ADDABLE_QUIRKS.contains(quirk) {
             return None;
         }
-        fuzzy = true;
+        fit.added.push(quirk.clone());
     }
 
-    Some(fuzzy)
+    Some(fit)
 }
 
 impl ObservedFingerprint for TcpObservation {
@@ -125,10 +145,13 @@ impl ObservedFingerprint for TcpObservation {
 }
 
 impl DatabaseSignature<TcpObservation> for tcp::Signature {
+    type Fuzziness = FuzzyReason;
+
     /// Seven of the nine fields are pure gates. Only `ttl` and `quirks` carry
     /// p0f's tolerances, and either one being stretched makes the whole match
-    /// fuzzy.
-    fn fit(&self, observed: &TcpObservation) -> Option<SignatureFit> {
+    /// fuzzy — they can also both be stretched at once, which is why the reason
+    /// reports each independently.
+    fn fit(&self, observed: &TcpObservation) -> Option<SignatureFit<FuzzyReason>> {
         let gates = ip_version_matches(&observed.version, &self.version)
             && olen_matches(observed, self)
             && mss_matches(observed, self)
@@ -142,16 +165,21 @@ impl DatabaseSignature<TcpObservation> for tcp::Signature {
         }
 
         let ttl = ttl_fit(&observed.ittl, &self.ittl)?;
-        let quirks_fuzzy = quirks_fit(observed, self)?;
+        let quirks = quirks_fit(observed, self)?;
 
         // The hop distance ranks candidates inside a tier: given two signatures
         // that both fit, the one whose initial TTL sits closer to what we saw
         // is the better explanation.
-        Some(if ttl.out_of_range || quirks_fuzzy {
-            SignatureFit::fuzzy(ttl.hop_distance)
-        } else {
-            SignatureFit::exact(ttl.hop_distance)
-        })
+        if !ttl.out_of_range && quirks.is_exact() {
+            return Some(SignatureFit::exact(ttl.hop_distance));
+        }
+
+        let reason = FuzzyReason {
+            implausible_hop_distance: ttl.out_of_range.then_some(ttl.hop_distance),
+            added_quirks: quirks.added,
+            missing_quirks: quirks.missing,
+        };
+        Some(SignatureFit::fuzzy(reason, ttl.hop_distance))
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpIndexKey> {

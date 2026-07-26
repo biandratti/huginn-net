@@ -2,7 +2,8 @@
 
 use crate::database::label::{Label, Type};
 use crate::db_matching_trait::{
-    DatabaseSignature, FingerprintDb, IndexKey, MatchRank, ObservedFingerprint, SignatureFit,
+    DatabaseMatch, DatabaseSignature, FingerprintDb, IndexKey, MatchRank, ObservedFingerprint,
+    SignatureFit,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -75,12 +76,12 @@ where
     DS: DatabaseSignature<OF> + Display,
     K: IndexKey,
 {
-    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, f32)> {
+    fn find_best_match(&self, observed: &OF) -> Option<DatabaseMatch<'_, DS, DS::Fuzziness>> {
         let observed_key = observed.generate_index_key();
 
         let candidate_indices = self.index.get(&observed_key)?;
 
-        let mut best: Option<(&Label, &DS, MatchRank, u32)> = None;
+        let mut best: Option<(&Label, &DS, MatchRank, SignatureFit<DS::Fuzziness>)> = None;
 
         for &(label_idx, sig_idx) in candidate_indices {
             let (label, sig_vec) = &self.entries[label_idx];
@@ -90,7 +91,7 @@ where
                 continue;
             };
 
-            let Some(rank) = rank_of(label, fit) else {
+            let Some(rank) = rank_of(label, &fit) else {
                 continue;
             };
 
@@ -102,14 +103,23 @@ where
             // Better rank wins outright; within a rank, the closer candidate
             // does. Ties keep the earlier entry, so a `.fp` still decides
             // between two equally good signatures by its own order.
-            if best.is_none_or(|(_, _, best_rank, best_deviation)| {
-                (rank, fit.deviation) < (best_rank, best_deviation)
-            }) {
-                best = Some((label, db_sig, rank, fit.deviation));
+            let better = match &best {
+                Some((_, _, best_rank, best_fit)) => {
+                    (rank, fit.deviation) < (*best_rank, best_fit.deviation)
+                }
+                None => true,
+            };
+            if better {
+                best = Some((label, db_sig, rank, fit));
             }
         }
 
-        best.map(|(label, sig, rank, _)| (label, sig, rank.as_quality()))
+        best.map(|(label, signature, rank, fit)| DatabaseMatch {
+            label,
+            signature,
+            quality: rank.as_quality(),
+            fuzzy: fit.fuzzy,
+        })
     }
 }
 
@@ -120,8 +130,8 @@ where
 /// (`fp_tcp.c:256`): guessing at an application from an approximate match is
 /// worse than saying nothing, so an application signature — one whose label
 /// declares no OS class — is only ever reported on an exact fit.
-fn rank_of(label: &Label, fit: SignatureFit) -> Option<MatchRank> {
-    if fit.fuzzy {
+fn rank_of<F>(label: &Label, fit: &SignatureFit<F>) -> Option<MatchRank> {
+    if fit.fuzzy.is_some() {
         return label.class.is_some().then_some(MatchRank::Fuzzy);
     }
 

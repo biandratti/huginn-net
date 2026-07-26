@@ -19,7 +19,7 @@
 //! `lib.rs`.
 
 use crate::database::HttpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint, SignatureFit};
+use crate::db_matching_trait::{DatabaseSignature, NoFuzziness, ObservedFingerprint, SignatureFit};
 use crate::http::{
     self, absent_headers_match, expsw_matches, headers_match, http_version_matches, Header, Version,
 };
@@ -114,7 +114,7 @@ impl HttpDistance for HttpResponseObservation {
 }
 
 trait HttpSignatureHelper {
-    fn http_fit<T: HttpDistance>(&self, observed: &T) -> Option<SignatureFit>;
+    fn http_fit<T: HttpDistance>(&self, observed: &T) -> Option<SignatureFit<NoFuzziness>>;
 
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey>;
 }
@@ -128,7 +128,7 @@ impl HttpSignatureHelper for http::Signature {
     /// `expsw` is deliberately absent: p0f checks it only after a signature has
     /// been chosen, and a mismatch flags the host as dishonest instead of
     /// making the signature fit any worse.
-    fn http_fit<T: HttpDistance>(&self, observed: &T) -> Option<SignatureFit> {
+    fn http_fit<T: HttpDistance>(&self, observed: &T) -> Option<SignatureFit<NoFuzziness>> {
         let gates = http_version_matches(observed.get_version(), self.version)
             && headers_match(observed.get_horder(), &self.horder)
             && absent_headers_match(observed.get_horder(), &self.habsent);
@@ -149,7 +149,9 @@ impl HttpSignatureHelper for http::Signature {
 }
 
 impl DatabaseSignature<HttpRequestObservation> for http::Signature {
-    fn fit(&self, observed: &HttpRequestObservation) -> Option<SignatureFit> {
+    type Fuzziness = NoFuzziness;
+
+    fn fit(&self, observed: &HttpRequestObservation) -> Option<SignatureFit<NoFuzziness>> {
         self.http_fit(observed)
     }
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
@@ -158,7 +160,9 @@ impl DatabaseSignature<HttpRequestObservation> for http::Signature {
 }
 
 impl DatabaseSignature<HttpResponseObservation> for http::Signature {
-    fn fit(&self, observed: &HttpResponseObservation) -> Option<SignatureFit> {
+    type Fuzziness = NoFuzziness;
+
+    fn fit(&self, observed: &HttpResponseObservation) -> Option<SignatureFit<NoFuzziness>> {
         self.http_fit(observed)
     }
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {

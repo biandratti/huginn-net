@@ -37,6 +37,43 @@ whose initial TTL is closest to what was observed. Application signatures
 
 ---
 
+### `TcpMatchQuality::Matched` says what was tolerated
+
+The variant carries a struct instead of a bare float, so a fuzzy match can name
+the tolerance it needed rather than only scoring lower for it:
+
+```rust
+// v2.0
+match os_matched.quality {
+    MatchQuality::Matched(quality) => …,
+    …
+}
+
+// v2.1.0
+match os_matched.quality {
+    MatchQuality::Matched { quality, fuzzy: None } => …,        // exact fit
+    MatchQuality::Matched { quality, fuzzy: Some(reason) } => { // held by a tolerance
+        println!("{reason}");                    // "missing id+, extra ecn"
+        reason.implausible_hop_distance;         // Option<u32>
+        reason.added_quirks;                     // Vec<Quirk>
+        reason.missing_quirks;                   // Vec<Quirk>
+    }
+    …
+}
+```
+
+`MatchQuality::exact(q)` builds the fuzzy-free case, which is what the MTU match
+reports: an MTU either equals a known link's value or it does not.
+
+Whether the match is specific or generic is *not* in here — `os.kind` already
+carries it. HTTP is unchanged, since p0f defines no tolerances for it.
+
+The `Params:` line of the TCP output follows p0f's vocabulary now (`generic`,
+`fuzzy (…)`, or `none`) instead of printing `Specified`/`Generic`, which matches
+what the HTTP output already did.
+
+---
+
 ### `HttpDiagnosis` → `HttpParams`
 
 `HttpRequestOutput`/`HttpResponseOutput` carry `params: HttpParams` instead of
@@ -65,8 +102,10 @@ are gone. Each one is replaced by a check that answers the question directly.
 | v2.0 | v2.1 |
 |------|------|
 | `http_common::get_diagnostic` | `http_common::build_params` |
-| `DatabaseSignature::calculate_distance` + `get_quality_score` | `DatabaseSignature::fit`, returning `Option<SignatureFit>` |
-| `MatchQuality` trait, `TcpMatchQuality`, `HttpMatchQuality` | removed; use `MatchRank` |
+| `DatabaseSignature::calculate_distance` + `get_quality_score` | `DatabaseSignature::fit`, returning `Option<SignatureFit<Self::Fuzziness>>` |
+| `MatchQuality` trait, `TcpMatchQuality`, `HttpMatchQuality` (the database-side traits) | removed; use `MatchRank` |
+| `FingerprintDb::find_best_match` returning `(&Label, &DS, f32)` | returns `DatabaseMatch`, whose fields are named |
+| `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response` returning tuples | the same `DatabaseMatch` |
 | `tcp::distance_ttl` | `tcp::ttl_fit` (returns the hop distance) |
 | `tcp::distance_ip_version`, `distance_window_size`, `distance_payload_size` | `ip_version_matches`, `window_size_matches`, `payload_size_matches` (`bool`) |
 | `http::distance_http_version`, `distance_header`, `distance_habsent` | `http_version_matches`, `headers_match`, `absent_headers_match` (`bool`) |

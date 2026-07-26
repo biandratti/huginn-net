@@ -13,7 +13,7 @@ pub fn ip_version_matches(observed: &IpVersion, signature: &IpVersion) -> bool {
 /// host and the sensor. Beyond it the observed TTL no longer supports the
 /// signature's initial TTL, and the match degrades to fuzzy. Mirrors p0f's
 /// `MAX_DIST`.
-pub const MAX_TTL_DISTANCE: u8 = 40;
+pub const MAX_TTL_DISTANCE: u8 = 35;
 
 /// TTL as seen on the wire, whichever form the observation was classified
 /// into by `huginn_net_tcp::tcp::calculate_ttl`.

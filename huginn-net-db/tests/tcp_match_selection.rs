@@ -63,7 +63,7 @@ fn best_match(entries: Vec<(Label, Vec<Signature>)>) -> Option<(String, f32)> {
     let collection = TcpCollection::new(entries);
     collection
         .find_best_match(&observation())
-        .map(|(label, _signature, quality)| (label.name.clone(), quality))
+        .map(|found| (found.label.name.clone(), found.quality))
 }
 
 #[test]

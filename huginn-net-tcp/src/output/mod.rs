@@ -16,6 +16,17 @@ pub(crate) fn serialize_display<T: std::fmt::Display, S: serde::Serializer>(
     s.serialize_str(&val.to_string())
 }
 
+#[cfg(feature = "json")]
+pub(crate) fn serialize_optional_display<T: std::fmt::Display, S: serde::Serializer>(
+    val: &Option<T>,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    match val {
+        Some(val) => s.serialize_some(&val.to_string()),
+        None => s.serialize_none(),
+    }
+}
+
 pub use common::*;
 #[cfg(feature = "mtu")]
 pub use mtu::*;

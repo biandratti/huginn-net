@@ -20,7 +20,7 @@
 ///     call: matcher => None::<(Label, String, f32)>,
 ///     matched: (label, _signature, quality) => OSQualityMatched {
 ///         os: Some(OperativeSystem::from(&label)),
-///         quality: MatchQuality::Matched(quality),
+///         quality: MatchQuality::exact(quality),
 ///     },
 ///     not_matched: OSQualityMatched {
 ///         os: None,
@@ -79,7 +79,7 @@ macro_rules! quality_match {
 ///     method: matching_by_mtu(&observable_mtu.value),
 ///     success: (link, _) => MTUQualityMatched {
 ///         link: Some(link.clone()),
-///         quality: MatchQuality::Matched(1.0),
+///         quality: MatchQuality::exact(1.0),
 ///     },
 ///     failure: MTUQualityMatched {
 ///         link: None,
