@@ -2,6 +2,46 @@
 
 ---
 
+## v2.0.0 → v2.1.0
+
+### What changed
+
+The matcher now follows p0f's algorithm instead of summing soft penalties, so
+which signatures match changes: TCP gains coverage (p0f's fuzzy tolerances for
+quirks and TTL are honoured), HTTP loses it (no error budget — a header that
+does not fit is a rejection), and HTTP quality scores go up.
+
+---
+
+### `HttpDiagnosis` → `HttpParams`
+
+`HttpRequestOutput`/`HttpResponseOutput` carry `params: HttpParams` instead of
+`diagnosis: HttpDiagnosis`, because p0f reports these as combinable flags
+(`dishonest generic`) rather than one verdict.
+
+```rust
+// v2.0
+match output.diagnosis { HttpDiagnosis::Dishonest => …, … }
+
+// v2.1
+if output.params.dishonest { … }
+println!("{}", output.params); // "dishonest generic", or "none"
+```
+
+`dishonest` now means what p0f means: the `User-Agent`/`Server` string does not
+contain the software the matched signature declares.
+
+---
+
+### Removed
+
+| v2.0 | v2.1 |
+|------|------|
+| `http_common::get_diagnostic` | `http_common::build_params` |
+| `huginn_net_db::http::distance_expsw` | `huginn_net_db::http::expsw_matches` (no longer part of the distance) |
+
+---
+
 ## v1.x → v2.0.0
 
 ### What changed

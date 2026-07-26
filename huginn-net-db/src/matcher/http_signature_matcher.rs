@@ -1,5 +1,6 @@
 use crate::database::{HttpDatabase, Label, Type};
 use crate::db_matching_trait::FingerprintDb;
+use crate::http::expsw_matches;
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 use huginn_net_http::output::{Browser, OsKind, WebServer};
@@ -78,16 +79,24 @@ fn match_http_request_impl(
     db: &HttpDatabase,
     obs: &HttpRequestObservation,
 ) -> Option<HttpRequestMatch> {
-    let (label, _sig, quality) = db.http_request.find_best_match(obs)?;
-    Some(HttpRequestMatch { browser: Browser::from(label), quality })
+    let (label, sig, quality) = db.http_request.find_best_match(obs)?;
+    Some(HttpRequestMatch {
+        browser: Browser::from(label),
+        quality,
+        dishonest: !expsw_matches(&obs.expsw, &sig.expsw),
+    })
 }
 
 fn match_http_response_impl(
     db: &HttpDatabase,
     obs: &HttpResponseObservation,
 ) -> Option<HttpResponseMatch> {
-    let (label, _sig, quality) = db.http_response.find_best_match(obs)?;
-    Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+    let (label, sig, quality) = db.http_response.find_best_match(obs)?;
+    Some(HttpResponseMatch {
+        web_server: WebServer::from(label),
+        quality,
+        dishonest: !expsw_matches(&obs.expsw, &sig.expsw),
+    })
 }
 
 fn match_user_agent_impl(db: &HttpDatabase, ua: &str) -> Option<UaOsMatch> {

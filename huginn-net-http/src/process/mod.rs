@@ -6,16 +6,16 @@ pub use parallel::{DispatchResult, PoolStats, SharedHttpMatcher, WorkerPool, Wor
 
 use self::flow as http_process;
 use crate::error::HuginnNetHttpError;
-#[cfg(feature = "p0f-response")]
-use crate::http::HttpDiagnosis;
-use crate::matcher_api::HttpMatcher;
 #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
-use crate::output::MatchQuality;
+use crate::http::{build_params, MatchedSignatureNotes};
+use crate::matcher_api::HttpMatcher;
 #[cfg(feature = "p0f-request")]
 use crate::output::{BrowserQualityMatched, HttpRequestOutput};
 use crate::output::{HttpAnalysisResult, IpPort};
 #[cfg(feature = "p0f-response")]
 use crate::output::{HttpResponseOutput, WebServerQualityMatched};
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+use crate::output::{MatchQuality, OsKind};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
@@ -112,53 +112,36 @@ fn build_http_result(
 
     #[cfg(feature = "p0f-request")]
     if let Some(http_request) = http_package.http_request {
-        let (browser_quality, ua_os_family) = match matcher {
+        let (browser_quality, notes) = match matcher {
             Some(m) => match m.match_http_request(&http_request.matching) {
                 Some(req_match) => {
-                    let ua_family = http_request
-                        .user_agent
-                        .as_deref()
-                        .and_then(|ua| m.match_user_agent(ua))
-                        .map(|um| um.family);
+                    let notes = MatchedSignatureNotes {
+                        dishonest: req_match.dishonest,
+                        generic: req_match.browser.kind == OsKind::Generic,
+                    };
                     (
                         BrowserQualityMatched {
                             browser: Some(req_match.browser),
                             quality: MatchQuality::Matched(req_match.quality),
                         },
-                        ua_family,
+                        Some(notes),
                     )
                 }
-                None => {
-                    let ua_family = http_request
-                        .user_agent
-                        .as_deref()
-                        .and_then(|ua| m.match_user_agent(ua))
-                        .map(|um| um.family);
-                    (
-                        BrowserQualityMatched { browser: None, quality: MatchQuality::NotMatched },
-                        ua_family,
-                    )
-                }
+                None => (
+                    BrowserQualityMatched { browser: None, quality: MatchQuality::NotMatched },
+                    None,
+                ),
             },
             None => {
                 (BrowserQualityMatched { browser: None, quality: MatchQuality::Disabled }, None)
             }
         };
 
-        // TODO: (p0f-parity) https://github.com/biandratti/huginn-net/issues/278.
-        let network_os_name = browser_quality.browser.as_ref().map(|b| b.name.clone());
-
-        let diagnosis = crate::http::common::get_diagnostic(
-            http_request.user_agent.clone(),
-            ua_os_family.as_deref(),
-            network_os_name.as_deref(),
-        );
-
         let request_output = HttpRequestOutput {
             source: source.clone(),
             destination: destination.clone(),
             lang: http_request.lang.clone(),
-            diagnosis,
+            params: build_params(&http_request.matching.expsw, notes),
             browser_matched: browser_quality,
             sig: http_request,
         };
@@ -167,23 +150,36 @@ fn build_http_result(
 
     #[cfg(feature = "p0f-response")]
     if let Some(http_response) = http_package.http_response {
-        let web_server_quality = match matcher {
+        let (web_server_quality, notes) = match matcher {
             Some(m) => match m.match_http_response(&http_response.matching) {
-                Some(resp_match) => WebServerQualityMatched {
-                    web_server: Some(resp_match.web_server),
-                    quality: MatchQuality::Matched(resp_match.quality),
-                },
-                None => {
-                    WebServerQualityMatched { web_server: None, quality: MatchQuality::NotMatched }
+                Some(resp_match) => {
+                    let notes = MatchedSignatureNotes {
+                        dishonest: resp_match.dishonest,
+                        generic: resp_match.web_server.kind == OsKind::Generic,
+                    };
+                    (
+                        WebServerQualityMatched {
+                            web_server: Some(resp_match.web_server),
+                            quality: MatchQuality::Matched(resp_match.quality),
+                        },
+                        Some(notes),
+                    )
                 }
+                None => (
+                    WebServerQualityMatched { web_server: None, quality: MatchQuality::NotMatched },
+                    None,
+                ),
             },
-            None => WebServerQualityMatched { web_server: None, quality: MatchQuality::Disabled },
+            None => (
+                WebServerQualityMatched { web_server: None, quality: MatchQuality::Disabled },
+                None,
+            ),
         };
 
         let response_output = HttpResponseOutput {
             source,
             destination,
-            diagnosis: HttpDiagnosis::None,
+            params: build_params(&http_response.matching.expsw, notes),
             web_server_matched: web_server_quality,
             sig: http_response,
         };

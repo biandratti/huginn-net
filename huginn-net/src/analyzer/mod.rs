@@ -2,12 +2,12 @@ mod matchers;
 use matchers::cache_sizes;
 #[cfg(feature = "http-p0f-request")]
 use matchers::HttpRequestMatchResult;
+#[cfg(feature = "http-p0f-response")]
+use matchers::HttpResponseMatchResult;
 
 use crate::error::HuginnNetError;
 use crate::output::FingerprintResult;
 use crate::process::ObservablePackage;
-#[cfg(feature = "http-p0f-response")]
-use huginn_net_http::http::HttpDiagnosis;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, TcpFlow};
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::output::HttpRequestOutput;
@@ -473,7 +473,7 @@ impl<'a> HuginnNet<'a> {
                     observable_package
                         .http_request
                         .map(|observable_http_request| {
-                            let HttpRequestMatchResult { browser_quality, http_diagnosis } =
+                            let HttpRequestMatchResult { browser_quality, params } =
                                 self.match_http_request(&observable_http_request);
 
                             HttpRequestOutput {
@@ -487,7 +487,7 @@ impl<'a> HuginnNet<'a> {
                                 ),
                                 lang: observable_http_request.lang.clone(),
                                 browser_matched: browser_quality,
-                                diagnosis: http_diagnosis,
+                                params,
                                 sig: observable_http_request,
                             }
                         });
@@ -496,7 +496,7 @@ impl<'a> HuginnNet<'a> {
                 let http_response: Option<HttpResponseOutput> = observable_package
                     .http_response
                     .map(|observable_http_response| {
-                        let web_server_quality =
+                        let HttpResponseMatchResult { web_server_quality, params } =
                             self.match_http_response(&observable_http_response);
 
                         HttpResponseOutput {
@@ -509,7 +509,7 @@ impl<'a> HuginnNet<'a> {
                                 observable_package.destination.port,
                             ),
                             web_server_matched: web_server_quality,
-                            diagnosis: HttpDiagnosis::None,
+                            params,
                             sig: observable_http_response,
                         }
                     });

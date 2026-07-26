@@ -9,6 +9,7 @@
 
 use super::signature::HttpMatchQuality;
 use super::{Header, Version};
+use huginn_net_http::http::UNKNOWN_SOFTWARE;
 use tracing::debug;
 
 /// Distance score between an observed [`Version`] and a database [`Version`].
@@ -105,17 +106,24 @@ pub fn distance_habsent(observed: &[Header], signature_absent: &[Header]) -> Opt
     Some(HttpMatchQuality::High.as_score())
 }
 
-/// Distance score between an observed `expsw` string and a database
-/// signature's `expsw`.
+/// Whether the software string seen in the traffic backs up the one the
+/// matched signature declares (`expsw`).
 ///
-/// The observed value is considered a match when the signature's `expsw`
-/// contains it as a substring. Mismatches still produce a score
-/// ([`HttpMatchQuality::Bad`]) rather than `None`, matching the original
-/// behaviour expected by the database matcher.
-pub fn distance_expsw(observed: &str, signature: &str) -> Option<u32> {
-    if signature.contains(observed) {
-        Some(HttpMatchQuality::High.as_score())
-    } else {
-        Some(HttpMatchQuality::Bad.as_score())
+/// This is deliberately *not* a distance. In p0f the check runs only once a
+/// signature has already been chosen, and its outcome never rejects the
+/// signature nor makes it rank lower: it just flags the host as dishonest,
+/// because a host whose headers say Chrome while its `User-Agent` says
+/// something else is still a Chrome-shaped host.
+///
+/// The observed `User-Agent`/`Server` value must *contain* the signature's
+/// expected substring; note the database usually writes it with a leading
+/// space (`" Chrom"`), which is significant and keeps the match anchored at a
+/// token boundary. Either side having nothing to say means there is nothing
+/// to contradict, so it counts as honest.
+pub fn expsw_matches(observed: &str, signature: &str) -> bool {
+    if signature.is_empty() || observed.is_empty() || observed == UNKNOWN_SOFTWARE {
+        return true;
     }
+
+    observed.contains(signature)
 }

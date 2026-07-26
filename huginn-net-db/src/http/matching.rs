@@ -21,7 +21,7 @@
 use crate::database::HttpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
 use crate::http::{
-    self, distance_expsw, distance_habsent, distance_header, distance_http_version, Header, Version,
+    self, distance_habsent, distance_header, distance_http_version, expsw_matches, Header, Version,
 };
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
@@ -76,8 +76,10 @@ pub trait HttpDistance {
         distance_habsent(self.get_horder(), &other.habsent)
     }
 
-    fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
-        distance_expsw(self.get_expsw(), &other.expsw)
+    /// Whether the traffic's software string backs up what the signature
+    /// declares. Not part of the distance; see [`crate::http::expsw_matches`].
+    fn expsw_matches(&self, other: &http::Signature) -> bool {
+        expsw_matches(self.get_expsw(), &other.expsw)
     }
 }
 
@@ -129,10 +131,12 @@ trait HttpSignatureHelper {
 
 impl HttpSignatureHelper for http::Signature {
     fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32> {
+        // `expsw` is deliberately absent: p0f checks it only after a signature
+        // has been chosen, and a mismatch flags the host as dishonest instead
+        // of making the signature fit any worse.
         let distance = distance_http_version(observed.get_version(), self.version)?
             .saturating_add(distance_header(observed.get_horder(), &self.horder)?)
-            .saturating_add(distance_habsent(observed.get_horder(), &self.habsent)?)
-            .saturating_add(distance_expsw(observed.get_expsw(), &self.expsw)?);
+            .saturating_add(distance_habsent(observed.get_horder(), &self.habsent)?);
         Some(distance)
     }
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
