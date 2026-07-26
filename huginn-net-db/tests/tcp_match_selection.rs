@@ -68,12 +68,15 @@ fn best_match(entries: Vec<(Label, Vec<Signature>)>) -> Option<(String, f32)> {
 
 #[test]
 fn a_specific_signature_wins_over_a_generic_one_whatever_the_database_order() {
-    let specific = (label("Specific OS", Type::Specified), vec![signature()]);
-    let generic = (label("Generic OS", Type::Generic), vec![signature()]);
+    for reversed in [false, true] {
+        let mut entries = vec![
+            (label("Generic OS", Type::Generic), vec![signature()]),
+            (label("Specific OS", Type::Specified), vec![signature()]),
+        ];
+        if reversed {
+            entries.reverse();
+        }
 
-    for entries in
-        [vec![generic.clone(), specific.clone()], vec![specific.clone(), generic.clone()]]
-    {
         let (name, quality) = best_match(entries).unwrap_or_else(|| panic!("expected a match"));
         assert_eq!(name, "Specific OS");
         assert_eq!(quality, 1.0);
@@ -124,13 +127,18 @@ fn within_a_tier_the_closest_initial_ttl_wins() {
     // Both fit: the observed TTL of 64 is plausible for a host 0 hops away with
     // an initial TTL of 64, and for one 191 hops away with an initial TTL of
     // 255. Only the first is a sensible explanation.
-    let near = (label("Near OS", Type::Specified), vec![signature()]);
-    let far = (
-        label("Far OS", Type::Specified),
-        vec![Signature { ittl: Ttl::Bad(255), ..signature() }],
-    );
+    for reversed in [false, true] {
+        let mut entries = vec![
+            (
+                label("Far OS", Type::Specified),
+                vec![Signature { ittl: Ttl::Bad(255), ..signature() }],
+            ),
+            (label("Near OS", Type::Specified), vec![signature()]),
+        ];
+        if reversed {
+            entries.reverse();
+        }
 
-    for entries in [vec![far.clone(), near.clone()], vec![near.clone(), far.clone()]] {
         let (name, _quality) = best_match(entries).unwrap_or_else(|| panic!("expected a match"));
         assert_eq!(name, "Near OS");
     }
