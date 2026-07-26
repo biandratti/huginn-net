@@ -3,17 +3,13 @@
 //! against the headers actually seen in the traffic, so these tests pass an
 //! observed `horder` as the first argument.
 
-use huginn_net_db::http::{distance_habsent, Header, HttpMatchQuality};
-
-fn matches() -> Option<u32> {
-    Some(HttpMatchQuality::High.as_score())
-}
+use huginn_net_db::http::{absent_headers_match, Header};
 
 #[test]
 fn empty_absent_list_always_matches() {
     let observed = vec![Header::new("Host"), Header::new("Accept-Charset")];
 
-    assert_eq!(distance_habsent(&observed, &[]), matches());
+    assert!(absent_headers_match(&observed, &[]));
 }
 
 #[test]
@@ -21,7 +17,7 @@ fn forbidden_header_absent_from_traffic_matches() {
     let observed = vec![Header::new("Host"), Header::new("User-Agent")];
     let forbidden = vec![Header::new("Accept-Charset"), Header::new("Keep-Alive")];
 
-    assert_eq!(distance_habsent(&observed, &forbidden), matches());
+    assert!(absent_headers_match(&observed, &forbidden));
 }
 
 #[test]
@@ -33,7 +29,7 @@ fn forbidden_header_present_in_traffic_rejects() {
     ];
     let forbidden = vec![Header::new("Accept-Charset")];
 
-    assert_eq!(distance_habsent(&observed, &forbidden), None);
+    assert!(!absent_headers_match(&observed, &forbidden));
 }
 
 #[test]
@@ -43,7 +39,7 @@ fn only_the_header_name_is_considered() {
     let observed = vec![Header::new("Keep-Alive").with_value("timeout=5")];
     let forbidden = vec![Header::new("Keep-Alive").with_value("something else")];
 
-    assert_eq!(distance_habsent(&observed, &forbidden), None);
+    assert!(!absent_headers_match(&observed, &forbidden));
 }
 
 #[test]
@@ -56,5 +52,5 @@ fn position_in_the_traffic_is_irrelevant() {
     ];
     let forbidden = vec![Header::new("Keep-Alive")];
 
-    assert_eq!(distance_habsent(&observed, &forbidden), None);
+    assert!(!absent_headers_match(&observed, &forbidden));
 }

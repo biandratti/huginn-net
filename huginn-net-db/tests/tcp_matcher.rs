@@ -71,7 +71,9 @@ fn matching_linux_by_tcp_request() {
         assert_eq!(label.class, Some("unix".to_string()));
         assert_eq!(label.flavor, Some("2.2.x-3.x".to_string()));
         assert_eq!(label.ty, Type::Generic);
-        assert_eq!(quality, 1.0);
+        // A catch-all signature fits, so the match is real but ranks below what
+        // a signature naming a concrete release would have scored.
+        assert_eq!(quality, 0.8);
     } else {
         panic!("No match found");
     }

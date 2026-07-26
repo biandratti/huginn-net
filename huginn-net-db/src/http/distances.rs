@@ -1,31 +1,26 @@
-//! Pure distance helpers between an observed HTTP value and a signature value.
+//! Pure gate helpers between an observed HTTP value and a signature value.
 //!
 //! These functions take **raw types** (versions, header slices, expected
 //! software strings), no observation structs, so they mirror the shape of
-//! [`crate::tcp`]'s `distance_*` helpers and can be reused from both the
+//! [`crate::tcp`]'s helpers and can be reused from both the
 //! `DatabaseSignature` impl and the public [`HttpDistance`] trait.
 //!
 //! [`HttpDistance`]: crate::observable_http_signals_matching::HttpDistance
 
-use super::signature::HttpMatchQuality;
 use super::{Header, Version};
 use huginn_net_http::http::UNKNOWN_SOFTWARE;
 use tracing::debug;
 
-/// Distance score between an observed [`Version`] and a database [`Version`].
+/// Whether an observed [`Version`] satisfies a database [`Version`].
 ///
 /// [`Version::Any`] in the signature matches everything; otherwise versions
 /// must be equal.
-pub fn distance_http_version(observed: Version, signature: Version) -> Option<u32> {
-    if signature == Version::Any || observed == signature {
-        Some(HttpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+pub fn http_version_matches(observed: Version, signature: Version) -> bool {
+    signature == Version::Any || observed == signature
 }
 
-/// Distance score between the headers a database signature expects
-/// (`horder`) and the headers seen in the traffic.
+/// Whether the headers seen in the traffic satisfy the ones a database
+/// signature expects (`horder`).
 ///
 /// Header matching has no error budget in p0f: every header the signature
 /// lists must be found in the observed list, in the same relative order, and
@@ -45,7 +40,7 @@ pub fn distance_http_version(observed: Version, signature: Version) -> Option<u3
 /// Only the signature's `optional` flag is consulted. Observations carry one
 /// too, but it describes how p0f would *print* the header, not how to match
 /// it.
-pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
+pub fn headers_match(observed: &[Header], signature: &[Header]) -> bool {
     let mut position = 0usize;
 
     for expected in signature {
@@ -55,7 +50,9 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
 
         match found {
             Some(offset) => {
-                let header = observed.get(position.saturating_add(offset))?;
+                let Some(header) = observed.get(position.saturating_add(offset)) else {
+                    return false;
+                };
                 if let Some(expected_value) = expected.value.as_deref() {
                     if !header
                         .value
@@ -66,7 +63,7 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
                             "header {} value mismatch: expected substring {expected_value}",
                             expected.name
                         );
-                        return None;
+                        return false;
                     }
                 }
                 position = position.saturating_add(offset).saturating_add(1);
@@ -74,36 +71,36 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
             None => {
                 if !expected.optional {
                     debug!("required header {} missing", expected.name);
-                    return None;
+                    return false;
                 }
                 if observed.iter().any(|h| h.name == expected.name) {
                     debug!("optional header {} present but out of order", expected.name);
-                    return None;
+                    return false;
                 }
             }
         }
     }
 
-    Some(HttpMatchQuality::High.as_score())
+    true
 }
 
-/// Distance score for a signature's `habsent` list: the headers that must
-/// *not* show up in matching traffic.
+/// Whether the traffic honours a signature's `habsent` list: the headers that
+/// must *not* show up in matching traffic.
 ///
 /// Note that `observed` is the list of headers actually seen (the
 /// observation's `horder`), not the observation's own `habsent`. p0f checks
 /// its forbidden headers against the traffic's real headers; an observation's
 /// `habsent` is only the set of common headers it happened to be missing,
 /// which exists to print a candidate signature, not to match one.
-pub fn distance_habsent(observed: &[Header], signature_absent: &[Header]) -> Option<u32> {
+pub fn absent_headers_match(observed: &[Header], signature_absent: &[Header]) -> bool {
     for forbidden in signature_absent {
         if observed.iter().any(|h| h.name == forbidden.name) {
             debug!("forbidden header {} present in traffic", forbidden.name);
-            return None;
+            return false;
         }
     }
 
-    Some(HttpMatchQuality::High.as_score())
+    true
 }
 
 /// Whether the software string seen in the traffic backs up the one the

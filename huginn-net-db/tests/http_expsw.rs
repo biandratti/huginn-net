@@ -57,10 +57,10 @@ fn a_contradicting_software_string_is_dishonest() {
     assert!(!http::expsw_matches("Mozilla/5.0 Firefox/128.0", CHROME_EXPSW));
 }
 
-/// The point of taking `expsw` out of the distance: two observations that
+/// The point of keeping `expsw` out of the comparison: two observations that
 /// differ *only* in their software string must be equally good matches.
 #[test]
-fn software_string_does_not_change_the_distance() {
+fn software_string_does_not_change_the_fit() {
     let db = HttpDatabase::load_default()
         .unwrap_or_else(|e| panic!("failed to create default database: {e}"));
 
@@ -85,9 +85,9 @@ fn software_string_does_not_change_the_distance() {
         .matching_by_http_request(&observation("Firefox/"))
         .unwrap_or_else(|| panic!("no match found for the Firefox 2.x signature"));
 
-    let honest = signature.calculate_distance(&observation("Firefox/"));
-    let lying = signature.calculate_distance(&observation("definitely-not-firefox"));
-    assert_eq!(honest, lying, "expsw must not contribute to the distance");
+    let honest = signature.fit(&observation("Firefox/"));
+    let lying = signature.fit(&observation("definitely-not-firefox"));
+    assert_eq!(honest, lying, "expsw must not affect how well the signature fits");
 
     let (_label, _signature, lying_quality) = matcher
         .matching_by_http_request(&observation("definitely-not-firefox"))

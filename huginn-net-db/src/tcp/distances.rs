@@ -1,19 +1,12 @@
-use super::signature::TcpMatchQuality;
 use super::{IpVersion, PayloadSize, Ttl, WindowSize};
 use tracing::debug;
 
-/// Distance score between an observed `IpVersion` and a database `IpVersion`.
-pub fn distance_ip_version(observed: &IpVersion, signature: &IpVersion) -> Option<u32> {
-    if signature == &IpVersion::Any {
-        Some(TcpMatchQuality::High.as_score())
-    } else {
-        match (observed, signature) {
-            (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) => {
-                Some(TcpMatchQuality::High.as_score())
-            }
-            _ => None,
-        }
-    }
+/// Whether an observed IP version satisfies the one a signature declares.
+pub fn ip_version_matches(observed: &IpVersion, signature: &IpVersion) -> bool {
+    matches!(
+        (observed, signature),
+        (_, IpVersion::Any) | (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6)
+    )
 }
 
 /// Largest hop count still considered plausible between the fingerprinted
@@ -40,112 +33,76 @@ fn signature_initial_ttl(signature: &Ttl) -> u8 {
     }
 }
 
-/// Distance score between an observed `Ttl` and a database `Ttl`.
+/// How an observed TTL sits against the initial TTL a signature declares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TtlFit {
+    /// Hops the packet appears to have travelled: the signature's initial TTL
+    /// minus the observed one. Doubles as the tie-break between two signatures
+    /// that both fit, since the closer initial TTL is the better explanation.
+    pub hop_distance: u32,
+    /// The hop count is not plausible ([`MAX_TTL_DISTANCE`]), so the signature
+    /// only holds as a fuzzy match.
+    pub out_of_range: bool,
+}
+
+/// Compares an observed `Ttl` against a database `Ttl`.
 ///
 /// TTL is not compared for equality: routers decrement it, so the observed
 /// value is expected to sit *below* the signature's initial TTL, by at most
-/// [`MAX_TTL_DISTANCE`] hops. Within that window the field matches exactly;
-/// outside it the signature still matches, but only as fuzzy — p0f never
-/// rejects on TTL alone.
+/// [`MAX_TTL_DISTANCE`] hops. Within that window the field fits; outside it the
+/// signature still fits, but only as fuzzy — p0f never rejects on TTL alone.
 ///
 /// The one exception is a signature with a randomised TTL (`nnn-`, parsed as
 /// [`Ttl::Bad`]): the value carries no hop information, so only the upper
 /// bound is enforced, and exceeding it is a hard reject.
-///
-/// The fuzzy case is currently reported as the worst non-rejecting score;
-/// once the match tiers land it becomes `Fuzzy(TtlOutOfRange)` carrying the
-/// hop distance, which also breaks ties between equally exact candidates.
-pub fn distance_ttl(observed: &Ttl, signature: &Ttl) -> Option<u32> {
+pub fn ttl_fit(observed: &Ttl, signature: &Ttl) -> Option<TtlFit> {
     let observed = observed_ttl(observed);
     let initial = signature_initial_ttl(signature);
+    let hop_distance = u32::from(initial.saturating_sub(observed));
 
     if matches!(signature, Ttl::Bad(_)) {
-        return if observed > initial {
-            None
-        } else {
-            Some(TcpMatchQuality::High.as_score())
-        };
+        return (observed <= initial).then_some(TtlFit { hop_distance, out_of_range: false });
     }
 
-    if observed > initial || initial.saturating_sub(observed) > MAX_TTL_DISTANCE {
+    let out_of_range = observed > initial || initial.saturating_sub(observed) > MAX_TTL_DISTANCE;
+    if out_of_range {
         debug!("ttl out of range: observed {observed}, signature initial {initial}");
-        Some(TcpMatchQuality::Low.as_score())
-    } else {
-        Some(TcpMatchQuality::High.as_score())
     }
+
+    Some(TtlFit { hop_distance, out_of_range })
 }
 
-/// Distance score between an observed `WindowSize` and a database `WindowSize`.
+/// Whether an observed `WindowSize` satisfies the one a signature declares.
 ///
 /// Takes the observed MSS as context to resolve `WindowSize::Mss(_)` patterns
-/// against a raw window value. Returns `None` for incompatible pairings.
-///
-/// A mismatch is always a hard reject (`None`), never a soft penalty: p0f's
-/// window-size check never tolerates a mismatch here, regardless of type. Only
+/// against a raw window value. A mismatch never degrades to fuzzy: p0f's
+/// window-size check does not tolerate one, regardless of type. Only
 /// `WindowSize::Any` in the signature is a true wildcard.
-pub fn distance_window_size(
+pub fn window_size_matches(
     observed: &WindowSize,
     signature: &WindowSize,
     mss: Option<u16>,
-) -> Option<u32> {
+) -> bool {
     match (observed, signature) {
-        (WindowSize::Mss(a), WindowSize::Mss(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                None
-            }
-        }
-        (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                None
-            }
-        }
+        (_, WindowSize::Any) => true,
+        (WindowSize::Mss(a), WindowSize::Mss(b)) => a == b,
+        (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
+        (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
+        (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
         (WindowSize::Value(a), WindowSize::Mss(b)) => {
-            if let Some(mss_value) = mss {
-                if let Some(ratio_other) = a.checked_div(mss_value) {
-                    if *b as u16 == ratio_other {
-                        debug!(
-                            "window size difference: a {}, b {} == ratio_other {}",
-                            a, b, ratio_other
-                        );
-                        Some(TcpMatchQuality::High.as_score())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+            match mss.and_then(|mss| a.checked_div(mss)) {
+                Some(ratio) => {
+                    debug!("window size as mss multiple: value {a}, signature {b}, ratio {ratio}");
+                    u16::from(*b) == ratio
                 }
-            } else {
-                None
+                None => false,
             }
         }
-        (WindowSize::Mod(a), WindowSize::Mod(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                None
-            }
-        }
-        (WindowSize::Value(a), WindowSize::Value(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                None
-            }
-        }
-        (_, WindowSize::Any) => Some(TcpMatchQuality::High.as_score()),
-        _ => None,
+        _ => false,
     }
 }
 
-/// Distance score between an observed `PayloadSize` and a database `PayloadSize`.
-pub fn distance_payload_size(observed: &PayloadSize, signature: &PayloadSize) -> Option<u32> {
-    if signature == &PayloadSize::Any || observed == signature {
-        Some(TcpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+/// Whether an observed `PayloadSize` satisfies the one a signature declares.
+pub fn payload_size_matches(observed: &PayloadSize, signature: &PayloadSize) -> bool {
+    signature == &PayloadSize::Any || observed == signature
 }
