@@ -86,6 +86,11 @@ pub fn distance_ttl(observed: &Ttl, signature: &Ttl) -> Option<u32> {
 ///
 /// Takes the observed MSS as context to resolve `WindowSize::Mss(_)` patterns
 /// against a raw window value. Returns `None` for incompatible pairings.
+///
+/// A mismatch is always a hard reject (`None`), never a soft penalty: p0f's
+/// window-size check (`data/p0f/fp_tcp.c::tcp_find_match`, the `win_type`
+/// switch) never tolerates a mismatch here, regardless of type. Only
+/// `WindowSize::Any` in the signature is a true wildcard.
 pub fn distance_window_size(
     observed: &WindowSize,
     signature: &WindowSize,
@@ -96,14 +101,14 @@ pub fn distance_window_size(
             if a == b {
                 Some(TcpMatchQuality::High.as_score())
             } else {
-                Some(TcpMatchQuality::Low.as_score())
+                None
             }
         }
         (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {
             if a == b {
                 Some(TcpMatchQuality::High.as_score())
             } else {
-                Some(TcpMatchQuality::Low.as_score())
+                None
             }
         }
         (WindowSize::Value(a), WindowSize::Mss(b)) => {
@@ -116,27 +121,27 @@ pub fn distance_window_size(
                         );
                         Some(TcpMatchQuality::High.as_score())
                     } else {
-                        Some(TcpMatchQuality::Low.as_score())
+                        None
                     }
                 } else {
-                    Some(TcpMatchQuality::Low.as_score())
+                    None
                 }
             } else {
-                Some(TcpMatchQuality::Low.as_score())
+                None
             }
         }
         (WindowSize::Mod(a), WindowSize::Mod(b)) => {
             if a == b {
                 Some(TcpMatchQuality::High.as_score())
             } else {
-                Some(TcpMatchQuality::Low.as_score())
+                None
             }
         }
         (WindowSize::Value(a), WindowSize::Value(b)) => {
             if a == b {
                 Some(TcpMatchQuality::High.as_score())
             } else {
-                Some(TcpMatchQuality::Low.as_score())
+                None
             }
         }
         (_, WindowSize::Any) => Some(TcpMatchQuality::High.as_score()),

@@ -25,22 +25,27 @@ use crate::tcp::{
 };
 use huginn_net_tcp::observable::TcpObservation;
 
+/// `olen` is never wildcarded in p0f's format: a mismatch is a hard reject, not a soft penalty.
 pub(crate) fn distance_olen(observed: &TcpObservation, signature: &tcp::Signature) -> Option<u32> {
     if observed.olen == signature.olen {
         Some(tcp::TcpMatchQuality::High.as_score())
     } else {
-        Some(tcp::TcpMatchQuality::Low.as_score())
+        None
     }
 }
 
+/// A signature-specified `mss` is a hard gate in p0f: only `mss == *`
+/// (wildcard, `None` here) tolerates any observed value.
 pub(crate) fn distance_mss(observed: &TcpObservation, signature: &tcp::Signature) -> Option<u32> {
     if signature.mss.is_none() || observed.mss == signature.mss {
         Some(tcp::TcpMatchQuality::High.as_score())
     } else {
-        Some(tcp::TcpMatchQuality::Low.as_score())
+        None
     }
 }
 
+/// A signature-specified `wscale` is a hard gate in p0f: only `wscale == *`
+/// (wildcard, `None` here) tolerates any observed value.
 pub(crate) fn distance_wscale(
     observed: &TcpObservation,
     signature: &tcp::Signature,
@@ -48,7 +53,7 @@ pub(crate) fn distance_wscale(
     if signature.wscale.is_none() || observed.wscale == signature.wscale {
         Some(tcp::TcpMatchQuality::High.as_score())
     } else {
-        Some(tcp::TcpMatchQuality::Medium.as_score())
+        None
     }
 }
 
