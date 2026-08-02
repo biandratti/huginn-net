@@ -1,11 +1,13 @@
 pub mod ip_options;
 pub mod observable;
+pub mod quirks;
 pub mod syn_options;
 pub mod ttl;
 pub mod window_size;
 
 pub use ip_options::IpOptions;
 pub use observable::{ObservableTcp, TcpObservation};
+pub use quirks::QuirkSet;
 pub use syn_options::{parse_options_raw, ParsedTcpOptions};
 pub use ttl::{calculate_ttl, guess_distance, observed_ttl, MAX_DIST};
 pub use window_size::{detect_win_multi, WindowMultiplier};
@@ -77,8 +79,39 @@ pub enum TcpOption {
     Unknown(u8),
 }
 
+/// Deterministic FNV-1a hash of a TCP option layout, for index keys.
+///
+/// Stable across process runs (fixed seed). Used like p0f's `opt_hash`: bucket
+/// by layout without allocating Display strings on the lookup path. Collisions
+/// only widen a bucket; exact `olayout` equality in matching still filters.
+pub fn hash_olayout(olayout: &[TcpOption]) -> u32 {
+    const FNV_OFFSET: u32 = 0x811c_9dc5;
+    const FNV_PRIME: u32 = 0x0100_0193;
+
+    let mut hash = FNV_OFFSET;
+    for opt in olayout {
+        let (tag, extra) = match *opt {
+            TcpOption::Eol(n) => (0u8, Some(n)),
+            TcpOption::Nop => (1, None),
+            TcpOption::Mss => (2, None),
+            TcpOption::Ws => (3, None),
+            TcpOption::Sok => (4, None),
+            TcpOption::Sack => (5, None),
+            TcpOption::TS => (6, None),
+            TcpOption::Unknown(n) => (7, Some(n)),
+        };
+        hash ^= u32::from(tag);
+        hash = hash.wrapping_mul(FNV_PRIME);
+        if let Some(byte) = extra {
+            hash ^= u32::from(byte);
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+    }
+    hash
+}
+
 /// A protocol-level quirk observed in IP or TCP headers.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Quirk {
     /// `df`     - "don't fragment" set (probably PMTUD); ignored for IPv6.
     Df,

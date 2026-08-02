@@ -1,5 +1,7 @@
 #![cfg(feature = "tcp")]
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, Signature, TcpOption, Ttl, WindowSize};
+use huginn_net_db::tcp::{
+    IpVersion, PayloadSize, Quirk, QuirkSet, Signature, TcpOption, Ttl, WindowSize,
+};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher, Type};
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
@@ -27,7 +29,7 @@ fn observation_from_signature(sig: &Signature) -> TcpObservation {
         tot_hdr: 60,
         wscale: sig.wscale,
         olayout: sig.olayout.clone(),
-        quirks: sig.quirks.clone(),
+        quirks: sig.quirks,
         pclass: sig.pclass,
         peer_mss: None,
         tos: 0,
@@ -79,10 +81,10 @@ fn matching_linux_by_tcp_request() {
                 TcpOption::Nop,
                 TcpOption::Ws,
             ],
-            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            quirks: QuirkSet::from([Quirk::Df, Quirk::NonZeroID]),
             pclass: PayloadSize::Zero,
             peer_mss: None,
-        tos: 0,
+            tos: 0,
         },
     };
 
@@ -128,10 +130,10 @@ fn matching_android_by_tcp_request() {
                 TcpOption::Nop,
                 TcpOption::Ws,
             ],
-            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            quirks: QuirkSet::from([Quirk::Df, Quirk::NonZeroID]),
             pclass: PayloadSize::Zero,
             peer_mss: None,
-        tos: 0,
+            tos: 0,
         },
     };
 
@@ -152,10 +154,10 @@ fn matching_android_by_tcp_request() {
                 TcpOption::Nop,
                 TcpOption::Ws,
             ],
-            quirks: vec![Quirk::Df, Quirk::NonZeroID],
+            quirks: QuirkSet::from([Quirk::Df, Quirk::NonZeroID]),
             pclass: PayloadSize::Zero,
             peer_mss: None,
-        tos: 0,
+            tos: 0,
         },
     };
 

@@ -51,14 +51,14 @@ fn replay(sig: &Signature) -> ObservableTcp {
             tot_hdr: TYPICAL_TOT_HDR,
             wscale: Some(sig.wscale.unwrap_or(0)),
             olayout: sig.olayout.clone(),
-            quirks: sig.quirks.clone(),
+            quirks: sig.quirks,
             pclass: if sig.pclass == PayloadSize::Any {
                 PayloadSize::Zero
             } else {
                 sig.pclass
             },
             peer_mss: None,
-        tos: 0,
+            tos: 0,
         },
     }
 }

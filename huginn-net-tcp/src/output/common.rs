@@ -1,6 +1,6 @@
 use crate::observable::TcpObservation;
 use crate::tcp::ttl::{guess_distance, observed_ttl, MAX_DIST};
-use crate::tcp::Quirk;
+use crate::tcp::QuirkSet;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -51,10 +51,10 @@ pub struct FuzzyReason {
     pub implausible_hop_distance: Option<u32>,
     /// Quirks the traffic showed that the signature does not declare. Only
     /// `id-` and `ecn` ever appear here; anything else rejects the signature.
-    pub added_quirks: Vec<Quirk>,
+    pub added_quirks: QuirkSet,
     /// Quirks the signature declares that the traffic did not show. Only `df`
     /// and `id+` ever appear here.
-    pub missing_quirks: Vec<Quirk>,
+    pub missing_quirks: QuirkSet,
 }
 
 impl fmt::Display for FuzzyReason {
@@ -74,23 +74,15 @@ impl fmt::Display for FuzzyReason {
         }
         if !self.missing_quirks.is_empty() {
             separate(f)?;
-            write!(f, "missing {}", join_quirks(&self.missing_quirks))?;
+            write!(f, "missing {}", self.missing_quirks)?;
         }
         if !self.added_quirks.is_empty() {
             separate(f)?;
-            write!(f, "extra {}", join_quirks(&self.added_quirks))?;
+            write!(f, "extra {}", self.added_quirks)?;
         }
 
         Ok(())
     }
-}
-
-fn join_quirks(quirks: &[Quirk]) -> String {
-    quirks
-        .iter()
-        .map(|quirk| quirk.to_string())
-        .collect::<Vec<_>>()
-        .join(",")
 }
 
 /// Outcome of matching an observation against a fingerprint database.

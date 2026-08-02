@@ -4,7 +4,9 @@
 //! [`Quirk`], [`PayloadSize`]) are re-exported from `huginn-net-tcp`. This
 //! module owns the **database-specific** pieces.
 
-pub use huginn_net_tcp::tcp::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+pub use huginn_net_tcp::tcp::{
+    IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption, Ttl, WindowSize,
+};
 
 mod coverage;
 mod distances;

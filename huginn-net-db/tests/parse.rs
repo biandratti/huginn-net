@@ -5,7 +5,9 @@ use huginn_net_db::http::{
 };
 use huginn_net_db::tcp::Quirk::{AckNumNonZero, Df, NonZeroID};
 use huginn_net_db::tcp::TcpOption::{Mss, Nop, Sok, Ws, TS};
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Signature as TcpSignature, Ttl, WindowSize};
+use huginn_net_db::tcp::{
+    IpVersion, PayloadSize, QuirkSet, Signature as TcpSignature, Ttl, WindowSize,
+};
 use huginn_net_db::{Label, Type};
 use lazy_static::lazy_static;
 
@@ -59,7 +61,7 @@ lazy_static! {
                     wsize: WindowSize::Mss(20),
                     wscale: Some(10),
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
-                    quirks: vec![Df, NonZeroID],
+                    quirks: QuirkSet::from([Df, NonZeroID]),
                     pclass: PayloadSize::Zero,
                 }
             ),
@@ -73,7 +75,7 @@ lazy_static! {
                     wsize: WindowSize::Value(16384),
                     wscale: Some(0),
                     olayout: vec![Mss],
-                    quirks: vec![],
+                    quirks: QuirkSet::EMPTY,
                     pclass: PayloadSize::Zero,
                 }
             ),
@@ -87,7 +89,7 @@ lazy_static! {
                     wsize: WindowSize::Mtu(2),
                     wscale: Some(0),
                     olayout: vec![Mss, Nop, Ws],
-                    quirks: vec![],
+                    quirks: QuirkSet::EMPTY,
                     pclass: PayloadSize::Zero,
                 }
             ),
@@ -101,7 +103,7 @@ lazy_static! {
                     wsize: WindowSize::Mod(512),
                     wscale: Some(0),
                     olayout: vec![Mss, Sok, TS],
-                    quirks: vec![AckNumNonZero],
+                    quirks: QuirkSet::from([AckNumNonZero]),
                     pclass: PayloadSize::Zero,
                 }
             ),
@@ -115,7 +117,7 @@ lazy_static! {
                     wsize: WindowSize::Mss(44),
                     wscale: Some(1),
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
-                    quirks: vec![Df, NonZeroID],
+                    quirks: QuirkSet::from([Df, NonZeroID]),
                     pclass: PayloadSize::Zero,
                 }
             ),
@@ -129,7 +131,7 @@ lazy_static! {
                     wsize: WindowSize::Any,
                     wscale: None,
                     olayout: vec![Mss, Sok, TS, Nop, Ws],
-                    quirks: vec![Df, NonZeroID],
+                    quirks: QuirkSet::from([Df, NonZeroID]),
                     pclass: PayloadSize::Zero,
                 }
 

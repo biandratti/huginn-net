@@ -21,10 +21,11 @@ use crate::database::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint, SignatureFit};
 use crate::tcp::{
     self, ip_version_matches, payload_size_matches, ttl_fit, window_size_matches, IpVersion,
-    PayloadSize, Quirk,
+    PayloadSize, QuirkSet,
 };
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::FuzzyReason;
+use huginn_net_tcp::tcp::hash_olayout;
 
 /// `olen` is never wildcarded in p0f's format: a mismatch is a hard reject.
 pub(crate) fn olen_matches(observed: &TcpObservation, signature: &tcp::Signature) -> bool {
@@ -47,40 +48,14 @@ pub(crate) fn olayout_matches(observed: &TcpObservation, signature: &tcp::Signat
     observed.olayout == signature.olayout
 }
 
-/// Quirks a database signature may declare without the observation showing
-/// them (`df` and `id+` in p0f terms).
-const FUZZY_DELETABLE_QUIRKS: [Quirk; 2] = [Quirk::Df, Quirk::NonZeroID];
-
-/// Quirks an observation may show without the database signature declaring
-/// them (`id-` and `ecn` in p0f terms).
-const FUZZY_ADDABLE_QUIRKS: [Quirk; 2] = [Quirk::ZeroID, Quirk::Ecn];
-
-/// Whether a database quirk must be ignored because the signature is
-/// version-agnostic (`ver == *`) and the quirk only exists for the other IP
-/// version. Mirrors the `ref_quirks &= …` masking p0f applies before
-/// comparing.
-fn quirk_masked_by_ip_version(
-    quirk: &Quirk,
-    signature_version: IpVersion,
-    observed_version: IpVersion,
-) -> bool {
-    if signature_version != IpVersion::Any {
-        return false;
-    }
-    match observed_version {
-        IpVersion::V6 => matches!(quirk, Quirk::Df | Quirk::NonZeroID | Quirk::ZeroID),
-        _ => matches!(quirk, Quirk::FlowID),
-    }
-}
-
 /// The quirks that had to be tolerated for a signature to hold. Empty on both
 /// sides when the sets agreed exactly.
 #[derive(Debug, Default)]
 pub(crate) struct QuirksFit {
     /// Shown by the traffic, not declared by the signature.
-    pub added: Vec<Quirk>,
+    pub added: QuirkSet,
     /// Declared by the signature, not shown by the traffic.
-    pub missing: Vec<Quirk>,
+    pub missing: QuirkSet,
 }
 
 impl QuirksFit {
@@ -89,56 +64,55 @@ impl QuirksFit {
     }
 }
 
-/// Quirks are compared as sets, not as ordered lists, and a narrow set of
-/// differences is tolerated as a fuzzy match: `df`/`id+` may be absent from
-/// the traffic, and `id-`/`ecn` may appear in it. Any other difference
-/// rejects the signature outright.
+/// Apply p0f's version-agnostic quirk mask (`fp_tcp.c:140-141`): when the
+/// signature is `ver == *`, drop quirks that only exist on the other IP family.
+fn mask_signature_quirks(
+    sig_quirks: QuirkSet,
+    sig_version: IpVersion,
+    obs_version: IpVersion,
+) -> QuirkSet {
+    if sig_version != IpVersion::Any {
+        return sig_quirks;
+    }
+    match obs_version {
+        IpVersion::V4 => sig_quirks & !QuirkSet::MASK_WHEN_OBS_V4,
+        IpVersion::V6 => sig_quirks & !QuirkSet::MASK_WHEN_OBS_V6,
+        IpVersion::Any => sig_quirks,
+    }
+}
+
+/// Quirks are compared as bitmasks, and a narrow set of differences is
+/// tolerated as a fuzzy match: `df`/`id+` may be absent from the traffic, and
+/// `id-`/`ecn` may appear in it. Any other difference rejects the signature.
 ///
 /// Returns which quirks the tolerance had to cover; `None` rejects.
 pub(crate) fn quirks_fit(
     observed: &TcpObservation,
     signature: &tcp::Signature,
 ) -> Option<QuirksFit> {
-    let declared_by_signature = |quirk: &Quirk| {
-        signature.quirks.contains(quirk)
-            && !quirk_masked_by_ip_version(quirk, signature.version, observed.version)
-    };
+    let sig = mask_signature_quirks(signature.quirks, signature.version, observed.version);
+    let obs = observed.quirks;
 
-    let mut fit = QuirksFit::default();
+    let missing = sig.difference(obs);
+    let added = obs.difference(sig);
 
-    for quirk in &signature.quirks {
-        if quirk_masked_by_ip_version(quirk, signature.version, observed.version)
-            || observed.quirks.contains(quirk)
-        {
-            continue;
-        }
-        if !FUZZY_DELETABLE_QUIRKS.contains(quirk) {
-            return None;
-        }
-        fit.missing.push(quirk.clone());
+    if !missing.difference(QuirkSet::FUZZY_DELETABLE).is_empty() {
+        return None;
+    }
+    if !added.difference(QuirkSet::FUZZY_ADDABLE).is_empty() {
+        return None;
     }
 
-    for quirk in &observed.quirks {
-        if declared_by_signature(quirk) {
-            continue;
-        }
-        if !FUZZY_ADDABLE_QUIRKS.contains(quirk) {
-            return None;
-        }
-        fit.added.push(quirk.clone());
-    }
-
-    Some(fit)
+    Some(QuirksFit { added, missing })
 }
 
 impl ObservedFingerprint for TcpObservation {
     type Key = TcpIndexKey;
 
     fn generate_index_key(&self) -> Self::Key {
-        let olayout_parts: Vec<String> = self.olayout.iter().map(|opt| format!("{opt}")).collect();
         TcpIndexKey {
             ip_version_key: self.version,
-            olayout_key: olayout_parts.join(","),
+            olayout_hash: hash_olayout(&self.olayout),
             pclass_key: self.pclass,
         }
     }
@@ -181,32 +155,26 @@ impl DatabaseSignature<TcpObservation> for tcp::Signature {
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpIndexKey> {
         let mut keys = Vec::new();
+        let olayout_hash = hash_olayout(&self.olayout);
 
-        let olayout_key_str = self
-            .olayout
-            .iter()
-            .map(|opt| format!("{opt}"))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        let versions_for_keys = if self.version == IpVersion::Any {
-            vec![IpVersion::V4, IpVersion::V6]
+        let versions_for_keys: &[IpVersion] = if self.version == IpVersion::Any {
+            &[IpVersion::V4, IpVersion::V6]
         } else {
-            vec![self.version]
+            std::slice::from_ref(&self.version)
         };
 
-        let pclasses_for_keys = if self.pclass == PayloadSize::Any {
-            vec![PayloadSize::Zero, PayloadSize::NonZero]
+        let pclasses_for_keys: &[PayloadSize] = if self.pclass == PayloadSize::Any {
+            &[PayloadSize::Zero, PayloadSize::NonZero]
         } else {
-            vec![self.pclass]
+            std::slice::from_ref(&self.pclass)
         };
 
-        for v_key_part in &versions_for_keys {
-            for pc_key_part in &pclasses_for_keys {
+        for &v_key_part in versions_for_keys {
+            for &pc_key_part in pclasses_for_keys {
                 keys.push(TcpIndexKey {
-                    ip_version_key: *v_key_part,
-                    olayout_key: olayout_key_str.clone(),
-                    pclass_key: *pc_key_part,
+                    ip_version_key: v_key_part,
+                    olayout_hash,
+                    pclass_key: pc_key_part,
                 });
             }
         }

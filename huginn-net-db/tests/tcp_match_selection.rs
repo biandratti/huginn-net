@@ -9,7 +9,7 @@
 
 use huginn_net_db::database::{FingerprintCollection, Label, TcpIndexKey, Type};
 use huginn_net_db::db_matching_trait::FingerprintDb;
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, Signature, Ttl, WindowSize};
+use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, Signature, Ttl, WindowSize};
 use huginn_net_tcp::observable::TcpObservation;
 
 type TcpCollection = FingerprintCollection<TcpObservation, Signature, TcpIndexKey>;
@@ -24,7 +24,7 @@ fn observation() -> TcpObservation {
         tot_hdr: 40,
         wscale: Some(6),
         olayout: Vec::new(),
-        quirks: Vec::new(),
+        quirks: QuirkSet::EMPTY,
         pclass: PayloadSize::Zero,
         peer_mss: None,
         tos: 0,
@@ -41,7 +41,7 @@ fn signature() -> Signature {
         wsize: WindowSize::Value(65535),
         wscale: Some(6),
         olayout: Vec::new(),
-        quirks: Vec::new(),
+        quirks: QuirkSet::EMPTY,
         pclass: PayloadSize::Zero,
     }
 }
@@ -49,7 +49,7 @@ fn signature() -> Signature {
 /// Only fits [`observation`] through the quirks whitelist: p0f lets `df`
 /// disappear from the traffic, but the match is fuzzy.
 fn fuzzy_signature() -> Signature {
-    Signature { quirks: vec![Quirk::Df], ..signature() }
+    Signature { quirks: QuirkSet::from([Quirk::Df]), ..signature() }
 }
 
 fn label(name: &str, ty: Type) -> Label {

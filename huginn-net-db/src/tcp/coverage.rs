@@ -74,7 +74,7 @@ fn synthetic_observation(sig: &Signature) -> Option<TcpObservation> {
         tot_hdr,
         wscale: sig.wscale,
         olayout: sig.olayout.clone(),
-        quirks: sig.quirks.clone(),
+        quirks: sig.quirks,
         pclass,
         peer_mss: None,
         tos: 0,

@@ -173,6 +173,44 @@ Consequences for feature builds:
 
 ---
 
+### TCP quirks are a bitmask (`QuirkSet`)
+
+`TcpObservation.quirks` and database `Signature.quirks` are now [`QuirkSet`]
+(`u32` bits aligned with p0f `QUIRK_*`), not `Vec<Quirk>`. Matching uses
+XOR-style difference + whitelist masks; `Quirk` remains for parse/naming.
+`FuzzyReason::{added,missing}_quirks` are `QuirkSet` too. Display order follows
+p0f `.fp` declaration order (`df,id+,ecn`, …).
+
+```rust
+// v2.0
+obs.quirks = vec![Quirk::Df, Quirk::NonZeroID];
+reason.missing_quirks == vec![Quirk::NonZeroID]
+
+// v2.1
+obs.quirks = QuirkSet::from([Quirk::Df, Quirk::NonZeroID]);
+reason.missing_quirks == QuirkSet::from([Quirk::NonZeroID])
+quirks.insert(Quirk::Ecn);
+```
+
+---
+
+### TCP index key uses `olayout_hash` (no `String` on lookup)
+
+`TcpIndexKey.olayout_key: String` is now `olayout_hash: u32` from
+`huginn_net_tcp::tcp::hash_olayout` (FNV-1a over the option sequence). The key
+is `Copy`. Matching behaviour is unchanged: the hash only selects the bucket;
+`olayout` equality still gates the fit.
+
+```rust
+// v2.0
+TcpIndexKey { ip_version_key, olayout_key: "mss,sok,ts,nop,ws".into(), pclass_key }
+
+// v2.1
+TcpIndexKey { ip_version_key, olayout_hash: hash_olayout(&olayout), pclass_key }
+```
+
+---
+
 ### TCP `params` / `Dist:` align with p0f (`dump_flags`, `guess_dist`)
 
 `OSQualityMatched` and `TcpMatch` now carry the fields p0f prints beside the OS

@@ -8,11 +8,14 @@ use crate::tcp::{IpVersion, PayloadSize};
 use huginn_net_http::http::Version as HttpVersion;
 
 /// Index key for TCP signatures, used to optimize database lookups.
+///
+/// `olayout_hash` is [`huginn_net_tcp::tcp::hash_olayout`] of the option layout
+/// (p0f's `opt_hash` role). The key is `Copy` so lookups allocate nothing.
 #[cfg(feature = "tcp")]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TcpIndexKey {
     pub ip_version_key: IpVersion,
-    pub olayout_key: String,
+    pub olayout_hash: u32,
     pub pclass_key: PayloadSize,
 }
 
