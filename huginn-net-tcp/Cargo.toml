@@ -18,7 +18,7 @@ default = []
 full = ["syn", "syn-ack", "mtu", "uptime"]
 json = ["dep:serde"]
 syn = []
-syn-ack = []
+syn-ack = ["dep:ttl_cache"]
 mtu = []
 uptime = ["dep:ttl_cache"]
 

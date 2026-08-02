@@ -226,6 +226,46 @@ pub fn process_tcp_ipv6(
         })
 }
 
+/// Builds the observation shared by SYN and SYN+ACK fingerprint paths.
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
+#[allow(clippy::too_many_arguments)]
+fn tcp_observation(
+    version: IpVersion,
+    ittl: Ttl,
+    olen: u8,
+    mss: Option<u16>,
+    wsize: u16,
+    ip_header_bytes: u16,
+    tcp: &TcpPacket,
+    wscale: Option<u8>,
+    olayout: Vec<TcpOption>,
+    quirks: Vec<Quirk>,
+    peer_mss: Option<u16>,
+) -> TcpObservation {
+    // p0f's `tot_hdr`: every header byte ahead of the payload, options included,
+    // which is one of the MTU divisors a window can be a multiple of.
+    let tot_hdr =
+        ip_header_bytes.saturating_add(u16::from(tcp.get_data_offset()).saturating_mul(4));
+
+    TcpObservation {
+        version,
+        ittl,
+        olen,
+        mss,
+        wsize,
+        tot_hdr,
+        wscale,
+        olayout,
+        quirks,
+        pclass: if tcp.payload().is_empty() {
+            PayloadSize::Zero
+        } else {
+            PayloadSize::NonZero
+        },
+        peer_mss,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 // Each of the arguments below is read by one feature only: the IP header length in
 // words by `mtu`, the same length in bytes by the observation, the timestamps by
@@ -270,8 +310,12 @@ fn visit_tcp(
         feature = "uptime"
     )))]
     {
-        let needs_request_side =
-            cfg!(feature = "syn") || cfg!(feature = "mtu") || cfg!(feature = "uptime");
+        // `syn-ack` alone still needs to see the SYN: the peer MSS lives there.
+        // It does not emit a client OS match when `syn` is off, only flow state.
+        let needs_request_side = cfg!(feature = "syn")
+            || cfg!(feature = "mtu")
+            || cfg!(feature = "uptime")
+            || cfg!(feature = "syn-ack");
         let needs_response_side = cfg!(feature = "syn-ack") || cfg!(feature = "uptime");
         if (from_client && !needs_request_side) || (!from_client && !needs_response_side) {
             return Ok(ObservableTCPPackage::empty());
@@ -423,45 +467,95 @@ fn visit_tcp(
         _ => None,
     };
 
+    #[cfg(feature = "syn-ack")]
+    if tcp_type == SYN {
+        // Always record the client's MSS when responses are fingerprinted, even
+        // if the `syn` feature is off and no client OS signal is emitted.
+        connection_tracker.flows.note_syn(
+            crate::process::flow_state::FlowKey::from_syn(
+                source_ip,
+                tcp.get_source(),
+                destination_ip,
+                tcp.get_destination(),
+            ),
+            mss,
+        );
+    }
+
     #[cfg(any(feature = "syn", feature = "syn-ack"))]
     #[cfg_attr(
         not(all(feature = "syn", feature = "syn-ack")),
         allow(unused_variables)
     )]
-    let (tcp_request, tcp_response) = if !is_fingerprintable(tcp_type) {
-        (None, None)
-    } else {
-        // p0f's `tot_hdr`: every header byte ahead of the payload, options
-        // included, which is one of the MTU divisors a window can be a multiple
-        // of.
-        let tot_hdr =
-            ip_header_bytes.saturating_add(u16::from(tcp.get_data_offset()).saturating_mul(4));
-
-        let observation = ObservableTcp {
-            matching: TcpObservation {
-                version,
-                ittl,
-                olen,
-                mss,
-                wsize: tcp.get_window(),
-                tot_hdr,
-                wscale,
-                olayout,
-                quirks,
-                pclass: if tcp.payload().is_empty() {
-                    PayloadSize::Zero
-                } else {
-                    PayloadSize::NonZero
-                },
-            },
-        };
-
-        if tcp_type == SYN {
-            (Some(observation), None)
+    let (tcp_request, tcp_response): (Option<ObservableTcp>, Option<ObservableTcp>) =
+        if !is_fingerprintable(tcp_type) {
+            (None, None)
+        } else if tcp_type == SYN {
+            #[cfg(feature = "syn")]
+            {
+                (
+                    Some(ObservableTcp {
+                        matching: tcp_observation(
+                            version,
+                            ittl,
+                            olen,
+                            mss,
+                            tcp.get_window(),
+                            ip_header_bytes,
+                            tcp,
+                            wscale,
+                            olayout,
+                            quirks,
+                            None,
+                        ),
+                    }),
+                    None,
+                )
+            }
+            #[cfg(not(feature = "syn"))]
+            {
+                // `syn-ack` only: the SYN was recorded above for peer MSS; nothing to emit.
+                drop((olayout, quirks, wscale));
+                (None, None)
+            }
         } else {
-            (None, Some(observation))
-        }
-    };
+            #[cfg(feature = "syn-ack")]
+            {
+                use crate::process::flow_state::{FlowKey, SynAckDisposition};
+
+                let key = FlowKey::from_syn_ack(
+                    source_ip,
+                    tcp.get_source(),
+                    destination_ip,
+                    tcp.get_destination(),
+                );
+                match connection_tracker.flows.begin_syn_ack(key) {
+                    SynAckDisposition::Duplicate => (None, None),
+                    SynAckDisposition::First { peer_mss } => (
+                        None,
+                        Some(ObservableTcp {
+                            matching: tcp_observation(
+                                version,
+                                ittl,
+                                olen,
+                                mss,
+                                tcp.get_window(),
+                                ip_header_bytes,
+                                tcp,
+                                wscale,
+                                olayout,
+                                quirks,
+                                peer_mss,
+                            ),
+                        }),
+                    ),
+                }
+            }
+            #[cfg(not(feature = "syn-ack"))]
+            {
+                (None, None)
+            }
+        };
 
     Ok(ObservableTCPPackage {
         #[cfg(feature = "syn")]

@@ -57,6 +57,7 @@ fn replay(sig: &Signature) -> ObservableTcp {
             } else {
                 sig.pclass
             },
+            peer_mss: None,
         },
     }
 }

@@ -41,6 +41,7 @@ fn build_obs(
         olayout: parsed.olayout,
         quirks,
         pclass,
+        peer_mss: None,
     }
 }
 

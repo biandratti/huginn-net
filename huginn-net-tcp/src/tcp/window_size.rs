@@ -44,13 +44,18 @@ pub fn detect_win_multi(
     tot_hdr: u16,
     own_timestamp_is_nonzero: bool,
     version: IpVersion,
+    peer_mss: Option<u16>,
 ) -> Option<WindowMultiplier> {
     if wsize == 0 {
         return None;
     }
+    // p0f bails before trying the peer when the *own* MSS is missing or too
+    // small (`mss < 100`). The peer divisors do not rescue that case.
     let mss = mss.filter(|&mss| mss >= MIN_USEFUL_MSS)?;
     let ipv6 = version == IpVersion::V6;
     let only_if = |applies: bool, divisor: u16| if applies { divisor } else { 0 };
+    // p0f's `if (syn_mss)`: a zero peer MSS means "skip", same as absent.
+    let peer = peer_mss.filter(|&mss| mss != 0);
 
     let divisors = [
         (mss, false),
@@ -63,6 +68,10 @@ pub fn detect_win_multi(
         (mss.saturating_add(tot_hdr), true),
         (only_if(ipv6, mss.saturating_add(MIN_TCP6)), true),
         (ETH_MTU, true),
+        // Last, as in p0f: some stacks size the SYN+ACK window off the peer.
+        // A missing or zero peer becomes divisor 0, which the loop skips.
+        (peer.unwrap_or(0), false),
+        (peer.map(|m| m.saturating_sub(TS_SIZE)).unwrap_or(0), false),
     ];
 
     divisors.into_iter().find_map(|(divisor, of_mtu)| {

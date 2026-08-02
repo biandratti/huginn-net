@@ -7,7 +7,7 @@ use huginn_net_tcp::tcp::{detect_win_multi, IpVersion, WindowMultiplier};
 const NO_OPTIONS: u16 = 40;
 
 fn multi(wsize: u16, mss: u16) -> Option<WindowMultiplier> {
-    detect_win_multi(wsize, Some(mss), NO_OPTIONS, false, IpVersion::V4)
+    detect_win_multi(wsize, Some(mss), NO_OPTIONS, false, IpVersion::V4, None)
 }
 
 #[test]
@@ -29,12 +29,12 @@ fn the_timestamp_adjusted_mss_is_only_tried_when_a_timestamp_was_sent() {
     let window = (1400 - 12) * 30;
 
     assert_eq!(
-        detect_win_multi(window, Some(1400), NO_OPTIONS, true, IpVersion::V4),
+        detect_win_multi(window, Some(1400), NO_OPTIONS, true, IpVersion::V4, None),
         Some(WindowMultiplier { multiple: 30, of_mtu: false }),
         "some stacks subtract the cost of a timestamp before scaling the window"
     );
     assert_eq!(
-        detect_win_multi(window, Some(1400), NO_OPTIONS, false, IpVersion::V4),
+        detect_win_multi(window, Some(1400), NO_OPTIONS, false, IpVersion::V4, None),
         None,
         "without a timestamp of its own that divisor is not p0f's to try"
     );
@@ -68,7 +68,7 @@ fn an_mss_too_small_to_read_carries_no_multiplier() {
 
 #[test]
 fn an_absent_mss_carries_no_multiplier() {
-    assert_eq!(detect_win_multi(4500, None, NO_OPTIONS, false, IpVersion::V4), None);
+    assert_eq!(detect_win_multi(4500, None, NO_OPTIONS, false, IpVersion::V4, None), None);
 }
 
 #[test]
@@ -83,7 +83,34 @@ fn the_actual_header_size_is_one_of_the_mtu_divisors() {
     // MSS 1460 plus 60 bytes of headers is 1520; twice that is 3040, and no
     // earlier divisor divides it evenly.
     assert_eq!(
-        detect_win_multi(3040, Some(1460), 60, false, IpVersion::V4),
+        detect_win_multi(3040, Some(1460), 60, false, IpVersion::V4, None),
         Some(WindowMultiplier { multiple: 2, of_mtu: true })
+    );
+}
+
+#[test]
+fn the_peer_mss_is_tried_after_the_own_divisors() {
+    // Own MSS 1460 does not divide 28000; peer MSS 1400 does (20×). No earlier
+    // unconditional divisor divides it either, so p0f answers with the peer.
+    assert_eq!(
+        detect_win_multi(28000, Some(1460), NO_OPTIONS, false, IpVersion::V4, Some(1400)),
+        Some(WindowMultiplier { multiple: 20, of_mtu: false })
+    );
+}
+
+#[test]
+fn the_peer_mss_does_not_rescue_a_useless_own_mss() {
+    // p0f returns before trying the peer when the own MSS is below 100.
+    assert_eq!(
+        detect_win_multi(28000, Some(99), NO_OPTIONS, false, IpVersion::V4, Some(1400)),
+        None
+    );
+}
+
+#[test]
+fn a_zero_peer_mss_is_ignored() {
+    assert_eq!(
+        detect_win_multi(28000, Some(1460), NO_OPTIONS, false, IpVersion::V4, Some(0)),
+        None
     );
 }

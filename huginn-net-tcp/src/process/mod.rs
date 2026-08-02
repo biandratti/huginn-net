@@ -1,4 +1,6 @@
 pub mod flow;
+#[cfg(feature = "syn-ack")]
+pub(crate) mod flow_state;
 pub mod parallel;
 
 use self::flow as tcp_process;
@@ -25,28 +27,35 @@ use std::net::IpAddr;
 
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 
-/// Per-flow connection state used by uptime tracking.
+/// Per-flow connection state used by uptime tracking and SYN+ACK fingerprinting.
 ///
-/// When the `uptime` feature is enabled, this wraps a `TtlCache` of TCP
-/// timestamp samples keyed by connection direction. When the feature is
-/// disabled, it is a zero-sized stub and all operations on it are no-ops, so
-/// builds without uptime tracking drop the `ttl_cache` dependency entirely
+/// - With `uptime`: a `TtlCache` of TCP timestamp samples keyed by direction.
+/// - With `syn-ack`: a `TtlCache` of handshake state (`syn_mss`, `acked`) so the
+///   response can use the peer's MSS as a window divisor and a repeated SYN+ACK
+///   is not fingerprinted twice.
+///
+/// When neither feature is enabled this is a zero-sized stub and all operations
+/// are no-ops, so builds without those features drop the `ttl_cache` dependency
 /// without changing public function signatures.
 pub struct ConnectionTracker {
     #[cfg(feature = "uptime")]
     pub(crate) inner:
         ttl_cache::TtlCache<crate::uptime::ConnectionKey, crate::uptime::TcpTimestamp>,
+    #[cfg(feature = "syn-ack")]
+    pub(crate) flows: flow_state::FlowTracker,
 }
 
 impl ConnectionTracker {
     /// Creates a new connection tracker.
     ///
-    /// `max_connections` is the upper bound on tracked flows. When the
-    /// `uptime` feature is disabled the argument is ignored.
+    /// `max_connections` is the upper bound on tracked flows. Ignored when
+    /// neither `uptime` nor `syn-ack` is enabled.
     pub fn new(_max_connections: usize) -> Self {
         Self {
             #[cfg(feature = "uptime")]
             inner: ttl_cache::TtlCache::new(_max_connections),
+            #[cfg(feature = "syn-ack")]
+            flows: flow_state::FlowTracker::new(_max_connections),
         }
     }
 }

@@ -29,6 +29,7 @@ fn observation_from_signature(sig: &Signature) -> TcpObservation {
         olayout: sig.olayout.clone(),
         quirks: sig.quirks.clone(),
         pclass: sig.pclass,
+        peer_mss: None,
     }
 }
 
@@ -79,6 +80,7 @@ fn matching_linux_by_tcp_request() {
             ],
             quirks: vec![Quirk::Df, Quirk::NonZeroID],
             pclass: PayloadSize::Zero,
+            peer_mss: None,
         },
     };
 
@@ -126,6 +128,7 @@ fn matching_android_by_tcp_request() {
             ],
             quirks: vec![Quirk::Df, Quirk::NonZeroID],
             pclass: PayloadSize::Zero,
+            peer_mss: None,
         },
     };
 
@@ -148,6 +151,7 @@ fn matching_android_by_tcp_request() {
             ],
             quirks: vec![Quirk::Df, Quirk::NonZeroID],
             pclass: PayloadSize::Zero,
+            peer_mss: None,
         },
     };
 

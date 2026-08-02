@@ -34,6 +34,10 @@ pub struct TcpObservation {
     pub quirks: Vec<Quirk>,
     /// Payload size classification.
     pub pclass: PayloadSize,
+    /// MSS advertised on the peer's SYN, when this observation is a SYN+ACK and
+    /// the handshake's SYN was seen. Always `None` on a SYN. Used as the last
+    /// window divisor (p0f's `syn_mss`), for both matching and rendering.
+    pub peer_mss: Option<u16>,
 }
 
 impl TcpObservation {
@@ -46,6 +50,7 @@ impl TcpObservation {
             self.tot_hdr,
             self.own_timestamp_is_nonzero(),
             self.version,
+            self.peer_mss,
         )
     }
 

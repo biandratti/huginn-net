@@ -23,6 +23,7 @@ fn base_observation() -> TcpObservation {
         olayout: Vec::new(),
         quirks: Vec::new(),
         pclass: PayloadSize::Zero,
+        peer_mss: None,
     }
 }
 

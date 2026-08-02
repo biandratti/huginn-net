@@ -137,6 +137,41 @@ most packets are data.
 
 ---
 
+### SYN+ACK windows can use the peer's MSS
+
+`TcpObservation` gained `peer_mss: Option<u16>`: the MSS from the client's SYN,
+filled in on a SYN+ACK when that SYN was seen on the same flow. It is always
+`None` on a SYN.
+
+p0f tries that value (and `peer_mss - 12`) as the last window divisors when
+classifying a response (`fp_tcp.c:92-99`). Without it, a SYN+ACK whose window is
+a multiple of the *client's* MSS but not of the server's own divisors rendered
+the raw window and could not match `mss*n` response signatures. Matching and
+`Display` / `raw_signature` both read it through `window_multiplier()`.
+
+```rust
+// v2.0: SYN+ACK observation had no peer context
+TcpObservation { mss: Some(1460), wsize: 14000, … }
+
+// v2.1
+TcpObservation {
+    mss: Some(1460),       // server's own MSS
+    wsize: 14000,
+    peer_mss: Some(1400),  // from the client's SYN; None if the SYN was not seen
+    …
+}
+```
+
+Consequences for feature builds:
+
+- The `syn-ack` feature now pulls in `ttl_cache` and keeps per-flow handshake
+  state (`syn_mss`, `acked`). A SYN+ACK is fingerprinted **once** per flow.
+- With only `syn-ack` enabled, SYN packets are still inspected far enough to
+  store the client's MSS. No `SynTCPOutput` is emitted unless `syn` is also on.
+- `ConnectionTracker` is no longer a no-op when `syn-ack` is on without `uptime`.
+
+---
+
 ### `HttpDiagnosis` → `HttpParams`
 
 `HttpRequestOutput`/`HttpResponseOutput` carry `params: HttpParams` instead of
