@@ -245,12 +245,12 @@ impl FromStr for Database {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let out = parse_sections(s)?;
-        let tcp = TcpDatabase {
+        let tcp = finish_tcp_database(TcpDatabase {
             classes: out.classes.clone(),
             mtu: out.mtu,
             tcp_request: FingerprintCollection::new(out.tcp_request),
             tcp_response: FingerprintCollection::new(out.tcp_response),
-        };
+        });
         let http = HttpDatabase {
             classes: out.classes,
             ua_os: out.ua_os,
@@ -270,13 +270,20 @@ impl FromStr for TcpDatabase {
     /// HTTP-related sections present in the input are silently ignored.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let out = parse_sections(s)?;
-        Ok(TcpDatabase {
+        Ok(finish_tcp_database(TcpDatabase {
             classes: out.classes,
             mtu: out.mtu,
             tcp_request: FingerprintCollection::new(out.tcp_request),
             tcp_response: FingerprintCollection::new(out.tcp_response),
-        })
+        }))
     }
+}
+
+#[cfg(feature = "tcp")]
+fn finish_tcp_database(db: TcpDatabase) -> TcpDatabase {
+    crate::tcp::warn_ambiguous_coverage("tcp:request", &db.tcp_request);
+    crate::tcp::warn_ambiguous_coverage("tcp:response", &db.tcp_response);
+    db
 }
 
 #[cfg(feature = "http")]

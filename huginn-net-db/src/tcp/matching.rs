@@ -167,11 +167,8 @@ impl DatabaseSignature<TcpObservation> for tcp::Signature {
         let ttl = ttl_fit(&observed.ittl, &self.ittl)?;
         let quirks = quirks_fit(observed, self)?;
 
-        // The hop distance ranks candidates inside a tier: given two signatures
-        // that both fit, the one whose initial TTL sits closer to what we saw
-        // is the better explanation.
         if !ttl.out_of_range && quirks.is_exact() {
-            return Some(SignatureFit::exact(ttl.hop_distance));
+            return Some(SignatureFit::exact());
         }
 
         let reason = FuzzyReason {
@@ -179,7 +176,7 @@ impl DatabaseSignature<TcpObservation> for tcp::Signature {
             added_quirks: quirks.added,
             missing_quirks: quirks.missing,
         };
-        Some(SignatureFit::fuzzy(reason, ttl.hop_distance))
+        Some(SignatureFit::fuzzy(reason))
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpIndexKey> {

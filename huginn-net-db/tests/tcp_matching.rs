@@ -44,20 +44,17 @@ fn base_signature() -> Signature {
 /// Every field agrees, and the signature's initial TTL is exactly the observed
 /// one, so there are no hops to report either.
 fn exact() -> Option<SignatureFit<FuzzyReason>> {
-    Some(SignatureFit::exact(0))
+    Some(SignatureFit::exact())
 }
 
 /// The match only holds because these quirks were tolerated, the TTL being
 /// plausible.
 fn tolerating_quirks(missing: Vec<Quirk>, added: Vec<Quirk>) -> Option<SignatureFit<FuzzyReason>> {
-    Some(SignatureFit::fuzzy(
-        FuzzyReason {
-            implausible_hop_distance: None,
-            added_quirks: added,
-            missing_quirks: missing,
-        },
-        0,
-    ))
+    Some(SignatureFit::fuzzy(FuzzyReason {
+        implausible_hop_distance: None,
+        added_quirks: added,
+        missing_quirks: missing,
+    }))
 }
 
 #[test]
@@ -218,18 +215,18 @@ fn version_specific_signature_does_not_mask_quirks() {
 }
 
 // ---------------------------------------------------------------------------
-// Hop distance: reported on every fit, so the selection can prefer the
-// signature whose initial TTL best explains what we saw.
+// Hop distance: still measured for FuzzyReason / display; selection no longer
+// uses it to break ties (p0f first-match-wins within a tier).
 // ---------------------------------------------------------------------------
 
 #[test]
-fn a_decremented_ttl_still_fits_and_reports_the_hops() {
+fn a_decremented_ttl_still_fits_exactly() {
     let mut observed = base_observation();
     observed.ittl = Ttl::Value(59);
     assert_eq!(
         base_signature().fit(&observed),
-        Some(SignatureFit::exact(5)),
-        "five routers between us and a host with an initial TTL of 64"
+        Some(SignatureFit::exact()),
+        "five routers between us and a host with an initial TTL of 64 is still exact"
     );
 }
 
@@ -239,14 +236,11 @@ fn an_implausible_hop_count_is_a_fuzzy_match() {
     observed.ittl = Ttl::Value(10);
     assert_eq!(
         base_signature().fit(&observed),
-        Some(SignatureFit::fuzzy(
-            FuzzyReason {
-                implausible_hop_distance: Some(54),
-                added_quirks: vec![],
-                missing_quirks: vec![],
-            },
-            54
-        )),
+        Some(SignatureFit::fuzzy(FuzzyReason {
+            implausible_hop_distance: Some(54),
+            added_quirks: vec![],
+            missing_quirks: vec![],
+        })),
         "54 hops is beyond p0f's MAX_DIST, so the signature only holds as fuzzy"
     );
 }
@@ -260,14 +254,11 @@ fn the_reason_reports_both_tolerances_when_both_apply() {
     observed.quirks = vec![Quirk::Ecn];
     assert_eq!(
         signature.fit(&observed),
-        Some(SignatureFit::fuzzy(
-            FuzzyReason {
-                implausible_hop_distance: Some(54),
-                added_quirks: vec![Quirk::Ecn],
-                missing_quirks: vec![Quirk::Df],
-            },
-            54
-        )),
+        Some(SignatureFit::fuzzy(FuzzyReason {
+            implausible_hop_distance: Some(54),
+            added_quirks: vec![Quirk::Ecn],
+            missing_quirks: vec![Quirk::Df],
+        })),
         "the TTL and the quirks are independent tolerances, so neither hides the other"
     );
 }

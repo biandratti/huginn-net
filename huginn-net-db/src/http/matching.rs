@@ -133,7 +133,7 @@ impl HttpSignatureHelper for http::Signature {
             && headers_match(observed.get_horder(), &self.horder)
             && absent_headers_match(observed.get_horder(), &self.habsent);
 
-        gates.then(|| SignatureFit::exact(0))
+        gates.then(SignatureFit::exact)
     }
 
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {

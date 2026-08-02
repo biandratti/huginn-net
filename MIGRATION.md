@@ -29,11 +29,12 @@ Nothing else is produced. If you compared scores against thresholds, note that
 the ordering is the contract and the numbers are free to be recalibrated; if you
 branched on specific values, switch to comparisons.
 
-Selection changed with it: a specific signature can no longer lose to a generic
-one because of database order, an exact generic match now outranks a fuzzy
-specific one, and TCP breaks ties within a tier by preferring the signature
-whose initial TTL is closest to what was observed. Application signatures
-(p0f's `s:!:…`, e.g. NMap) are no longer reported on a fuzzy match at all.
+Selection follows p0f's first-match-wins rule within each tier: the first
+exact specific in `.fp` / bucket order wins immediately; otherwise the first
+exact generic; otherwise the first fuzzy. An exact generic still outranks a
+fuzzy specific. Application signatures (p0f's `s:!:…`, e.g. NMap) are never
+reported on a fuzzy match — and if the *first* fuzzy candidate is userland,
+nothing is reported even when a later fuzzy OS signature would also fit.
 
 ---
 

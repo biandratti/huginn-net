@@ -23,21 +23,17 @@ pub struct SignatureFit<F> {
     /// The tolerance that had to be stretched for the match to hold, which ranks
     /// this candidate below every signature that fit exactly.
     pub fuzzy: Option<F>,
-    /// How far this candidate sits from the observation *within* its tier.
-    /// Used only to break ties between candidates of the same rank; lower is
-    /// closer. Protocols with nothing to measure report `0`.
-    pub deviation: u32,
 }
 
 impl<F> SignatureFit<F> {
     /// Every field matched, nothing was stretched.
-    pub fn exact(deviation: u32) -> Self {
-        Self { fuzzy: None, deviation }
+    pub fn exact() -> Self {
+        Self { fuzzy: None }
     }
 
     /// The match only holds because `reason` was tolerated.
-    pub fn fuzzy(reason: F, deviation: u32) -> Self {
-        Self { fuzzy: Some(reason), deviation }
+    pub fn fuzzy(reason: F) -> Self {
+        Self { fuzzy: Some(reason) }
     }
 }
 
