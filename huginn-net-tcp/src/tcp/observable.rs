@@ -38,6 +38,9 @@ pub struct TcpObservation {
     /// the handshake's SYN was seen. Always `None` on a SYN. Used as the last
     /// window divisor (p0f's `syn_mss`), for both matching and rendering.
     pub peer_mss: Option<u16>,
+    /// IPv4 DSCP / IPv6 traffic-class bits 2–7 (p0f's `pk.tos`). Zero means
+    /// absent for `params` reporting; not used for matching.
+    pub tos: u8,
 }
 
 impl TcpObservation {

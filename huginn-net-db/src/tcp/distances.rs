@@ -73,6 +73,24 @@ pub fn ttl_fit(observed: &Ttl, signature: &Ttl) -> Option<TtlFit> {
     Some(TtlFit { hop_distance, out_of_range })
 }
 
+/// Hop count p0f reports in `Dist:` after selection (`fp_tcp.c:258-265`).
+///
+/// When the signature TTL is usable, this is `initial - observed`. Otherwise
+/// (no usable match TTL, observed above initial, or hops beyond
+/// [`MAX_TTL_DISTANCE`] on a non-randomised signature) it falls back to
+/// [`huginn_net_tcp::ttl::guess_distance`].
+pub fn report_hop_distance(observed: &Ttl, signature: &Ttl) -> u8 {
+    let obs = observed_ttl(observed);
+    let initial = signature_initial_ttl(signature);
+    let bad_ttl = matches!(signature, Ttl::Bad(_));
+
+    if obs > initial || (!bad_ttl && initial.saturating_sub(obs) > MAX_TTL_DISTANCE) {
+        huginn_net_tcp::ttl::guess_distance(obs)
+    } else {
+        initial.saturating_sub(obs)
+    }
+}
+
 /// Whether the window seen on the wire satisfies the one a signature declares.
 ///
 /// The comparison is driven by the *signature's* form, never by a form imposed

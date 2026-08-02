@@ -135,6 +135,8 @@ pub fn process_tcp_ipv4(
     let version = IpVersion::V4;
     let ttl_observed: u8 = packet.get_ttl();
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
+    // p0f `pk.tos = ip4->tos_ecn >> 2` — DSCP only; ECN is a separate quirk.
+    let tos: u8 = packet.get_dscp();
     let olen: u8 = IpOptions::calculate_ipv4_length(packet);
     let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
 
@@ -171,6 +173,7 @@ pub fn process_tcp_ipv4(
                 &tcp_packet,
                 version,
                 ttl,
+                tos,
                 ip_package_header_length,
                 // IHL counts 32-bit words.
                 u16::from(ip_package_header_length).saturating_mul(4),
@@ -193,6 +196,8 @@ pub fn process_tcp_ipv6(
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
+    // Same 6-bit field p0f stores as `pk.tos` for IPv6 traffic class.
+    let tos: u8 = packet.get_traffic_class() >> 2;
     let olen: u8 = IpOptions::calculate_ipv6_length(packet);
     let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
 
@@ -216,6 +221,7 @@ pub fn process_tcp_ipv6(
                 &tcp_packet,
                 version,
                 ttl,
+                tos,
                 ip_package_header_length,
                 u16::from(ip_package_header_length),
                 olen,
@@ -232,6 +238,7 @@ pub fn process_tcp_ipv6(
 fn tcp_observation(
     version: IpVersion,
     ittl: Ttl,
+    tos: u8,
     olen: u8,
     mss: Option<u16>,
     wsize: u16,
@@ -263,6 +270,7 @@ fn tcp_observation(
             PayloadSize::NonZero
         },
         peer_mss,
+        tos,
     }
 }
 
@@ -287,6 +295,7 @@ fn visit_tcp(
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
+    tos: u8,
     ip_package_header_length: u8,
     ip_header_bytes: u16,
     olen: u8,
@@ -498,6 +507,7 @@ fn visit_tcp(
                         matching: tcp_observation(
                             version,
                             ittl,
+                            tos,
                             olen,
                             mss,
                             tcp.get_window(),
@@ -537,6 +547,7 @@ fn visit_tcp(
                             matching: tcp_observation(
                                 version,
                                 ittl,
+                                tos,
                                 olen,
                                 mss,
                                 tcp.get_window(),

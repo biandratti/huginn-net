@@ -173,6 +173,40 @@ Consequences for feature builds:
 
 ---
 
+### TCP `params` / `Dist:` align with p0f (`dump_flags`, `guess_dist`)
+
+`OSQualityMatched` and `TcpMatch` now carry the fields p0f prints beside the OS
+label:
+
+| Field | Meaning |
+|-------|---------|
+| `dist` | Hop count for `Dist:` (signature hops when TTL is usable, else `guess_dist`) |
+| `random_ttl` | Winning signature used a randomised TTL (`nnn-`) |
+| `excess_dist` | Reported `dist` is above `MAX_DIST` (35) |
+| `tos` | IPv4 DSCP / IPv6 traffic-class bits 2–7 (`0` omits `tos:` from params) |
+
+`TcpObservation` gained `tos: u8` (not used for matching).  
+`params()` may also emit `random_ttl`, `excess_dist`, and `tos:0xNN`, still
+keeping the typed `fuzzy (…)` detail. Without a match, `tos` / `excess_dist`
+can still appear (same as p0f).
+
+```rust
+// v2.0
+OSQualityMatched { os, quality }
+println!("{}", os_matched.params()); // "generic" | "fuzzy (…)" | "none"
+// Dist: line used calculate_ttl's heuristic on the observation
+
+// v2.1
+OSQualityMatched { os, quality, dist, random_ttl, excess_dist, tos }
+println!("{}", os_matched.params()); // e.g. "fuzzy (…) random_ttl tos:0x2e"
+// Dist: uses os_matched.dist
+```
+
+Call sites that construct `OSQualityMatched` or `TcpMatch` by hand must set the
+new fields (or use `OSQualityMatched::without_match` when there is no OS hit).
+
+---
+
 ### `HttpDiagnosis` → `HttpParams`
 
 `HttpRequestOutput`/`HttpResponseOutput` carry `params: HttpParams` instead of

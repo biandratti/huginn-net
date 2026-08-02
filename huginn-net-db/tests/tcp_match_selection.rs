@@ -27,6 +27,7 @@ fn observation() -> TcpObservation {
         quirks: Vec::new(),
         pclass: PayloadSize::Zero,
         peer_mss: None,
+        tos: 0,
     }
 }
 
