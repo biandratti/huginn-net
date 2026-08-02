@@ -86,17 +86,11 @@ fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNe
 }
 
 /// Check if a TCP analysis result has meaningful data for golden tests.
+///
+/// Uptime is excluded: it uses wall-clock gaps (`TcpTimestamp::now`,
+/// MIN_TWAIT=25ms), so tarpaulin/CI can emit uptime-only results that a fast
+/// local run never produces. Existing snapshots assert handshake/MTU only.
 fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
-    let has_uptime = {
-        #[cfg(feature = "uptime")]
-        {
-            result.client_uptime.is_some() || result.server_uptime.is_some()
-        }
-        #[cfg(not(feature = "uptime"))]
-        {
-            false
-        }
-    };
     let has_mtu = {
         #[cfg(feature = "mtu")]
         {
@@ -127,7 +121,7 @@ fn has_meaningful_tcp_data(result: &TcpAnalysisResult) -> bool {
             false
         }
     };
-    has_syn || has_syn_ack || has_mtu || has_uptime
+    has_syn || has_syn_ack || has_mtu
 }
 
 fn assert_connection_matches_snapshot(

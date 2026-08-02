@@ -6,20 +6,17 @@
 ///
 /// ```rust
 /// use huginn_net::quality_match;
-/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched, OperativeSystem};
-/// # use huginn_net_db::Label;
+/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched};
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
-/// # struct ObservableTcp;
 /// # let config = Config { matcher_enabled: true };
 /// # let matcher: Option<Matcher> = None;
-/// # let observable_tcp = ObservableTcp;
 /// let quality = quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
-///     call: matcher => None::<(Label, String, f32)>,
-///     matched: (label, _signature, quality) => OSQualityMatched {
-///         os: Some(OperativeSystem::from(&label)),
+///     call: matcher => None::<(String, f32)>,
+///     matched: (name, quality) => OSQualityMatched {
+///         os: None, // real code: Some(OperativeSystem::from(label))
 ///         quality: MatchQuality::exact(quality),
 ///     },
 ///     not_matched: OSQualityMatched {
@@ -31,6 +28,7 @@
 ///         quality: MatchQuality::Disabled,
 ///     }
 /// );
+/// # let _ = quality;
 /// ```
 #[macro_export]
 macro_rules! quality_match {

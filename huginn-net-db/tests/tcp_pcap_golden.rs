@@ -87,11 +87,11 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
 
     rx.into_iter()
         .filter(|r| {
-            r.syn.is_some()
-                || r.syn_ack.is_some()
-                || r.mtu.is_some()
-                || r.client_uptime.is_some()
-                || r.server_uptime.is_some()
+            // Ignore uptime-only results: uptime uses wall-clock gaps
+            // (`TcpTimestamp::now`, MIN_TWAIT=25ms), so tarpaulin/CI can emit
+            // extras that never appear in a fast local run. These snapshots
+            // assert handshake/MTU signals only.
+            r.syn.is_some() || r.syn_ack.is_some() || r.mtu.is_some()
         })
         .collect()
 }
