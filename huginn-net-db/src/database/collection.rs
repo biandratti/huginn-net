@@ -72,6 +72,16 @@ where
     pub(crate) fn index_buckets(&self) -> impl Iterator<Item = (&K, &Vec<(usize, usize)>)> {
         self.index.iter()
     }
+
+    /// Number of labels (OS/browser rows) in this collection.
+    pub fn label_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Number of fingerprint signatures across all labels.
+    pub fn signature_count(&self) -> usize {
+        self.entries.iter().map(|(_, sigs)| sigs.len()).sum()
+    }
 }
 
 impl<OF, DS, K> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS, K>

@@ -101,16 +101,16 @@ fn main() {
         return;
     }
 
-    thread::spawn(move || {
-        let db = match Database::load_default() {
-            Ok(db) => db,
-            Err(e) => {
-                error!("Failed to load default database: {e}");
-                return;
-            }
-        };
-        debug!("Loaded database: {:?}", db);
+    let db = match Database::load_default() {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Failed to load default p0f database: {e}");
+            return;
+        }
+    };
+    debug!("Loaded p0f TCP+HTTP database successfully");
 
+    thread::spawn(move || {
         let filter_config = build_filter(&args.filter);
 
         let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
