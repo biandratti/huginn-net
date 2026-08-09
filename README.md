@@ -121,14 +121,15 @@ Optional packet filtering by port and/or IP address for improved performance. Fi
 
 ### Matching Quality
 
-Each match gets a quality score based on the **distance** between the observed packet and the closest known signature. A richer database means better scores.
+TCP/HTTP matches use three fixed `quality` tiers:
 
-#### Quality Metrics
-- **Perfect Match (1.0)**: Exact signature match with zero distance
-- **High Quality (0.8-0.95)**: Very close match with minimal differences
-- **Medium Quality (0.6-0.8)**: Good match with some variations
-- **Low Quality (0.4-0.6)**: Acceptable match but with notable differences
-- **Poor Quality (<0.4)**: Weak match, use with caution
+| Tier | `quality` | Meaning |
+|------|-----------|---------|
+| Specific exact | `1.0` | Named product, every field fit |
+| Generic exact | `0.8` | Family catch-all, still exact |
+| Fuzzy | `0.5` | Tolerated hops/quirks (`FuzzyReason`) |
+
+No match means no signature passed the gates. Prefer `1.0` without `fuzzy`; treat `0.5` as a hint. A richer `.fp` database improves coverage more than matcher tweaks, see [huginn-net-db](huginn-net-db/README.md#reading-match-results).
 
 ## Companion: huginn-proxy
 

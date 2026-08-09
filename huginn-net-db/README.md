@@ -30,7 +30,7 @@ want database-backed matching.
 
 - **P0f Database Parsing** - Complete parser for p0f signature format
 - **TCP & HTTP Matching** - Efficient signature matching algorithms  
-- **Quality Scoring** - Distance-based quality metrics for matches
+- **Tiered Match Quality** - Specific / generic / fuzzy (not a continuous score)
 - **Extensible Design** - Easy to add new signature types
 
 ## Cargo Features
@@ -80,6 +80,29 @@ let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::from_databas
 let analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
 # Ok::<_, Box<dyn std::error::Error>>(())
 ```
+
+## Reading match results
+
+The matcher either returns a label or nothing. When it returns one, the
+`quality` value is one of three fixed tiers:
+
+| Outcome | `quality` | Meaning |
+|---------|-----------|---------|
+| Specific exact | `1.0` | Best: named product, every field fit |
+| Generic exact | `0.8` | Family catch-all, still exact fit |
+| Fuzzy | `0.5` | Held only with a documented tolerance (`FuzzyReason`: hops / quirks) |
+| No match | — | No signature passed the gates |
+| Disabled | — | No matcher was attached |
+
+**Rule of thumb:** prefer `1.0` without `fuzzy`. Treat `0.5` as a hint
+and inspect `FuzzyReason` / TCP `params` (`dist`, `random_ttl`, …).
+HTTP has no fuzzy tier: a hit is exact, and `HttpParams` flags
+(`dishonest`, `anonymous`, `generic`) annotate the claim separately.
+
+The algorithm only ranks against signatures that exist: a richer, up-to-date
+`.fp` database improves coverage and labels far more than tweaking match
+logic. Gaps or “no match” on modern stacks are often a data ceiling, not a
+matcher bug.
 
 ## Documentation
 
