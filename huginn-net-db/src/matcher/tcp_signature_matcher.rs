@@ -2,7 +2,6 @@ use crate::database::{Label, TcpDatabase, Type};
 use crate::db_matching_trait::{DatabaseMatch, FingerprintDb};
 use crate::tcp::{report_hop_distance, Ttl, MAX_TTL_DISTANCE};
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
-use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::{FuzzyReason, OperativeSystem, OsKind};
 use std::sync::Arc;
@@ -14,35 +13,6 @@ pub struct TcpSignatureMatcher<'a> {
 impl<'a> TcpSignatureMatcher<'a> {
     pub fn new(database: &'a TcpDatabase) -> Self {
         Self { database }
-    }
-
-    pub fn matching_by_tcp_request(
-        &self,
-        signature: &ObservableTcp,
-    ) -> Option<DatabaseMatch<'a, crate::tcp::Signature, FuzzyReason>> {
-        self.database
-            .tcp_request
-            .find_best_match(&signature.matching)
-    }
-
-    pub fn matching_by_tcp_response(
-        &self,
-        signature: &ObservableTcp,
-    ) -> Option<DatabaseMatch<'a, crate::tcp::Signature, FuzzyReason>> {
-        self.database
-            .tcp_response
-            .find_best_match(&signature.matching)
-    }
-
-    pub fn matching_by_mtu(&self, mtu: &u16) -> Option<(&'a String, &'a u16)> {
-        for (link, db_mtus) in &self.database.mtu {
-            for db_mtu in db_mtus {
-                if mtu == db_mtu {
-                    return Some((link, db_mtu));
-                }
-            }
-        }
-        None
     }
 }
 
@@ -135,7 +105,8 @@ impl SharedTcpSignatureMatcher {
         Self { database }
     }
 
-    /// composed [`crate::Database`] requires both).
+    /// Clone the TCP sub-database out of a composed [`crate::Database`].
+    /// Requires both `tcp` and `http` features.
     #[cfg(all(feature = "tcp", feature = "http"))]
     pub fn from_database(database: &crate::Database) -> Self {
         Self { database: Arc::new(database.tcp.clone()) }

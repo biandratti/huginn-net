@@ -2,10 +2,7 @@
 //!
 //! These functions take **raw types** (versions, header slices, expected
 //! software strings), no observation structs, so they mirror the shape of
-//! [`crate::tcp`]'s helpers and can be reused from both the
-//! `DatabaseSignature` impl and the public [`HttpDistance`] trait.
-//!
-//! [`HttpDistance`]: crate::observable_http_signals_matching::HttpDistance
+//! [`crate::tcp`]'s helpers.
 
 use super::{Header, Version};
 use huginn_net_http::http::UNKNOWN_SOFTWARE;

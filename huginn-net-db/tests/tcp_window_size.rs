@@ -7,6 +7,7 @@
 
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
+use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
 
@@ -63,8 +64,8 @@ fn matched_request_flavor(syn: &ObservableTcp) -> Option<(String, Option<String>
         Ok(db) => db,
         Err(e) => panic!("failed to load default database: {e}"),
     };
-    let found = TcpSignatureMatcher::new(&db).matching_by_tcp_request(syn)?;
-    Some((found.label.name.clone(), found.label.flavor.clone()))
+    let found = TcpSignatureMatcher::new(&db).match_tcp_request(&syn.matching)?;
+    Some((found.os.name, found.os.variant))
 }
 
 fn matched_response_flavor(syn_ack: &ObservableTcp) -> Option<(String, Option<String>)> {
@@ -72,8 +73,8 @@ fn matched_response_flavor(syn_ack: &ObservableTcp) -> Option<(String, Option<St
         Ok(db) => db,
         Err(e) => panic!("failed to load default database: {e}"),
     };
-    let found = TcpSignatureMatcher::new(&db).matching_by_tcp_response(syn_ack)?;
-    Some((found.label.name.clone(), found.label.flavor.clone()))
+    let found = TcpSignatureMatcher::new(&db).match_tcp_response(&syn_ack.matching)?;
+    Some((found.os.name, found.os.variant))
 }
 
 #[test]

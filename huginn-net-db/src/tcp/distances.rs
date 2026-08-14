@@ -38,8 +38,8 @@ fn signature_initial_ttl(signature: &Ttl) -> u8 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TtlFit {
     /// Hops the packet appears to have travelled: the signature's initial TTL
-    /// minus the observed one. Doubles as the tie-break between two signatures
-    /// that both fit, since the closer initial TTL is the better explanation.
+    /// minus the observed one. Used for `FuzzyReason` and `Dist:`, not as a
+    /// tie-break (first fit at a tier wins).
     pub hop_distance: u32,
     /// The hop count is not plausible ([`MAX_TTL_DISTANCE`]), so the signature
     /// only holds as a fuzzy match.

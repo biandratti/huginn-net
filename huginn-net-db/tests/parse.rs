@@ -1,8 +1,8 @@
 #![cfg(all(feature = "tcp", feature = "http"))]
-use huginn_net_db::db_parse::parse_ttl_str;
 use huginn_net_db::http::{
     Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion,
 };
+use huginn_net_db::parse::parse_ttl_str;
 use huginn_net_db::tcp::Quirk::{AckNumNonZero, Df, NonZeroID};
 use huginn_net_db::tcp::TcpOption::{Mss, Nop, Sok, Ws, TS};
 use huginn_net_db::tcp::{
@@ -232,7 +232,7 @@ fn test_http_signature() {
 
 #[test]
 fn test_http_header() {
-    use huginn_net_db::db_parse::parse_http_header_str;
+    use huginn_net_db::parse::parse_http_header_str;
     for (s, h) in HTTP_HEADERS.iter() {
         let result = parse_http_header_str(s);
         assert!(result.is_ok(), "Failed to parse HTTP header: {s}");

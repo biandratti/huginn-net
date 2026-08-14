@@ -77,7 +77,7 @@ macro_rules! quality_match {
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # impl Matcher {
-/// #     fn matching_by_mtu(&self, _value: &u16) -> Option<(String, String)> { None }
+/// #     fn match_mtu(&self, _value: u16) -> Option<huginn_net_tcp::matcher_api::MtuMatch> { None }
 /// # }
 /// # struct ObservableMtu { value: u16 }
 /// # let config = Config { matcher_enabled: true };
@@ -86,9 +86,9 @@ macro_rules! quality_match {
 /// let quality = simple_quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
-///     method: matching_by_mtu(&observable_mtu.value),
-///     success: (link, _) => MTUQualityMatched {
-///         link: Some(link.clone()),
+///     method: match_mtu(observable_mtu.value),
+///     success: found => MTUQualityMatched {
+///         link: Some(found.link),
 ///         quality: MatchQuality::exact(1.0),
 ///     },
 ///     failure: MTUQualityMatched {

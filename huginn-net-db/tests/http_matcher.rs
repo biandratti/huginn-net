@@ -1,5 +1,7 @@
 #![cfg(feature = "http")]
-use huginn_net_db::{http, HttpDatabase, HttpSignatureMatcher, Type};
+use huginn_net_db::db_matching_trait::FingerprintDb;
+use huginn_net_db::{http, HttpDatabase, Type};
+use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 #[test]
@@ -25,9 +27,7 @@ fn matching_firefox2_by_http_request() {
         expsw: "Firefox/".to_string(),
     };
 
-    let matcher = HttpSignatureMatcher::new(&db);
-
-    if let Some(found) = matcher.matching_by_http_request(&firefox_signature) {
+    if let Some(found) = db.http_request.find_best_match(&firefox_signature) {
         assert_eq!(found.label.name, "Firefox");
         assert_eq!(found.label.class, None);
         assert_eq!(found.label.flavor, Some("2.x".to_string()));
@@ -67,9 +67,7 @@ fn matching_apache_by_http_response() {
         expsw: "Apache".to_string(),
     };
 
-    let matcher = HttpSignatureMatcher::new(&db);
-
-    if let Some(found) = matcher.matching_by_http_response(&apache_signature) {
+    if let Some(found) = db.http_response.find_best_match(&apache_signature) {
         assert_eq!(found.label.name, "Apache");
         assert_eq!(found.label.class, None);
         assert_eq!(found.label.flavor, Some("2.x".to_string()));
@@ -115,11 +113,9 @@ fn modern_chrome_request_is_not_covered_by_bundled_signatures() {
         expsw: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36".to_string(),
     };
 
-    let matcher = HttpSignatureMatcher::new(&db);
-
     assert!(
-        matcher
-            .matching_by_http_request(&android_chrome_signature)
+        db.http_request
+            .find_best_match(&android_chrome_signature)
             .is_none(),
         "no bundled signature describes this request, so it must not be labelled"
     );
@@ -131,7 +127,6 @@ fn unknown_request_signature_does_not_match() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
-    let matcher = HttpSignatureMatcher::new(&db);
 
     let unknown = HttpRequestObservation {
         version: http::Version::V30,
@@ -139,8 +134,7 @@ fn unknown_request_signature_does_not_match() {
         habsent: vec![],
         expsw: "DefinitelyNotARealBrowser/0.0".to_string(),
     };
-
-    let result = matcher.matching_by_http_request(&unknown);
+    let result = db.http_request.find_best_match(&unknown);
     assert!(
         result.is_none(),
         "expected no match for synthetic signature, got {:?}",
@@ -154,11 +148,12 @@ fn ua_lookup_returns_known_family() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
-    let matcher = HttpSignatureMatcher::new(&db);
+    let matcher = huginn_net_db::HttpSignatureMatcher::new(&db);
 
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
               (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    if let Some((substr, _family)) = matcher.matching_by_user_agent(ua) {
-        assert!(ua.contains(substr), "matched substring should appear in UA");
-    }
+    let found = matcher
+        .match_user_agent(ua)
+        .unwrap_or_else(|| panic!("Windows UA should map to an OS family"));
+    assert_eq!(found.family, "Windows");
 }

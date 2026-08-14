@@ -10,6 +10,7 @@ pub use huginn_net_tcp::tcp::{
 
 mod coverage;
 mod distances;
+mod matching;
 mod signature;
 
 pub use coverage::{ambiguous_exact_pairs, warn_ambiguous_coverage, AmbiguousExactPair};

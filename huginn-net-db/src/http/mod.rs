@@ -7,6 +7,7 @@ pub use huginn_net_http::http::{
 };
 
 mod distances;
+mod matching;
 mod signature;
 
 pub use distances::{absent_headers_match, expsw_matches, headers_match, http_version_matches};

@@ -1,21 +1,5 @@
 //! Glue between [`huginn_net_tcp::observable::TcpObservation`] and the
 //! database matcher infrastructure.
-//!
-//! Provides:
-//! - `pub(crate)` gate helpers that read fields off a `TcpObservation`
-//!   (`olen_matches`, `mss_matches`, `wscale_matches`, `olayout_matches`,
-//!   `quirks_fit`). The pure helpers that compare two raw signature types
-//!   ([`crate::tcp::ttl_fit`], [`crate::tcp::window_size_matches`], …) live in
-//!   `crate::tcp::distances` (private module; re-exported through
-//!   [`crate::tcp`]).
-//! - The [`crate::db_matching_trait::ObservedFingerprint`] impl that turns an
-//!   observation into a [`crate::database::TcpIndexKey`].
-//! - The [`crate::db_matching_trait::DatabaseSignature`] impl that compares a
-//!   `tcp::Signature` against a `TcpObservation`.
-//!
-//! For backward compatibility this module is re-exposed at the crate root as
-//! `huginn_net_db::observable_tcp_signals_matching` via a `#[path]` shim in
-//! `lib.rs`.
 
 use crate::database::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint, SignatureFit};

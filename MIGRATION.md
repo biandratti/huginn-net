@@ -276,13 +276,15 @@ are gone. Each one is replaced by a check that answers the question directly.
 | `DatabaseSignature::calculate_distance` + `get_quality_score` | `DatabaseSignature::fit`, returning `Option<SignatureFit<Self::Fuzziness>>` |
 | `MatchQuality` trait, `TcpMatchQuality`, `HttpMatchQuality` (the database-side traits) | removed; use `MatchRank` |
 | `FingerprintDb::find_best_match` returning `(&Label, &DS, f32)` | returns `DatabaseMatch`, whose fields are named |
-| `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response` returning tuples | the same `DatabaseMatch` |
+| `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response`, `matching_by_mtu`, `matching_by_user_agent` | `TcpMatcher` / `HttpMatcher` (`match_tcp_request`, `match_mtu`, …). Inspect labels via `FingerprintDb::find_best_match` |
+| `HttpDistance` | `http::headers_match`, `http_version_matches`, `absent_headers_match`, `expsw_matches` |
+| `huginn_net_db::db`, `huginn_net_db::db_parse` | `huginn_net_db::database`, `huginn_net_db::parse` |
+| `observable_http_signals_matching` / `observable_tcp_signals_matching` | private; matching impls live under `http` / `tcp` |
 | `tcp::distance_ttl` | `tcp::ttl_fit` (returns the hop distance) |
 | `tcp::detect_win_multiplicator` returning a `WindowSize` | `tcp::detect_win_multi`, returning `Option<WindowMultiplier>` |
 | `tcp::distance_ip_version`, `distance_window_size`, `distance_payload_size` | `ip_version_matches`, `window_size_matches`, `payload_size_matches` (`bool`) |
 | `http::distance_http_version`, `distance_header`, `distance_habsent` | `http_version_matches`, `headers_match`, `absent_headers_match` (`bool`) |
 | `huginn_net_db::http::distance_expsw` | `huginn_net_db::http::expsw_matches` (never part of the match) |
-| `HttpDistance::distance_*` methods | `version_matches`, `headers_match`, `horder_matches`, `absent_headers_match` |
 
 ---
 

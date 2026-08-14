@@ -4,9 +4,8 @@
 //! only effect is to flag the host as dishonest — never to reject or demote
 //! the signature.
 
-use huginn_net_db::db_matching_trait::DatabaseSignature;
-use huginn_net_db::http::UNKNOWN_SOFTWARE;
-use huginn_net_db::{http, HttpDatabase, HttpSignatureMatcher, SharedHttpSignatureMatcher};
+use huginn_net_db::db_matching_trait::{DatabaseSignature, FingerprintDb};
+use huginn_net_db::{http, HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::observable::HttpRequestObservation;
 use std::sync::Arc;
@@ -47,7 +46,7 @@ fn nothing_to_compare_counts_as_honest() {
         "traffic that says nothing makes no claim to check"
     );
     assert!(
-        http::expsw_matches(UNKNOWN_SOFTWARE, CHROME_EXPSW),
+        http::expsw_matches(http::UNKNOWN_SOFTWARE, CHROME_EXPSW),
         "the absent-header placeholder is not a literal claim"
     );
 }
@@ -80,9 +79,9 @@ fn software_string_does_not_change_the_fit() {
         expsw: expsw.to_string(),
     };
 
-    let matcher = HttpSignatureMatcher::new(&db);
-    let honest_match = matcher
-        .matching_by_http_request(&observation("Firefox/"))
+    let honest_match = db
+        .http_request
+        .find_best_match(&observation("Firefox/"))
         .unwrap_or_else(|| panic!("no match found for the Firefox 2.x signature"));
 
     let honest = honest_match.signature.fit(&observation("Firefox/"));
@@ -91,8 +90,9 @@ fn software_string_does_not_change_the_fit() {
         .fit(&observation("definitely-not-firefox"));
     assert_eq!(honest, lying, "expsw must not affect how well the signature fits");
 
-    let lying_match = matcher
-        .matching_by_http_request(&observation("definitely-not-firefox"))
+    let lying_match = db
+        .http_request
+        .find_best_match(&observation("definitely-not-firefox"))
         .unwrap_or_else(|| panic!("a dishonest software string must not reject the signature"));
     assert_eq!(honest_match.quality, lying_match.quality);
 }

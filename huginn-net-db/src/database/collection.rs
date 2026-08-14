@@ -69,6 +69,7 @@ where
     }
 
     /// Buckets of `(label_idx, sig_idx)` in declaration order, for coverage checks.
+    #[cfg(feature = "tcp")]
     pub(crate) fn index_buckets(&self) -> impl Iterator<Item = (&K, &Vec<(usize, usize)>)> {
         self.index.iter()
     }
