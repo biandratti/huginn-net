@@ -14,6 +14,10 @@ use crate::output::{Browser, WebServer};
 pub struct HttpRequestMatch {
     pub browser: Browser,
     pub quality: f32,
+    /// The `User-Agent` in the traffic does not back up the software the
+    /// matched signature declares. Decided together with the match, since it
+    /// takes the winning signature to know what was claimed.
+    pub dishonest: bool,
 }
 
 /// Result of matching an [`HttpResponseObservation`] against a database.
@@ -21,6 +25,8 @@ pub struct HttpRequestMatch {
 pub struct HttpResponseMatch {
     pub web_server: WebServer,
     pub quality: f32,
+    /// Same as [`HttpRequestMatch::dishonest`], for the `Server` header.
+    pub dishonest: bool,
 }
 
 /// Result of mapping a User-Agent string against the database's UA→OS table.

@@ -9,6 +9,8 @@
 
 use super::signature::HttpMatchQuality;
 use super::{Header, Version};
+use huginn_net_http::http::UNKNOWN_SOFTWARE;
+use tracing::debug;
 
 /// Distance score between an observed [`Version`] and a database [`Version`].
 ///
@@ -22,77 +24,106 @@ pub fn distance_http_version(observed: Version, signature: Version) -> Option<u3
     }
 }
 
-/// Distance score between two header slices using p0f's order-respecting,
-/// optional-header-aware comparison.
+/// Distance score between the headers a database signature expects
+/// (`horder`) and the headers seen in the traffic.
 ///
-/// Implements a two-pointer walk over `observed` and `signature` headers:
-/// - Exact matches advance both pointers with no error.
-/// - Same name, different value: error unless the signature header is
-///   marked optional.
-/// - Mismatched names: skip the signature side if optional, otherwise count
-///   an error.
-/// - Trailing observed headers count as errors; trailing signature headers
-///   count as errors unless optional.
+/// Header matching has no error budget in p0f: every header the signature
+/// lists must be found in the observed list, in the same relative order, and
+/// any mismatch rejects the whole signature. Concretely:
 ///
-/// Returns `None` once 12 or more errors accumulate (unmatchable).
+/// - Observed headers the signature does not mention are skipped for free,
+///   however many of them appear and wherever they appear.
+/// - When the signature specifies a value, the observed value must *contain*
+///   it as a substring (so `Accept=[,*/*]` matches a longer real `Accept`),
+///   and an observed header carrying no value never satisfies one that
+///   expects a value.
+/// - A required header that is not found rejects the signature.
+/// - An optional header (`?` in the `.fp`) may be missing, but only if it is
+///   absent from the traffic altogether: appearing in a different position
+///   than the signature dictates is still a mismatch.
+///
+/// Only the signature's `optional` flag is consulted. Observations carry one
+/// too, but it describes how p0f would *print* the header, not how to match
+/// it.
 pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
-    let mut obs_idx = 0usize;
-    let mut sig_idx = 0usize;
-    let mut errors: u32 = 0;
+    let mut position = 0usize;
 
-    while obs_idx < observed.len() && sig_idx < signature.len() {
-        let obs_header = &observed[obs_idx];
-        let sig_header = &signature[sig_idx];
+    for expected in signature {
+        let found = observed
+            .get(position..)
+            .and_then(|rest| rest.iter().position(|h| h.name == expected.name));
 
-        if obs_header.name == sig_header.name && obs_header.value == sig_header.value {
-            obs_idx = obs_idx.saturating_add(1);
-            sig_idx = sig_idx.saturating_add(1);
-        } else if obs_header.name == sig_header.name {
-            if !sig_header.optional {
-                errors = errors.saturating_add(1);
+        match found {
+            Some(offset) => {
+                let header = observed.get(position.saturating_add(offset))?;
+                if let Some(expected_value) = expected.value.as_deref() {
+                    if !header
+                        .value
+                        .as_deref()
+                        .is_some_and(|v| v.contains(expected_value))
+                    {
+                        debug!(
+                            "header {} value mismatch: expected substring {expected_value}",
+                            expected.name
+                        );
+                        return None;
+                    }
+                }
+                position = position.saturating_add(offset).saturating_add(1);
             }
-            obs_idx = obs_idx.saturating_add(1);
-            sig_idx = sig_idx.saturating_add(1);
-        } else if sig_header.optional {
-            sig_idx = sig_idx.saturating_add(1);
-        } else {
-            errors = errors.saturating_add(1);
-            sig_idx = sig_idx.saturating_add(1);
+            None => {
+                if !expected.optional {
+                    debug!("required header {} missing", expected.name);
+                    return None;
+                }
+                if observed.iter().any(|h| h.name == expected.name) {
+                    debug!("optional header {} present but out of order", expected.name);
+                    return None;
+                }
+            }
         }
     }
 
-    while obs_idx < observed.len() {
-        errors = errors.saturating_add(1);
-        obs_idx = obs_idx.saturating_add(1);
-    }
-
-    while sig_idx < signature.len() {
-        if !signature[sig_idx].optional {
-            errors = errors.saturating_add(1);
-        }
-        sig_idx = sig_idx.saturating_add(1);
-    }
-
-    match errors {
-        0..=2 => Some(HttpMatchQuality::High.as_score()),
-        3..=5 => Some(HttpMatchQuality::Medium.as_score()),
-        6..=8 => Some(HttpMatchQuality::Low.as_score()),
-        9..=11 => Some(HttpMatchQuality::Bad.as_score()),
-        _ => None,
-    }
+    Some(HttpMatchQuality::High.as_score())
 }
 
-/// Distance score between an observed `expsw` string and a database
-/// signature's `expsw`.
+/// Distance score for a signature's `habsent` list: the headers that must
+/// *not* show up in matching traffic.
 ///
-/// The observed value is considered a match when the signature's `expsw`
-/// contains it as a substring. Mismatches still produce a score
-/// ([`HttpMatchQuality::Bad`]) rather than `None`, matching the original
-/// behaviour expected by the database matcher.
-pub fn distance_expsw(observed: &str, signature: &str) -> Option<u32> {
-    if signature.contains(observed) {
-        Some(HttpMatchQuality::High.as_score())
-    } else {
-        Some(HttpMatchQuality::Bad.as_score())
+/// Note that `observed` is the list of headers actually seen (the
+/// observation's `horder`), not the observation's own `habsent`. p0f checks
+/// its forbidden headers against the traffic's real headers; an observation's
+/// `habsent` is only the set of common headers it happened to be missing,
+/// which exists to print a candidate signature, not to match one.
+pub fn distance_habsent(observed: &[Header], signature_absent: &[Header]) -> Option<u32> {
+    for forbidden in signature_absent {
+        if observed.iter().any(|h| h.name == forbidden.name) {
+            debug!("forbidden header {} present in traffic", forbidden.name);
+            return None;
+        }
     }
+
+    Some(HttpMatchQuality::High.as_score())
+}
+
+/// Whether the software string seen in the traffic backs up the one the
+/// matched signature declares (`expsw`).
+///
+/// This is deliberately *not* a distance. In p0f the check runs only once a
+/// signature has already been chosen, and its outcome never rejects the
+/// signature nor makes it rank lower: it just flags the host as dishonest,
+/// because a host whose headers say Chrome while its `User-Agent` says
+/// something else is still a Chrome-shaped host.
+///
+/// The observed `User-Agent`/`Server` value must *contain* the signature's
+/// expected substring; note the database usually writes it with a leading
+/// space (`" Chrom"`), which is significant and keeps the match anchored at a
+/// token boundary. Either side having nothing to say means there is nothing
+/// to contradict, so it counts as honest.
+pub fn expsw_matches(observed: &str, signature: &str) -> bool {
+    if signature.is_empty() || observed.is_empty() || observed == UNKNOWN_SOFTWARE {
+        return true;
+    }
+
+    observed.contains(signature)
 }

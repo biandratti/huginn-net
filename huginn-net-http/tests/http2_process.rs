@@ -69,19 +69,17 @@ fn test_http2_response_conversion() {
 }
 
 #[test]
-fn test_get_diagnostic_for_http2() {
-    let diagnosis = http_common::get_diagnostic(None, None, None);
-    assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
+fn test_params_for_http2_without_software() {
+    let params = http_common::build_params(http::UNKNOWN_SOFTWARE, None);
+    assert!(params.anonymous);
 }
 
 #[test]
-fn test_get_diagnostic_with_http2_user_agent() {
-    let user_agent = Some("Mozilla/5.0 HTTP/2.0".to_string());
-    let ua_os_family = Some("Linux");
-    let network_os_name = Some("Linux");
+fn test_params_for_http2_with_user_agent() {
+    let notes = http_common::MatchedSignatureNotes { dishonest: false, generic: false };
+    let params = http_common::build_params("Mozilla/5.0 HTTP/2.0", Some(notes));
 
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
-    assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
+    assert!(params.is_empty());
 }
 
 #[test]

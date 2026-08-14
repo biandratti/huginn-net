@@ -85,7 +85,7 @@ fn test_parse_http1_response() {
 }
 
 #[test]
-fn test_get_diagnostic_for_empty_sw() {
-    let diagnosis: http::HttpDiagnosis = http_common::get_diagnostic(None, None, None);
-    assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
+fn test_params_for_empty_sw() {
+    let params: http::HttpParams = http_common::build_params("", None);
+    assert!(params.anonymous);
 }
