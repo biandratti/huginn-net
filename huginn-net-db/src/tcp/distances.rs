@@ -40,21 +40,9 @@ fn signature_initial_ttl(signature: &Ttl) -> u8 {
     }
 }
 
-/// Distance score between an observed `Ttl` and a database `Ttl`.
-///
-/// TTL is not compared for equality: routers decrement it, so the observed
-/// value is expected to sit *below* the signature's initial TTL, by at most
-/// [`MAX_TTL_DISTANCE`] hops. Within that window the field matches exactly;
-/// outside it the signature still matches, but only as fuzzy — p0f never
-/// rejects on TTL alone (`data/p0f/fp_tcp.c::tcp_find_match`).
-///
-/// The one exception is a signature with a randomised TTL (`nnn-`, parsed as
-/// [`Ttl::Bad`]): the value carries no hop information, so only the upper
-/// bound is enforced, and exceeding it is a hard reject.
-///
-/// The fuzzy case is currently reported as the worst non-rejecting score;
-/// once the match tiers land it becomes `Fuzzy(TtlOutOfRange)` carrying the
-/// hop distance, which also breaks ties between equally exact candidates.
+/// Hop-distance vs the signature's initial TTL, not equality.
+/// Within [`MAX_TTL_DISTANCE`]: High. Outside: Low (not a reject).
+/// [`Ttl::Bad`] (`nnn-`): reject if observed > initial.
 pub fn distance_ttl(observed: &Ttl, signature: &Ttl) -> Option<u32> {
     let observed = observed_ttl(observed);
     let initial = signature_initial_ttl(signature);
