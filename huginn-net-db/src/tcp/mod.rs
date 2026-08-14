@@ -11,5 +11,6 @@ mod signature;
 
 pub use distances::{
     distance_ip_version, distance_payload_size, distance_ttl, distance_window_size,
+    MAX_TTL_DISTANCE,
 };
 pub use signature::{Signature, TcpMatchQuality};
