@@ -44,9 +44,18 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
         .and_then(|r| r.tcp_syn.as_ref())
         .unwrap_or_else(|| panic!("expected at least one SYN in macos_tcp_flags.pcap"));
 
+    // The capture's quirks are `df,ecn` while p0f.fp writes `df,id+` for this
+    // signature: `id+` missing and `ecn` extra are both inside p0f's fuzzy
+    // whitelist, so this is a match, not a reject.
+    let os = first_syn
+        .os_matched
+        .os
+        .as_ref()
+        .unwrap_or_else(|| panic!("expected an OS match for the first SYN"));
+    assert_eq!(os.name, "Mac OS X", "first SYN OS name");
     assert!(
-        matches!(first_syn.os_matched.quality, TcpMatchQuality::NotMatched),
-        "matcher must run and return NotMatched, got {:?}",
+        matches!(first_syn.os_matched.quality, TcpMatchQuality::Matched(_)),
+        "matcher must run and return a fuzzy match, got {:?}",
         first_syn.os_matched.quality
     );
 
