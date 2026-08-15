@@ -3,7 +3,7 @@ mod support;
 use support::{initialize_logging, Commands, FilterOptions, LiveMode, OutputFormat};
 
 use clap::Parser;
-use huginn_net_db::{Database, SharedHttpSignatureMatcher};
+use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::{FilterConfig, HttpAnalysisResult, HuginnNetHttp, IpFilter, PortFilter};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -76,6 +76,16 @@ fn main() {
 
     let (sender, receiver): (Sender<HttpAnalysisResult>, Receiver<HttpAnalysisResult>) = channel();
 
+    let db = match HttpDatabase::load_default() {
+        Ok(db) => Arc::new(db),
+        Err(e) => {
+            error!("Failed to load default HTTP database: {e}");
+            return;
+        }
+    };
+    debug!("Loaded p0f HTTP database successfully");
+    let matcher: Arc<dyn HttpMatcher + Send + Sync> = Arc::new(SharedHttpSignatureMatcher::new(db));
+
     let cancel_signal = Arc::new(AtomicBool::new(false));
     let ctrl_c_signal = cancel_signal.clone();
     let thread_cancel_signal = cancel_signal.clone();
@@ -89,17 +99,6 @@ fn main() {
     }
 
     thread::spawn(move || {
-        let db = match Database::load_default() {
-            Ok(db) => db,
-            Err(e) => {
-                error!("Failed to load default database: {e}");
-                return;
-            }
-        };
-        debug!("Loaded database: {:?}", db);
-
-        let matcher: Arc<dyn HttpMatcher + Send + Sync> =
-            Arc::new(SharedHttpSignatureMatcher::from_database(&db));
         let filter_config = build_filter(&args.filter);
 
         match args.command {

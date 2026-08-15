@@ -1,8 +1,13 @@
 #![cfg(feature = "tcp")]
-//! Window match: raw `wsize` vs the signature form (`mss*n`, literal, peer MSS).
+//! A database signature that declares a literal window must stay reachable.
+//!
+//! p0f keeps the observed window exactly as it came off the wire and only
+//! resolves a multiplier when the *signature* asks for one, so a literal window
+//! is compared for equality and always works (`fp_tcp.c:189-217`).
 
-use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption};
+use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
+use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
 
@@ -14,9 +19,17 @@ fn observed(
     window: u16,
     wscale: Option<u8>,
     olayout: Vec<TcpOption>,
-    quirks: Vec<Quirk>,
+    quirks: QuirkSet,
     peer_mss: Option<u16>,
 ) -> ObservableTcp {
+    // Twenty bytes of IP header plus a TCP header of five words and one more per
+    // option, which is close enough for a test that only reads the window.
+    let option_words = u16::try_from(olayout.len()).unwrap_or(0);
+    let tot_hdr = option_words
+        .saturating_add(5)
+        .saturating_mul(4)
+        .saturating_add(20);
+
     ObservableTcp {
         matching: TcpObservation {
             version: IpVersion::V4,
@@ -24,11 +37,7 @@ fn observed(
             olen: 0,
             mss,
             wsize: window,
-            tot_hdr: u16::try_from(olayout.len())
-                .unwrap_or(0)
-                .saturating_add(5)
-                .saturating_mul(4)
-                .saturating_add(20),
+            tot_hdr,
             wscale,
             olayout,
             quirks,
@@ -45,7 +54,7 @@ fn observed_syn(
     window: u16,
     wscale: Option<u8>,
     olayout: Vec<TcpOption>,
-    quirks: Vec<Quirk>,
+    quirks: QuirkSet,
 ) -> ObservableTcp {
     observed(raw_ttl, mss, window, wscale, olayout, quirks, None)
 }
@@ -55,8 +64,8 @@ fn matched_request_flavor(syn: &ObservableTcp) -> Option<(String, Option<String>
         Ok(db) => db,
         Err(e) => panic!("failed to load default database: {e}"),
     };
-    let found = TcpSignatureMatcher::new(&db).matching_by_tcp_request(syn)?;
-    Some((found.label.name.clone(), found.label.flavor.clone()))
+    let found = TcpSignatureMatcher::new(&db).match_tcp_request(&syn.matching)?;
+    Some((found.os.name, found.os.variant))
 }
 
 fn matched_response_flavor(syn_ack: &ObservableTcp) -> Option<(String, Option<String>)> {
@@ -64,8 +73,8 @@ fn matched_response_flavor(syn_ack: &ObservableTcp) -> Option<(String, Option<St
         Ok(db) => db,
         Err(e) => panic!("failed to load default database: {e}"),
     };
-    let found = TcpSignatureMatcher::new(&db).matching_by_tcp_response(syn_ack)?;
-    Some((found.label.name.clone(), found.label.flavor.clone()))
+    let found = TcpSignatureMatcher::new(&db).match_tcp_response(&syn_ack.matching)?;
+    Some((found.os.name, found.os.variant))
 }
 
 #[test]
@@ -77,7 +86,7 @@ fn a_windows_syn_matches_its_literal_window() {
         8192,
         Some(0),
         vec![TcpOption::Mss, TcpOption::Nop, TcpOption::Nop, TcpOption::Sok],
-        vec![Quirk::Df, Quirk::NonZeroID],
+        QuirkSet::from([Quirk::Df, Quirk::NonZeroID]),
     );
 
     assert_eq!(
@@ -90,7 +99,7 @@ fn a_windows_syn_matches_its_literal_window() {
 #[test]
 fn an_nmap_scan_matches_its_literal_window() {
     // s:!:NMap:SYN scan -> *:64-:0:1460:1024,0:mss::0
-    let syn = observed_syn(64, Some(1460), 1024, Some(0), vec![TcpOption::Mss], vec![]);
+    let syn = observed_syn(64, Some(1460), 1024, Some(0), vec![TcpOption::Mss], QuirkSet::EMPTY);
 
     assert_eq!(
         matched_request_flavor(&syn),
@@ -109,7 +118,7 @@ fn a_window_that_is_a_multiple_of_the_mss_matches_an_mss_signature() {
         1460 * 20,
         Some(10),
         vec![TcpOption::Mss, TcpOption::Sok, TcpOption::TS, TcpOption::Nop, TcpOption::Ws],
-        vec![Quirk::Df, Quirk::NonZeroID],
+        QuirkSet::from([Quirk::Df, Quirk::NonZeroID]),
     );
 
     assert_eq!(
@@ -129,7 +138,7 @@ fn a_window_that_is_not_a_multiple_of_the_mss_does_not_match_an_mss_signature() 
         65535,
         Some(10),
         vec![TcpOption::Mss, TcpOption::Sok, TcpOption::TS, TcpOption::Nop, TcpOption::Ws],
-        vec![Quirk::Df, Quirk::NonZeroID],
+        QuirkSet::from([Quirk::Df, Quirk::NonZeroID]),
     );
 
     assert_ne!(
@@ -149,7 +158,7 @@ fn a_syn_ack_window_sized_off_the_peer_mss_matches_and_renders() {
         1400 * 10,
         Some(7),
         vec![TcpOption::Mss, TcpOption::Sok, TcpOption::TS, TcpOption::Nop, TcpOption::Ws],
-        vec![Quirk::Df],
+        QuirkSet::from([Quirk::Df]),
         Some(1400),
     );
 
@@ -173,7 +182,7 @@ fn without_the_peer_mss_that_same_window_does_not_match() {
         1400 * 10,
         Some(7),
         vec![TcpOption::Mss, TcpOption::Sok, TcpOption::TS, TcpOption::Nop, TcpOption::Ws],
-        vec![Quirk::Df],
+        QuirkSet::from([Quirk::Df]),
         None,
     );
 

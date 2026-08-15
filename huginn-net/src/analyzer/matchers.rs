@@ -1,11 +1,13 @@
 use super::HuginnNet;
+#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
+use huginn_net_http::http::{build_params, HttpParams};
+// Notes about a matched signature only exist when there is a database to match
+// against.
 #[cfg(all(
     feature = "db",
     any(feature = "http-p0f-request", feature = "http-p0f-response")
 ))]
 use huginn_net_http::http::MatchedSignatureNotes;
-#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
-use huginn_net_http::http::{build_params, HttpParams};
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]
@@ -16,7 +18,10 @@ use huginn_net_http::output::BrowserQualityMatched;
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
 #[cfg(feature = "http-p0f-response")]
 use huginn_net_http::output::WebServerQualityMatched;
-#[cfg(all(feature = "db", any(feature = "tcp-syn", feature = "tcp-syn-ack")))]
+#[cfg(all(
+    feature = "db",
+    any(feature = "tcp-syn", feature = "tcp-syn-ack", feature = "tcp-mtu")
+))]
 use huginn_net_tcp::matcher_api::TcpMatcher;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::observable::ObservableTcp;
@@ -37,21 +42,17 @@ use huginn_net_tcp::output::OSQualityMatched;
         feature = "http-p0f-response"
     )
 ))]
-use crate::quality_match;
+use crate::{quality_match, simple_quality_match};
 #[cfg(all(
     feature = "db",
-    any(
-        feature = "tcp-syn",
-        feature = "tcp-syn-ack",
-        feature = "tcp-mtu",
-        feature = "http-p0f-response"
-    )
+    any(feature = "http-p0f-request", feature = "http-p0f-response")
 ))]
-use crate::simple_quality_match;
-#[cfg(all(feature = "db", feature = "http-p0f-request"))]
-use huginn_net_http::output::Browser;
-#[cfg(all(feature = "db", feature = "http-p0f-response"))]
-use huginn_net_http::output::WebServer;
+use huginn_net_http::matcher_api::HttpMatcher;
+#[cfg(all(
+    feature = "db",
+    any(feature = "http-p0f-request", feature = "http-p0f-response")
+))]
+use huginn_net_http::output::OsKind;
 
 use crate::AnalysisConfig;
 
@@ -95,9 +96,11 @@ impl<'a> HuginnNet<'a> {
             simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
-                method: matching_by_mtu(mtu),
-                success: (link, _) => MTUQualityMatched {
-                    link: Some(link.clone()),
+                method: match_mtu(*mtu),
+                // An MTU either equals a known link's value or it does not;
+                // there is no signature to fit approximately.
+                success: found => MTUQualityMatched {
+                    link: Some(found.link),
                     quality: TcpMatchQuality::exact(1.0),
                 },
                 failure: MTUQualityMatched {
@@ -185,37 +188,24 @@ impl<'a> HuginnNet<'a> {
         #[cfg(feature = "db")]
         {
             let observed = &observable_http_request.matching;
-            let (browser_quality, notes) = quality_match!(
+            let (browser_quality, notes) = simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
-                call: matcher => Some(matcher.matching_by_http_request(observed)),
-                matched: signature_matcher => {
-                    signature_matcher
-                        .map(|found| {
-                            let notes = MatchedSignatureNotes {
-                                dishonest: !huginn_net_db::http::expsw_matches(
-                                    &observed.expsw,
-                                    &found.signature.expsw,
-                                ),
-                                generic: found.label.ty == huginn_net_db::database::Type::Generic,
-                            };
-                            (
-                                BrowserQualityMatched {
-                                    browser: Some(Browser::from(found.label)),
-                                    quality: HttpMatchQuality::Matched(found.quality),
-                                },
-                                Some(notes),
-                            )
-                        })
-                        .unwrap_or((
-                            BrowserQualityMatched {
-                                browser: None,
-                                quality: HttpMatchQuality::NotMatched,
-                            },
-                            None,
-                        ))
+                method: match_http_request(observed),
+                success: found => {
+                    let notes = MatchedSignatureNotes {
+                        dishonest: found.dishonest,
+                        generic: found.browser.kind == OsKind::Generic,
+                    };
+                    (
+                        BrowserQualityMatched {
+                            browser: Some(found.browser),
+                            quality: HttpMatchQuality::Matched(found.quality),
+                        },
+                        Some(notes),
+                    )
                 },
-                not_matched: (
+                failure: (
                     BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::NotMatched,
@@ -255,37 +245,24 @@ impl<'a> HuginnNet<'a> {
         #[cfg(feature = "db")]
         {
             let observed = &observable_http_response.matching;
-            let (web_server_quality, notes) = quality_match!(
+            let (web_server_quality, notes) = simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
-                call: matcher => Some(matcher.matching_by_http_response(observed)),
-                matched: signature_matcher => {
-                    signature_matcher
-                        .map(|found| {
-                            let notes = MatchedSignatureNotes {
-                                dishonest: !huginn_net_db::http::expsw_matches(
-                                    &observed.expsw,
-                                    &found.signature.expsw,
-                                ),
-                                generic: found.label.ty == huginn_net_db::database::Type::Generic,
-                            };
-                            (
-                                WebServerQualityMatched {
-                                    web_server: Some(WebServer::from(found.label)),
-                                    quality: HttpMatchQuality::Matched(found.quality),
-                                },
-                                Some(notes),
-                            )
-                        })
-                        .unwrap_or((
-                            WebServerQualityMatched {
-                                web_server: None,
-                                quality: HttpMatchQuality::NotMatched,
-                            },
-                            None,
-                        ))
+                method: match_http_response(observed),
+                success: found => {
+                    let notes = MatchedSignatureNotes {
+                        dishonest: found.dishonest,
+                        generic: found.web_server.kind == OsKind::Generic,
+                    };
+                    (
+                        WebServerQualityMatched {
+                            web_server: Some(found.web_server),
+                            quality: HttpMatchQuality::Matched(found.quality),
+                        },
+                        Some(notes),
+                    )
                 },
-                not_matched: (
+                failure: (
                     WebServerQualityMatched {
                         web_server: None,
                         quality: HttpMatchQuality::NotMatched,

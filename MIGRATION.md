@@ -238,7 +238,10 @@ are gone. Each one is replaced by a check that answers the question directly.
 | `DatabaseSignature::calculate_distance` + `get_quality_score` | `DatabaseSignature::fit`, returning `Option<SignatureFit<Self::Fuzziness>>` |
 | `MatchQuality` trait, `TcpMatchQuality`, `HttpMatchQuality` (the database-side traits) | removed; use `MatchRank` |
 | `FingerprintDb::find_best_match` returning `(&Label, &DS, f32)` | returns `DatabaseMatch`, whose fields are named |
-| `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response` returning tuples | the same `DatabaseMatch` |
+| `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response`, `matching_by_mtu`, `matching_by_user_agent` | `TcpMatcher` / `HttpMatcher` trait methods (`match_tcp_request`, …); or `db.tcp_request.find_best_match` |
+| `huginn_net_db::db`, `db_parse`, `observable_tcp_signals_matching`, `observable_http_signals_matching` | `database`, `parse`, `tcp` / `http` matching impls (private) |
+| `TcpObservation.quirks: Vec<Quirk>` / `Signature.quirks: Vec<Quirk>` | `QuirkSet` bitmask |
+| `TcpIndexKey.olayout_key: String` | `olayout_hash: u32` (`hash_olayout`) |
 | `tcp::distance_ttl` | `tcp::ttl_fit` (returns the hop distance) |
 | `tcp::detect_win_multiplicator` returning a `WindowSize` | `tcp::detect_win_multi`, returning `Option<WindowMultiplier>` |
 | `tcp::distance_ip_version`, `distance_window_size`, `distance_payload_size` | `ip_version_matches`, `window_size_matches`, `payload_size_matches` (`bool`) |

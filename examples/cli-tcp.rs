@@ -3,7 +3,7 @@ mod support;
 use support::{initialize_logging, Commands, FilterOptions, LiveMode, OutputFormat};
 
 use clap::Parser;
-use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::{FilterConfig, HuginnNetTcp, IpFilter, PortFilter, TcpAnalysisResult};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -75,16 +75,15 @@ fn main() {
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
 
-    let db = match Database::load_default() {
+    let db = match TcpDatabase::load_default() {
         Ok(db) => Arc::new(db),
         Err(e) => {
-            error!("Failed to load default database: {e}");
+            error!("Failed to load default TCP database: {e}");
             return;
         }
     };
-    debug!("Loaded p0f database successfully");
-    let matcher: Arc<dyn TcpMatcher + Send + Sync> =
-        Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+    debug!("Loaded p0f TCP database successfully");
+    let matcher: Arc<dyn TcpMatcher + Send + Sync> = Arc::new(SharedTcpSignatureMatcher::new(db));
 
     let filter_config = build_filter(&args.filter);
 

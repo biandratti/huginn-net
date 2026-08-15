@@ -17,7 +17,7 @@ pub struct Signature {
     /// layout and ordering of TCP options, if any.
     pub olayout: Vec<super::TcpOption>,
     /// properties and quirks observed in IP or TCP headers.
-    pub quirks: Vec<super::Quirk>,
+    pub quirks: super::QuirkSet,
     /// payload size classification
     pub pclass: super::PayloadSize,
 }
@@ -31,7 +31,7 @@ trait TcpDisplayFormat {
     fn get_wsize(&self) -> super::WindowSize;
     fn get_wscale(&self) -> Option<u8>;
     fn get_olayout(&self) -> &[super::TcpOption];
-    fn get_quirks(&self) -> &[super::Quirk];
+    fn get_quirks(&self) -> super::QuirkSet;
     fn get_pclass(&self) -> super::PayloadSize;
 
     fn format_tcp_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -60,16 +60,7 @@ trait TcpDisplayFormat {
             write!(f, "{o}")?;
         }
 
-        f.write_str(":")?;
-
-        for (i, q) in self.get_quirks().iter().enumerate() {
-            if i > 0 {
-                f.write_str(",")?;
-            }
-            write!(f, "{q}")?;
-        }
-
-        write!(f, ":{}", self.get_pclass())
+        write!(f, ":{}:{}", self.get_quirks(), self.get_pclass())
     }
 }
 
@@ -95,8 +86,8 @@ impl TcpDisplayFormat for Signature {
     fn get_olayout(&self) -> &[super::TcpOption] {
         &self.olayout
     }
-    fn get_quirks(&self) -> &[super::Quirk] {
-        &self.quirks
+    fn get_quirks(&self) -> super::QuirkSet {
+        self.quirks
     }
     fn get_pclass(&self) -> super::PayloadSize {
         self.pclass

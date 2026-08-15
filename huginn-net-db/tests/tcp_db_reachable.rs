@@ -1,9 +1,21 @@
 #![cfg(feature = "tcp")]
-//! Every database signature, replayed as the observation it describes, must match.
+//! Every signature in the database has to be reachable.
+//!
+//! Each signature is replayed as the packet that declared it —the observation a
+//! host matching it would produce— and has to come back with a match. A
+//! signature that no packet can reach is dead weight in the database, and the
+//! way to end up with one is to compare a field in a form the observation no
+//! longer carries.
+//!
+//! The match is not required to be the signature's *own* label: `p0f.fp` ships
+//! signatures that are indistinguishable from each other, so a specific one can
+//! legitimately answer for another. That ambiguity is a property of the data, not
+//! of the matcher, and it belongs to the coverage check.
 
 use huginn_net_db::database::Label;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Signature, Ttl, WindowSize};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
+use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
 
@@ -40,7 +52,7 @@ fn replay(sig: &Signature) -> ObservableTcp {
             tot_hdr: TYPICAL_TOT_HDR,
             wscale: Some(sig.wscale.unwrap_or(0)),
             olayout: sig.olayout.clone(),
-            quirks: sig.quirks.clone(),
+            quirks: sig.quirks,
             pclass: if sig.pclass == PayloadSize::Any {
                 PayloadSize::Zero
             } else {
@@ -85,7 +97,7 @@ fn every_request_signature_is_reachable() {
     let matcher = TcpSignatureMatcher::new(&db);
 
     let unreachable = unreachable_signatures(&db.tcp_request.entries, |obs| {
-        matcher.matching_by_tcp_request(obs).is_some()
+        matcher.match_tcp_request(&obs.matching).is_some()
     });
 
     assert!(
@@ -105,7 +117,7 @@ fn every_response_signature_is_reachable() {
     let matcher = TcpSignatureMatcher::new(&db);
 
     let unreachable = unreachable_signatures(&db.tcp_response.entries, |obs| {
-        matcher.matching_by_tcp_response(obs).is_some()
+        matcher.match_tcp_response(&obs.matching).is_some()
     });
 
     assert!(
