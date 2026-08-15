@@ -3,15 +3,15 @@
 //!
 //! Provides:
 //! - The [`HttpDistance`] bridge trait. Each method delegates to a pure free
-//!   function ([`crate::http::distance_header`], etc., re-exported from the
+//!   function ([`crate::http::headers_match`], etc., re-exported from the
 //!   private `crate::http::distances` module); the trait exists to preserve
 //!   the public API (external callers use
-//!   `<X as HttpDistance>::distance_header`) and to give observation types a
+//!   `<X as HttpDistance>::headers_match`) and to give observation types a
 //!   uniform interface. New internal code should call the free functions
 //!   directly, mirroring TCP.
 //! - The [`crate::db_matching_trait::ObservedFingerprint`] impls for
 //!   [`HttpRequestObservation`] and [`HttpResponseObservation`].
-//! - The [`crate::db_matching_trait::DatabaseSignature`] impls scoring
+//! - The [`crate::db_matching_trait::DatabaseSignature`] impls comparing
 //!   `http::Signature` against either observation type.
 //!
 //! For backward compatibility this module is re-exposed at the crate root as
@@ -19,9 +19,9 @@
 //! `lib.rs`.
 
 use crate::database::HttpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
+use crate::db_matching_trait::{DatabaseSignature, NoFuzziness, ObservedFingerprint, SignatureFit};
 use crate::http::{
-    self, distance_habsent, distance_header, distance_http_version, expsw_matches, Header, Version,
+    self, absent_headers_match, expsw_matches, headers_match, http_version_matches, Header, Version,
 };
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
@@ -41,43 +41,43 @@ impl ObservedFingerprint for HttpResponseObservation {
     }
 }
 
-/// Bridge between an observation type and the pure distance helpers in
+/// Bridge between an observation type and the pure gate helpers in
 /// [`crate::http`].
 ///
 /// Each method is a thin wrapper around the corresponding free function in
 /// `crate::http::distances`. The trait exists to give observations
 /// (`HttpRequestObservation`, `HttpResponseObservation`) a uniform interface
 /// and to preserve the public API; new code should prefer the free functions
-/// directly, mirroring how [`crate::tcp::distance_ttl`] etc. are used.
+/// directly, mirroring how [`crate::tcp::ttl_fit`] etc. are used.
 pub trait HttpDistance {
     fn get_version(&self) -> Version;
     fn get_horder(&self) -> &[Header];
     fn get_habsent(&self) -> &[Header];
     fn get_expsw(&self) -> &str;
 
-    fn distance_ip_version(&self, other: &http::Signature) -> Option<u32> {
-        distance_http_version(self.get_version(), other.version)
+    fn version_matches(&self, other: &http::Signature) -> bool {
+        http_version_matches(self.get_version(), other.version)
     }
 
     /// Check that every header the signature expects appears in the observed
-    /// list, in order. Delegates to [`crate::http::distance_header`].
-    fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
-        distance_header(observed, signature)
+    /// list, in order. Delegates to [`crate::http::headers_match`].
+    fn headers_match(observed: &[Header], signature: &[Header]) -> bool {
+        headers_match(observed, signature)
     }
 
-    fn distance_horder(&self, other: &http::Signature) -> Option<u32> {
-        distance_header(self.get_horder(), &other.horder)
+    fn horder_matches(&self, other: &http::Signature) -> bool {
+        headers_match(self.get_horder(), &other.horder)
     }
 
     /// The signature's forbidden headers are checked against the headers
     /// actually seen, so this reads `horder`, not the observation's own
-    /// `habsent`. See [`crate::http::distance_habsent`].
-    fn distance_habsent(&self, other: &http::Signature) -> Option<u32> {
-        distance_habsent(self.get_horder(), &other.habsent)
+    /// `habsent`. See [`crate::http::absent_headers_match`].
+    fn absent_headers_match(&self, other: &http::Signature) -> bool {
+        absent_headers_match(self.get_horder(), &other.habsent)
     }
 
     /// Whether the traffic's software string backs up what the signature
-    /// declares. Not part of the distance; see [`crate::http::expsw_matches`].
+    /// declares. Not part of the fit; see [`crate::http::expsw_matches`].
     fn expsw_matches(&self, other: &http::Signature) -> bool {
         expsw_matches(self.get_expsw(), &other.expsw)
     }
@@ -114,28 +114,20 @@ impl HttpDistance for HttpResponseObservation {
 }
 
 trait HttpSignatureHelper {
-    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32>;
+    fn http_fit<T: HttpDistance>(&self, observed: &T) -> Option<SignatureFit<NoFuzziness>>;
 
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey>;
-
-    /// Returns the quality score based on the distance.
-    ///
-    /// The score is a value between 0.0 and 1.0, where 1.0 is a perfect match.
-    ///
-    /// The score is calculated based on the distance of the observed signal to the database signature.
-    /// The distance is a value between 0 and 12, where 0 is a perfect match and 12 is the maximum possible distance.
-    fn get_quality_score_by_distance(&self, distance: u32) -> f32 {
-        http::HttpMatchQuality::distance_to_score(distance)
-    }
 }
 
 impl HttpSignatureHelper for http::Signature {
-    fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32> {
-        let distance = distance_http_version(observed.get_version(), self.version)?
-            .saturating_add(distance_header(observed.get_horder(), &self.horder)?)
-            .saturating_add(distance_habsent(observed.get_horder(), &self.habsent)?);
-        Some(distance)
+    fn http_fit<T: HttpDistance>(&self, observed: &T) -> Option<SignatureFit<NoFuzziness>> {
+        let gates = http_version_matches(observed.get_version(), self.version)
+            && headers_match(observed.get_horder(), &self.horder)
+            && absent_headers_match(observed.get_horder(), &self.habsent);
+
+        gates.then(|| SignatureFit::exact(0))
     }
+
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
         let mut keys = Vec::new();
         if self.version == Version::Any {
@@ -149,11 +141,10 @@ impl HttpSignatureHelper for http::Signature {
 }
 
 impl DatabaseSignature<HttpRequestObservation> for http::Signature {
-    fn calculate_distance(&self, observed: &HttpRequestObservation) -> Option<u32> {
-        self.calculate_http_distance(observed)
-    }
-    fn get_quality_score(&self, distance: u32) -> f32 {
-        self.get_quality_score_by_distance(distance)
+    type Fuzziness = NoFuzziness;
+
+    fn fit(&self, observed: &HttpRequestObservation) -> Option<SignatureFit<NoFuzziness>> {
+        self.http_fit(observed)
     }
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
         self.generate_http_index_keys()
@@ -161,11 +152,10 @@ impl DatabaseSignature<HttpRequestObservation> for http::Signature {
 }
 
 impl DatabaseSignature<HttpResponseObservation> for http::Signature {
-    fn calculate_distance(&self, observed: &HttpResponseObservation) -> Option<u32> {
-        self.calculate_http_distance(observed)
-    }
-    fn get_quality_score(&self, distance: u32) -> f32 {
-        self.get_quality_score_by_distance(distance)
+    type Fuzziness = NoFuzziness;
+
+    fn fit(&self, observed: &HttpResponseObservation) -> Option<SignatureFit<NoFuzziness>> {
+        self.http_fit(observed)
     }
     fn generate_index_keys_for_db_entry(&self) -> Vec<HttpIndexKey> {
         self.generate_http_index_keys()

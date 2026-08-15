@@ -1,4 +1,4 @@
-//! TCP signature, scoring, and distance helpers for the p0f database.
+//! TCP signature and field-comparison helpers for the p0f database.
 //!
 //! Pure data types ([`IpVersion`], [`Ttl`], [`WindowSize`], [`TcpOption`],
 //! [`Quirk`], [`PayloadSize`]) are re-exported from `huginn-net-tcp`. This
@@ -10,7 +10,7 @@ mod distances;
 mod signature;
 
 pub use distances::{
-    distance_ip_version, distance_payload_size, distance_ttl, distance_window_size,
+    ip_version_matches, payload_size_matches, ttl_fit, window_size_matches, TtlFit,
     MAX_TTL_DISTANCE,
 };
-pub use signature::{Signature, TcpMatchQuality};
+pub use signature::Signature;

@@ -46,10 +46,7 @@ impl fmt::Display for SynTCPOutput {
                 Ttl::Value(value) => value,
                 Ttl::Guess(value) => value,
             },
-            self.os_matched
-                .os
-                .as_ref()
-                .map_or("none".to_string(), |os| os.kind.to_string()),
+            self.os_matched.params(),
             self.sig,
         )
     }

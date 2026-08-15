@@ -1,5 +1,5 @@
 use crate::database::{HttpDatabase, Label, Type};
-use crate::db_matching_trait::FingerprintDb;
+use crate::db_matching_trait::{DatabaseMatch, FingerprintDb, NoFuzziness};
 use crate::http::expsw_matches;
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
@@ -18,14 +18,14 @@ impl<'a> HttpSignatureMatcher<'a> {
     pub fn matching_by_http_request(
         &self,
         signature: &HttpRequestObservation,
-    ) -> Option<(&'a Label, &'a crate::http::Signature, f32)> {
+    ) -> Option<DatabaseMatch<'a, crate::http::Signature, NoFuzziness>> {
         self.database.http_request.find_best_match(signature)
     }
 
     pub fn matching_by_http_response(
         &self,
         signature: &HttpResponseObservation,
-    ) -> Option<(&'a Label, &'a crate::http::Signature, f32)> {
+    ) -> Option<DatabaseMatch<'a, crate::http::Signature, NoFuzziness>> {
         self.database.http_response.find_best_match(signature)
     }
 
@@ -79,11 +79,11 @@ fn match_http_request_impl(
     db: &HttpDatabase,
     obs: &HttpRequestObservation,
 ) -> Option<HttpRequestMatch> {
-    let (label, sig, quality) = db.http_request.find_best_match(obs)?;
+    let found = db.http_request.find_best_match(obs)?;
     Some(HttpRequestMatch {
-        browser: Browser::from(label),
-        quality,
-        dishonest: !expsw_matches(&obs.expsw, &sig.expsw),
+        browser: Browser::from(found.label),
+        quality: found.quality,
+        dishonest: !expsw_matches(&obs.expsw, &found.signature.expsw),
     })
 }
 
@@ -91,11 +91,11 @@ fn match_http_response_impl(
     db: &HttpDatabase,
     obs: &HttpResponseObservation,
 ) -> Option<HttpResponseMatch> {
-    let (label, sig, quality) = db.http_response.find_best_match(obs)?;
+    let found = db.http_response.find_best_match(obs)?;
     Some(HttpResponseMatch {
-        web_server: WebServer::from(label),
-        quality,
-        dishonest: !expsw_matches(&obs.expsw, &sig.expsw),
+        web_server: WebServer::from(found.label),
+        quality: found.quality,
+        dishonest: !expsw_matches(&obs.expsw, &found.signature.expsw),
     })
 }
 

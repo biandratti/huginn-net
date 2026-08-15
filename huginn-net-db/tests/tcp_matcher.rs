@@ -28,8 +28,13 @@ fn match_request(
         Err(e) => panic!("Failed to parse signature {raw}: {e}"),
     };
     let obs = ObservableTcp { matching: observation_from_signature(&sig) };
-    let (label, _, quality) = matcher.matching_by_tcp_request(&obs)?;
-    Some((label.name.clone(), label.class.clone(), label.flavor.clone(), quality))
+    let found = matcher.matching_by_tcp_request(&obs)?;
+    Some((
+        found.label.name.clone(),
+        found.label.class.clone(),
+        found.label.flavor.clone(),
+        found.quality,
+    ))
 }
 
 #[test]
@@ -64,14 +69,15 @@ fn matching_linux_by_tcp_request() {
 
     let matcher = TcpSignatureMatcher::new(&db);
 
-    if let Some((label, _matched_db_sig, quality)) =
-        matcher.matching_by_tcp_request(&linux_signature)
-    {
-        assert_eq!(label.name, "Linux");
-        assert_eq!(label.class, Some("unix".to_string()));
-        assert_eq!(label.flavor, Some("2.2.x-3.x".to_string()));
-        assert_eq!(label.ty, Type::Generic);
-        assert_eq!(quality, 1.0);
+    if let Some(found) = matcher.matching_by_tcp_request(&linux_signature) {
+        assert_eq!(found.label.name, "Linux");
+        assert_eq!(found.label.class, Some("unix".to_string()));
+        assert_eq!(found.label.flavor, Some("2.2.x-3.x".to_string()));
+        assert_eq!(found.label.ty, Type::Generic);
+        // A catch-all signature fits, so the match is real but ranks below what
+        // a signature naming a concrete release would have scored.
+        assert_eq!(found.quality, 0.8);
+        assert_eq!(found.fuzzy, None, "every field fit, nothing was tolerated");
     } else {
         panic!("No match found");
     }
@@ -130,26 +136,26 @@ fn matching_android_by_tcp_request() {
 
     let matcher = TcpSignatureMatcher::new(&db);
 
-    if let Some((label, _matched_db_sig, quality)) =
-        matcher.matching_by_tcp_request(&android_signature)
-    {
-        assert_eq!(label.name, "Linux");
-        assert_eq!(label.class, Some("unix".to_string()));
-        assert_eq!(label.flavor, Some("Android".to_string()));
-        assert_eq!(label.ty, Type::Specified);
-        assert_eq!(quality, 1.0);
+    if let Some(found) = matcher.matching_by_tcp_request(&android_signature) {
+        assert_eq!(found.label.name, "Linux");
+        assert_eq!(found.label.class, Some("unix".to_string()));
+        assert_eq!(found.label.flavor, Some("Android".to_string()));
+        assert_eq!(found.label.ty, Type::Specified);
+        assert_eq!(found.quality, 1.0);
+        assert_eq!(found.fuzzy, None);
     } else {
         panic!("No match found");
     }
 
-    if let Some((label, _matched_db_sig, quality)) =
-        matcher.matching_by_tcp_request(&android_signature_with_distance)
-    {
-        assert_eq!(label.name, "Linux");
-        assert_eq!(label.class, Some("unix".to_string()));
-        assert_eq!(label.flavor, Some("Android".to_string()));
-        assert_eq!(label.ty, Type::Specified);
-        assert_eq!(quality, 1.0);
+    if let Some(found) = matcher.matching_by_tcp_request(&android_signature_with_distance) {
+        assert_eq!(found.label.name, "Linux");
+        assert_eq!(found.label.class, Some("unix".to_string()));
+        assert_eq!(found.label.flavor, Some("Android".to_string()));
+        assert_eq!(found.label.ty, Type::Specified);
+        assert_eq!(found.quality, 1.0);
+        // The packet crossed routers, which is ordinary: a plausible hop count
+        // is not a tolerance.
+        assert_eq!(found.fuzzy, None);
     } else {
         panic!("No match found");
     }

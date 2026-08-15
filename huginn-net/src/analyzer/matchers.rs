@@ -98,7 +98,7 @@ impl<'a> HuginnNet<'a> {
                 method: matching_by_mtu(mtu),
                 success: (link, _) => MTUQualityMatched {
                     link: Some(link.clone()),
-                    quality: TcpMatchQuality::Matched(1.0),
+                    quality: TcpMatchQuality::exact(1.0),
                 },
                 failure: MTUQualityMatched {
                     link: None,
@@ -125,9 +125,12 @@ impl<'a> HuginnNet<'a> {
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
                 method: matching_by_tcp_request(observable_tcp),
-                success: (label, _signature, quality) => OSQualityMatched {
-                    os: Some(OperativeSystem::from(label)),
-                    quality: TcpMatchQuality::Matched(quality),
+                success: found => OSQualityMatched {
+                    os: Some(OperativeSystem::from(found.label)),
+                    quality: TcpMatchQuality::Matched {
+                        quality: found.quality,
+                        fuzzy: found.fuzzy,
+                    },
                 },
                 failure: OSQualityMatched {
                     os: None,
@@ -154,9 +157,12 @@ impl<'a> HuginnNet<'a> {
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
                 method: matching_by_tcp_response(observable_tcp),
-                success: (label, _signature, quality) => OSQualityMatched {
-                    os: Some(OperativeSystem::from(label)),
-                    quality: TcpMatchQuality::Matched(quality),
+                success: found => OSQualityMatched {
+                    os: Some(OperativeSystem::from(found.label)),
+                    quality: TcpMatchQuality::Matched {
+                        quality: found.quality,
+                        fuzzy: found.fuzzy,
+                    },
                 },
                 failure: OSQualityMatched {
                     os: None,
@@ -189,18 +195,18 @@ impl<'a> HuginnNet<'a> {
                 call: matcher => Some(matcher.matching_by_http_request(observed)),
                 matched: signature_matcher => {
                     signature_matcher
-                        .map(|(label, signature, quality)| {
+                        .map(|found| {
                             let notes = MatchedSignatureNotes {
                                 dishonest: !huginn_net_db::http::expsw_matches(
                                     &observed.expsw,
-                                    &signature.expsw,
+                                    &found.signature.expsw,
                                 ),
-                                generic: label.ty == huginn_net_db::database::Type::Generic,
+                                generic: found.label.ty == huginn_net_db::database::Type::Generic,
                             };
                             (
                                 BrowserQualityMatched {
-                                    browser: Some(Browser::from(label)),
-                                    quality: HttpMatchQuality::Matched(quality),
+                                    browser: Some(Browser::from(found.label)),
+                                    quality: HttpMatchQuality::Matched(found.quality),
                                 },
                                 Some(notes),
                             )
@@ -259,18 +265,18 @@ impl<'a> HuginnNet<'a> {
                 call: matcher => Some(matcher.matching_by_http_response(observed)),
                 matched: signature_matcher => {
                     signature_matcher
-                        .map(|(label, signature, quality)| {
+                        .map(|found| {
                             let notes = MatchedSignatureNotes {
                                 dishonest: !huginn_net_db::http::expsw_matches(
                                     &observed.expsw,
-                                    &signature.expsw,
+                                    &found.signature.expsw,
                                 ),
-                                generic: label.ty == huginn_net_db::database::Type::Generic,
+                                generic: found.label.ty == huginn_net_db::database::Type::Generic,
                             };
                             (
                                 WebServerQualityMatched {
-                                    web_server: Some(WebServer::from(label)),
-                                    quality: HttpMatchQuality::Matched(quality),
+                                    web_server: Some(WebServer::from(found.label)),
+                                    quality: HttpMatchQuality::Matched(found.quality),
                                 },
                                 Some(notes),
                             )
