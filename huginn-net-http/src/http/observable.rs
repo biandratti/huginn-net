@@ -3,6 +3,13 @@ use super::{Header, Version};
 use core::fmt;
 use std::fmt::Formatter;
 
+/// Placeholder an observation carries in `expsw` when the traffic had no
+/// `User-Agent` (request) or `Server` (response) header at all.
+///
+/// p0f leaves the field empty in that case; code comparing software strings
+/// must treat this value as "nothing to compare", not as a literal claim.
+pub const UNKNOWN_SOFTWARE: &str = "???";
+
 /// Observed HTTP request characteristics extracted from network traffic.
 ///
 /// `huginn-net-http` defines this type so the crate stays independent of any

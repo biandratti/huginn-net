@@ -43,7 +43,7 @@ fn test_distance_header_with_one_optional_header_mismatch() {
     assert_eq!(
         result,
         Some(HttpMatchQuality::High.as_score()),
-        "Expected Medium quality for 1 error in lists of 10"
+        "only the signature's optional flag is consulted, so the observation's differing flag is irrelevant"
     );
 }
 
@@ -94,8 +94,7 @@ fn test_distance_header_multiple_optional_skips() {
 }
 
 #[test]
-fn test_distance_header_required_in_middle_causes_error() {
-    // Required header in middle should cause error and misalignment
+fn test_distance_header_missing_required_header_in_middle_rejects() {
     let observed = vec![Header::new("Host"), Header::new("Connection").with_value("keep-alive")];
 
     let signature = vec![
@@ -105,11 +104,7 @@ fn test_distance_header_required_in_middle_causes_error() {
     ];
 
     let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
-    assert_eq!(
-        result,
-        Some(HttpMatchQuality::High.as_score()), // 1 error falls in High range (0-2 errors)
-        "Required header missing should cause 1 error"
-    );
+    assert_eq!(result, None, "a required header missing rejects the signature outright");
 }
 
 #[test]
@@ -162,7 +157,7 @@ fn test_distance_header_missing_optional_header() {
 }
 
 #[test]
-fn test_distance_header_missing_required_header() {
+fn test_distance_header_missing_required_header_at_end_rejects() {
     let observed = vec![Header::new("Host")];
 
     let signature = vec![
@@ -171,19 +166,16 @@ fn test_distance_header_missing_required_header() {
     ];
 
     let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
-    assert_eq!(
-        result,
-        Some(HttpMatchQuality::High.as_score()), // 1 error out of many
-        "Missing required headers should cause errors"
-    );
+    assert_eq!(result, None, "a required header missing rejects the signature outright");
 }
 
 #[test]
-fn test_distance_header_extra_headers_in_observed() {
+fn test_distance_header_extra_headers_in_observed_are_free() {
     let observed = vec![
         Header::new("Host"),
+        Header::new("X-Custom-Header").with_value("custom"), // Not in the signature
         Header::new("User-Agent").with_value("Mozilla/5.0"),
-        Header::new("X-Custom-Header").with_value("custom"), // Extra header
+        Header::new("X-Another").with_value("trailing"),
     ];
 
     let signature = vec![Header::new("Host"), Header::new("User-Agent").with_value("Mozilla/5.0")];
@@ -191,9 +183,67 @@ fn test_distance_header_extra_headers_in_observed() {
     let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
     assert_eq!(
         result,
-        Some(HttpMatchQuality::High.as_score()), // 1 error for extra header
-        "Extra headers in observed should cause errors"
+        Some(HttpMatchQuality::High.as_score()),
+        "headers the signature does not mention never penalise, wherever they appear"
     );
+}
+
+#[test]
+fn test_distance_header_expected_value_matches_as_substring() {
+    let observed = vec![
+        Header::new("Host"),
+        Header::new("Accept").with_value("image/avif,image/webp,image/*,*/*;q=0.8"),
+    ];
+
+    let signature = vec![Header::new("Host"), Header::new("Accept").with_value("*/*")];
+
+    let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
+    assert_eq!(
+        result,
+        Some(HttpMatchQuality::High.as_score()),
+        "the expected value only has to be contained in the observed one"
+    );
+}
+
+#[test]
+fn test_distance_header_expects_value_but_observed_has_none_rejects() {
+    let observed = vec![Header::new("Host"), Header::new("User-Agent")];
+
+    let signature = vec![Header::new("Host"), Header::new("User-Agent").with_value("Mozilla/5.0")];
+
+    let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
+    assert_eq!(result, None, "a valueless observed header cannot satisfy an expected value");
+}
+
+#[test]
+fn test_distance_header_optional_header_out_of_order_rejects() {
+    // The signature wants Referer between Host and User-Agent. It does appear
+    // in the traffic, just in the wrong place: p0f treats that as a mismatch
+    // rather than as a missing optional header.
+    let observed = vec![
+        Header::new("Host"),
+        Header::new("User-Agent").with_value("Mozilla/5.0"),
+        Header::new("Referer").with_value("http://example.com"),
+    ];
+
+    let signature = vec![
+        Header::new("Host"),
+        Header::new("Referer").optional(),
+        Header::new("User-Agent").with_value("Mozilla/5.0"),
+    ];
+
+    let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
+    assert_eq!(result, None, "an optional header present out of order rejects the signature");
+}
+
+#[test]
+fn test_distance_header_required_header_out_of_order_rejects() {
+    let observed = vec![Header::new("Connection").with_value("keep-alive"), Header::new("Host")];
+
+    let signature = vec![Header::new("Host"), Header::new("Connection").with_value("keep-alive")];
+
+    let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
+    assert_eq!(result, None, "header order is part of the signature");
 }
 
 #[test]
@@ -213,23 +263,6 @@ fn test_distance_header_optional_header_at_end() {
         result,
         Some(HttpMatchQuality::High.as_score()),
         "Missing optional headers at end should not cause errors"
-    );
-}
-
-#[test]
-fn test_distance_header_required_header_at_end() {
-    let observed = vec![Header::new("Host")];
-
-    let signature = vec![
-        Header::new("Host"),
-        Header::new("User-Agent").with_value("Mozilla/5.0"), // Required, missing
-    ];
-
-    let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
-    assert_eq!(
-        result,
-        Some(HttpMatchQuality::High.as_score()),
-        "Missing required headers should cause 1 error"
     );
 }
 
@@ -260,20 +293,31 @@ fn test_distance_header_observed_vs_signature_with_optional() {
 }
 
 #[test]
-fn test_distance_header_value_mismatch_not_optional() {
+fn test_distance_header_value_mismatch_rejects() {
     let observed = vec![Header::new("Host"), Header::new("Connection").with_value("keep-alive")];
 
     let signature = vec![
         Header::new("Host"),
-        Header::new("Connection").with_value("close"), // Different value, not optional
+        Header::new("Connection").with_value("close"), // Different value
     ];
 
     let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
-    assert_eq!(
-        result,
-        Some(HttpMatchQuality::High.as_score()),
-        "Should have 1 error out of 2 headers"
-    );
+    assert_eq!(result, None, "a value that is not a substring of the observed one rejects");
+}
+
+#[test]
+fn test_distance_header_value_mismatch_rejects_even_when_optional() {
+    let observed = vec![Header::new("Host"), Header::new("Referer").with_value("http://other")];
+
+    let signature = vec![
+        Header::new("Host"),
+        Header::new("Referer")
+            .optional()
+            .with_value("http://example.com"),
+    ];
+
+    let result = <HttpRequestObservation as HttpDistance>::distance_header(&observed, &signature);
+    assert_eq!(result, None, "optional headers that are present must still match their value");
 }
 
 #[test]

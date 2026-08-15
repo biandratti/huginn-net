@@ -3,8 +3,8 @@ pub mod languages;
 pub mod observable;
 
 pub use common::{
-    get_diagnostic, HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpProcessor,
-    ParsingMetadata,
+    build_params, HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpProcessor,
+    MatchedSignatureNotes, ParsingMetadata,
 };
 pub use languages::get_highest_quality_language;
 pub use observable::*;
@@ -110,24 +110,52 @@ impl core::fmt::Display for Header {
     }
 }
 
-/// HTTP diagnostic flags derived from comparing User-Agent claims with the
-/// matched OS signature.
-#[derive(Clone, Debug, PartialEq)]
-pub enum HttpDiagnosis {
-    Dishonest,
-    Anonymous,
-    Generic,
-    None,
+/// Notes about a matched HTTP signature, mirroring p0f's `params` field.
+///
+/// These are independent observations, not a single verdict: a host can be
+/// dishonest *and* have matched a generic signature, and p0f reports both.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HttpParams {
+    /// The `User-Agent`/`Server` string does not back up the software the
+    /// matched signature declares, so the host is claiming to be something
+    /// its header layout says it is not.
+    pub dishonest: bool,
+    /// The traffic carried no `User-Agent` (request) or `Server` (response)
+    /// at all, so there was no claim to check.
+    pub anonymous: bool,
+    /// The signature that matched is a catch-all, so the label names a family
+    /// rather than a precise product.
+    pub generic: bool,
 }
 
-impl core::fmt::Display for HttpDiagnosis {
+impl HttpParams {
+    /// Whether nothing worth reporting was found.
+    pub fn is_empty(&self) -> bool {
+        !self.dishonest && !self.anonymous && !self.generic
+    }
+}
+
+impl core::fmt::Display for HttpParams {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
-            HttpDiagnosis::Dishonest => "dishonest",
-            HttpDiagnosis::Anonymous => "anonymous",
-            HttpDiagnosis::Generic => "generic",
-            HttpDiagnosis::None => "none",
-        })
+        if self.is_empty() {
+            return f.write_str("none");
+        }
+
+        let mut first = true;
+        for (flag, name) in [
+            (self.dishonest, "dishonest"),
+            (self.anonymous, "anonymous"),
+            (self.generic, "generic"),
+        ] {
+            if flag {
+                if !first {
+                    f.write_str(" ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+            }
+        }
+        Ok(())
     }
 }
 

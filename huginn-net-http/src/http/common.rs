@@ -1,4 +1,4 @@
-use super::{HttpDiagnosis, Version};
+use super::{HttpParams, Version};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -130,41 +130,26 @@ pub trait HttpProcessor {
     fn name(&self) -> &'static str;
 }
 
-/// HTTP diagnostic function - determines the relationship between User-Agent and an
-/// externally-observed OS signal.
-///
-/// This function compares the OS family reported by the User-Agent string against an
-/// OS name observed from the network (typically obtained from TCP fingerprinting by the
-/// caller, but this crate is intentionally agnostic about the source). A mismatch
-/// between the two is a hint of potential spoofing.
+/// Build the [`HttpParams`] notes for a matched (or unmatched) observation.
 ///
 /// # Arguments
-/// * `user_agent` - Optional User-Agent string from HTTP headers
-/// * `ua_os_family` - OS family resolved from the User-Agent (UA→OS mapping in the database)
-/// * `network_os_name` - OS name observed from another source (e.g. TCP fingerprinting).
-///   `huginn-net-http` does not know how this was produced; it just compares strings.
+/// * `software` - the observation's `expsw`, i.e. the `User-Agent` or `Server`
+///   value, or [`UNKNOWN_SOFTWARE`] when the header was absent
+/// * `matched` - `None` when no signature matched; otherwise whether the
+///   matched signature was a generic catch-all and whether its declared
+///   software contradicts the traffic
 ///
-/// # Returns
-/// * `HttpDiagnosis::Anonymous` - No User-Agent provided
-/// * `HttpDiagnosis::Generic` - User-Agent OS matches the externally observed OS
-/// * `HttpDiagnosis::Dishonest` - User-Agent OS differs from the externally observed OS (potential spoofing)
-/// * `HttpDiagnosis::None` - Insufficient data for comparison
-pub fn get_diagnostic(
-    user_agent: Option<String>,
-    ua_os_family: Option<&str>,
-    network_os_name: Option<&str>,
-) -> HttpDiagnosis {
-    match user_agent {
-        None => HttpDiagnosis::Anonymous,
-        Some(_ua) => match (ua_os_family, network_os_name) {
-            (Some(ua_name), Some(net_name)) => {
-                if ua_name.eq_ignore_ascii_case(net_name) {
-                    HttpDiagnosis::Generic
-                } else {
-                    HttpDiagnosis::Dishonest
-                }
-            }
-            _ => HttpDiagnosis::None,
-        },
+/// [`UNKNOWN_SOFTWARE`]: crate::http::UNKNOWN_SOFTWARE
+pub fn build_params(software: &str, matched: Option<MatchedSignatureNotes>) -> HttpParams {
+    HttpParams {
+        dishonest: matched.as_ref().is_some_and(|m| m.dishonest),
+        anonymous: software.is_empty() || software == super::UNKNOWN_SOFTWARE,
+        generic: matched.as_ref().is_some_and(|m| m.generic),
     }
+}
+
+/// What the winning signature contributes to [`HttpParams`].
+pub struct MatchedSignatureNotes {
+    pub dishonest: bool,
+    pub generic: bool,
 }

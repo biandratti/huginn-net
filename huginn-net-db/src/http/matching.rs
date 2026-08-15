@@ -20,7 +20,9 @@
 
 use crate::database::HttpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
-use crate::http::{self, distance_expsw, distance_header, distance_http_version, Header, Version};
+use crate::http::{
+    self, distance_habsent, distance_header, distance_http_version, expsw_matches, Header, Version,
+};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 impl ObservedFingerprint for HttpRequestObservation {
@@ -57,8 +59,8 @@ pub trait HttpDistance {
         distance_http_version(self.get_version(), other.version)
     }
 
-    /// Compare two header vectors respecting order and allowing optional
-    /// header skips. Delegates to [`crate::http::distance_header`].
+    /// Check that every header the signature expects appears in the observed
+    /// list, in order. Delegates to [`crate::http::distance_header`].
     fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
         distance_header(observed, signature)
     }
@@ -67,12 +69,17 @@ pub trait HttpDistance {
         distance_header(self.get_horder(), &other.horder)
     }
 
+    /// The signature's forbidden headers are checked against the headers
+    /// actually seen, so this reads `horder`, not the observation's own
+    /// `habsent`. See [`crate::http::distance_habsent`].
     fn distance_habsent(&self, other: &http::Signature) -> Option<u32> {
-        distance_header(self.get_habsent(), &other.habsent)
+        distance_habsent(self.get_horder(), &other.habsent)
     }
 
-    fn distance_expsw(&self, other: &http::Signature) -> Option<u32> {
-        distance_expsw(self.get_expsw(), &other.expsw)
+    /// Whether the traffic's software string backs up what the signature
+    /// declares. Not part of the distance; see [`crate::http::expsw_matches`].
+    fn expsw_matches(&self, other: &http::Signature) -> bool {
+        expsw_matches(self.get_expsw(), &other.expsw)
     }
 }
 
@@ -126,8 +133,7 @@ impl HttpSignatureHelper for http::Signature {
     fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32> {
         let distance = distance_http_version(observed.get_version(), self.version)?
             .saturating_add(distance_header(observed.get_horder(), &self.horder)?)
-            .saturating_add(distance_header(observed.get_habsent(), &self.habsent)?)
-            .saturating_add(distance_expsw(observed.get_expsw(), &self.expsw)?);
+            .saturating_add(distance_habsent(observed.get_horder(), &self.habsent)?);
         Some(distance)
     }
     fn generate_http_index_keys(&self) -> Vec<HttpIndexKey> {
