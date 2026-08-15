@@ -1,16 +1,4 @@
 #![cfg(feature = "tcp")]
-//! Every signature in the database has to be reachable.
-//!
-//! Each signature is replayed as the packet that declared it, the observation a
-//! host matching it would produce, and has to come back with a match. A
-//! signature that no packet can reach is dead weight in the database, and the
-//! way to end up with one is to compare a field in a form the observation no
-//! longer carries.
-//!
-//! The match is not required to be the signature's *own* label: `p0f.fp` ships
-//! signatures that are indistinguishable from each other, so a specific one can
-//! legitimately answer for another. That ambiguity is a property of the data, not
-//! of the matcher, and it belongs to the coverage check.
 
 use huginn_net_db::database::Label;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Signature, Ttl, WindowSize};

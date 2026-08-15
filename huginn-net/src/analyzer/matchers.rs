@@ -97,8 +97,6 @@ impl<'a> HuginnNet<'a> {
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
                 method: match_mtu(*mtu),
-                // An MTU either equals a known link's value or it does not;
-                // there is no signature to fit approximately.
                 success: found => MTUQualityMatched {
                     link: Some(found.link),
                     quality: TcpMatchQuality::exact(1.0),
