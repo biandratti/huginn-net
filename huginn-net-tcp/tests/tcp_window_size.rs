@@ -1,6 +1,3 @@
-//! p0f's `detect_win_multi`: which divisor a window turns out to be a multiple
-//! of, tried in p0f's order, and which signature family the answer belongs to.
-
 use huginn_net_tcp::tcp::{detect_win_multi, IpVersion, WindowMultiplier};
 
 /// Twenty bytes of IP header plus twenty of TCP, no options on either.

@@ -1,6 +1,6 @@
 pub mod flow;
 #[cfg(feature = "syn-ack")]
-pub(crate) mod flow_state;
+pub mod flow_state;
 pub mod parallel;
 
 use self::flow as tcp_process;
