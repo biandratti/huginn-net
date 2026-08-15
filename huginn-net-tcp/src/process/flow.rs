@@ -263,6 +263,7 @@ fn tcp_observation(
 #[allow(clippy::too_many_arguments)]
 #[cfg_attr(
     any(
+        not(feature = "mtu"),
         not(feature = "uptime"),
         not(any(feature = "syn", feature = "syn-ack")),
     ),

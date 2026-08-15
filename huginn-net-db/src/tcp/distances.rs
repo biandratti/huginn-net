@@ -68,7 +68,7 @@ pub fn window_size_matches(
     match signature {
         WindowSize::Any => true,
         WindowSize::Value(value) => observed == *value,
-        WindowSize::Mod(modulus) => *modulus != 0 && observed % *modulus == 0,
+        WindowSize::Mod(modulus) => observed.checked_rem(*modulus) == Some(0),
         WindowSize::Mss(multiple) => multiple_matches(multiplier, *multiple, false),
         WindowSize::Mtu(multiple) => multiple_matches(multiplier, *multiple, true),
     }

@@ -27,7 +27,9 @@ fn build_obs(
 ) -> TcpObservation {
     let parsed = parse_options_raw(options);
     let ittl = huginn_net_tcp::ttl::calculate_ttl(raw_ttl);
-    let tot_hdr = ip_hdr_len + 20 + options.len() as u16;
+    let tot_hdr = ip_hdr_len
+        .saturating_add(20)
+        .saturating_add(u16::try_from(options.len()).unwrap_or(0));
     TcpObservation {
         version,
         ittl,

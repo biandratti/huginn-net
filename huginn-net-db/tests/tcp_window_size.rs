@@ -28,7 +28,11 @@ fn observed(
             olen: 0,
             mss,
             wsize: window,
-            tot_hdr: 20 + 4 * (5 + olayout.len() as u16),
+            tot_hdr: u16::try_from(olayout.len())
+                .unwrap_or(0)
+                .saturating_add(5)
+                .saturating_mul(4)
+                .saturating_add(20),
             wscale,
             olayout,
             quirks,
