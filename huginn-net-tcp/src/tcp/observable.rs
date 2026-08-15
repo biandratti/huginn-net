@@ -31,6 +31,8 @@ pub struct TcpObservation {
     pub pclass: PayloadSize,
     /// Peer SYN MSS on a SYN+ACK, when the SYN was seen. Always `None` on a SYN.
     pub peer_mss: Option<u16>,
+    /// IPv4 DSCP / IPv6 traffic-class bits 2-7. Zero omits `tos:` from params.
+    pub tos: u8,
 }
 
 impl TcpObservation {

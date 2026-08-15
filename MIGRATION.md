@@ -29,11 +29,12 @@ Nothing else is produced. If you compared scores against thresholds, note that
 the ordering is the contract and the numbers are free to be recalibrated; if you
 branched on specific values, switch to comparisons.
 
-Selection changed with it: a specific signature can no longer lose to a generic
-one because of database order, an exact generic match now outranks a fuzzy
-specific one, and TCP breaks ties within a tier by preferring the signature
-whose initial TTL is closest to what was observed. Application signatures
-(p0f's `s:!:…`, e.g. NMap) are no longer reported on a fuzzy match at all.
+Selection follows p0f's first-match-wins rule within each tier: the first
+exact specific in `.fp` / bucket order wins immediately; otherwise the first
+exact generic; otherwise the first fuzzy. An exact generic still outranks a
+fuzzy specific. Application signatures (p0f's `s:!:…`, e.g. NMap) are never
+reported on a fuzzy match — and if the *first* fuzzy candidate is userland,
+nothing is reported even when a later fuzzy OS signature would also fit.
 
 ---
 
@@ -169,6 +170,40 @@ Consequences for feature builds:
 - With only `syn-ack` enabled, SYN packets are still inspected far enough to
   store the client's MSS. No `SynTCPOutput` is emitted unless `syn` is also on.
 - `ConnectionTracker` is no longer a no-op when `syn-ack` is on without `uptime`.
+
+---
+
+### TCP `params` / `Dist:` align with p0f (`dump_flags`, `guess_dist`)
+
+`OSQualityMatched` and `TcpMatch` now carry the fields p0f prints beside the OS
+label:
+
+| Field | Meaning |
+|-------|---------|
+| `dist` | Hop count for `Dist:` (signature hops when TTL is usable, else `guess_dist`) |
+| `random_ttl` | Winning signature used a randomised TTL (`nnn-`) |
+| `excess_dist` | Reported `dist` is above `MAX_DIST` (35) |
+| `tos` | IPv4 DSCP / IPv6 traffic-class bits 2–7 (`0` omits `tos:` from params) |
+
+`TcpObservation` gained `tos: u8` (not used for matching).  
+`params()` may also emit `random_ttl`, `excess_dist`, and `tos:0xNN`, still
+keeping the typed `fuzzy (…)` detail. Without a match, `tos` / `excess_dist`
+can still appear (same as p0f).
+
+```rust
+// v2.0
+OSQualityMatched { os, quality }
+println!("{}", os_matched.params()); // "generic" | "fuzzy (…)" | "none"
+// Dist: line used calculate_ttl's heuristic on the observation
+
+// v2.1
+OSQualityMatched { os, quality, dist, random_ttl, excess_dist, tos }
+println!("{}", os_matched.params()); // e.g. "fuzzy (…) random_ttl tos:0x2e"
+// Dist: uses os_matched.dist
+```
+
+Call sites that construct `OSQualityMatched` or `TcpMatch` by hand must set the
+new fields (or use `OSQualityMatched::without_match` when there is no OS hit).
 
 ---
 

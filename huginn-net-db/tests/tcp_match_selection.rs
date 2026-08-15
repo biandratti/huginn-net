@@ -20,6 +20,7 @@ fn observation() -> TcpObservation {
         quirks: Vec::new(),
         pclass: PayloadSize::Zero,
         peer_mss: None,
+        tos: 0,
     }
 }
 
@@ -118,23 +119,32 @@ fn an_application_is_still_reported_on_an_exact_match() {
 }
 
 #[test]
-fn within_a_tier_the_closest_initial_ttl_wins() {
-    // Both fit: the observed TTL of 64 is plausible for a host 0 hops away with
-    // an initial TTL of 64, and for one 191 hops away with an initial TTL of
-    // 255. Only the first is a sensible explanation.
-    for reversed in [false, true] {
-        let mut entries = vec![
-            (
-                label("Far OS", Type::Specified),
-                vec![Signature { ittl: Ttl::Bad(255), ..signature() }],
-            ),
-            (label("Near OS", Type::Specified), vec![signature()]),
-        ];
-        if reversed {
-            entries.reverse();
-        }
+fn a_userland_fuzzy_first_blocks_a_later_fuzzy_os_match() {
+    assert_eq!(
+        best_match(vec![
+            (application_label("NMap"), vec![fuzzy_signature()]),
+            (label("Linux", Type::Specified), vec![fuzzy_signature()]),
+        ]),
+        None
+    );
+}
 
-        let (name, _quality) = best_match(entries).unwrap_or_else(|| panic!("expected a match"));
-        assert_eq!(name, "Near OS");
-    }
+#[test]
+fn within_a_tier_the_first_signature_in_database_order_wins() {
+    let far = Signature { ittl: Ttl::Bad(255), ..signature() };
+    let near = signature();
+
+    let (name, _) = best_match(vec![
+        (label("Far OS", Type::Specified), vec![far.clone()]),
+        (label("Near OS", Type::Specified), vec![near.clone()]),
+    ])
+    .unwrap_or_else(|| panic!("expected a match"));
+    assert_eq!(name, "Far OS");
+
+    let (name, _) = best_match(vec![
+        (label("Near OS", Type::Specified), vec![near]),
+        (label("Far OS", Type::Specified), vec![far]),
+    ])
+    .unwrap_or_else(|| panic!("expected a match"));
+    assert_eq!(name, "Near OS");
 }

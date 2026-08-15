@@ -3,7 +3,6 @@
 use crate::database::label::{Label, Type};
 use crate::db_matching_trait::{
     DatabaseMatch, DatabaseSignature, FingerprintDb, IndexKey, MatchRank, ObservedFingerprint,
-    SignatureFit,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -68,6 +67,12 @@ where
             _key_marker: PhantomData,
         }
     }
+
+    /// Buckets of `(label_idx, sig_idx)` in declaration order, for coverage checks.
+    #[cfg(feature = "tcp")]
+    pub(crate) fn index_buckets(&self) -> impl Iterator<Item = (&K, &Vec<(usize, usize)>)> {
+        self.index.iter()
+    }
 }
 
 impl<OF, DS, K> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS, K>
@@ -76,12 +81,14 @@ where
     DS: DatabaseSignature<OF> + Display,
     K: IndexKey,
 {
+    /// First specific exact, else first generic exact, else first fuzzy.
+    /// A fuzzy application (`label.class` empty) is not reported.
     fn find_best_match(&self, observed: &OF) -> Option<DatabaseMatch<'_, DS, DS::Fuzziness>> {
         let observed_key = observed.generate_index_key();
-
         let candidate_indices = self.index.get(&observed_key)?;
 
-        let mut best: Option<(&Label, &DS, MatchRank, SignatureFit<DS::Fuzziness>)> = None;
+        let mut gmatch: Option<(&Label, &DS)> = None;
+        let mut fmatch: Option<(&Label, &DS, DS::Fuzziness)> = None;
 
         for &(label_idx, sig_idx) in candidate_indices {
             let (label, sig_vec) = &self.entries[label_idx];
@@ -91,46 +98,58 @@ where
                 continue;
             };
 
-            let Some(rank) = rank_of(label, &fit) else {
-                continue;
-            };
-
-            debug!(
-                "fit: {rank:?} (deviation {}), label: {}, flavor: {:?}, sig: {db_sig}",
-                fit.deviation, label.name, label.flavor
-            );
-
-            let better = match &best {
-                Some((_, _, best_rank, best_fit)) => {
-                    (rank, fit.deviation) < (*best_rank, best_fit.deviation)
+            if fit.fuzzy.is_none() {
+                match label.ty {
+                    Type::Specified => {
+                        debug!(
+                            "fit: Specific (early exit), label: {}, flavor: {:?}, sig: {db_sig}",
+                            label.name, label.flavor
+                        );
+                        return Some(DatabaseMatch {
+                            label,
+                            signature: db_sig,
+                            quality: MatchRank::Specific.as_quality(),
+                            fuzzy: None,
+                        });
+                    }
+                    Type::Generic => {
+                        if gmatch.is_none() {
+                            debug!(
+                                "fit: Generic (remembered), label: {}, flavor: {:?}, sig: {db_sig}",
+                                label.name, label.flavor
+                            );
+                            gmatch = Some((label, db_sig));
+                        }
+                    }
                 }
-                None => true,
-            };
-            if better {
-                best = Some((label, db_sig, rank, fit));
+            } else if let (None, Some(reason)) = (&fmatch, fit.fuzzy) {
+                debug!(
+                    "fit: Fuzzy (remembered), label: {}, flavor: {:?}, sig: {db_sig}",
+                    label.name, label.flavor
+                );
+                fmatch = Some((label, db_sig, reason));
             }
         }
 
-        best.map(|(label, signature, rank, fit)| DatabaseMatch {
-            label,
-            signature,
-            quality: rank.as_quality(),
-            fuzzy: fit.fuzzy,
-        })
-    }
-}
+        if let Some((label, signature)) = gmatch {
+            return Some(DatabaseMatch {
+                label,
+                signature,
+                quality: MatchRank::Generic.as_quality(),
+                fuzzy: None,
+            });
+        }
 
-/// [`MatchRank`] for this fit.
-///
-/// Fuzzy + no OS class (`label.class`) is `None`: applications are only
-/// reported on an exact fit.
-fn rank_of<F>(label: &Label, fit: &SignatureFit<F>) -> Option<MatchRank> {
-    if fit.fuzzy.is_some() {
-        return label.class.is_some().then_some(MatchRank::Fuzzy);
-    }
+        if let Some((label, signature, fuzzy)) = fmatch {
+            label.class.as_ref()?;
+            return Some(DatabaseMatch {
+                label,
+                signature,
+                quality: MatchRank::Fuzzy.as_quality(),
+                fuzzy: Some(fuzzy),
+            });
+        }
 
-    Some(match label.ty {
-        Type::Specified => MatchRank::Specific,
-        Type::Generic => MatchRank::Generic,
-    })
+        None
+    }
 }

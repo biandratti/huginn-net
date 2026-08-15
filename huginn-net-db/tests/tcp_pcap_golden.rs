@@ -82,14 +82,9 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
         .analyze_pcap(pcap_path, tx, None)
         .unwrap_or_else(|e| panic!("PCAP analysis failed: {e}"));
 
+    // Ignore uptime-only ACKs (wall-clock `MIN_TWAIT` fires under tarpaulin).
     rx.into_iter()
-        .filter(|r| {
-            r.syn.is_some()
-                || r.syn_ack.is_some()
-                || r.mtu.is_some()
-                || r.client_uptime.is_some()
-                || r.server_uptime.is_some()
-        })
+        .filter(|r| r.syn.is_some() || r.syn_ack.is_some() || r.mtu.is_some())
         .collect()
 }
 

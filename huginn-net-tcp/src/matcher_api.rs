@@ -25,6 +25,12 @@ pub struct TcpMatch {
     pub quality: f32,
     /// Set when the match only holds because a tolerance was applied.
     pub fuzzy: Option<FuzzyReason>,
+    /// Hop distance reported in `Dist:` (signature hops, or `guess_dist`).
+    pub dist: u8,
+    /// Winning signature used a randomised TTL (`nnn-` / `bad_ttl`).
+    pub random_ttl: bool,
+    /// Reported [`Self::dist`] exceeds p0f's `MAX_DIST` (35).
+    pub excess_dist: bool,
 }
 
 /// A matched MTU/link-type estimate.

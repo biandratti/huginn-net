@@ -59,6 +59,19 @@ pub fn ttl_fit(observed: &Ttl, signature: &Ttl) -> Option<TtlFit> {
     Some(TtlFit { hop_distance, out_of_range })
 }
 
+/// `Dist:` hop count: `initial - observed`, or `guess_distance` when unusable.
+pub fn report_hop_distance(observed: &Ttl, signature: &Ttl) -> u8 {
+    let obs = observed_ttl(observed);
+    let initial = signature_initial_ttl(signature);
+    let bad_ttl = matches!(signature, Ttl::Bad(_));
+
+    if obs > initial || (!bad_ttl && initial.saturating_sub(obs) > MAX_TTL_DISTANCE) {
+        huginn_net_tcp::ttl::guess_distance(obs)
+    } else {
+        initial.saturating_sub(obs)
+    }
+}
+
 /// Signature window vs the raw value. `mss*n` / `mtu*n` use the derived multiplier.
 pub fn window_size_matches(
     observed: u16,
