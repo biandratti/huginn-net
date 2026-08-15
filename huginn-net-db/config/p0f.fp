@@ -796,6 +796,8 @@ sig   = 0:Host,Accept=[text/sgml, */*;q=0.01],Accept-Encoding=[gzip, compress],A
 label = s:!:curl:
 sys   = @unix,Windows
 sig   = 1:User-Agent,Host,Accept=[*/*]:Connection,Accept-Encoding,Accept-Language,Accept-Charset:curl/
+; curl 7.64+ (and 8.x) sends Host before User-Agent:
+sig   = 1:Host,User-Agent,Accept=[*/*]:Connection,Accept-Encoding,Accept-Language,Accept-Charset,Keep-Alive:curl/
 
 label = s:!:links:
 sys   = @unix,Windows

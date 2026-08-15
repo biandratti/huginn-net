@@ -114,6 +114,35 @@ fn matching_chrome11_by_http_request() {
     }
 }
 
+#[test]
+fn matching_modern_curl_by_http_request() {
+    let db = match HttpDatabase::load_default() {
+        Ok(db) => db,
+        Err(e) => panic!("Failed to create default database: {e}"),
+    };
+
+    let curl = HttpRequestObservation {
+        version: http::Version::V11,
+        horder: vec![
+            http::Header::new("Host"),
+            http::Header::new("User-Agent"),
+            http::Header::new("Accept").with_value("*/*"),
+        ],
+        habsent: vec![],
+        expsw: "curl/8.5.0".to_string(),
+    };
+
+    if let Some(found) = db.http_request.find_best_match(&curl) {
+        assert_eq!(found.label.name, "curl");
+        assert_eq!(found.label.class, None);
+        assert_eq!(found.label.flavor, None);
+        assert_eq!(found.label.ty, Type::Specified);
+        assert_eq!(found.quality, 1.0);
+    } else {
+        panic!("No match found for modern curl HTTP signature");
+    }
+}
+
 /// p0f.fp's Chrome signatures date from ~2012 and require
 /// `Accept-Encoding=[gzip,deflate,sdch]` plus an `Accept-Charset`; a current
 /// Chrome sends neither (`sdch` was dropped around 2016). Header matching is
