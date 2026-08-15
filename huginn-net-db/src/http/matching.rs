@@ -25,14 +25,7 @@ impl ObservedFingerprint for HttpResponseObservation {
 }
 
 impl Signature {
-    /// Every HTTP field is a gate. p0f has no fuzzy tier for HTTP, it keeps a
-    /// generic fallback and nothing else, so a fit is
-    /// always exact. Two signatures that both fit are separated by declaration
-    /// order.
-    ///
-    /// `expsw` is deliberately absent: p0f checks it only after a signature has
-    /// been chosen, and a mismatch flags the host as dishonest instead of
-    /// making the signature fit any worse.
+    /// Version / `horder` / `habsent` only. `expsw` is checked after the match.
     fn http_fit(&self, version: Version, horder: &[Header]) -> Option<SignatureFit<NoFuzziness>> {
         let gates = http_version_matches(version, self.version)
             && headers_match(horder, &self.horder)

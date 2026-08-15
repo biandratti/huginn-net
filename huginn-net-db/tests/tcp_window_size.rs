@@ -1,9 +1,4 @@
 #![cfg(feature = "tcp")]
-//! A database signature that declares a literal window must stay reachable.
-//!
-//! p0f keeps the observed window exactly as it came off the wire and only
-//! resolves a multiplier when the *signature* asks for one, so a literal window
-//! is compared for equality and always works (`fp_tcp.c:189-217`).
 
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
@@ -11,8 +6,6 @@ use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::ObservableTcp;
 
-/// Builds an observation the way the packet pipeline does: from wire values,
-/// not from a database signature.
 fn observed(
     raw_ttl: u8,
     mss: Option<u16>,
@@ -22,8 +15,6 @@ fn observed(
     quirks: QuirkSet,
     peer_mss: Option<u16>,
 ) -> ObservableTcp {
-    // Twenty bytes of IP header plus a TCP header of five words and one more per
-    // option, which is close enough for a test that only reads the window.
     let option_words = u16::try_from(olayout.len()).unwrap_or(0);
     let tot_hdr = option_words
         .saturating_add(5)
