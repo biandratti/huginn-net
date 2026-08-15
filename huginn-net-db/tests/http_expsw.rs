@@ -51,7 +51,7 @@ fn a_contradicting_software_string_is_dishonest() {
 }
 
 #[test]
-fn software_string_does_not_change_the_distance() {
+fn software_string_does_not_change_the_fit() {
     let db = HttpDatabase::load_default()
         .unwrap_or_else(|e| panic!("failed to create default database: {e}"));
 
@@ -72,18 +72,20 @@ fn software_string_does_not_change_the_distance() {
     };
 
     let matcher = HttpSignatureMatcher::new(&db);
-    let (_label, signature, honest_quality) = matcher
+    let honest_match = matcher
         .matching_by_http_request(&observation("Firefox/"))
         .unwrap_or_else(|| panic!("no match found for the Firefox 2.x signature"));
 
-    let honest = signature.calculate_distance(&observation("Firefox/"));
-    let lying = signature.calculate_distance(&observation("definitely-not-firefox"));
-    assert_eq!(honest, lying, "expsw must not contribute to the distance");
+    let honest = honest_match.signature.fit(&observation("Firefox/"));
+    let lying = honest_match
+        .signature
+        .fit(&observation("definitely-not-firefox"));
+    assert_eq!(honest, lying, "expsw must not affect how well the signature fits");
 
-    let (_label, _signature, lying_quality) = matcher
+    let lying_match = matcher
         .matching_by_http_request(&observation("definitely-not-firefox"))
         .unwrap_or_else(|| panic!("a dishonest software string must not reject the signature"));
-    assert_eq!(honest_quality, lying_quality);
+    assert_eq!(honest_match.quality, lying_match.quality);
 }
 
 #[test]

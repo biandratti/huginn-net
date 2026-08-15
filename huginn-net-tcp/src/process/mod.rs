@@ -314,7 +314,7 @@ where
         Some(m) => match call(m) {
             Some(found) => OSQualityMatched {
                 os: Some(found.os),
-                quality: MatchQuality::Matched(found.quality),
+                quality: MatchQuality::Matched { quality: found.quality, fuzzy: found.fuzzy },
             },
             None => OSQualityMatched { os: None, quality: MatchQuality::NotMatched },
         },
@@ -326,8 +326,10 @@ where
 fn classify_mtu_match(matcher: Option<&dyn TcpMatcher>, mtu: u16) -> MTUQualityMatched {
     match matcher {
         Some(m) => match m.match_mtu(mtu) {
+            // An MTU either equals a known link's value or it does not; there is
+            // no signature to fit approximately.
             Some(found) => {
-                MTUQualityMatched { link: Some(found.link), quality: MatchQuality::Matched(1.0) }
+                MTUQualityMatched { link: Some(found.link), quality: MatchQuality::exact(1.0) }
             }
             None => MTUQualityMatched { link: None, quality: MatchQuality::NotMatched },
         },

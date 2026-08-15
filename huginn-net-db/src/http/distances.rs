@@ -1,32 +1,27 @@
-//! Pure distance helpers between an observed HTTP value and a signature value.
+//! Pure gate helpers between an observed HTTP value and a signature value.
 //!
 //! These functions take **raw types** (versions, header slices, expected
 //! software strings), no observation structs, so they mirror the shape of
-//! [`crate::tcp`]'s `distance_*` helpers and can be reused from both the
+//! [`crate::tcp`]'s helpers and can be reused from both the
 //! `DatabaseSignature` impl and the public [`HttpDistance`] trait.
 //!
 //! [`HttpDistance`]: crate::observable_http_signals_matching::HttpDistance
 
-use super::signature::HttpMatchQuality;
 use super::{Header, Version};
 use huginn_net_http::http::UNKNOWN_SOFTWARE;
 use tracing::debug;
 
-/// Distance score between an observed [`Version`] and a database [`Version`].
+/// Whether an observed [`Version`] satisfies a database [`Version`].
 ///
 /// [`Version::Any`] in the signature matches everything; otherwise versions
 /// must be equal.
-pub fn distance_http_version(observed: Version, signature: Version) -> Option<u32> {
-    if signature == Version::Any || observed == signature {
-        Some(HttpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+pub fn http_version_matches(observed: Version, signature: Version) -> bool {
+    signature == Version::Any || observed == signature
 }
 
 /// Signature `horder` vs traffic headers: required names in order, extras free.
 /// Signature values are substrings. `?` may be missing, not out of order.
-pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
+pub fn headers_match(observed: &[Header], signature: &[Header]) -> bool {
     let mut position = 0usize;
 
     for expected in signature {
@@ -36,7 +31,9 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
 
         match found {
             Some(offset) => {
-                let header = observed.get(position.saturating_add(offset))?;
+                let Some(header) = observed.get(position.saturating_add(offset)) else {
+                    return false;
+                };
                 if let Some(expected_value) = expected.value.as_deref() {
                     if !header
                         .value
@@ -47,7 +44,7 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
                             "header {} value mismatch: expected substring {expected_value}",
                             expected.name
                         );
-                        return None;
+                        return false;
                     }
                 }
                 position = position.saturating_add(offset).saturating_add(1);
@@ -55,29 +52,29 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
             None => {
                 if !expected.optional {
                     debug!("required header {} missing", expected.name);
-                    return None;
+                    return false;
                 }
                 if observed.iter().any(|h| h.name == expected.name) {
                     debug!("optional header {} present but out of order", expected.name);
-                    return None;
+                    return false;
                 }
             }
         }
     }
 
-    Some(HttpMatchQuality::High.as_score())
+    true
 }
 
 /// Reject if any signature `habsent` name appears in the traffic headers.
-pub fn distance_habsent(observed: &[Header], signature_absent: &[Header]) -> Option<u32> {
+pub fn absent_headers_match(observed: &[Header], signature_absent: &[Header]) -> bool {
     for forbidden in signature_absent {
         if observed.iter().any(|h| h.name == forbidden.name) {
             debug!("forbidden header {} present in traffic", forbidden.name);
-            return None;
+            return false;
         }
     }
 
-    Some(HttpMatchQuality::High.as_score())
+    true
 }
 
 /// True if `observed` contains the signature `expsw` substring.

@@ -1,7 +1,10 @@
 //! Fingerprint collection and index-based matching.
 
-use crate::database::label::Label;
-use crate::db_matching_trait::{DatabaseSignature, FingerprintDb, IndexKey, ObservedFingerprint};
+use crate::database::label::{Label, Type};
+use crate::db_matching_trait::{
+    DatabaseMatch, DatabaseSignature, FingerprintDb, IndexKey, MatchRank, ObservedFingerprint,
+    SignatureFit,
+};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -73,45 +76,61 @@ where
     DS: DatabaseSignature<OF> + Display,
     K: IndexKey,
 {
-    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, f32)> {
+    fn find_best_match(&self, observed: &OF) -> Option<DatabaseMatch<'_, DS, DS::Fuzziness>> {
         let observed_key = observed.generate_index_key();
 
-        let candidate_indices = match self.index.get(&observed_key) {
-            Some(indices) => indices,
-            None => {
-                return None;
-            }
-        };
+        let candidate_indices = self.index.get(&observed_key)?;
 
-        if candidate_indices.is_empty() {
-            return None;
-        }
-
-        let mut best_label_ref = None;
-        let mut best_sig_ref = None;
-        let mut min_distance = u32::MAX;
+        let mut best: Option<(&Label, &DS, MatchRank, SignatureFit<DS::Fuzziness>)> = None;
 
         for &(label_idx, sig_idx) in candidate_indices {
             let (label, sig_vec) = &self.entries[label_idx];
             let db_sig = &sig_vec[sig_idx];
 
-            if let Some(distance) = db_sig.calculate_distance(observed) {
-                if distance < min_distance {
-                    min_distance = distance;
-                    best_label_ref = Some(label);
-                    best_sig_ref = Some(db_sig);
+            let Some(fit) = db_sig.fit(observed) else {
+                continue;
+            };
+
+            let Some(rank) = rank_of(label, &fit) else {
+                continue;
+            };
+
+            debug!(
+                "fit: {rank:?} (deviation {}), label: {}, flavor: {:?}, sig: {db_sig}",
+                fit.deviation, label.name, label.flavor
+            );
+
+            let better = match &best {
+                Some((_, _, best_rank, best_fit)) => {
+                    (rank, fit.deviation) < (*best_rank, best_fit.deviation)
                 }
-                debug!(
-                    "distance: {}, label: {}, flavor: {:?}, sig: {}",
-                    distance, label.name, label.flavor, db_sig
-                );
+                None => true,
+            };
+            if better {
+                best = Some((label, db_sig, rank, fit));
             }
         }
 
-        if let (Some(label), Some(sig)) = (best_label_ref, best_sig_ref) {
-            Some((label, sig, sig.get_quality_score(min_distance)))
-        } else {
-            None
-        }
+        best.map(|(label, signature, rank, fit)| DatabaseMatch {
+            label,
+            signature,
+            quality: rank.as_quality(),
+            fuzzy: fit.fuzzy,
+        })
     }
+}
+
+/// [`MatchRank`] for this fit.
+///
+/// Fuzzy + no OS class (`label.class`) is `None`: applications are only
+/// reported on an exact fit.
+fn rank_of<F>(label: &Label, fit: &SignatureFit<F>) -> Option<MatchRank> {
+    if fit.fuzzy.is_some() {
+        return label.class.is_some().then_some(MatchRank::Fuzzy);
+    }
+
+    Some(match label.ty {
+        Type::Specified => MatchRank::Specific,
+        Type::Generic => MatchRank::Generic,
+    })
 }

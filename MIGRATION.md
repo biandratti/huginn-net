@@ -9,7 +9,68 @@
 The matcher now follows p0f's algorithm instead of summing soft penalties, so
 which signatures match changes: TCP gains coverage (p0f's fuzzy tolerances for
 quirks and TTL are honoured), HTTP loses it (no error budget — a header that
-does not fit is a rejection), and HTTP quality scores go up.
+does not fit is a rejection), and every field that p0f treats as a gate now
+rejects instead of costing points.
+
+---
+
+### Quality scores mean something different
+
+A score is no longer a normalised sum of per-field penalties. It reports which
+tier the match landed in, following p0f's order of preference:
+
+| Score | Match |
+|-------|-------|
+| `1.0` | Exact fit against a signature naming a concrete product |
+| `0.8` | Exact fit against a catch-all (generic) signature |
+| `0.5` | Only holds because a documented tolerance was applied (TCP only) |
+
+Nothing else is produced. If you compared scores against thresholds, note that
+the ordering is the contract and the numbers are free to be recalibrated; if you
+branched on specific values, switch to comparisons.
+
+Selection changed with it: a specific signature can no longer lose to a generic
+one because of database order, an exact generic match now outranks a fuzzy
+specific one, and TCP breaks ties within a tier by preferring the signature
+whose initial TTL is closest to what was observed. Application signatures
+(p0f's `s:!:…`, e.g. NMap) are no longer reported on a fuzzy match at all.
+
+---
+
+### `TcpMatchQuality::Matched` says what was tolerated
+
+The variant carries a struct instead of a bare float, so a fuzzy match can name
+the tolerance it needed rather than only scoring lower for it:
+
+```rust
+// v2.0
+match os_matched.quality {
+    MatchQuality::Matched(quality) => …,
+    …
+}
+
+// v2.1.0
+match os_matched.quality {
+    MatchQuality::Matched { quality, fuzzy: None } => …,        // exact fit
+    MatchQuality::Matched { quality, fuzzy: Some(reason) } => { // held by a tolerance
+        println!("{reason}");                    // "missing id+, extra ecn"
+        reason.implausible_hop_distance;         // Option<u32>
+        reason.added_quirks;                     // Vec<Quirk>
+        reason.missing_quirks;                   // Vec<Quirk>
+    }
+    …
+}
+```
+
+`MatchQuality::exact(q)` builds the fuzzy-free case, which is what the MTU match
+reports: an MTU either equals a known link's value or it does not.
+
+Whether the match is specific or generic is *not* in here — `os.kind` already
+carries it. HTTP is unchanged, since p0f defines no tolerances for it.
+
+The `Params:` line of the TCP output follows p0f's vocabulary now (`generic`,
+`fuzzy (…)`, or `none`) instead of printing `Specified`/`Generic`, which matches
+what the HTTP output already did.
 
 ---
 
@@ -35,10 +96,21 @@ contain the software the matched signature declares.
 
 ### Removed
 
+There is no distance model anymore, so the helpers that produced or scored one
+are gone. Each one is replaced by a check that answers the question directly.
+
 | v2.0 | v2.1 |
 |------|------|
 | `http_common::get_diagnostic` | `http_common::build_params` |
-| `huginn_net_db::http::distance_expsw` | `huginn_net_db::http::expsw_matches` (no longer part of the distance) |
+| `DatabaseSignature::calculate_distance` + `get_quality_score` | `DatabaseSignature::fit`, returning `Option<SignatureFit<Self::Fuzziness>>` |
+| `MatchQuality` trait, `TcpMatchQuality`, `HttpMatchQuality` (the database-side traits) | removed; use `MatchRank` |
+| `FingerprintDb::find_best_match` returning `(&Label, &DS, f32)` | returns `DatabaseMatch`, whose fields are named |
+| `matching_by_tcp_request`/`_response`, `matching_by_http_request`/`_response` returning tuples | the same `DatabaseMatch` |
+| `tcp::distance_ttl` | `tcp::ttl_fit` (returns the hop distance) |
+| `tcp::distance_ip_version`, `distance_window_size`, `distance_payload_size` | `ip_version_matches`, `window_size_matches`, `payload_size_matches` (`bool`) |
+| `http::distance_http_version`, `distance_header`, `distance_habsent` | `http_version_matches`, `headers_match`, `absent_headers_match` (`bool`) |
+| `huginn_net_db::http::distance_expsw` | `huginn_net_db::http::expsw_matches` (never part of the match) |
+| `HttpDistance::distance_*` methods | `version_matches`, `headers_match`, `horder_matches`, `absent_headers_match` |
 
 ---
 

@@ -2,15 +2,15 @@
 //! database matcher infrastructure.
 //!
 //! Provides:
-//! - `pub(crate)` distance helpers that read fields off a `TcpObservation`
-//!   (`distance_olen`, `distance_mss`, `distance_wscale`, `distance_olayout`,
-//!   `distance_quirks`). The pure helpers that compare two raw signature
-//!   types ([`crate::tcp::distance_ttl`], [`crate::tcp::distance_window_size`],
-//!   …) live in `crate::tcp::distances` (private module; re-exported through
+//! - `pub(crate)` gate helpers that read fields off a `TcpObservation`
+//!   (`olen_matches`, `mss_matches`, `wscale_matches`, `olayout_matches`,
+//!   `quirks_fit`). The pure helpers that compare two raw signature types
+//!   ([`crate::tcp::ttl_fit`], [`crate::tcp::window_size_matches`], …) live in
+//!   `crate::tcp::distances` (private module; re-exported through
 //!   [`crate::tcp`]).
 //! - The [`crate::db_matching_trait::ObservedFingerprint`] impl that turns an
 //!   observation into a [`crate::database::TcpIndexKey`].
-//! - The [`crate::db_matching_trait::DatabaseSignature`] impl that scores a
+//! - The [`crate::db_matching_trait::DatabaseSignature`] impl that compares a
 //!   `tcp::Signature` against a `TcpObservation`.
 //!
 //! For backward compatibility this module is re-exposed at the crate root as
@@ -18,54 +18,33 @@
 //! `lib.rs`.
 
 use crate::database::TcpIndexKey;
-use crate::db_matching_trait::{DatabaseSignature, MatchQuality, ObservedFingerprint};
+use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint, SignatureFit};
 use crate::tcp::{
-    self, distance_ip_version, distance_payload_size, distance_ttl, distance_window_size,
-    IpVersion, PayloadSize, Quirk,
+    self, ip_version_matches, payload_size_matches, ttl_fit, window_size_matches, IpVersion,
+    PayloadSize, Quirk,
 };
 use huginn_net_tcp::observable::TcpObservation;
+use huginn_net_tcp::output::FuzzyReason;
 
-/// `olen` is never wildcarded in p0f's format: a mismatch is a hard reject, not a soft penalty.
-pub(crate) fn distance_olen(observed: &TcpObservation, signature: &tcp::Signature) -> Option<u32> {
-    if observed.olen == signature.olen {
-        Some(tcp::TcpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+/// `olen` is never wildcarded in p0f's format: a mismatch is a hard reject.
+pub(crate) fn olen_matches(observed: &TcpObservation, signature: &tcp::Signature) -> bool {
+    observed.olen == signature.olen
 }
 
 /// A signature-specified `mss` is a hard gate in p0f: only `mss == *`
 /// (wildcard, `None` here) tolerates any observed value.
-pub(crate) fn distance_mss(observed: &TcpObservation, signature: &tcp::Signature) -> Option<u32> {
-    if signature.mss.is_none() || observed.mss == signature.mss {
-        Some(tcp::TcpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+pub(crate) fn mss_matches(observed: &TcpObservation, signature: &tcp::Signature) -> bool {
+    signature.mss.is_none() || observed.mss == signature.mss
 }
 
 /// A signature-specified `wscale` is a hard gate in p0f: only `wscale == *`
 /// (wildcard, `None` here) tolerates any observed value.
-pub(crate) fn distance_wscale(
-    observed: &TcpObservation,
-    signature: &tcp::Signature,
-) -> Option<u32> {
-    if signature.wscale.is_none() || observed.wscale == signature.wscale {
-        Some(tcp::TcpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+pub(crate) fn wscale_matches(observed: &TcpObservation, signature: &tcp::Signature) -> bool {
+    signature.wscale.is_none() || observed.wscale == signature.wscale
 }
 
-pub(crate) fn distance_olayout(
-    observed: &TcpObservation,
-    signature: &tcp::Signature,
-) -> Option<u32> {
-    if observed.olayout == signature.olayout {
-        Some(tcp::TcpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+pub(crate) fn olayout_matches(observed: &TcpObservation, signature: &tcp::Signature) -> bool {
+    observed.olayout == signature.olayout
 }
 
 /// Quirks a database signature may declare without the observation showing
@@ -94,24 +73,38 @@ fn quirk_masked_by_ip_version(
     }
 }
 
+/// The quirks that had to be tolerated for a signature to hold. Empty on both
+/// sides when the sets agreed exactly.
+#[derive(Debug, Default)]
+pub(crate) struct QuirksFit {
+    /// Shown by the traffic, not declared by the signature.
+    pub added: Vec<Quirk>,
+    /// Declared by the signature, not shown by the traffic.
+    pub missing: Vec<Quirk>,
+}
+
+impl QuirksFit {
+    fn is_exact(&self) -> bool {
+        self.added.is_empty() && self.missing.is_empty()
+    }
+}
+
 /// Quirks are compared as sets, not as ordered lists, and a narrow set of
 /// differences is tolerated as a fuzzy match: `df`/`id+` may be absent from
 /// the traffic, and `id-`/`ecn` may appear in it. Any other difference
 /// rejects the signature outright.
 ///
-/// The fuzzy case is currently reported as the worst non-rejecting score;
-/// once the match tiers land it becomes `Fuzzy(QuirksWhitelisted)` instead,
-/// which sorts below every exact match regardless of the other fields.
-pub(crate) fn distance_quirks(
+/// Returns which quirks the tolerance had to cover; `None` rejects.
+pub(crate) fn quirks_fit(
     observed: &TcpObservation,
     signature: &tcp::Signature,
-) -> Option<u32> {
+) -> Option<QuirksFit> {
     let declared_by_signature = |quirk: &Quirk| {
         signature.quirks.contains(quirk)
             && !quirk_masked_by_ip_version(quirk, signature.version, observed.version)
     };
 
-    let mut fuzzy = false;
+    let mut fit = QuirksFit::default();
 
     for quirk in &signature.quirks {
         if quirk_masked_by_ip_version(quirk, signature.version, observed.version)
@@ -122,7 +115,7 @@ pub(crate) fn distance_quirks(
         if !FUZZY_DELETABLE_QUIRKS.contains(quirk) {
             return None;
         }
-        fuzzy = true;
+        fit.missing.push(quirk.clone());
     }
 
     for quirk in &observed.quirks {
@@ -132,14 +125,10 @@ pub(crate) fn distance_quirks(
         if !FUZZY_ADDABLE_QUIRKS.contains(quirk) {
             return None;
         }
-        fuzzy = true;
+        fit.added.push(quirk.clone());
     }
 
-    if fuzzy {
-        Some(tcp::TcpMatchQuality::Low.as_score())
-    } else {
-        Some(tcp::TcpMatchQuality::High.as_score())
-    }
+    Some(fit)
 }
 
 impl ObservedFingerprint for TcpObservation {
@@ -156,28 +145,39 @@ impl ObservedFingerprint for TcpObservation {
 }
 
 impl DatabaseSignature<TcpObservation> for tcp::Signature {
-    fn calculate_distance(&self, observed: &TcpObservation) -> Option<u32> {
-        let distance = distance_ip_version(&observed.version, &self.version)?
-            .saturating_add(distance_ttl(&observed.ittl, &self.ittl)?)
-            .saturating_add(distance_olen(observed, self)?)
-            .saturating_add(distance_mss(observed, self)?)
-            .saturating_add(distance_window_size(&observed.wsize, &self.wsize, observed.mss)?)
-            .saturating_add(distance_wscale(observed, self)?)
-            .saturating_add(distance_olayout(observed, self)?)
-            .saturating_add(distance_quirks(observed, self)?)
-            .saturating_add(distance_payload_size(&observed.pclass, &self.pclass)?);
-        Some(distance)
-    }
+    type Fuzziness = FuzzyReason;
 
-    /// Returns the quality score based on the distance.
-    ///
-    /// The score is a value between 0.0 and 1.0, where 1.0 is a perfect match.
-    ///
-    /// The score is calculated based on the distance of the observed signal to the database signature.
-    /// The distance is a value between 0 and 18, where 0 is a perfect match and 18 is the maximum possible distance.
-    ///
-    fn get_quality_score(&self, distance: u32) -> f32 {
-        tcp::TcpMatchQuality::distance_to_score(distance)
+    /// Seven of the nine fields are gates. `ttl` and `quirks` may be
+    /// tolerated; either one (or both) makes the match fuzzy.
+    fn fit(&self, observed: &TcpObservation) -> Option<SignatureFit<FuzzyReason>> {
+        let gates = ip_version_matches(&observed.version, &self.version)
+            && olen_matches(observed, self)
+            && mss_matches(observed, self)
+            && window_size_matches(&observed.wsize, &self.wsize, observed.mss)
+            && wscale_matches(observed, self)
+            && olayout_matches(observed, self)
+            && payload_size_matches(&observed.pclass, &self.pclass);
+
+        if !gates {
+            return None;
+        }
+
+        let ttl = ttl_fit(&observed.ittl, &self.ittl)?;
+        let quirks = quirks_fit(observed, self)?;
+
+        // The hop distance ranks candidates inside a tier: given two signatures
+        // that both fit, the one whose initial TTL sits closer to what we saw
+        // is the better explanation.
+        if !ttl.out_of_range && quirks.is_exact() {
+            return Some(SignatureFit::exact(ttl.hop_distance));
+        }
+
+        let reason = FuzzyReason {
+            implausible_hop_distance: ttl.out_of_range.then_some(ttl.hop_distance),
+            added_quirks: quirks.added,
+            missing_quirks: quirks.missing,
+        };
+        Some(SignatureFit::fuzzy(reason, ttl.hop_distance))
     }
 
     fn generate_index_keys_for_db_entry(&self) -> Vec<TcpIndexKey> {

@@ -16,6 +16,7 @@
 
 use huginn_net::{Database, HuginnNet, TcpMatchQuality};
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
+use huginn_net_tcp::tcp::Quirk;
 use std::path::Path;
 use std::sync::mpsc;
 
@@ -53,10 +54,23 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
         .as_ref()
         .unwrap_or_else(|| panic!("expected an OS match for the first SYN"));
     assert_eq!(os.name, "Mac OS X", "first SYN OS name");
+    match &first_syn.os_matched.quality {
+        TcpMatchQuality::Matched { fuzzy: Some(reason), .. } => {
+            assert_eq!(reason.missing_quirks, vec![Quirk::NonZeroID]);
+            assert_eq!(reason.added_quirks, vec![Quirk::Ecn]);
+            assert_eq!(
+                reason.implausible_hop_distance, None,
+                "the TTL is plausible; only the quirks were tolerated"
+            );
+        }
+        other => panic!("matcher must run and return a fuzzy match, got {other:?}"),
+    }
+
     assert!(
-        matches!(first_syn.os_matched.quality, TcpMatchQuality::Matched(_)),
-        "matcher must run and return a fuzzy match, got {:?}",
-        first_syn.os_matched.quality
+        first_syn
+            .to_string()
+            .contains("Params: fuzzy (missing id+, extra ecn)"),
+        "the human-readable output must say what was tolerated, got:\n{first_syn}"
     );
 
     let first_mtu = results

@@ -10,18 +10,21 @@
 //! trait.
 
 use crate::observable::TcpObservation;
-use crate::output::OperativeSystem;
+use crate::output::{FuzzyReason, OperativeSystem};
 
 /// A matched OS for a single observed TCP fingerprint.
 ///
 /// `quality` is a similarity score in `[0.0, 1.0]`, where `1.0` is a perfect
-/// match. The exact distance/score formula is up to the matcher implementer.
+/// match. The exact scoring is up to the matcher implementer, but it must rank
+/// an exact match above one that needed a tolerance.
 #[derive(Debug, Clone)]
 pub struct TcpMatch {
     /// Operating system / application identified by the matcher.
     pub os: OperativeSystem,
     /// Quality of the match, in `[0.0, 1.0]`.
     pub quality: f32,
+    /// Set when the match only holds because a tolerance was applied.
+    pub fuzzy: Option<FuzzyReason>,
 }
 
 /// A matched MTU/link-type estimate.
