@@ -63,7 +63,6 @@ pub struct ObservableTcp {
 // ---------------------------------------------------------------------------
 
 impl fmt::Display for TcpObservation {
-    /// `p0f.fp` syntax. Window is `mss*n` / `mtu*n` when it is a multiple.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}:{}:", self.version, self.ittl, self.olen)?;
 

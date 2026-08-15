@@ -1,9 +1,5 @@
 #![cfg(feature = "tcp")]
-//! A database signature that declares a literal window must stay reachable.
-//!
-//! p0f keeps the observed window exactly as it came off the wire and only
-//! resolves a multiplier when the *signature* asks for one, so a literal window
-//! is compared for equality and always works (`fp_tcp.c:189-217`).
+//! Window match: raw `wsize` vs the signature form (`mss*n`, literal, peer MSS).
 
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, TcpOption};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};

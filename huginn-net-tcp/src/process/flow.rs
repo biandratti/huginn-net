@@ -236,8 +236,6 @@ fn tcp_observation(
     quirks: Vec<Quirk>,
     peer_mss: Option<u16>,
 ) -> TcpObservation {
-    // p0f's `tot_hdr`: every header byte ahead of the payload, options included,
-    // which is one of the MTU divisors a window can be a multiple of.
     let tot_hdr =
         ip_header_bytes.saturating_add(u16::from(tcp.get_data_offset()).saturating_mul(4));
 
