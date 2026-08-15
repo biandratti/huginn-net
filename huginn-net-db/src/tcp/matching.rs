@@ -165,9 +165,6 @@ impl DatabaseSignature<TcpObservation> for tcp::Signature {
         let ttl = ttl_fit(&observed.ittl, &self.ittl)?;
         let quirks = quirks_fit(observed, self)?;
 
-        // The hop distance ranks candidates inside a tier: given two signatures
-        // that both fit, the one whose initial TTL sits closer to what we saw
-        // is the better explanation.
         if !ttl.out_of_range && quirks.is_exact() {
             return Some(SignatureFit::exact(ttl.hop_distance));
         }

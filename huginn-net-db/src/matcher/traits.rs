@@ -68,13 +68,7 @@ pub trait DatabaseSignature<OF: ObservedFingerprint> {
 /// Base trait for keys used in fingerprint indexes.
 pub trait IndexKey: Debug + Clone + Eq + Hash {}
 
-/// Where a candidate sits in p0f's order of preference.
-///
-/// p0f returns the first exact match on a specific signature and only falls
-/// back to a generic one after exhausting the list; a match that needed a
-/// tolerance is the last resort, and does *not* keep its specific/generic
-/// distinction (`fp_tcp.c:221-271`). Declaration order is the preference
-/// order, so `Ord` sorts best-first.
+/// Preference order: Specific > Generic > Fuzzy (`Ord` is best-first).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MatchRank {
     /// Exact fit against a signature naming a concrete product.

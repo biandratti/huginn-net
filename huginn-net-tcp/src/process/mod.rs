@@ -325,9 +325,7 @@ where
 #[cfg(feature = "mtu")]
 fn classify_mtu_match(matcher: Option<&dyn TcpMatcher>, mtu: u16) -> MTUQualityMatched {
     match matcher {
-        Some(m) => match m.match_mtu(mtu) {
-            // An MTU either equals a known link's value or it does not; there is
-            // no signature to fit approximately.
+        Some(m) => match m.match_mtu(mtu) {.
             Some(found) => {
                 MTUQualityMatched { link: Some(found.link), quality: MatchQuality::exact(1.0) }
             }

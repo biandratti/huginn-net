@@ -1,6 +1,4 @@
 #![cfg(feature = "tcp")]
-//! Selection when several signatures fit: Specific > Generic > Fuzzy.
-//! Within a tier, the closer initial TTL wins.
 
 use huginn_net_db::database::{FingerprintCollection, Label, TcpIndexKey, Type};
 use huginn_net_db::db_matching_trait::FingerprintDb;
