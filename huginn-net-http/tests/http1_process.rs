@@ -124,8 +124,6 @@ fn test_params_combine_because_p0f_reports_them_together() {
 
 #[test]
 fn test_params_without_a_match_cannot_be_dishonest_or_generic() {
-    // Both notes come from the winning signature, so with no match the only
-    // thing left to say is whether the client identified itself.
     let params = http_common::build_params("Mozilla/5.0", None);
 
     assert!(params.is_empty());

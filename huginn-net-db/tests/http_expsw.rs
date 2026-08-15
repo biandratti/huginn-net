@@ -1,8 +1,4 @@
 #![cfg(feature = "http")]
-//! `expsw` is p0f's "expected software" field: what the matched signature
-//! claims the software is. It is checked *after* a signature wins, and its
-//! only effect is to flag the host as dishonest — never to reject or demote
-//! the signature.
 
 use huginn_net_db::db_matching_trait::DatabaseSignature;
 use huginn_net_db::http::UNKNOWN_SOFTWARE;
@@ -11,12 +7,9 @@ use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::observable::HttpRequestObservation;
 use std::sync::Arc;
 
-/// A full `User-Agent` as seen on the wire.
 const CHROME_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                          (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
 
-/// How the database writes the claim: a short substring, kept anchored at a
-/// token boundary by a leading space.
 const CHROME_EXPSW: &str = " Chrom";
 
 #[test]
@@ -57,8 +50,6 @@ fn a_contradicting_software_string_is_dishonest() {
     assert!(!http::expsw_matches("Mozilla/5.0 Firefox/128.0", CHROME_EXPSW));
 }
 
-/// The point of taking `expsw` out of the distance: two observations that
-/// differ *only* in their software string must be equally good matches.
 #[test]
 fn software_string_does_not_change_the_distance() {
     let db = HttpDatabase::load_default()
@@ -95,8 +86,6 @@ fn software_string_does_not_change_the_distance() {
     assert_eq!(honest_quality, lying_quality);
 }
 
-/// The flag rides along with the match, because it takes the winning
-/// signature to know what was claimed.
 #[test]
 fn the_match_reports_whether_the_host_is_dishonest() {
     let db = HttpDatabase::load_default()

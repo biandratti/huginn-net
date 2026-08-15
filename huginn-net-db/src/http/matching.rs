@@ -131,9 +131,6 @@ trait HttpSignatureHelper {
 
 impl HttpSignatureHelper for http::Signature {
     fn calculate_http_distance<T: HttpDistance>(&self, observed: &T) -> Option<u32> {
-        // `expsw` is deliberately absent: p0f checks it only after a signature
-        // has been chosen, and a mismatch flags the host as dishonest instead
-        // of making the signature fit any worse.
         let distance = distance_http_version(observed.get_version(), self.version)?
             .saturating_add(distance_header(observed.get_horder(), &self.horder)?)
             .saturating_add(distance_habsent(observed.get_horder(), &self.habsent)?);

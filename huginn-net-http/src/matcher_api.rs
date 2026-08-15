@@ -10,22 +10,20 @@ use crate::observable::{HttpRequestObservation, HttpResponseObservation};
 use crate::output::{Browser, WebServer};
 
 /// Result of matching an [`HttpRequestObservation`] against a database.
+/// `dishonest` is set when the User-Agent does not back the matched signature.
 #[derive(Debug, Clone)]
 pub struct HttpRequestMatch {
     pub browser: Browser,
     pub quality: f32,
-    /// The `User-Agent` in the traffic does not back up the software the
-    /// matched signature declares. Decided together with the match, since it
-    /// takes the winning signature to know what was claimed.
     pub dishonest: bool,
 }
 
 /// Result of matching an [`HttpResponseObservation`] against a database.
+/// `dishonest` is set when the Server header does not back the matched signature.
 #[derive(Debug, Clone)]
 pub struct HttpResponseMatch {
     pub web_server: WebServer,
     pub quality: f32,
-    /// Same as [`HttpRequestMatch::dishonest`], for the `Server` header.
     pub dishonest: bool,
 }
 

@@ -207,8 +207,6 @@ fn test_distance_header_expected_value_matches_as_substring() {
 
 #[test]
 fn test_distance_header_expects_value_but_observed_has_none_rejects() {
-    // Observations drop the value of headers p0f prints without one, so a
-    // signature demanding a value can never be satisfied by them.
     let observed = vec![Header::new("Host"), Header::new("User-Agent")];
 
     let signature = vec![Header::new("Host"), Header::new("User-Agent").with_value("Mozilla/5.0")];
@@ -309,8 +307,6 @@ fn test_distance_header_value_mismatch_rejects() {
 
 #[test]
 fn test_distance_header_value_mismatch_rejects_even_when_optional() {
-    // `optional` only covers absence: a header that is present must still
-    // match the expected value.
     let observed = vec![Header::new("Host"), Header::new("Referer").with_value("http://other")];
 
     let signature = vec![

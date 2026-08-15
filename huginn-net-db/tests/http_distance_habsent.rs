@@ -1,7 +1,4 @@
 #![cfg(feature = "http")]
-//! `habsent` is the list of headers a signature forbids. p0f checks it
-//! against the headers actually seen in the traffic, so these tests pass an
-//! observed `horder` as the first argument.
 
 use huginn_net_db::http::{distance_habsent, Header, HttpMatchQuality};
 
