@@ -24,27 +24,8 @@ pub fn distance_http_version(observed: Version, signature: Version) -> Option<u3
     }
 }
 
-/// Distance score between the headers a database signature expects
-/// (`horder`) and the headers seen in the traffic.
-///
-/// Header matching has no error budget in p0f: every header the signature
-/// lists must be found in the observed list, in the same relative order, and
-/// any mismatch rejects the whole signature. Concretely:
-///
-/// - Observed headers the signature does not mention are skipped for free,
-///   however many of them appear and wherever they appear.
-/// - When the signature specifies a value, the observed value must *contain*
-///   it as a substring (so `Accept=[,*/*]` matches a longer real `Accept`),
-///   and an observed header carrying no value never satisfies one that
-///   expects a value.
-/// - A required header that is not found rejects the signature.
-/// - An optional header (`?` in the `.fp`) may be missing, but only if it is
-///   absent from the traffic altogether: appearing in a different position
-///   than the signature dictates is still a mismatch.
-///
-/// Only the signature's `optional` flag is consulted. Observations carry one
-/// too, but it describes how p0f would *print* the header, not how to match
-/// it.
+/// Signature `horder` vs traffic headers: required names in order, extras free.
+/// Signature values are substrings. `?` may be missing, not out of order.
 pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32> {
     let mut position = 0usize;
 
@@ -87,14 +68,7 @@ pub fn distance_header(observed: &[Header], signature: &[Header]) -> Option<u32>
     Some(HttpMatchQuality::High.as_score())
 }
 
-/// Distance score for a signature's `habsent` list: the headers that must
-/// *not* show up in matching traffic.
-///
-/// Note that `observed` is the list of headers actually seen (the
-/// observation's `horder`), not the observation's own `habsent`. p0f checks
-/// its forbidden headers against the traffic's real headers; an observation's
-/// `habsent` is only the set of common headers it happened to be missing,
-/// which exists to print a candidate signature, not to match one.
+/// Reject if any signature `habsent` name appears in the traffic headers.
 pub fn distance_habsent(observed: &[Header], signature_absent: &[Header]) -> Option<u32> {
     for forbidden in signature_absent {
         if observed.iter().any(|h| h.name == forbidden.name) {
@@ -106,20 +80,8 @@ pub fn distance_habsent(observed: &[Header], signature_absent: &[Header]) -> Opt
     Some(HttpMatchQuality::High.as_score())
 }
 
-/// Whether the software string seen in the traffic backs up the one the
-/// matched signature declares (`expsw`).
-///
-/// This is deliberately *not* a distance. In p0f the check runs only once a
-/// signature has already been chosen, and its outcome never rejects the
-/// signature nor makes it rank lower: it just flags the host as dishonest,
-/// because a host whose headers say Chrome while its `User-Agent` says
-/// something else is still a Chrome-shaped host.
-///
-/// The observed `User-Agent`/`Server` value must *contain* the signature's
-/// expected substring; note the database usually writes it with a leading
-/// space (`" Chrom"`), which is significant and keeps the match anchored at a
-/// token boundary. Either side having nothing to say means there is nothing
-/// to contradict, so it counts as honest.
+/// True if `observed` contains the signature `expsw` substring.
+/// Empty on either side counts as a match.
 pub fn expsw_matches(observed: &str, signature: &str) -> bool {
     if signature.is_empty() || observed.is_empty() || observed == UNKNOWN_SOFTWARE {
         return true;

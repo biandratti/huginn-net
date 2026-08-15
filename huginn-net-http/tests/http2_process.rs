@@ -83,6 +83,26 @@ fn test_params_for_http2_with_user_agent() {
 }
 
 #[test]
+fn test_params_for_http2_generic() {
+    let notes = http_common::MatchedSignatureNotes { dishonest: false, generic: true };
+    let params = http_common::build_params("Mozilla/5.0 HTTP/2.0", Some(notes));
+
+    assert!(params.generic);
+    assert!(!params.dishonest);
+    assert!(!params.anonymous);
+}
+
+#[test]
+fn test_params_for_http2_dishonest() {
+    let notes = http_common::MatchedSignatureNotes { dishonest: true, generic: false };
+    let params = http_common::build_params("Mozilla/5.0 HTTP/2.0", Some(notes));
+
+    assert!(params.dishonest);
+    assert!(!params.generic);
+    assert!(!params.anonymous);
+}
+
+#[test]
 fn test_no_preface() {
     let data = b"GET /path HTTP/1.1\r\n";
     assert!(!has_complete_data(data));
