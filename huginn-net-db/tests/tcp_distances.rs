@@ -1,5 +1,6 @@
 #![cfg(feature = "tcp")]
 use huginn_net_db::tcp::{ttl_fit, window_size_matches, Ttl, TtlFit, WindowSize, MAX_TTL_DISTANCE};
+use huginn_net_tcp::tcp::WindowMultiplier;
 
 /// The observation supports the signature's initial TTL, `hops` routers away.
 fn exact(hops: u32) -> Option<TtlFit> {
@@ -71,26 +72,37 @@ fn test_ttl_fit_randomised_signature_only_enforces_upper_bound() {
     assert_eq!(ttl_fit(&Ttl::Value(65), &Ttl::Bad(64)), None);
 }
 
-/// p0f never tolerates a window-size mismatch: every branch below must reject
-/// rather than degrade into a fuzzy match.
+/// The raw window is compared against whatever form the *signature* declares,
+/// so a literal signature answers no matter what multiple the window happens to
+/// be. p0f never tolerates a window mismatch either: every branch below rejects
+/// rather than degrading into a fuzzy match.
 #[test]
 fn test_window_size_matching_cases() {
-    assert!(window_size_matches(&WindowSize::Mss(4), &WindowSize::Mss(4), None));
-    assert!(window_size_matches(&WindowSize::Mtu(2), &WindowSize::Mtu(2), None));
-    assert!(window_size_matches(&WindowSize::Mod(8192), &WindowSize::Mod(8192), None));
-    assert!(window_size_matches(&WindowSize::Value(65535), &WindowSize::Value(65535), None));
-    assert!(window_size_matches(&WindowSize::Value(5840), &WindowSize::Mss(4), Some(1460)));
-    assert!(window_size_matches(&WindowSize::Value(12345), &WindowSize::Any, None));
+    let of_mss = |multiple| Some(WindowMultiplier { multiple, of_mtu: false });
+    let of_mtu = |multiple| Some(WindowMultiplier { multiple, of_mtu: true });
+
+    assert!(window_size_matches(65535, &WindowSize::Value(65535), None));
+    assert!(window_size_matches(12345, &WindowSize::Any, None));
+    assert!(window_size_matches(8192, &WindowSize::Mod(4096), None));
+    assert!(window_size_matches(5840, &WindowSize::Mss(4), of_mss(4)));
+    assert!(window_size_matches(3000, &WindowSize::Mtu(2), of_mtu(2)));
+
+    // A window that is a multiple of something is still the literal value it is.
+    assert!(window_size_matches(5840, &WindowSize::Value(5840), of_mss(4)));
 }
 
 #[test]
 fn test_window_size_rejects_on_mismatch() {
-    assert!(!window_size_matches(&WindowSize::Mss(4), &WindowSize::Mss(5), None));
-    assert!(!window_size_matches(&WindowSize::Mtu(2), &WindowSize::Mtu(3), None));
-    assert!(!window_size_matches(&WindowSize::Mod(8192), &WindowSize::Mod(4096), None));
-    assert!(!window_size_matches(&WindowSize::Value(65535), &WindowSize::Value(1), None));
-    // Wrong ratio for the observed MSS.
-    assert!(!window_size_matches(&WindowSize::Value(5840), &WindowSize::Mss(3), Some(1460)));
-    // No observed MSS available to resolve the ratio against.
-    assert!(!window_size_matches(&WindowSize::Value(5840), &WindowSize::Mss(4), None));
+    let of_mss = |multiple| Some(WindowMultiplier { multiple, of_mtu: false });
+    let of_mtu = |multiple| Some(WindowMultiplier { multiple, of_mtu: true });
+
+    assert!(!window_size_matches(65535, &WindowSize::Value(1), None));
+    assert!(!window_size_matches(8192, &WindowSize::Mod(4095), None));
+    // Right multiple, wrong divisor family.
+    assert!(!window_size_matches(3000, &WindowSize::Mss(2), of_mtu(2)));
+    assert!(!window_size_matches(5840, &WindowSize::Mtu(4), of_mss(4)));
+    // Wrong multiple.
+    assert!(!window_size_matches(5840, &WindowSize::Mss(3), of_mss(4)));
+    // The window is not a multiple of any divisor at all.
+    assert!(!window_size_matches(5840, &WindowSize::Mss(4), None));
 }

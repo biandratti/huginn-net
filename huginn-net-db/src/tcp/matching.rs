@@ -153,7 +153,7 @@ impl DatabaseSignature<TcpObservation> for tcp::Signature {
         let gates = ip_version_matches(&observed.version, &self.version)
             && olen_matches(observed, self)
             && mss_matches(observed, self)
-            && window_size_matches(&observed.wsize, &self.wsize, observed.mss)
+            && window_size_matches(observed.wsize, &self.wsize, observed.window_multiplier())
             && wscale_matches(observed, self)
             && olayout_matches(observed, self)
             && payload_size_matches(&observed.pclass, &self.pclass);

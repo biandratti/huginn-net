@@ -28,7 +28,7 @@
 //! |-----------|---------|------------------------------------------------------------------------------------------------------------------------|
 //! | `full`    | No      | Convenience alias for "everything this version offers" (currently `syn` + `syn-ack` + `mtu` + `uptime`). Stable across version upgrades; additions land here automatically. |
 //! | `syn`     | No      | TCP SYN OS fingerprinting (client → server, request side). Gates [`SynTCPOutput`].                                     |
-//! | `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`].                             |
+//! | `syn-ack` | No      | TCP SYN+ACK OS fingerprinting (server → client, response side). Gates [`SynAckTCPOutput`]. Still inspects SYN packets to store the peer MSS used as a window divisor (does not emit client OS matches unless `syn` is also on). Pulls in `ttl_cache` for handshake flow state. |
 //! | `mtu`     | No      | MTU extraction from the TCP MSS option. Gates [`mtu`] and [`MTUOutput`].                                               |
 //! | `uptime`  | No      | Uptime estimation from TCP timestamps for **both client and server** sides. Gates [`uptime`] and pulls in `ttl_cache`. |
 //! | `json`    | No      | Enables [`serde::Serialize`] on [`TcpAnalysisResult`] and TCP output types for JSON/NDJSON consumers. Not included in `full`. |
@@ -36,7 +36,8 @@
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `visit_tcp` short-circuits before parsing TCP
 //! options. SYN-only builds therefore pay zero per-packet cost for SYN+ACK
-//! traffic, and SYN+ACK-only builds skip the request-side work entirely.
+//! traffic. SYN+ACK-only builds still parse SYNs far enough to record the
+//! client's MSS for the response's window divisors, but emit no client signal.
 //!
 //! Common opt-in examples:
 //!

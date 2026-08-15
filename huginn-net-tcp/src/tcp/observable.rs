@@ -1,11 +1,12 @@
-use super::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl, WindowSize};
+use super::window_size::{detect_win_multi, WindowMultiplier};
+use super::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl};
 use core::fmt;
 use std::fmt::Formatter;
 
 /// Represents observed TCP characteristics from network traffic.
 ///
 /// Pure data: no matching/scoring methods. The matcher in `huginn-net-db`
-/// borrows this struct and computes a distance against database signatures.
+/// borrows this struct and compares it against database signatures.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TcpObservation {
     /// IP version
@@ -16,8 +17,10 @@ pub struct TcpObservation {
     pub olen: u8,
     /// Maximum segment size, if specified in TCP options.
     pub mss: Option<u16>,
-    /// Window size.
-    pub wsize: WindowSize,
+    /// Window size as seen on the wire.
+    pub wsize: u16,
+    /// IP + TCP header bytes, options included.
+    pub tot_hdr: u16,
     /// Window scaling factor, if specified in TCP options.
     pub wscale: Option<u8>,
     /// Layout and ordering of TCP options, if any.
@@ -26,6 +29,27 @@ pub struct TcpObservation {
     pub quirks: Vec<Quirk>,
     /// Payload size classification.
     pub pclass: PayloadSize,
+    /// Peer SYN MSS on a SYN+ACK, when the SYN was seen. Always `None` on a SYN.
+    pub peer_mss: Option<u16>,
+}
+
+impl TcpObservation {
+    /// Window as an MSS/MTU multiple, when it is one.
+    pub fn window_multiplier(&self) -> Option<WindowMultiplier> {
+        detect_win_multi(
+            self.wsize,
+            self.mss,
+            self.tot_hdr,
+            self.own_timestamp_is_nonzero(),
+            self.version,
+            self.peer_mss,
+        )
+    }
+
+    /// Timestamp option present and non-zero.
+    fn own_timestamp_is_nonzero(&self) -> bool {
+        self.olayout.contains(&TcpOption::TS) && !self.quirks.contains(&Quirk::OwnTimestampZero)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -38,37 +62,34 @@ pub struct ObservableTcp {
 // Display implementations
 // ---------------------------------------------------------------------------
 
-trait TcpDisplayFormat {
-    fn get_version(&self) -> IpVersion;
-    fn get_ittl(&self) -> Ttl;
-    fn get_olen(&self) -> u8;
-    fn get_mss(&self) -> Option<u16>;
-    fn get_wsize(&self) -> WindowSize;
-    fn get_wscale(&self) -> Option<u8>;
-    fn get_olayout(&self) -> &[TcpOption];
-    fn get_quirks(&self) -> &[Quirk];
-    fn get_pclass(&self) -> PayloadSize;
+impl fmt::Display for TcpObservation {
+    /// `p0f.fp` syntax. Window is `mss*n` / `mtu*n` when it is a multiple.
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}:{}:", self.version, self.ittl, self.olen)?;
 
-    fn format_tcp_display(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}:{}:", self.get_version(), self.get_ittl(), self.get_olen())?;
-
-        if let Some(mss) = self.get_mss() {
-            write!(f, "{mss}")?;
-        } else {
-            f.write_str("*")?;
-        }
-
-        write!(f, ":{},", self.get_wsize())?;
-
-        if let Some(scale) = self.get_wscale() {
-            write!(f, "{scale}")?;
-        } else {
-            f.write_str("*")?;
+        match self.mss {
+            Some(mss) => write!(f, "{mss}")?,
+            None => f.write_str("*")?,
         }
 
         f.write_str(":")?;
 
-        for (i, o) in self.get_olayout().iter().enumerate() {
+        match self.window_multiplier() {
+            Some(WindowMultiplier { multiple, of_mtu: true }) => write!(f, "mtu*{multiple}")?,
+            Some(WindowMultiplier { multiple, of_mtu: false }) => write!(f, "mss*{multiple}")?,
+            None => write!(f, "{}", self.wsize)?,
+        }
+
+        f.write_str(",")?;
+
+        match self.wscale {
+            Some(scale) => write!(f, "{scale}")?,
+            None => f.write_str("*")?,
+        }
+
+        f.write_str(":")?;
+
+        for (i, o) in self.olayout.iter().enumerate() {
             if i > 0 {
                 f.write_str(",")?;
             }
@@ -77,85 +98,19 @@ trait TcpDisplayFormat {
 
         f.write_str(":")?;
 
-        for (i, q) in self.get_quirks().iter().enumerate() {
+        for (i, q) in self.quirks.iter().enumerate() {
             if i > 0 {
                 f.write_str(",")?;
             }
             write!(f, "{q}")?;
         }
 
-        write!(f, ":{}", self.get_pclass())
-    }
-}
-
-impl TcpDisplayFormat for ObservableTcp {
-    fn get_version(&self) -> IpVersion {
-        self.matching.version
-    }
-    fn get_ittl(&self) -> Ttl {
-        self.matching.ittl.clone()
-    }
-    fn get_olen(&self) -> u8 {
-        self.matching.olen
-    }
-    fn get_mss(&self) -> Option<u16> {
-        self.matching.mss
-    }
-    fn get_wsize(&self) -> WindowSize {
-        self.matching.wsize.clone()
-    }
-    fn get_wscale(&self) -> Option<u8> {
-        self.matching.wscale
-    }
-    fn get_olayout(&self) -> &[TcpOption] {
-        &self.matching.olayout
-    }
-    fn get_quirks(&self) -> &[Quirk] {
-        &self.matching.quirks
-    }
-    fn get_pclass(&self) -> PayloadSize {
-        self.matching.pclass
+        write!(f, ":{}", self.pclass)
     }
 }
 
 impl fmt::Display for ObservableTcp {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.format_tcp_display(f)
-    }
-}
-
-impl TcpDisplayFormat for TcpObservation {
-    fn get_version(&self) -> IpVersion {
-        self.version
-    }
-    fn get_ittl(&self) -> Ttl {
-        self.ittl.clone()
-    }
-    fn get_olen(&self) -> u8 {
-        self.olen
-    }
-    fn get_mss(&self) -> Option<u16> {
-        self.mss
-    }
-    fn get_wsize(&self) -> WindowSize {
-        self.wsize.clone()
-    }
-    fn get_wscale(&self) -> Option<u8> {
-        self.wscale
-    }
-    fn get_olayout(&self) -> &[TcpOption] {
-        &self.olayout
-    }
-    fn get_quirks(&self) -> &[Quirk] {
-        &self.quirks
-    }
-    fn get_pclass(&self) -> PayloadSize {
-        self.pclass
-    }
-}
-
-impl fmt::Display for TcpObservation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.format_tcp_display(f)
+        self.matching.fmt(f)
     }
 }
