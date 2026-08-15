@@ -13,11 +13,13 @@ fn observation() -> TcpObservation {
         ittl: Ttl::Value(64),
         olen: 0,
         mss: Some(1460),
-        wsize: WindowSize::Value(65535),
+        wsize: 65535,
+        tot_hdr: 40,
         wscale: Some(6),
         olayout: Vec::new(),
         quirks: Vec::new(),
         pclass: PayloadSize::Zero,
+        peer_mss: None,
     }
 }
 

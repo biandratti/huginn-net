@@ -8,7 +8,7 @@ pub use ip_options::IpOptions;
 pub use observable::{ObservableTcp, TcpObservation};
 pub use syn_options::{parse_options_raw, ParsedTcpOptions};
 pub use ttl::{calculate_ttl, guess_distance};
-pub use window_size::detect_win_multiplicator;
+pub use window_size::{detect_win_multi, WindowMultiplier};
 
 use core::fmt;
 use std::fmt::Formatter;

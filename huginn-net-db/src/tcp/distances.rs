@@ -1,4 +1,5 @@
 use super::{IpVersion, PayloadSize, Ttl, WindowSize};
+use huginn_net_tcp::tcp::WindowMultiplier;
 use tracing::debug;
 
 /// Whether an observed IP version satisfies the one a signature declares.
@@ -58,34 +59,29 @@ pub fn ttl_fit(observed: &Ttl, signature: &Ttl) -> Option<TtlFit> {
     Some(TtlFit { hop_distance, out_of_range })
 }
 
-/// Whether an observed `WindowSize` satisfies the one a signature declares.
-///
-/// Takes the observed MSS as context to resolve `WindowSize::Mss(_)` patterns
-/// against a raw window value. A mismatch never degrades to fuzzy: p0f's
-/// window-size check does not tolerate one, regardless of type. Only
-/// `WindowSize::Any` in the signature is a true wildcard.
+/// Signature window vs the raw value. `mss*n` / `mtu*n` use the derived multiplier.
 pub fn window_size_matches(
-    observed: &WindowSize,
+    observed: u16,
     signature: &WindowSize,
-    mss: Option<u16>,
+    multiplier: Option<WindowMultiplier>,
 ) -> bool {
-    match (observed, signature) {
-        (_, WindowSize::Any) => true,
-        (WindowSize::Mss(a), WindowSize::Mss(b)) => a == b,
-        (WindowSize::Mtu(a), WindowSize::Mtu(b)) => a == b,
-        (WindowSize::Mod(a), WindowSize::Mod(b)) => a == b,
-        (WindowSize::Value(a), WindowSize::Value(b)) => a == b,
-        (WindowSize::Value(a), WindowSize::Mss(b)) => {
-            match mss.and_then(|mss| a.checked_div(mss)) {
-                Some(ratio) => {
-                    debug!("window size as mss multiple: value {a}, signature {b}, ratio {ratio}");
-                    u16::from(*b) == ratio
-                }
-                None => false,
-            }
-        }
-        _ => false,
+    match signature {
+        WindowSize::Any => true,
+        WindowSize::Value(value) => observed == *value,
+        WindowSize::Mod(modulus) => observed.checked_rem(*modulus) == Some(0),
+        WindowSize::Mss(multiple) => multiple_matches(multiplier, *multiple, false),
+        WindowSize::Mtu(multiple) => multiple_matches(multiplier, *multiple, true),
     }
+}
+
+/// Whether the observed window is a multiple of the right divisor family, by the
+/// factor the signature declares.
+fn multiple_matches(observed: Option<WindowMultiplier>, declared: u8, of_mtu: bool) -> bool {
+    let Some(observed) = observed else {
+        debug!("window size is not a multiple of any mss or mtu divisor");
+        return false;
+    };
+    observed.of_mtu == of_mtu && observed.multiple == u16::from(declared)
 }
 
 /// Whether an observed `PayloadSize` satisfies the one a signature declares.

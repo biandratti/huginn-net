@@ -27,23 +27,21 @@ fn build_obs(
 ) -> TcpObservation {
     let parsed = parse_options_raw(options);
     let ittl = huginn_net_tcp::ttl::calculate_ttl(raw_ttl);
-    let wsize = huginn_net_tcp::window_size::detect_win_multiplicator(
-        window,
-        parsed.mss.unwrap_or(0),
-        ip_hdr_len,
-        parsed.olayout.contains(&TcpOption::TS),
-        &version,
-    );
+    let tot_hdr = ip_hdr_len
+        .saturating_add(20)
+        .saturating_add(u16::try_from(options.len()).unwrap_or(0));
     TcpObservation {
         version,
         ittl,
         olen,
         mss: parsed.mss,
-        wsize,
+        wsize: window,
+        tot_hdr,
         wscale: parsed.wscale,
         olayout: parsed.olayout,
         quirks,
         pclass,
+        peer_mss: None,
     }
 }
 
