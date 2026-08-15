@@ -25,8 +25,8 @@ impl ObservedFingerprint for HttpResponseObservation {
 }
 
 impl Signature {
-    /// Every HTTP field is a gate. p0f has no fuzzy tier for HTTP — it keeps a
-    /// generic fallback and nothing else (`fp_http.c:162-282`) — so a fit is
+    /// Every HTTP field is a gate. p0f has no fuzzy tier for HTTP, it keeps a
+    /// generic fallback and nothing else, so a fit is
     /// always exact. Two signatures that both fit are separated by declaration
     /// order.
     ///
