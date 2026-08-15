@@ -1,5 +1,5 @@
 use super::window_size::{detect_win_multi, WindowMultiplier};
-use super::{IpVersion, PayloadSize, Quirk, TcpOption, Ttl};
+use super::{IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption, Ttl};
 use core::fmt;
 use std::fmt::Formatter;
 
@@ -26,7 +26,7 @@ pub struct TcpObservation {
     /// Layout and ordering of TCP options, if any.
     pub olayout: Vec<TcpOption>,
     /// Properties and quirks observed in IP or TCP headers.
-    pub quirks: Vec<Quirk>,
+    pub quirks: QuirkSet,
     /// Payload size classification.
     pub pclass: PayloadSize,
     /// Peer SYN MSS on a SYN+ACK, when the SYN was seen. Always `None` on a SYN.
@@ -50,7 +50,7 @@ impl TcpObservation {
 
     /// Timestamp option present and non-zero.
     fn own_timestamp_is_nonzero(&self) -> bool {
-        self.olayout.contains(&TcpOption::TS) && !self.quirks.contains(&Quirk::OwnTimestampZero)
+        self.olayout.contains(&TcpOption::TS) && !self.quirks.contains(Quirk::OwnTimestampZero)
     }
 }
 
@@ -97,16 +97,7 @@ impl fmt::Display for TcpObservation {
             write!(f, "{o}")?;
         }
 
-        f.write_str(":")?;
-
-        for (i, q) in self.quirks.iter().enumerate() {
-            if i > 0 {
-                f.write_str(",")?;
-            }
-            write!(f, "{q}")?;
-        }
-
-        write!(f, ":{}", self.pclass)
+        write!(f, ":{}:{}", self.quirks, self.pclass)
     }
 }
 

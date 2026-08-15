@@ -3,7 +3,8 @@
 
 use huginn_net_db::database::{FingerprintCollection, Label, Type};
 use huginn_net_db::tcp::{
-    report_hop_distance, IpVersion, PayloadSize, Signature, Ttl, WindowSize, MAX_TTL_DISTANCE,
+    report_hop_distance, IpVersion, PayloadSize, QuirkSet, Signature, Ttl, WindowSize,
+    MAX_TTL_DISTANCE,
 };
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;
@@ -21,7 +22,7 @@ fn observation(ittl: Ttl, tos: u8) -> TcpObservation {
         tot_hdr: 40,
         wscale: Some(6),
         olayout: Vec::new(),
-        quirks: Vec::new(),
+        quirks: QuirkSet::EMPTY,
         pclass: PayloadSize::Zero,
         peer_mss: None,
         tos,
@@ -37,7 +38,7 @@ fn signature(ittl: Ttl) -> Signature {
         wsize: WindowSize::Value(65535),
         wscale: Some(6),
         olayout: Vec::new(),
-        quirks: Vec::new(),
+        quirks: QuirkSet::EMPTY,
         pclass: PayloadSize::Zero,
     }
 }

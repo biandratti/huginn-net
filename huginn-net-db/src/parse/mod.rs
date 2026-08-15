@@ -50,7 +50,7 @@ use crate::tcp::Signature as TcpSignature;
 #[cfg(any(feature = "tcp", feature = "http"))]
 use std::str::FromStr;
 #[cfg(any(feature = "tcp", feature = "http"))]
-use tracing::{trace, warn};
+use tracing::{info, trace, warn};
 
 /// Intermediate output of [`parse_sections`]: raw section content extracted
 /// from a `p0f.fp`-formatted input. Per-protocol fields are gated by their
@@ -251,12 +251,12 @@ impl FromStr for Database {
             tcp_request: FingerprintCollection::new(out.tcp_request),
             tcp_response: FingerprintCollection::new(out.tcp_response),
         });
-        let http = HttpDatabase {
+        let http = finish_http_database(HttpDatabase {
             classes: out.classes,
             ua_os: out.ua_os,
             http_request: FingerprintCollection::new(out.http_request),
             http_response: FingerprintCollection::new(out.http_response),
-        };
+        });
         Ok(Database { tcp, http })
     }
 }
@@ -281,8 +281,44 @@ impl FromStr for TcpDatabase {
 
 #[cfg(feature = "tcp")]
 fn finish_tcp_database(db: TcpDatabase) -> TcpDatabase {
+    let mtu_values: usize = db.mtu.iter().map(|(_, values)| values.len()).sum();
+    info!(
+        target: "huginn_net_db",
+        "[mtu] loaded {} values across {} labels",
+        mtu_values,
+        db.mtu.len()
+    );
+    info!(
+        target: "huginn_net_db",
+        "[tcp:request] loaded {} signatures across {} labels",
+        db.tcp_request.signature_count(),
+        db.tcp_request.label_count()
+    );
+    info!(
+        target: "huginn_net_db",
+        "[tcp:response] loaded {} signatures across {} labels",
+        db.tcp_response.signature_count(),
+        db.tcp_response.label_count()
+    );
     crate::tcp::warn_ambiguous_coverage("tcp:request", &db.tcp_request);
     crate::tcp::warn_ambiguous_coverage("tcp:response", &db.tcp_response);
+    db
+}
+
+#[cfg(feature = "http")]
+fn finish_http_database(db: HttpDatabase) -> HttpDatabase {
+    info!(
+        target: "huginn_net_db",
+        "[http:request] loaded {} signatures across {} labels",
+        db.http_request.signature_count(),
+        db.http_request.label_count()
+    );
+    info!(
+        target: "huginn_net_db",
+        "[http:response] loaded {} signatures across {} labels",
+        db.http_response.signature_count(),
+        db.http_response.label_count()
+    );
     db
 }
 
@@ -295,11 +331,11 @@ impl FromStr for HttpDatabase {
     /// TCP-related sections present in the input are silently ignored.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let out = parse_sections(s)?;
-        Ok(HttpDatabase {
+        Ok(finish_http_database(HttpDatabase {
             classes: out.classes,
             ua_os: out.ua_os,
             http_request: FingerprintCollection::new(out.http_request),
             http_response: FingerprintCollection::new(out.http_response),
-        })
+        }))
     }
 }

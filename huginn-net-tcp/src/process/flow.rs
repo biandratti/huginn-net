@@ -9,7 +9,7 @@ use crate::tcp;
 use crate::tcp::observable::{ObservableTcp, TcpObservation};
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::PayloadSize;
-use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
+use crate::tcp::{IpOptions, IpVersion, Quirk, QuirkSet, TcpOption, Ttl};
 #[cfg(feature = "uptime")]
 use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -131,24 +131,24 @@ pub fn process_tcp_ipv4(
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
     let tos: u8 = packet.get_dscp();
     let olen: u8 = IpOptions::calculate_ipv4_length(packet);
-    let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
+    let mut quirks = QuirkSet::EMPTY;
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
-        quirks.push(Quirk::Ecn);
+        quirks.insert(Quirk::Ecn);
     }
 
     if (packet.get_flags() & IP4_MBZ) != 0 {
-        quirks.push(Quirk::MustBeZero);
+        quirks.insert(Quirk::MustBeZero);
     }
 
     if (packet.get_flags() & Ipv4Flags::DontFragment) != 0 {
-        quirks.push(Quirk::Df);
+        quirks.insert(Quirk::Df);
 
         if packet.get_identification() != 0 {
-            quirks.push(Quirk::NonZeroID);
+            quirks.insert(Quirk::NonZeroID);
         }
     } else if packet.get_identification() == 0 {
-        quirks.push(Quirk::ZeroID);
+        quirks.insert(Quirk::ZeroID);
     }
 
     let source_ip: IpAddr = IpAddr::V4(packet.get_source());
@@ -191,13 +191,13 @@ pub fn process_tcp_ipv6(
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
     let tos: u8 = packet.get_traffic_class() >> 2;
     let olen: u8 = IpOptions::calculate_ipv6_length(packet);
-    let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
+    let mut quirks = QuirkSet::EMPTY;
 
     if packet.get_flow_label() != 0 {
-        quirks.push(Quirk::FlowID);
+        quirks.insert(Quirk::FlowID);
     }
     if (packet.get_traffic_class() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
-        quirks.push(Quirk::Ecn);
+        quirks.insert(Quirk::Ecn);
     }
 
     let source_ip: IpAddr = IpAddr::V6(packet.get_source());
@@ -238,7 +238,7 @@ fn tcp_observation(
     tcp: &TcpPacket,
     wscale: Option<u8>,
     olayout: Vec<TcpOption>,
-    quirks: Vec<Quirk>,
+    quirks: QuirkSet,
     peer_mss: Option<u16>,
 ) -> TcpObservation {
     let tot_hdr =
@@ -286,7 +286,7 @@ fn visit_tcp(
     ip_package_header_length: u8,
     ip_header_bytes: u16,
     olen: u8,
-    mut quirks: Vec<Quirk>,
+    mut quirks: QuirkSet,
     source_ip: IpAddr,
     destination_ip: IpAddr,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
@@ -319,27 +319,27 @@ fn visit_tcp(
     }
 
     if (flags & (ECE | CWR)) != 0 {
-        quirks.push(Quirk::Ecn);
+        quirks.insert(Quirk::Ecn);
     }
     if tcp.get_sequence() == 0 {
-        quirks.push(Quirk::SeqNumZero);
+        quirks.insert(Quirk::SeqNumZero);
     }
     if flags & ACK == ACK {
         if tcp.get_acknowledgement() == 0 {
-            quirks.push(Quirk::AckNumZero);
+            quirks.insert(Quirk::AckNumZero);
         }
     } else if tcp.get_acknowledgement() != 0 && flags & RST == 0 {
-        quirks.push(Quirk::AckNumNonZero);
+        quirks.insert(Quirk::AckNumNonZero);
     }
 
     if flags & URG == URG {
-        quirks.push(Quirk::Urg);
+        quirks.insert(Quirk::Urg);
     } else if tcp.get_urgent_ptr() != 0 {
-        quirks.push(Quirk::NonZeroURG);
+        quirks.insert(Quirk::NonZeroURG);
     }
 
     if flags & PSH == PSH {
-        quirks.push(Quirk::Push);
+        quirks.insert(Quirk::Push);
     }
 
     let mut buf = tcp.get_options_raw();
@@ -361,7 +361,7 @@ fn visit_tcp(
                 olayout.push(TcpOption::Eol(buf.len() as u8));
 
                 if buf.iter().any(|&b| b != 0) {
-                    quirks.push(Quirk::TrailinigNonZero);
+                    quirks.insert(Quirk::TrailinigNonZero);
                 }
 
                 break;
@@ -383,7 +383,7 @@ fn visit_tcp(
                     wscale = Some(data[0]);
 
                     if data[0] > 14 {
-                        quirks.push(Quirk::ExcessiveWindowScaling);
+                        quirks.insert(Quirk::ExcessiveWindowScaling);
                     }
                 }
             }
@@ -403,7 +403,7 @@ fn visit_tcp(
                         )
                     })?;
                     if u32::from_be_bytes(ts_val_bytes) == 0 {
-                        quirks.push(Quirk::OwnTimestampZero);
+                        quirks.insert(Quirk::OwnTimestampZero);
                     }
                 }
 
@@ -414,7 +414,7 @@ fn visit_tcp(
                         )
                     })?;
                     if u32::from_be_bytes(ts_peer_bytes) != 0 {
-                        quirks.push(Quirk::PeerTimestampNonZero);
+                        quirks.insert(Quirk::PeerTimestampNonZero);
                     }
                 }
 

@@ -6,20 +6,17 @@
 ///
 /// ```rust
 /// use huginn_net::quality_match;
-/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched, OperativeSystem};
-/// # use huginn_net_db::Label;
+/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched};
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
-/// # struct ObservableTcp;
 /// # let config = Config { matcher_enabled: true };
 /// # let matcher: Option<Matcher> = None;
-/// # let observable_tcp = ObservableTcp;
 /// let quality = quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
-///     call: matcher => None::<(Label, String, f32)>,
-///     matched: (label, _signature, quality) => OSQualityMatched {
-///         os: Some(OperativeSystem::from(&label)),
+///     call: matcher => None::<(String, f32)>,
+///     matched: (name, quality) => OSQualityMatched {
+///         os: None, // real code: Some(OperativeSystem::from(label))
 ///         quality: MatchQuality::exact(quality),
 ///         dist: 0,
 ///         random_ttl: false,
@@ -43,6 +40,7 @@
 ///         tos: 0,
 ///     }
 /// );
+/// # let _ = quality;
 /// ```
 #[macro_export]
 macro_rules! quality_match {
@@ -79,7 +77,7 @@ macro_rules! quality_match {
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # impl Matcher {
-/// #     fn matching_by_mtu(&self, _value: &u16) -> Option<(String, String)> { None }
+/// #     fn match_mtu(&self, _value: u16) -> Option<huginn_net_tcp::matcher_api::MtuMatch> { None }
 /// # }
 /// # struct ObservableMtu { value: u16 }
 /// # let config = Config { matcher_enabled: true };
@@ -88,9 +86,9 @@ macro_rules! quality_match {
 /// let quality = simple_quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
-///     method: matching_by_mtu(&observable_mtu.value),
-///     success: (link, _) => MTUQualityMatched {
-///         link: Some(link.clone()),
+///     method: match_mtu(observable_mtu.value),
+///     success: found => MTUQualityMatched {
+///         link: Some(found.link),
 ///         quality: MatchQuality::exact(1.0),
 ///     },
 ///     failure: MTUQualityMatched {

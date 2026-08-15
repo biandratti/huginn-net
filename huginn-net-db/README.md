@@ -71,12 +71,12 @@ Typical use is to build a `SharedTcpSignatureMatcher` /
 into a standalone analyzer via `.with_matcher(...)`:
 
 ```rust
-use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use huginn_net_tcp::{HuginnNetTcp, SharedTcpMatcher};
 use std::sync::Arc;
 
-let db = Database::load_default()?;
-let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let db = TcpDatabase::load_default()?;
+let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::new(Arc::new(db)));
 let analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
 # Ok::<_, Box<dyn std::error::Error>>(())
 ```
@@ -97,6 +97,9 @@ is one of three fixed tiers:
 Prefer `1.0` without `fuzzy`. Treat `0.5` as a hint and inspect `FuzzyReason`
 plus TCP `params` (`dist`, `random_ttl`, `excess_dist`, `tos`). HTTP has no
 fuzzy tier: a hit is exact, and `HttpParams` flags annotate the claim.
+
+Match quality is also bounded by the bundled `p0f.fp` (last updated 2012):
+a correct algorithm cannot name a product the database does not list.
 
 ## Documentation
 
