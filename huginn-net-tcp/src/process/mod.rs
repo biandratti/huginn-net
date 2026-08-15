@@ -118,8 +118,9 @@ fn create_observable_package_ipv4(
 
     #[cfg(feature = "syn")]
     if let Some(tcp_request) = tcp_package.tcp_request {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_request(&tcp_request.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_request.matching, |m| {
+            m.match_tcp_request(&tcp_request.matching)
+        });
 
         let syn_output = SynTCPOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
@@ -132,8 +133,9 @@ fn create_observable_package_ipv4(
 
     #[cfg(feature = "syn-ack")]
     if let Some(tcp_response) = tcp_package.tcp_response {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_response(&tcp_response.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_response.matching, |m| {
+            m.match_tcp_response(&tcp_response.matching)
+        });
 
         let syn_ack_output = SynAckTCPOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
@@ -242,8 +244,9 @@ fn create_observable_package_ipv6(
 
     #[cfg(feature = "syn")]
     if let Some(tcp_request) = tcp_package.tcp_request {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_request(&tcp_request.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_request.matching, |m| {
+            m.match_tcp_request(&tcp_request.matching)
+        });
 
         let syn_output = SynTCPOutput {
             source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
@@ -256,8 +259,9 @@ fn create_observable_package_ipv6(
 
     #[cfg(feature = "syn-ack")]
     if let Some(tcp_response) = tcp_package.tcp_response {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_response(&tcp_response.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_response.matching, |m| {
+            m.match_tcp_response(&tcp_response.matching)
+        });
 
         let syn_ack_output = SynAckTCPOutput {
             source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
@@ -315,7 +319,11 @@ fn create_observable_package_ipv6(
 }
 
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
-fn classify_tcp_match<F>(matcher: Option<&dyn TcpMatcher>, call: F) -> OSQualityMatched
+fn classify_tcp_match<F>(
+    matcher: Option<&dyn TcpMatcher>,
+    obs: &crate::observable::TcpObservation,
+    call: F,
+) -> OSQualityMatched
 where
     F: FnOnce(&dyn TcpMatcher) -> Option<crate::matcher_api::TcpMatch>,
 {
@@ -324,10 +332,14 @@ where
             Some(found) => OSQualityMatched {
                 os: Some(found.os),
                 quality: MatchQuality::Matched { quality: found.quality, fuzzy: found.fuzzy },
+                dist: found.dist,
+                random_ttl: found.random_ttl,
+                excess_dist: found.excess_dist,
+                tos: obs.tos,
             },
-            None => OSQualityMatched { os: None, quality: MatchQuality::NotMatched },
+            None => OSQualityMatched::without_match(MatchQuality::NotMatched, obs),
         },
-        None => OSQualityMatched { os: None, quality: MatchQuality::Disabled },
+        None => OSQualityMatched::without_match(MatchQuality::Disabled, obs),
     }
 }
 

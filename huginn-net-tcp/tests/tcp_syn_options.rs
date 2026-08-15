@@ -42,6 +42,7 @@ fn build_obs(
         quirks,
         pclass,
         peer_mss: None,
+        tos: 0,
     }
 }
 

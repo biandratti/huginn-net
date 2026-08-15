@@ -21,14 +21,26 @@
 ///     matched: (label, _signature, quality) => OSQualityMatched {
 ///         os: Some(OperativeSystem::from(&label)),
 ///         quality: MatchQuality::exact(quality),
+///         dist: 0,
+///         random_ttl: false,
+///         excess_dist: false,
+///         tos: 0,
 ///     },
 ///     not_matched: OSQualityMatched {
 ///         os: None,
 ///         quality: MatchQuality::NotMatched,
+///         dist: 0,
+///         random_ttl: false,
+///         excess_dist: false,
+///         tos: 0,
 ///     },
 ///     disabled: OSQualityMatched {
 ///         os: None,
 ///         quality: MatchQuality::Disabled,
+///         dist: 0,
+///         random_ttl: false,
+///         excess_dist: false,
+///         tos: 0,
 ///     }
 /// );
 /// ```

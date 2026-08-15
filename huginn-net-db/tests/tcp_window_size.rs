@@ -34,6 +34,7 @@ fn observed(
             quirks,
             pclass: PayloadSize::Zero,
             peer_mss,
+            tos: 0,
         },
     }
 }

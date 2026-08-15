@@ -16,6 +16,8 @@ use huginn_net_http::output::BrowserQualityMatched;
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
 #[cfg(feature = "http-p0f-response")]
 use huginn_net_http::output::WebServerQualityMatched;
+#[cfg(all(feature = "db", any(feature = "tcp-syn", feature = "tcp-syn-ack")))]
+use huginn_net_tcp::matcher_api::TcpMatcher;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::observable::ObservableTcp;
 #[cfg(feature = "tcp-mtu")]
@@ -50,8 +52,6 @@ use crate::simple_quality_match;
 use huginn_net_http::output::Browser;
 #[cfg(all(feature = "db", feature = "http-p0f-response"))]
 use huginn_net_http::output::WebServer;
-#[cfg(all(feature = "db", any(feature = "tcp-syn", feature = "tcp-syn-ack")))]
-use huginn_net_tcp::output::OperativeSystem;
 
 use crate::AnalysisConfig;
 
@@ -121,31 +121,29 @@ impl<'a> HuginnNet<'a> {
     pub(super) fn match_tcp_request(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
+            let obs = &observable_tcp.matching;
             simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
-                method: matching_by_tcp_request(observable_tcp),
+                method: match_tcp_request(obs),
                 success: found => OSQualityMatched {
-                    os: Some(OperativeSystem::from(found.label)),
+                    os: Some(found.os),
                     quality: TcpMatchQuality::Matched {
                         quality: found.quality,
                         fuzzy: found.fuzzy,
                     },
+                    dist: found.dist,
+                    random_ttl: found.random_ttl,
+                    excess_dist: found.excess_dist,
+                    tos: obs.tos,
                 },
-                failure: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::NotMatched,
-                },
-                disabled: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::Disabled,
-                }
+                failure: OSQualityMatched::without_match(TcpMatchQuality::NotMatched, obs),
+                disabled: OSQualityMatched::without_match(TcpMatchQuality::Disabled, obs)
             )
         }
         #[cfg(not(feature = "db"))]
         {
-            let _ = observable_tcp;
-            OSQualityMatched { os: None, quality: TcpMatchQuality::Disabled }
+            OSQualityMatched::without_match(TcpMatchQuality::Disabled, &observable_tcp.matching)
         }
     }
 
@@ -153,31 +151,29 @@ impl<'a> HuginnNet<'a> {
     pub(super) fn match_tcp_response(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
+            let obs = &observable_tcp.matching;
             simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
-                method: matching_by_tcp_response(observable_tcp),
+                method: match_tcp_response(obs),
                 success: found => OSQualityMatched {
-                    os: Some(OperativeSystem::from(found.label)),
+                    os: Some(found.os),
                     quality: TcpMatchQuality::Matched {
                         quality: found.quality,
                         fuzzy: found.fuzzy,
                     },
+                    dist: found.dist,
+                    random_ttl: found.random_ttl,
+                    excess_dist: found.excess_dist,
+                    tos: obs.tos,
                 },
-                failure: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::NotMatched,
-                },
-                disabled: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::Disabled,
-                }
+                failure: OSQualityMatched::without_match(TcpMatchQuality::NotMatched, obs),
+                disabled: OSQualityMatched::without_match(TcpMatchQuality::Disabled, obs)
             )
         }
         #[cfg(not(feature = "db"))]
         {
-            let _ = observable_tcp;
-            OSQualityMatched { os: None, quality: TcpMatchQuality::Disabled }
+            OSQualityMatched::without_match(TcpMatchQuality::Disabled, &observable_tcp.matching)
         }
     }
 

@@ -1,5 +1,17 @@
 use super::Ttl;
 
+/// Largest hop count still considered plausible. Same value as p0f's `MAX_DIST`
+/// and `huginn_net_db::tcp::MAX_TTL_DISTANCE`.
+pub const MAX_DIST: u8 = 35;
+
+/// TTL byte as seen on the wire, whichever form [`calculate_ttl`] classified it into.
+pub fn observed_ttl(ttl: &Ttl) -> u8 {
+    match ttl {
+        Ttl::Value(v) | Ttl::Distance(v, _) | Ttl::Guess(v) | Ttl::Bad(v) => *v,
+    }
+}
+
+/// Hop guess when there is no usable signature TTL.
 pub fn guess_distance(ttl: u8) -> u8 {
     if ttl > 128 {
         255u8.saturating_sub(ttl)

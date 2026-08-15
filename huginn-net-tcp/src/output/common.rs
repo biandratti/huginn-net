@@ -1,3 +1,5 @@
+use crate::observable::TcpObservation;
+use crate::tcp::ttl::{guess_distance, observed_ttl, MAX_DIST};
 use crate::tcp::Quirk;
 use std::fmt;
 use std::fmt::Formatter;
@@ -148,13 +150,31 @@ pub struct OperativeSystem {
 pub struct OSQualityMatched {
     pub os: Option<OperativeSystem>,
     pub quality: MatchQuality,
+    /// Hop distance for the `Dist:` line (post-match or `guess_dist`).
+    pub dist: u8,
+    /// Winning signature used a randomised TTL (`nnn-`).
+    pub random_ttl: bool,
+    /// [`Self::dist`] is above p0f's `MAX_DIST` (35).
+    pub excess_dist: bool,
+    /// IPv4 DSCP / IPv6 traffic-class bits 2–7; `0` omits `tos:` from params.
+    pub tos: u8,
 }
 
 impl OSQualityMatched {
-    /// Flags qualifying the match, in p0f's `params` vocabulary, or `"none"`.
-    ///
-    /// p0f also reports `random_ttl` and `excess_dist` here, which need data
-    /// this crate does not carry yet.
+    /// No OS match (or matching disabled): `Dist:` uses `guess_dist`, ToS from the observation.
+    pub fn without_match(quality: MatchQuality, obs: &TcpObservation) -> Self {
+        let dist = guess_distance(observed_ttl(&obs.ittl));
+        Self {
+            os: None,
+            quality,
+            dist,
+            random_ttl: false,
+            excess_dist: dist > MAX_DIST,
+            tos: obs.tos,
+        }
+    }
+
+    /// `generic`, `fuzzy (…)`, `random_ttl`, `excess_dist`, `tos:0xNN`, or `"none"`.
     pub fn params(&self) -> String {
         let mut flags = Vec::new();
 
@@ -167,6 +187,15 @@ impl OSQualityMatched {
         }
         if let MatchQuality::Matched { fuzzy: Some(reason), .. } = &self.quality {
             flags.push(format!("fuzzy ({reason})"));
+        }
+        if self.random_ttl {
+            flags.push("random_ttl".to_string());
+        }
+        if self.excess_dist {
+            flags.push("excess_dist".to_string());
+        }
+        if self.tos != 0 {
+            flags.push(format!("tos:0x{:02x}", self.tos));
         }
 
         if flags.is_empty() {

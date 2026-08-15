@@ -1,5 +1,6 @@
 use crate::database::{Label, TcpDatabase, Type};
 use crate::db_matching_trait::{DatabaseMatch, FingerprintDb};
+use crate::tcp::{report_hop_distance, Ttl, MAX_TTL_DISTANCE};
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
 use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::observable::TcpObservation;
@@ -67,22 +68,29 @@ impl From<&Label> for OperativeSystem {
 // Shared matching helpers
 // ---------------------------------------------------------------------------
 
-fn match_tcp_request_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
-    let found = db.tcp_request.find_best_match(obs)?;
-    Some(TcpMatch {
+fn tcp_match_from_db(
+    found: DatabaseMatch<'_, crate::tcp::Signature, FuzzyReason>,
+    obs: &TcpObservation,
+) -> TcpMatch {
+    let dist = report_hop_distance(&obs.ittl, &found.signature.ittl);
+    TcpMatch {
         os: OperativeSystem::from(found.label),
         quality: found.quality,
         fuzzy: found.fuzzy,
-    })
+        dist,
+        random_ttl: matches!(found.signature.ittl, Ttl::Bad(_)),
+        excess_dist: dist > MAX_TTL_DISTANCE,
+    }
+}
+
+fn match_tcp_request_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
+    let found = db.tcp_request.find_best_match(obs)?;
+    Some(tcp_match_from_db(found, obs))
 }
 
 fn match_tcp_response_impl(db: &TcpDatabase, obs: &TcpObservation) -> Option<TcpMatch> {
     let found = db.tcp_response.find_best_match(obs)?;
-    Some(TcpMatch {
-        os: OperativeSystem::from(found.label),
-        quality: found.quality,
-        fuzzy: found.fuzzy,
-    })
+    Some(tcp_match_from_db(found, obs))
 }
 
 fn match_mtu_impl(db: &TcpDatabase, mtu: u16) -> Option<MtuMatch> {
@@ -127,7 +135,7 @@ impl SharedTcpSignatureMatcher {
         Self { database }
     }
 
-    /// composed [`crate::Database`] requires both).
+    /// TCP half of a composed [`crate::Database`] (`tcp` + `http` features).
     #[cfg(all(feature = "tcp", feature = "http"))]
     pub fn from_database(database: &crate::Database) -> Self {
         Self { database: Arc::new(database.tcp.clone()) }
