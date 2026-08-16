@@ -1,5 +1,3 @@
-#![cfg(feature = "akamai")]
-
 use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
 use huginn_net_http::http2_parser::HTTP2_CONNECTION_PREFACE;
 

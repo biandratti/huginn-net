@@ -1,7 +1,5 @@
 //! Golden tests for Akamai HTTP/2 fingerprinting
 
-#![cfg(feature = "akamai")]
-
 use huginn_net_http::{extract_akamai_fingerprint, Http2Frame};
 use serde::{Deserialize, Serialize};
 use std::fs;

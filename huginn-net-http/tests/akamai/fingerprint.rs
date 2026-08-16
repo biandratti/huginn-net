@@ -1,5 +1,3 @@
-#![cfg(feature = "akamai")]
-
 use huginn_net_http::akamai_extractor::extract_akamai_fingerprint;
 use huginn_net_http::{
     AkamaiFingerprint, Http2Frame, Http2Priority, PseudoHeader, SettingId, SettingParameter,

@@ -1,5 +1,3 @@
-#![cfg(feature = "akamai")]
-
 use huginn_net_http::akamai_extractor::{
     extract_akamai_fingerprint, parse_priority_payload, parse_settings_payload,
     parse_window_update_payload,
