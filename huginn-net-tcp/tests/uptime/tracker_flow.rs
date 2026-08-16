@@ -1,5 +1,3 @@
-#![cfg(feature = "uptime")]
-
 use huginn_net_tcp::{calculate_uptime_improved, FrequencyState, TcpTimestamp, UptimeTracker};
 
 #[test]

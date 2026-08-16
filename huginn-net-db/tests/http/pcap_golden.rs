@@ -1,4 +1,3 @@
-
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::output::{HttpAnalysisResult, MatchQuality};
 use huginn_net_http::HuginnNetHttp;

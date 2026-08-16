@@ -1,4 +1,3 @@
-
 use huginn_net_db::database::Label;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Signature, Ttl, WindowSize};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};

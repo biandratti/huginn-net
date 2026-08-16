@@ -1,5 +1,3 @@
-#![cfg(feature = "syn-ack")]
-
 use huginn_net_tcp::process::flow_state::{FlowKey, FlowTracker, SynAckDisposition};
 use std::net::{IpAddr, Ipv4Addr};
 
