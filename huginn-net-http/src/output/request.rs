@@ -50,11 +50,15 @@ impl fmt::Display for HttpRequestOutput {
                 .browser
                 .as_ref()
                 .map_or("???".to_string(), |browser| {
-                    format!(
-                        "{}:{}",
-                        browser.family.as_deref().unwrap_or("???"),
-                        browser.variant.as_deref().unwrap_or("???")
-                    )
+                    if !browser.name.is_empty() {
+                        browser.name.clone()
+                    } else {
+                        format!(
+                            "{}:{}",
+                            browser.family.as_deref().unwrap_or("???"),
+                            browser.variant.as_deref().unwrap_or("???")
+                        )
+                    }
                 }),
             self.lang.as_deref().unwrap_or("???"),
             self.params,
