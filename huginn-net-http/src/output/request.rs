@@ -1,5 +1,5 @@
 use super::common::{Browser, IpPort, MatchQuality};
-use crate::http::HttpDiagnosis;
+use crate::http::HttpParams;
 use crate::observable::ObservableHttpRequest;
 use std::fmt;
 use std::fmt::Formatter;
@@ -21,9 +21,11 @@ pub struct HttpRequestOutput {
     pub destination: IpPort,
     /// The preferred language indicated in the `Accept-Language` header, if present.
     pub lang: Option<String>,
-    /// Diagnostic information about potential HTTP specification violations or common practices.
+    /// Notes about the matched signature: whether the host is lying about its
+    /// software, whether it identified itself at all, and whether the match
+    /// was a generic catch-all.
     #[cfg_attr(feature = "json", serde(serialize_with = "super::serialize_display"))]
-    pub diagnosis: HttpDiagnosis,
+    pub params: HttpParams,
     /// The browser with the highest quality that matches the HTTP request.
     pub browser_matched: BrowserQualityMatched,
     /// The raw signature representing the HTTP headers and their order.
@@ -48,14 +50,18 @@ impl fmt::Display for HttpRequestOutput {
                 .browser
                 .as_ref()
                 .map_or("???".to_string(), |browser| {
-                    format!(
-                        "{}:{}",
-                        browser.family.as_deref().unwrap_or("???"),
-                        browser.variant.as_deref().unwrap_or("???")
-                    )
+                    if !browser.name.is_empty() {
+                        browser.name.clone()
+                    } else {
+                        format!(
+                            "{}:{}",
+                            browser.family.as_deref().unwrap_or("???"),
+                            browser.variant.as_deref().unwrap_or("???")
+                        )
+                    }
                 }),
             self.lang.as_deref().unwrap_or("???"),
-            self.diagnosis,
+            self.params,
             self.sig,
         )
     }

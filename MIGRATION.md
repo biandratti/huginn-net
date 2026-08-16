@@ -2,6 +2,65 @@
 
 ---
 
+## v2.0.0 → v2.1.0
+
+Matching follows p0f: a field that does not fit is a rejection (HTTP has no
+error budget). TCP still has a fuzzy tier for the documented TTL/quirk
+tolerances. Scores are **tiers**, not a penalty sum:
+
+| Score | Meaning |
+|-------|---------|
+| `1.0` | Exact, named product |
+| `0.8` | Exact, generic catch-all |
+| `0.5` | Fuzzy (TCP only) |
+
+First-match-wins within a tier. Userland (`s:!:…`) is never reported as fuzzy.
+
+### Call sites
+
+```rust
+// quality
+MatchQuality::Matched(q)                          // v2.0
+MatchQuality::Matched { quality, fuzzy }          // v2.1; inspect FuzzyReason
+
+// TCP result
+OSQualityMatched { os, quality }                  // v2.0
+OSQualityMatched { os, quality, dist, random_ttl, excess_dist, tos }
+os_matched.params()                               // "generic" | "fuzzy (…)" | "random_ttl" | …
+
+// HTTP notes
+output.diagnosis                                  // v2.0 HttpDiagnosis
+output.params.dishonest                           // v2.1 HttpParams flags
+
+// observation
+wsize: WindowSize::Mss(44)                        // v2.0, classified at parse
+wsize: 64240, tot_hdr, peer_mss, tos, quirks: QuirkSet  // v2.1
+observation.window_multiplier()
+```
+
+Only SYN / SYN+ACK emit a TCP OS signal (not every ACK). `syn-ack` tracks
+handshake state (`peer_mss`, one fingerprint per flow).
+
+Matcher methods are the traits: `match_tcp_request` / `match_http_request` / …
+(or `db.tcp_request.find_best_match`). Protocol examples load `TcpDatabase` /
+`HttpDatabase`.
+
+### Renames
+
+| v2.0 | v2.1 |
+|------|------|
+| `get_diagnostic` | `build_params` |
+| `calculate_distance` / `get_quality_score` | `fit` → `Option<SignatureFit<_>>` |
+| `find_best_match` → `(&Label, &DS, f32)` | `DatabaseMatch` |
+| `matching_by_*` | `TcpMatcher` / `HttpMatcher` |
+| `db` / `db_parse` / `observable_*_signals_matching` | `database` / `parse` (matching is private) |
+| `Vec<Quirk>` | `QuirkSet` |
+| `TcpIndexKey.olayout_key: String` | `olayout_hash: u32` |
+| `distance_ttl` / `detect_win_multiplicator` | `ttl_fit` / `detect_win_multi` |
+| `distance_*` (tcp/http) | `*_matches` (`bool`) |
+
+---
+
 ## v1.x → v2.0.0
 
 ### What changed

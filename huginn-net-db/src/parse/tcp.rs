@@ -37,7 +37,7 @@ pub(super) fn parse_tcp_signature(input: &str) -> IResult<&str, TcpSignature> {
         tag(":"),
         separated_list1(tag(","), parse_tcp_option),
         tag(":"),
-        separated_list0(tag(","), parse_quirk),
+        map(separated_list0(tag(","), parse_quirk), |q| q.into_iter().collect()),
         tag(":"),
         parse_payload_size,
     )

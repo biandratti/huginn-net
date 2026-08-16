@@ -16,6 +16,7 @@
 
 use huginn_net::{Database, HuginnNet, TcpMatchQuality};
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
+use huginn_net_tcp::tcp::{Quirk, QuirkSet};
 use std::path::Path;
 use std::sync::mpsc;
 
@@ -44,10 +45,32 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
         .and_then(|r| r.tcp_syn.as_ref())
         .unwrap_or_else(|| panic!("expected at least one SYN in macos_tcp_flags.pcap"));
 
+    // The capture's quirks are `df,ecn` while p0f.fp writes `df,id+` for this
+    // signature: `id+` missing and `ecn` extra are both inside p0f's fuzzy
+    // whitelist, so this is a match, not a reject.
+    let os = first_syn
+        .os_matched
+        .os
+        .as_ref()
+        .unwrap_or_else(|| panic!("expected an OS match for the first SYN"));
+    assert_eq!(os.name, "Mac OS X", "first SYN OS name");
+    match &first_syn.os_matched.quality {
+        TcpMatchQuality::Matched { fuzzy: Some(reason), .. } => {
+            assert_eq!(reason.missing_quirks, QuirkSet::from([Quirk::NonZeroID]));
+            assert_eq!(reason.added_quirks, QuirkSet::from([Quirk::Ecn]));
+            assert_eq!(
+                reason.implausible_hop_distance, None,
+                "the TTL is plausible; only the quirks were tolerated"
+            );
+        }
+        other => panic!("matcher must run and return a fuzzy match, got {other:?}"),
+    }
+
     assert!(
-        matches!(first_syn.os_matched.quality, TcpMatchQuality::NotMatched),
-        "matcher must run and return NotMatched, got {:?}",
-        first_syn.os_matched.quality
+        first_syn
+            .to_string()
+            .contains("Params: fuzzy (missing id+, extra ecn)"),
+        "the human-readable output must say what was tolerated, got:\n{first_syn}"
     );
 
     let first_mtu = results

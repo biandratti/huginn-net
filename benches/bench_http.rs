@@ -587,7 +587,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
                     if let Some(response) = result.http_response {
                         // Access server information to ensure full processing
                         let _ = &response.web_server_matched;
-                        let _ = &response.diagnosis;
+                        let _ = &response.params;
                     }
                 }
             }
@@ -603,7 +603,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
                 if let Some(result) = process_http_packet(packet, &mut flows, &processors, None) {
                     if let Some(response) = result.http_response {
                         // Access basic response information
-                        let _ = &response.diagnosis;
+                        let _ = &response.params;
                     }
                 }
             }
@@ -624,7 +624,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
                 {
                     if let Some(response) = result.http_response {
                         let _ = &response.web_server_matched;
-                        let _ = &response.diagnosis;
+                        let _ = &response.params;
                     }
                 }
             }
@@ -639,7 +639,7 @@ fn bench_http_server_detection(c: &mut Criterion) {
             for packet in packets.iter() {
                 if let Some(result) = process_http_packet(packet, &mut flows, &processors, None) {
                     if let Some(response) = result.http_response {
-                        let _ = &response.diagnosis;
+                        let _ = &response.params;
                     }
                 }
             }

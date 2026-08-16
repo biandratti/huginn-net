@@ -1,5 +1,5 @@
 use super::common::{IpPort, MatchQuality, WebServer};
-use crate::http::HttpDiagnosis;
+use crate::http::HttpParams;
 use crate::observable::ObservableHttpResponse;
 use std::fmt;
 use std::fmt::Formatter;
@@ -19,9 +19,11 @@ pub struct HttpResponseOutput {
     pub source: IpPort,
     /// The destination IP address and port of the client receiving the response.
     pub destination: IpPort,
-    /// Diagnostic information about potential HTTP specification violations or common practices.
+    /// Notes about the matched signature: whether the server is lying about
+    /// its software, whether it identified itself at all, and whether the
+    /// match was a generic catch-all.
     #[cfg_attr(feature = "json", serde(serialize_with = "super::serialize_display"))]
-    pub diagnosis: HttpDiagnosis,
+    pub params: HttpParams,
     /// The label identifying the likely server application (e.g., Apache, Nginx) and the quality.
     pub web_server_matched: WebServerQualityMatched,
     /// The raw signature representing the HTTP headers and their order.
@@ -55,7 +57,7 @@ impl fmt::Display for HttpResponseOutput {
                         )
                     }
                 }),
-            self.diagnosis,
+            self.params,
             self.sig,
         )
     }

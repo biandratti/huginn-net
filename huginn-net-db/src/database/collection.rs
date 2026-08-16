@@ -1,7 +1,9 @@
 //! Fingerprint collection and index-based matching.
 
-use crate::database::label::Label;
-use crate::db_matching_trait::{DatabaseSignature, FingerprintDb, IndexKey, ObservedFingerprint};
+use crate::database::label::{Label, Type};
+use crate::db_matching_trait::{
+    DatabaseMatch, DatabaseSignature, FingerprintDb, IndexKey, MatchRank, ObservedFingerprint,
+};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -65,6 +67,22 @@ where
             _key_marker: PhantomData,
         }
     }
+
+    /// Buckets of `(label_idx, sig_idx)` in declaration order, for coverage checks.
+    #[cfg(feature = "tcp")]
+    pub(crate) fn index_buckets(&self) -> impl Iterator<Item = (&K, &Vec<(usize, usize)>)> {
+        self.index.iter()
+    }
+
+    /// Number of labels (OS/browser rows) in this collection.
+    pub fn label_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Number of fingerprint signatures across all labels.
+    pub fn signature_count(&self) -> usize {
+        self.entries.iter().map(|(_, sigs)| sigs.len()).sum()
+    }
 }
 
 impl<OF, DS, K> FingerprintDb<OF, DS> for FingerprintCollection<OF, DS, K>
@@ -73,45 +91,75 @@ where
     DS: DatabaseSignature<OF> + Display,
     K: IndexKey,
 {
-    fn find_best_match(&self, observed: &OF) -> Option<(&Label, &DS, f32)> {
+    /// First specific exact, else first generic exact, else first fuzzy.
+    /// A fuzzy application (`label.class` empty) is not reported.
+    fn find_best_match(&self, observed: &OF) -> Option<DatabaseMatch<'_, DS, DS::Fuzziness>> {
         let observed_key = observed.generate_index_key();
+        let candidate_indices = self.index.get(&observed_key)?;
 
-        let candidate_indices = match self.index.get(&observed_key) {
-            Some(indices) => indices,
-            None => {
-                return None;
-            }
-        };
-
-        if candidate_indices.is_empty() {
-            return None;
-        }
-
-        let mut best_label_ref = None;
-        let mut best_sig_ref = None;
-        let mut min_distance = u32::MAX;
+        let mut gmatch: Option<(&Label, &DS)> = None;
+        let mut fmatch: Option<(&Label, &DS, DS::Fuzziness)> = None;
 
         for &(label_idx, sig_idx) in candidate_indices {
             let (label, sig_vec) = &self.entries[label_idx];
             let db_sig = &sig_vec[sig_idx];
 
-            if let Some(distance) = db_sig.calculate_distance(observed) {
-                if distance < min_distance {
-                    min_distance = distance;
-                    best_label_ref = Some(label);
-                    best_sig_ref = Some(db_sig);
+            let Some(fit) = db_sig.fit(observed) else {
+                continue;
+            };
+
+            if fit.fuzzy.is_none() {
+                match label.ty {
+                    Type::Specified => {
+                        debug!(
+                            "fit: Specific (early exit), label: {}, flavor: {:?}, sig: {db_sig}",
+                            label.name, label.flavor
+                        );
+                        return Some(DatabaseMatch {
+                            label,
+                            signature: db_sig,
+                            quality: MatchRank::Specific.as_quality(),
+                            fuzzy: None,
+                        });
+                    }
+                    Type::Generic => {
+                        if gmatch.is_none() {
+                            debug!(
+                                "fit: Generic (remembered), label: {}, flavor: {:?}, sig: {db_sig}",
+                                label.name, label.flavor
+                            );
+                            gmatch = Some((label, db_sig));
+                        }
+                    }
                 }
+            } else if let (None, Some(reason)) = (&fmatch, fit.fuzzy) {
                 debug!(
-                    "distance: {}, label: {}, flavor: {:?}, sig: {}",
-                    distance, label.name, label.flavor, db_sig
+                    "fit: Fuzzy (remembered), label: {}, flavor: {:?}, sig: {db_sig}",
+                    label.name, label.flavor
                 );
+                fmatch = Some((label, db_sig, reason));
             }
         }
 
-        if let (Some(label), Some(sig)) = (best_label_ref, best_sig_ref) {
-            Some((label, sig, sig.get_quality_score(min_distance)))
-        } else {
-            None
+        if let Some((label, signature)) = gmatch {
+            return Some(DatabaseMatch {
+                label,
+                signature,
+                quality: MatchRank::Generic.as_quality(),
+                fuzzy: None,
+            });
         }
+
+        if let Some((label, signature, fuzzy)) = fmatch {
+            label.class.as_ref()?;
+            return Some(DatabaseMatch {
+                label,
+                signature,
+                quality: MatchRank::Fuzzy.as_quality(),
+                fuzzy: Some(fuzzy),
+            });
+        }
+
+        None
     }
 }

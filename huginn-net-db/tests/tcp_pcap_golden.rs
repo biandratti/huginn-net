@@ -44,6 +44,8 @@ struct TcpSignalSnapshot {
     os_family: Option<String>,
     os_variant: Option<String>,
     quality: Option<String>,
+    #[serde(default)]
+    fuzzy: Option<String>,
     raw_signature: String,
 }
 
@@ -80,20 +82,15 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
         .analyze_pcap(pcap_path, tx, None)
         .unwrap_or_else(|e| panic!("PCAP analysis failed: {e}"));
 
+    // Ignore uptime-only ACKs (wall-clock `MIN_TWAIT` fires under tarpaulin).
     rx.into_iter()
-        .filter(|r| {
-            r.syn.is_some()
-                || r.syn_ack.is_some()
-                || r.mtu.is_some()
-                || r.client_uptime.is_some()
-                || r.server_uptime.is_some()
-        })
+        .filter(|r| r.syn.is_some() || r.syn_ack.is_some() || r.mtu.is_some())
         .collect()
 }
 
 fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
     match actual {
-        MatchQuality::Matched(q) => {
+        MatchQuality::Matched { quality, .. } => {
             let expected_q: f32 = expected
                 .strip_prefix("Matched(")
                 .and_then(|s| s.strip_suffix(")"))
@@ -101,13 +98,21 @@ fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
                 .parse()
                 .unwrap_or_else(|_| panic!("{ctx}: cannot parse quality float: {expected}"));
             assert!(
-                (q - expected_q).abs() < 0.01,
-                "{ctx}: quality mismatch, expected {expected_q}, got {q}"
+                (quality - expected_q).abs() < 0.01,
+                "{ctx}: quality mismatch, expected {expected_q}, got {quality}"
             );
         }
         MatchQuality::NotMatched => assert_eq!(expected, "NotMatched", "{ctx}"),
         MatchQuality::Disabled => assert_eq!(expected, "Disabled", "{ctx}"),
     }
+}
+
+fn assert_fuzzy(actual: &MatchQuality, expected: &str, ctx: &str) {
+    let rendered = match actual {
+        MatchQuality::Matched { fuzzy: Some(reason), .. } => reason.to_string(),
+        _ => "none".to_string(),
+    };
+    assert_eq!(rendered, expected, "{ctx}: tolerated difference");
 }
 
 fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, idx: usize) {
@@ -183,6 +188,14 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
                 &format!("connection {idx} SYN"),
             );
         }
+
+        if let Some(expected_fuzzy) = &exp_syn.fuzzy {
+            assert_fuzzy(
+                &actual_syn.os_matched.quality,
+                expected_fuzzy,
+                &format!("connection {idx} SYN"),
+            );
+        }
     }
 
     if let (Some(actual_syn_ack), Some(exp_syn_ack)) =
@@ -220,6 +233,14 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
             assert_quality(
                 &actual_syn_ack.os_matched.quality,
                 expected_quality,
+                &format!("connection {idx} SYN-ACK"),
+            );
+        }
+
+        if let Some(expected_fuzzy) = &exp_syn_ack.fuzzy {
+            assert_fuzzy(
+                &actual_syn_ack.os_matched.quality,
+                expected_fuzzy,
                 &format!("connection {idx} SYN-ACK"),
             );
         }

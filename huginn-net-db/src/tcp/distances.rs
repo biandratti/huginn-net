@@ -1,154 +1,103 @@
-use super::signature::TcpMatchQuality;
 use super::{IpVersion, PayloadSize, Ttl, WindowSize};
+use huginn_net_tcp::tcp::WindowMultiplier;
 use tracing::debug;
 
-/// Distance score between an observed `IpVersion` and a database `IpVersion`.
-pub fn distance_ip_version(observed: &IpVersion, signature: &IpVersion) -> Option<u32> {
-    if signature == &IpVersion::Any {
-        Some(TcpMatchQuality::High.as_score())
+/// Whether an observed IP version satisfies the one a signature declares.
+pub fn ip_version_matches(observed: &IpVersion, signature: &IpVersion) -> bool {
+    matches!(
+        (observed, signature),
+        (_, IpVersion::Any) | (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6)
+    )
+}
+
+/// Largest hop count still considered plausible. Beyond it the match is fuzzy.
+/// Same as p0f `MAX_DIST`.
+pub const MAX_TTL_DISTANCE: u8 = 35;
+
+/// TTL as seen on the wire, whichever form the observation was classified
+/// into by `huginn_net_tcp::tcp::calculate_ttl`.
+fn observed_ttl(observed: &Ttl) -> u8 {
+    match observed {
+        Ttl::Value(ttl) | Ttl::Distance(ttl, _) | Ttl::Guess(ttl) | Ttl::Bad(ttl) => *ttl,
+    }
+}
+
+/// Initial TTL a database signature claims for the OS. Matches p0f's
+/// `.fp` parsing: `nnn+d` sums both
+/// halves, while `nnn` and `nnn-` are used verbatim.
+fn signature_initial_ttl(signature: &Ttl) -> u8 {
+    match signature {
+        Ttl::Value(ttl) | Ttl::Guess(ttl) | Ttl::Bad(ttl) => *ttl,
+        Ttl::Distance(ttl, distance) => ttl.saturating_add(*distance),
+    }
+}
+
+/// Hop-distance vs the signature's initial TTL.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TtlFit {
+    pub hop_distance: u32,
+    /// True when hops exceed [`MAX_TTL_DISTANCE`] (fuzzy, not a reject).
+    pub out_of_range: bool,
+}
+
+/// Within [`MAX_TTL_DISTANCE`]: fit. Outside: still a fit, `out_of_range`.
+/// [`Ttl::Bad`] (`nnn-`): reject if observed > initial.
+pub fn ttl_fit(observed: &Ttl, signature: &Ttl) -> Option<TtlFit> {
+    let observed = observed_ttl(observed);
+    let initial = signature_initial_ttl(signature);
+    let hop_distance = u32::from(initial.saturating_sub(observed));
+
+    if matches!(signature, Ttl::Bad(_)) {
+        return (observed <= initial).then_some(TtlFit { hop_distance, out_of_range: false });
+    }
+
+    let out_of_range = observed > initial || initial.saturating_sub(observed) > MAX_TTL_DISTANCE;
+    if out_of_range {
+        debug!("ttl out of range: observed {observed}, signature initial {initial}");
+    }
+
+    Some(TtlFit { hop_distance, out_of_range })
+}
+
+/// `Dist:` hop count: `initial - observed`, or `guess_distance` when unusable.
+pub fn report_hop_distance(observed: &Ttl, signature: &Ttl) -> u8 {
+    let obs = observed_ttl(observed);
+    let initial = signature_initial_ttl(signature);
+    let bad_ttl = matches!(signature, Ttl::Bad(_));
+
+    if obs > initial || (!bad_ttl && initial.saturating_sub(obs) > MAX_TTL_DISTANCE) {
+        huginn_net_tcp::ttl::guess_distance(obs)
     } else {
-        match (observed, signature) {
-            (IpVersion::V4, IpVersion::V4) | (IpVersion::V6, IpVersion::V6) => {
-                Some(TcpMatchQuality::High.as_score())
-            }
-            _ => None,
-        }
+        initial.saturating_sub(obs)
     }
 }
 
-/// Distance score between an observed `Ttl` and a database `Ttl`.
-///
-/// Returns `None` when the two TTL kinds are incompatible (e.g. observed
-/// `Bad` vs database `Value`).
-pub fn distance_ttl(observed: &Ttl, signature: &Ttl) -> Option<u32> {
-    match (observed, signature) {
-        (Ttl::Value(a), Ttl::Value(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Distance(a1, a2), Ttl::Distance(b1, b2)) => {
-            if a1 == b1 && a2 == b2 {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Distance(a1, a2), Ttl::Value(b1)) => {
-            if a1.saturating_add(*a2) == *b1 {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Guess(a), Ttl::Guess(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Bad(a), Ttl::Bad(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Guess(a), Ttl::Value(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Value(a), Ttl::Distance(b1, b2)) => {
-            if *a == b1.saturating_add(*b2) {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (Ttl::Value(a), Ttl::Guess(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        _ => None,
-    }
-}
-
-/// Distance score between an observed `WindowSize` and a database `WindowSize`.
-///
-/// Takes the observed MSS as context to resolve `WindowSize::Mss(_)` patterns
-/// against a raw window value. Returns `None` for incompatible pairings.
-pub fn distance_window_size(
-    observed: &WindowSize,
+/// Signature window vs the raw value. `mss*n` / `mtu*n` use the derived multiplier.
+pub fn window_size_matches(
+    observed: u16,
     signature: &WindowSize,
-    mss: Option<u16>,
-) -> Option<u32> {
-    match (observed, signature) {
-        (WindowSize::Mss(a), WindowSize::Mss(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (WindowSize::Mtu(a), WindowSize::Mtu(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (WindowSize::Value(a), WindowSize::Mss(b)) => {
-            if let Some(mss_value) = mss {
-                if let Some(ratio_other) = a.checked_div(mss_value) {
-                    if *b as u16 == ratio_other {
-                        debug!(
-                            "window size difference: a {}, b {} == ratio_other {}",
-                            a, b, ratio_other
-                        );
-                        Some(TcpMatchQuality::High.as_score())
-                    } else {
-                        Some(TcpMatchQuality::Low.as_score())
-                    }
-                } else {
-                    Some(TcpMatchQuality::Low.as_score())
-                }
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (WindowSize::Mod(a), WindowSize::Mod(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (WindowSize::Value(a), WindowSize::Value(b)) => {
-            if a == b {
-                Some(TcpMatchQuality::High.as_score())
-            } else {
-                Some(TcpMatchQuality::Low.as_score())
-            }
-        }
-        (_, WindowSize::Any) => Some(TcpMatchQuality::High.as_score()),
-        _ => None,
+    multiplier: Option<WindowMultiplier>,
+) -> bool {
+    match signature {
+        WindowSize::Any => true,
+        WindowSize::Value(value) => observed == *value,
+        WindowSize::Mod(modulus) => observed.checked_rem(*modulus) == Some(0),
+        WindowSize::Mss(multiple) => multiple_matches(multiplier, *multiple, false),
+        WindowSize::Mtu(multiple) => multiple_matches(multiplier, *multiple, true),
     }
 }
 
-/// Distance score between an observed `PayloadSize` and a database `PayloadSize`.
-pub fn distance_payload_size(observed: &PayloadSize, signature: &PayloadSize) -> Option<u32> {
-    if signature == &PayloadSize::Any || observed == signature {
-        Some(TcpMatchQuality::High.as_score())
-    } else {
-        None
-    }
+/// Whether the observed window is a multiple of the right divisor family, by the
+/// factor the signature declares.
+fn multiple_matches(observed: Option<WindowMultiplier>, declared: u8, of_mtu: bool) -> bool {
+    let Some(observed) = observed else {
+        debug!("window size is not a multiple of any mss or mtu divisor");
+        return false;
+    };
+    observed.of_mtu == of_mtu && observed.multiple == u16::from(declared)
+}
+
+/// Whether an observed `PayloadSize` satisfies the one a signature declares.
+pub fn payload_size_matches(observed: &PayloadSize, signature: &PayloadSize) -> bool {
+    signature == &PayloadSize::Any || observed == signature
 }

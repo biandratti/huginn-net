@@ -1,6 +1,13 @@
 use super::HuginnNet;
-#[cfg(feature = "http-p0f-request")]
-use huginn_net_http::http::HttpDiagnosis;
+#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
+use huginn_net_http::http::{build_params, HttpParams};
+// Notes about a matched signature only exist when there is a database to match
+// against.
+#[cfg(all(
+    feature = "db",
+    any(feature = "http-p0f-request", feature = "http-p0f-response")
+))]
+use huginn_net_http::http::MatchedSignatureNotes;
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]
@@ -11,6 +18,11 @@ use huginn_net_http::output::BrowserQualityMatched;
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
 #[cfg(feature = "http-p0f-response")]
 use huginn_net_http::output::WebServerQualityMatched;
+#[cfg(all(
+    feature = "db",
+    any(feature = "tcp-syn", feature = "tcp-syn-ack", feature = "tcp-mtu")
+))]
+use huginn_net_tcp::matcher_api::TcpMatcher;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::observable::ObservableTcp;
 #[cfg(feature = "tcp-mtu")]
@@ -30,23 +42,17 @@ use huginn_net_tcp::output::OSQualityMatched;
         feature = "http-p0f-response"
     )
 ))]
-use crate::quality_match;
+use crate::{quality_match, simple_quality_match};
 #[cfg(all(
     feature = "db",
-    any(
-        feature = "tcp-syn",
-        feature = "tcp-syn-ack",
-        feature = "tcp-mtu",
-        feature = "http-p0f-response"
-    )
+    any(feature = "http-p0f-request", feature = "http-p0f-response")
 ))]
-use crate::simple_quality_match;
-#[cfg(all(feature = "db", feature = "http-p0f-request"))]
-use huginn_net_http::output::Browser;
-#[cfg(all(feature = "db", feature = "http-p0f-response"))]
-use huginn_net_http::output::WebServer;
-#[cfg(all(feature = "db", any(feature = "tcp-syn", feature = "tcp-syn-ack")))]
-use huginn_net_tcp::output::OperativeSystem;
+use huginn_net_http::matcher_api::HttpMatcher;
+#[cfg(all(
+    feature = "db",
+    any(feature = "http-p0f-request", feature = "http-p0f-response")
+))]
+use huginn_net_http::output::OsKind;
 
 use crate::AnalysisConfig;
 
@@ -56,7 +62,14 @@ use crate::AnalysisConfig;
 #[cfg(feature = "http-p0f-request")]
 pub(super) struct HttpRequestMatchResult {
     pub(super) browser_quality: BrowserQualityMatched,
-    pub(super) http_diagnosis: HttpDiagnosis,
+    pub(super) params: HttpParams,
+}
+
+/// Same, for responses.
+#[cfg(feature = "http-p0f-response")]
+pub(super) struct HttpResponseMatchResult {
+    pub(super) web_server_quality: WebServerQualityMatched,
+    pub(super) params: HttpParams,
 }
 
 /// Compute the connection-tracker and HTTP flow cache sizes based on which
@@ -83,10 +96,10 @@ impl<'a> HuginnNet<'a> {
             simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
-                method: matching_by_mtu(mtu),
-                success: (link, _) => MTUQualityMatched {
-                    link: Some(link.clone()),
-                    quality: TcpMatchQuality::Matched(1.0),
+                method: match_mtu(*mtu),
+                success: found => MTUQualityMatched {
+                    link: Some(found.link),
+                    quality: TcpMatchQuality::exact(1.0),
                 },
                 failure: MTUQualityMatched {
                     link: None,
@@ -109,28 +122,29 @@ impl<'a> HuginnNet<'a> {
     pub(super) fn match_tcp_request(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
+            let obs = &observable_tcp.matching;
             simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
-                method: matching_by_tcp_request(observable_tcp),
-                success: (label, _signature, quality) => OSQualityMatched {
-                    os: Some(OperativeSystem::from(label)),
-                    quality: TcpMatchQuality::Matched(quality),
+                method: match_tcp_request(obs),
+                success: found => OSQualityMatched {
+                    os: Some(found.os),
+                    quality: TcpMatchQuality::Matched {
+                        quality: found.quality,
+                        fuzzy: found.fuzzy,
+                    },
+                    dist: found.dist,
+                    random_ttl: found.random_ttl,
+                    excess_dist: found.excess_dist,
+                    tos: obs.tos,
                 },
-                failure: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::NotMatched,
-                },
-                disabled: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::Disabled,
-                }
+                failure: OSQualityMatched::without_match(TcpMatchQuality::NotMatched, obs),
+                disabled: OSQualityMatched::without_match(TcpMatchQuality::Disabled, obs)
             )
         }
         #[cfg(not(feature = "db"))]
         {
-            let _ = observable_tcp;
-            OSQualityMatched { os: None, quality: TcpMatchQuality::Disabled }
+            OSQualityMatched::without_match(TcpMatchQuality::Disabled, &observable_tcp.matching)
         }
     }
 
@@ -138,28 +152,29 @@ impl<'a> HuginnNet<'a> {
     pub(super) fn match_tcp_response(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
+            let obs = &observable_tcp.matching;
             simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.tcp_matcher,
-                method: matching_by_tcp_response(observable_tcp),
-                success: (label, _signature, quality) => OSQualityMatched {
-                    os: Some(OperativeSystem::from(label)),
-                    quality: TcpMatchQuality::Matched(quality),
+                method: match_tcp_response(obs),
+                success: found => OSQualityMatched {
+                    os: Some(found.os),
+                    quality: TcpMatchQuality::Matched {
+                        quality: found.quality,
+                        fuzzy: found.fuzzy,
+                    },
+                    dist: found.dist,
+                    random_ttl: found.random_ttl,
+                    excess_dist: found.excess_dist,
+                    tos: obs.tos,
                 },
-                failure: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::NotMatched,
-                },
-                disabled: OSQualityMatched {
-                    os: None,
-                    quality: TcpMatchQuality::Disabled,
-                }
+                failure: OSQualityMatched::without_match(TcpMatchQuality::NotMatched, obs),
+                disabled: OSQualityMatched::without_match(TcpMatchQuality::Disabled, obs)
             )
         }
         #[cfg(not(feature = "db"))]
         {
-            let _ = observable_tcp;
-            OSQualityMatched { os: None, quality: TcpMatchQuality::Disabled }
+            OSQualityMatched::without_match(TcpMatchQuality::Disabled, &observable_tcp.matching)
         }
     }
 
@@ -170,67 +185,52 @@ impl<'a> HuginnNet<'a> {
     ) -> HttpRequestMatchResult {
         #[cfg(feature = "db")]
         {
-            let (signature_matcher, ua_matcher, browser_quality) = quality_match!(
+            let observed = &observable_http_request.matching;
+            let (browser_quality, notes) = simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
-                call: matcher => {
-                    let sig_match = matcher.matching_by_http_request(&observable_http_request.matching);
-                    let ua_match = observable_http_request.user_agent.clone()
-                        .and_then(|ua| matcher.matching_by_user_agent(&ua));
-                    Some((sig_match, ua_match))
+                method: match_http_request(observed),
+                success: found => {
+                    let notes = MatchedSignatureNotes {
+                        dishonest: found.dishonest,
+                        generic: found.browser.kind == OsKind::Generic,
+                    };
+                    (
+                        BrowserQualityMatched {
+                            browser: Some(found.browser),
+                            quality: HttpMatchQuality::Matched(found.quality),
+                        },
+                        Some(notes),
+                    )
                 },
-                matched: (signature_matcher, ua_matcher) => {
-                    let browser_quality = signature_matcher
-                        .map(|(label, _signature, quality)| BrowserQualityMatched {
-                            browser: Some(Browser::from(label)),
-                            quality: HttpMatchQuality::Matched(quality),
-                        })
-                        .unwrap_or(BrowserQualityMatched {
-                            browser: None,
-                            quality: HttpMatchQuality::NotMatched,
-                        });
-                    (signature_matcher, ua_matcher, browser_quality)
-                },
-                not_matched: {
-                    let browser_quality = BrowserQualityMatched {
+                failure: (
+                    BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::NotMatched,
-                    };
-                    (None, None, browser_quality)
-                },
-                disabled: {
-                    let browser_quality = BrowserQualityMatched {
+                    },
+                    None
+                ),
+                disabled: (
+                    BrowserQualityMatched {
                         browser: None,
                         quality: HttpMatchQuality::Disabled,
-                    };
-                    (None, None, browser_quality)
-                }
+                    },
+                    None
+                )
             );
 
-            // TODO: (p0f-parity) https://github.com/biandratti/huginn-net/issues/278.
-            let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
-                observable_http_request.user_agent.clone(),
-                ua_matcher.and_then(|(_, family)| family),
-                signature_matcher.map(|(label, _signature, _quality)| label.name.as_str()),
-            );
-
-            HttpRequestMatchResult { browser_quality, http_diagnosis }
+            HttpRequestMatchResult { params: build_params(&observed.expsw, notes), browser_quality }
         }
         #[cfg(not(feature = "db"))]
         {
-            // Without the `db` feature we can still report UA/network agreement
-            // based on the User-Agent string alone (UA → declared OS family).
-            let http_diagnosis = huginn_net_http::http_common::get_diagnostic(
-                observable_http_request.user_agent.clone(),
-                None,
-                None,
-            );
+            // Without the `db` feature nothing matched, so the only note we can
+            // still make is whether the client identified itself at all.
             HttpRequestMatchResult {
+                params: build_params(&observable_http_request.matching.expsw, None),
                 browser_quality: BrowserQualityMatched {
                     browser: None,
                     quality: HttpMatchQuality::Disabled,
                 },
-                http_diagnosis,
             }
         }
     }
@@ -239,31 +239,57 @@ impl<'a> HuginnNet<'a> {
     pub(super) fn match_http_response(
         &self,
         observable_http_response: &ObservableHttpResponse,
-    ) -> WebServerQualityMatched {
+    ) -> HttpResponseMatchResult {
         #[cfg(feature = "db")]
         {
-            simple_quality_match!(
+            let observed = &observable_http_response.matching;
+            let (web_server_quality, notes) = simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
-                method: matching_by_http_response(&observable_http_response.matching),
-                success: (label, _signature, quality) => WebServerQualityMatched {
-                    web_server: Some(WebServer::from(label)),
-                    quality: HttpMatchQuality::Matched(quality),
+                method: match_http_response(observed),
+                success: found => {
+                    let notes = MatchedSignatureNotes {
+                        dishonest: found.dishonest,
+                        generic: found.web_server.kind == OsKind::Generic,
+                    };
+                    (
+                        WebServerQualityMatched {
+                            web_server: Some(found.web_server),
+                            quality: HttpMatchQuality::Matched(found.quality),
+                        },
+                        Some(notes),
+                    )
                 },
-                failure: WebServerQualityMatched {
-                    web_server: None,
-                    quality: HttpMatchQuality::NotMatched,
-                },
-                disabled: WebServerQualityMatched {
-                    web_server: None,
-                    quality: HttpMatchQuality::Disabled,
-                }
-            )
+                failure: (
+                    WebServerQualityMatched {
+                        web_server: None,
+                        quality: HttpMatchQuality::NotMatched,
+                    },
+                    None
+                ),
+                disabled: (
+                    WebServerQualityMatched {
+                        web_server: None,
+                        quality: HttpMatchQuality::Disabled,
+                    },
+                    None
+                )
+            );
+
+            HttpResponseMatchResult {
+                params: build_params(&observed.expsw, notes),
+                web_server_quality,
+            }
         }
         #[cfg(not(feature = "db"))]
         {
-            let _ = observable_http_response;
-            WebServerQualityMatched { web_server: None, quality: HttpMatchQuality::Disabled }
+            HttpResponseMatchResult {
+                params: build_params(&observable_http_response.matching.expsw, None),
+                web_server_quality: WebServerQualityMatched {
+                    web_server: None,
+                    quality: HttpMatchQuality::Disabled,
+                },
+            }
         }
     }
 }

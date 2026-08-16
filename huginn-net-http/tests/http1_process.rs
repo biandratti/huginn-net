@@ -89,37 +89,44 @@ fn test_parse_http1_response() {
 }
 
 #[test]
-fn test_get_diagnostic_for_empty_sw() {
-    let diagnosis: http::HttpDiagnosis = http_common::get_diagnostic(None, None, None);
-    assert_eq!(diagnosis, http::HttpDiagnosis::Anonymous);
+fn test_params_without_software_are_anonymous() {
+    let params = http_common::build_params(http::UNKNOWN_SOFTWARE, None);
+
+    assert_eq!(params, http::HttpParams { dishonest: false, anonymous: true, generic: false });
+    assert_eq!(params.to_string(), "anonymous");
 }
 
 #[test]
-fn test_get_diagnostic_with_existing_signature_matcher() {
-    let user_agent: Option<String> = Some("Mozilla/5.0".to_string());
-    let ua_os_family = Some("Linux");
-    let network_os_name = Some("Linux");
+fn test_params_are_empty_when_nothing_stands_out() {
+    let notes = http_common::MatchedSignatureNotes { dishonest: false, generic: false };
+    let params = http_common::build_params("Mozilla/5.0", Some(notes));
 
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
-    assert_eq!(diagnosis, http::HttpDiagnosis::Generic);
+    assert!(params.is_empty());
+    assert_eq!(params.to_string(), "none");
 }
 
 #[test]
-fn test_get_diagnostic_with_dishonest_user_agent() {
-    let user_agent = Some("Mozilla/5.0".to_string());
-    let ua_os_family = Some("Windows");
-    let network_os_name = Some("Linux");
+fn test_params_report_a_dishonest_software_string() {
+    let notes = http_common::MatchedSignatureNotes { dishonest: true, generic: false };
+    let params = http_common::build_params("Mozilla/5.0", Some(notes));
 
-    let diagnosis = http_common::get_diagnostic(user_agent, ua_os_family, network_os_name);
-    assert_eq!(diagnosis, http::HttpDiagnosis::Dishonest);
+    assert_eq!(params, http::HttpParams { dishonest: true, anonymous: false, generic: false });
+    assert_eq!(params.to_string(), "dishonest");
 }
 
 #[test]
-fn test_get_diagnostic_without_user_agent_and_signature_matcher() {
-    let user_agent = Some("Mozilla/5.0".to_string());
+fn test_params_combine_because_p0f_reports_them_together() {
+    let notes = http_common::MatchedSignatureNotes { dishonest: true, generic: true };
+    let params = http_common::build_params(http::UNKNOWN_SOFTWARE, Some(notes));
 
-    let diagnosis = http_common::get_diagnostic(user_agent, None, None);
-    assert_eq!(diagnosis, http::HttpDiagnosis::None);
+    assert_eq!(params.to_string(), "dishonest anonymous generic");
+}
+
+#[test]
+fn test_params_without_a_match_cannot_be_dishonest_or_generic() {
+    let params = http_common::build_params("Mozilla/5.0", None);
+
+    assert!(params.is_empty());
 }
 
 #[test]

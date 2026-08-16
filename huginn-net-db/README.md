@@ -30,7 +30,7 @@ want database-backed matching.
 
 - **P0f Database Parsing** - Complete parser for p0f signature format
 - **TCP & HTTP Matching** - Efficient signature matching algorithms  
-- **Quality Scoring** - Distance-based quality metrics for matches
+- **Tiered Match Quality** - Specific / generic / fuzzy (not a continuous score)
 - **Extensible Design** - Easy to add new signature types
 
 ## Cargo Features
@@ -71,15 +71,35 @@ Typical use is to build a `SharedTcpSignatureMatcher` /
 into a standalone analyzer via `.with_matcher(...)`:
 
 ```rust
-use huginn_net_db::{Database, SharedTcpSignatureMatcher};
+use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use huginn_net_tcp::{HuginnNetTcp, SharedTcpMatcher};
 use std::sync::Arc;
 
-let db = Database::load_default()?;
-let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::from_database(&db));
+let db = TcpDatabase::load_default()?;
+let matcher: SharedTcpMatcher = Arc::new(SharedTcpSignatureMatcher::new(Arc::new(db)));
 let analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
 # Ok::<_, Box<dyn std::error::Error>>(())
 ```
+
+## Reading match results
+
+The matcher either returns a label or nothing. When it returns one, `quality`
+is one of three fixed tiers:
+
+| Outcome | `quality` | Meaning |
+|---------|-----------|---------|
+| Specific exact | `1.0` | Named product, every field fit |
+| Generic exact | `0.8` | Family catch-all, still exact |
+| Fuzzy | `0.5` | Held only with a documented tolerance (`FuzzyReason`) |
+| No match | - | No signature passed the gates |
+| Disabled | - | No matcher was attached |
+
+Prefer `1.0` without `fuzzy`. Treat `0.5` as a hint and inspect `FuzzyReason`
+plus TCP `params` (`dist`, `random_ttl`, `excess_dist`, `tos`). HTTP has no
+fuzzy tier: a hit is exact, and `HttpParams` flags annotate the claim.
+
+Match quality is also bounded by the bundled `p0f.fp` (last updated 2012):
+a correct algorithm cannot name a product the database does not list.
 
 ## Documentation
 

@@ -1,5 +1,6 @@
 use crate::database::{HttpDatabase, Label, Type};
 use crate::db_matching_trait::FingerprintDb;
+use crate::http::expsw_matches;
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 use huginn_net_http::output::{Browser, OsKind, WebServer};
@@ -12,29 +13,6 @@ pub struct HttpSignatureMatcher<'a> {
 impl<'a> HttpSignatureMatcher<'a> {
     pub fn new(database: &'a HttpDatabase) -> Self {
         Self { database }
-    }
-
-    pub fn matching_by_http_request(
-        &self,
-        signature: &HttpRequestObservation,
-    ) -> Option<(&'a Label, &'a crate::http::Signature, f32)> {
-        self.database.http_request.find_best_match(signature)
-    }
-
-    pub fn matching_by_http_response(
-        &self,
-        signature: &HttpResponseObservation,
-    ) -> Option<(&'a Label, &'a crate::http::Signature, f32)> {
-        self.database.http_response.find_best_match(signature)
-    }
-
-    pub fn matching_by_user_agent(&self, user_agent: &str) -> Option<(&'a str, Option<&'a str>)> {
-        for (ua, ua_family) in &self.database.ua_os {
-            if user_agent.contains(ua.as_str()) {
-                return Some((ua.as_str(), ua_family.as_ref().map(|s| s.as_str())));
-            }
-        }
-        None
     }
 }
 
@@ -78,24 +56,36 @@ fn match_http_request_impl(
     db: &HttpDatabase,
     obs: &HttpRequestObservation,
 ) -> Option<HttpRequestMatch> {
-    let (label, _sig, quality) = db.http_request.find_best_match(obs)?;
-    Some(HttpRequestMatch { browser: Browser::from(label), quality })
+    let found = db.http_request.find_best_match(obs)?;
+    Some(HttpRequestMatch {
+        browser: Browser::from(found.label),
+        quality: found.quality,
+        dishonest: !expsw_matches(&obs.expsw, &found.signature.expsw),
+    })
 }
 
 fn match_http_response_impl(
     db: &HttpDatabase,
     obs: &HttpResponseObservation,
 ) -> Option<HttpResponseMatch> {
-    let (label, _sig, quality) = db.http_response.find_best_match(obs)?;
-    Some(HttpResponseMatch { web_server: WebServer::from(label), quality })
+    let found = db.http_response.find_best_match(obs)?;
+    Some(HttpResponseMatch {
+        web_server: WebServer::from(found.label),
+        quality: found.quality,
+        dishonest: !expsw_matches(&obs.expsw, &found.signature.expsw),
+    })
 }
 
 fn match_user_agent_impl(db: &HttpDatabase, ua: &str) -> Option<UaOsMatch> {
-    for (ua_substr, family) in &db.ua_os {
-        if ua.contains(ua_substr.as_str()) {
-            if let Some(family) = family {
-                return Some(UaOsMatch { family: family.clone(), flavor: None });
-            }
+    for (name, mapped) in &db.ua_os {
+        // `ua_os = Linux,Windows,iOS=[iPad]`: a bare name is both the needle
+        // and the family; `Family=[substr]` searches for `substr`.
+        let (needle, family) = match mapped.as_deref() {
+            Some(substr) => (substr, name.as_str()),
+            None => (name.as_str(), name.as_str()),
+        };
+        if ua.contains(needle) {
+            return Some(UaOsMatch { family: family.to_string(), flavor: None });
         }
     }
     None
@@ -132,6 +122,8 @@ impl SharedHttpSignatureMatcher {
         Self { database }
     }
 
+    /// Clone the HTTP sub-database out of a composed [`crate::Database`].
+    /// Requires both `tcp` and `http` features.
     #[cfg(all(feature = "tcp", feature = "http"))]
     pub fn from_database(database: &crate::Database) -> Self {
         Self { database: Arc::new(database.http.clone()) }

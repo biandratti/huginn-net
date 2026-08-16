@@ -34,6 +34,7 @@ struct EndpointSnapshot {
 struct HttpRequestSnapshot {
     browser: Option<String>,
     quality: Option<String>,
+    params: Option<String>,
     lang: Option<String>,
     user_agent: Option<String>,
     method: Option<String>,
@@ -44,6 +45,7 @@ struct HttpRequestSnapshot {
 struct HttpResponseSnapshot {
     web_server: Option<String>,
     quality: Option<String>,
+    params: Option<String>,
     status_code: Option<u16>,
     headers_count: usize,
 }
@@ -141,6 +143,14 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
             );
         }
 
+        if let Some(expected_params) = &exp_req.params {
+            assert_eq!(
+                &req.params.to_string(),
+                expected_params,
+                "connection {idx}: request params"
+            );
+        }
+
         if let Some(expected_lang) = &exp_req.lang {
             assert_eq!(
                 req.lang
@@ -224,6 +234,14 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 &resp.web_server_matched.quality,
                 expected_quality,
                 &format!("connection {idx} response"),
+            );
+        }
+
+        if let Some(expected_params) = &exp_resp.params {
+            assert_eq!(
+                &resp.params.to_string(),
+                expected_params,
+                "connection {idx}: response params"
             );
         }
 

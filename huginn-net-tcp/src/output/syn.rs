@@ -1,6 +1,5 @@
 use super::common::{IpPort, OSQualityMatched};
 use crate::observable::ObservableTcp;
-use crate::tcp::Ttl;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -40,16 +39,8 @@ impl fmt::Display for SynTCPOutput {
                     os.variant.as_deref().unwrap_or("??")
                 )
             }),
-            match self.sig.matching.ittl {
-                Ttl::Distance(_, distance) => distance,
-                Ttl::Bad(value) => value,
-                Ttl::Value(value) => value,
-                Ttl::Guess(value) => value,
-            },
-            self.os_matched
-                .os
-                .as_ref()
-                .map_or("none".to_string(), |os| os.kind.to_string()),
+            self.os_matched.dist,
+            self.os_matched.params(),
             self.sig,
         )
     }

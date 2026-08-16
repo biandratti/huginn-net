@@ -43,22 +43,10 @@ pub mod error;
 
 pub mod parse;
 
-pub mod db_parse {
-    #[allow(unused_imports)] // re-export is a no-op when both protocol features are off
-    pub use super::parse::*;
-}
-
 #[cfg(feature = "http")]
 pub mod http;
 #[cfg(feature = "tcp")]
 pub mod tcp;
-
-#[cfg(feature = "http")]
-#[path = "http/matching.rs"]
-pub mod observable_http_signals_matching;
-#[cfg(feature = "tcp")]
-#[path = "tcp/matching.rs"]
-pub mod observable_tcp_signals_matching;
 
 #[cfg(feature = "http")]
 #[path = "matcher/http_signature_matcher.rs"]
@@ -80,8 +68,3 @@ pub use error::DatabaseError;
 pub use http_signature_matcher::{HttpSignatureMatcher, SharedHttpSignatureMatcher};
 #[cfg(feature = "tcp")]
 pub use tcp_signature_matcher::{SharedTcpSignatureMatcher, TcpSignatureMatcher};
-
-/// Historical module path (`huginn_net_db::db::…`); re-exports [`database`].
-pub mod db {
-    pub use super::database::*;
-}

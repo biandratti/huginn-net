@@ -1,4 +1,6 @@
 pub mod flow;
+#[cfg(feature = "syn-ack")]
+pub mod flow_state;
 pub mod parallel;
 
 use self::flow as tcp_process;
@@ -25,28 +27,35 @@ use std::net::IpAddr;
 
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 
-/// Per-flow connection state used by uptime tracking.
+/// Per-flow connection state used by uptime tracking and SYN+ACK fingerprinting.
 ///
-/// When the `uptime` feature is enabled, this wraps a `TtlCache` of TCP
-/// timestamp samples keyed by connection direction. When the feature is
-/// disabled, it is a zero-sized stub and all operations on it are no-ops, so
-/// builds without uptime tracking drop the `ttl_cache` dependency entirely
+/// - With `uptime`: a `TtlCache` of TCP timestamp samples keyed by direction.
+/// - With `syn-ack`: a `TtlCache` of handshake state (`syn_mss`, `acked`) so the
+///   response can use the peer's MSS as a window divisor and a repeated SYN+ACK
+///   is not fingerprinted twice.
+///
+/// When neither feature is enabled this is a zero-sized stub and all operations
+/// are no-ops, so builds without those features drop the `ttl_cache` dependency
 /// without changing public function signatures.
 pub struct ConnectionTracker {
     #[cfg(feature = "uptime")]
     pub(crate) inner:
         ttl_cache::TtlCache<crate::uptime::ConnectionKey, crate::uptime::TcpTimestamp>,
+    #[cfg(feature = "syn-ack")]
+    pub(crate) flows: flow_state::FlowTracker,
 }
 
 impl ConnectionTracker {
     /// Creates a new connection tracker.
     ///
-    /// `max_connections` is the upper bound on tracked flows. When the
-    /// `uptime` feature is disabled the argument is ignored.
+    /// `max_connections` is the upper bound on tracked flows. Ignored when
+    /// neither `uptime` nor `syn-ack` is enabled.
     pub fn new(_max_connections: usize) -> Self {
         Self {
             #[cfg(feature = "uptime")]
             inner: ttl_cache::TtlCache::new(_max_connections),
+            #[cfg(feature = "syn-ack")]
+            flows: flow_state::FlowTracker::new(_max_connections),
         }
     }
 }
@@ -109,8 +118,9 @@ fn create_observable_package_ipv4(
 
     #[cfg(feature = "syn")]
     if let Some(tcp_request) = tcp_package.tcp_request {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_request(&tcp_request.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_request.matching, |m| {
+            m.match_tcp_request(&tcp_request.matching)
+        });
 
         let syn_output = SynTCPOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
@@ -123,8 +133,9 @@ fn create_observable_package_ipv4(
 
     #[cfg(feature = "syn-ack")]
     if let Some(tcp_response) = tcp_package.tcp_response {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_response(&tcp_response.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_response.matching, |m| {
+            m.match_tcp_response(&tcp_response.matching)
+        });
 
         let syn_ack_output = SynAckTCPOutput {
             source: IpPort::new(IpAddr::V4(ipv4.get_source()), tcp.get_source()),
@@ -233,8 +244,9 @@ fn create_observable_package_ipv6(
 
     #[cfg(feature = "syn")]
     if let Some(tcp_request) = tcp_package.tcp_request {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_request(&tcp_request.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_request.matching, |m| {
+            m.match_tcp_request(&tcp_request.matching)
+        });
 
         let syn_output = SynTCPOutput {
             source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
@@ -247,8 +259,9 @@ fn create_observable_package_ipv6(
 
     #[cfg(feature = "syn-ack")]
     if let Some(tcp_response) = tcp_package.tcp_response {
-        let os_quality =
-            classify_tcp_match(matcher, |m| m.match_tcp_response(&tcp_response.matching));
+        let os_quality = classify_tcp_match(matcher, &tcp_response.matching, |m| {
+            m.match_tcp_response(&tcp_response.matching)
+        });
 
         let syn_ack_output = SynAckTCPOutput {
             source: IpPort::new(IpAddr::V6(ipv6.get_source()), tcp.get_source()),
@@ -306,7 +319,11 @@ fn create_observable_package_ipv6(
 }
 
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
-fn classify_tcp_match<F>(matcher: Option<&dyn TcpMatcher>, call: F) -> OSQualityMatched
+fn classify_tcp_match<F>(
+    matcher: Option<&dyn TcpMatcher>,
+    obs: &crate::observable::TcpObservation,
+    call: F,
+) -> OSQualityMatched
 where
     F: FnOnce(&dyn TcpMatcher) -> Option<crate::matcher_api::TcpMatch>,
 {
@@ -314,11 +331,15 @@ where
         Some(m) => match call(m) {
             Some(found) => OSQualityMatched {
                 os: Some(found.os),
-                quality: MatchQuality::Matched(found.quality),
+                quality: MatchQuality::Matched { quality: found.quality, fuzzy: found.fuzzy },
+                dist: found.dist,
+                random_ttl: found.random_ttl,
+                excess_dist: found.excess_dist,
+                tos: obs.tos,
             },
-            None => OSQualityMatched { os: None, quality: MatchQuality::NotMatched },
+            None => OSQualityMatched::without_match(MatchQuality::NotMatched, obs),
         },
-        None => OSQualityMatched { os: None, quality: MatchQuality::Disabled },
+        None => OSQualityMatched::without_match(MatchQuality::Disabled, obs),
     }
 }
 
@@ -327,7 +348,7 @@ fn classify_mtu_match(matcher: Option<&dyn TcpMatcher>, mtu: u16) -> MTUQualityM
     match matcher {
         Some(m) => match m.match_mtu(mtu) {
             Some(found) => {
-                MTUQualityMatched { link: Some(found.link), quality: MatchQuality::Matched(1.0) }
+                MTUQualityMatched { link: Some(found.link), quality: MatchQuality::exact(1.0) }
             }
             None => MTUQualityMatched { link: None, quality: MatchQuality::NotMatched },
         },

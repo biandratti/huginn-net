@@ -7,9 +7,9 @@ use crate::process::ConnectionTracker;
 use crate::tcp;
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::observable::{ObservableTcp, TcpObservation};
-use crate::tcp::{IpOptions, IpVersion, Quirk, TcpOption, Ttl};
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
-use crate::tcp::{PayloadSize, WindowSize};
+use crate::tcp::PayloadSize;
+use crate::tcp::{IpOptions, IpVersion, Quirk, QuirkSet, TcpOption, Ttl};
 #[cfg(feature = "uptime")]
 use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
 use pnet::packet::ip::IpNextHeaderProtocols;
@@ -104,6 +104,13 @@ pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
         || tcp_type == 0)
 }
 
+/// SYN and SYN+ACK only.
+pub fn is_fingerprintable(tcp_type: u8) -> bool {
+    use TcpFlags::*;
+
+    tcp_type == SYN || tcp_type == (SYN | ACK)
+}
+
 #[inline]
 pub fn process_tcp_ipv4(
     packet: &Ipv4Packet,
@@ -122,25 +129,26 @@ pub fn process_tcp_ipv4(
     let version = IpVersion::V4;
     let ttl_observed: u8 = packet.get_ttl();
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
+    let tos: u8 = packet.get_dscp();
     let olen: u8 = IpOptions::calculate_ipv4_length(packet);
-    let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
+    let mut quirks = QuirkSet::EMPTY;
 
     if (packet.get_ecn() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
-        quirks.push(Quirk::Ecn);
+        quirks.insert(Quirk::Ecn);
     }
 
     if (packet.get_flags() & IP4_MBZ) != 0 {
-        quirks.push(Quirk::MustBeZero);
+        quirks.insert(Quirk::MustBeZero);
     }
 
     if (packet.get_flags() & Ipv4Flags::DontFragment) != 0 {
-        quirks.push(Quirk::Df);
+        quirks.insert(Quirk::Df);
 
         if packet.get_identification() != 0 {
-            quirks.push(Quirk::NonZeroID);
+            quirks.insert(Quirk::NonZeroID);
         }
     } else if packet.get_identification() == 0 {
-        quirks.push(Quirk::ZeroID);
+        quirks.insert(Quirk::ZeroID);
     }
 
     let source_ip: IpAddr = IpAddr::V4(packet.get_source());
@@ -158,7 +166,10 @@ pub fn process_tcp_ipv4(
                 &tcp_packet,
                 version,
                 ttl,
+                tos,
                 ip_package_header_length,
+                // IHL counts 32-bit words.
+                u16::from(ip_package_header_length).saturating_mul(4),
                 olen,
                 quirks,
                 source_ip,
@@ -178,14 +189,15 @@ pub fn process_tcp_ipv6(
     let version = IpVersion::V6;
     let ttl_observed: u8 = packet.get_hop_limit();
     let ttl: Ttl = tcp::ttl::calculate_ttl(ttl_observed);
+    let tos: u8 = packet.get_traffic_class() >> 2;
     let olen: u8 = IpOptions::calculate_ipv6_length(packet);
-    let mut quirks: Vec<Quirk> = Vec::with_capacity(8);
+    let mut quirks = QuirkSet::EMPTY;
 
     if packet.get_flow_label() != 0 {
-        quirks.push(Quirk::FlowID);
+        quirks.insert(Quirk::FlowID);
     }
     if (packet.get_traffic_class() & (IP_TOS_CE | IP_TOS_ECT)) != 0 {
-        quirks.push(Quirk::Ecn);
+        quirks.insert(Quirk::Ecn);
     }
 
     let source_ip: IpAddr = IpAddr::V6(packet.get_source());
@@ -201,7 +213,9 @@ pub fn process_tcp_ipv6(
                 &tcp_packet,
                 version,
                 ttl,
+                tos,
                 ip_package_header_length,
+                u16::from(ip_package_header_length),
                 olen,
                 quirks,
                 source_ip,
@@ -210,9 +224,50 @@ pub fn process_tcp_ipv6(
         })
 }
 
+/// Builds the observation shared by SYN and SYN+ACK fingerprint paths.
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
+#[allow(clippy::too_many_arguments)]
+fn tcp_observation(
+    version: IpVersion,
+    ittl: Ttl,
+    tos: u8,
+    olen: u8,
+    mss: Option<u16>,
+    wsize: u16,
+    ip_header_bytes: u16,
+    tcp: &TcpPacket,
+    wscale: Option<u8>,
+    olayout: Vec<TcpOption>,
+    quirks: QuirkSet,
+    peer_mss: Option<u16>,
+) -> TcpObservation {
+    let tot_hdr =
+        ip_header_bytes.saturating_add(u16::from(tcp.get_data_offset()).saturating_mul(4));
+
+    TcpObservation {
+        version,
+        ittl,
+        olen,
+        mss,
+        wsize,
+        tot_hdr,
+        wscale,
+        olayout,
+        quirks,
+        pclass: if tcp.payload().is_empty() {
+            PayloadSize::Zero
+        } else {
+            PayloadSize::NonZero
+        },
+        peer_mss,
+        tos,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[cfg_attr(
     any(
+        not(feature = "mtu"),
         not(feature = "uptime"),
         not(any(feature = "syn", feature = "syn-ack")),
     ),
@@ -227,9 +282,11 @@ fn visit_tcp(
     tcp: &TcpPacket,
     version: IpVersion,
     ittl: Ttl,
+    tos: u8,
     ip_package_header_length: u8,
+    ip_header_bytes: u16,
     olen: u8,
-    mut quirks: Vec<Quirk>,
+    mut quirks: QuirkSet,
     source_ip: IpAddr,
     destination_ip: IpAddr,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
@@ -249,8 +306,12 @@ fn visit_tcp(
         feature = "uptime"
     )))]
     {
-        let needs_request_side =
-            cfg!(feature = "syn") || cfg!(feature = "mtu") || cfg!(feature = "uptime");
+        // `syn-ack` alone still needs to see the SYN: the peer MSS lives there.
+        // It does not emit a client OS match when `syn` is off, only flow state.
+        let needs_request_side = cfg!(feature = "syn")
+            || cfg!(feature = "mtu")
+            || cfg!(feature = "uptime")
+            || cfg!(feature = "syn-ack");
         let needs_response_side = cfg!(feature = "syn-ack") || cfg!(feature = "uptime");
         if (from_client && !needs_request_side) || (!from_client && !needs_response_side) {
             return Ok(ObservableTCPPackage::empty());
@@ -258,27 +319,27 @@ fn visit_tcp(
     }
 
     if (flags & (ECE | CWR)) != 0 {
-        quirks.push(Quirk::Ecn);
+        quirks.insert(Quirk::Ecn);
     }
     if tcp.get_sequence() == 0 {
-        quirks.push(Quirk::SeqNumZero);
+        quirks.insert(Quirk::SeqNumZero);
     }
     if flags & ACK == ACK {
         if tcp.get_acknowledgement() == 0 {
-            quirks.push(Quirk::AckNumZero);
+            quirks.insert(Quirk::AckNumZero);
         }
     } else if tcp.get_acknowledgement() != 0 && flags & RST == 0 {
-        quirks.push(Quirk::AckNumNonZero);
+        quirks.insert(Quirk::AckNumNonZero);
     }
 
     if flags & URG == URG {
-        quirks.push(Quirk::Urg);
+        quirks.insert(Quirk::Urg);
     } else if tcp.get_urgent_ptr() != 0 {
-        quirks.push(Quirk::NonZeroURG);
+        quirks.insert(Quirk::NonZeroURG);
     }
 
     if flags & PSH == PSH {
-        quirks.push(Quirk::Push);
+        quirks.insert(Quirk::Push);
     }
 
     let mut buf = tcp.get_options_raw();
@@ -300,7 +361,7 @@ fn visit_tcp(
                 olayout.push(TcpOption::Eol(buf.len() as u8));
 
                 if buf.iter().any(|&b| b != 0) {
-                    quirks.push(Quirk::TrailinigNonZero);
+                    quirks.insert(Quirk::TrailinigNonZero);
                 }
 
                 break;
@@ -322,7 +383,7 @@ fn visit_tcp(
                     wscale = Some(data[0]);
 
                     if data[0] > 14 {
-                        quirks.push(Quirk::ExcessiveWindowScaling);
+                        quirks.insert(Quirk::ExcessiveWindowScaling);
                     }
                 }
             }
@@ -342,7 +403,7 @@ fn visit_tcp(
                         )
                     })?;
                     if u32::from_be_bytes(ts_val_bytes) == 0 {
-                        quirks.push(Quirk::OwnTimestampZero);
+                        quirks.insert(Quirk::OwnTimestampZero);
                     }
                 }
 
@@ -353,7 +414,7 @@ fn visit_tcp(
                         )
                     })?;
                     if u32::from_be_bytes(ts_peer_bytes) != 0 {
-                        quirks.push(Quirk::PeerTimestampNonZero);
+                        quirks.insert(Quirk::PeerTimestampNonZero);
                     }
                 }
 
@@ -402,45 +463,97 @@ fn visit_tcp(
         _ => None,
     };
 
-    #[cfg(any(feature = "syn", feature = "syn-ack"))]
-    let tcp_signature: ObservableTcp = {
-        let wsize: WindowSize = tcp::detect_win_multiplicator(
-            tcp.get_window(),
-            mss.unwrap_or(0),
-            ip_package_header_length as u16,
-            olayout.contains(&TcpOption::TS),
-            &version,
+    #[cfg(feature = "syn-ack")]
+    if tcp_type == SYN {
+        // Always record the client's MSS when responses are fingerprinted, even
+        // if the `syn` feature is off and no client OS signal is emitted.
+        connection_tracker.flows.note_syn(
+            crate::process::flow_state::FlowKey::from_syn(
+                source_ip,
+                tcp.get_source(),
+                destination_ip,
+                tcp.get_destination(),
+            ),
+            mss,
         );
-
-        ObservableTcp {
-            matching: TcpObservation {
-                version,
-                ittl,
-                olen,
-                mss,
-                wsize,
-                wscale,
-                olayout,
-                quirks,
-                pclass: if tcp.payload().is_empty() {
-                    PayloadSize::Zero
-                } else {
-                    PayloadSize::NonZero
-                },
-            },
-        }
-    };
+    }
 
     #[cfg(any(feature = "syn", feature = "syn-ack"))]
     #[cfg_attr(
         not(all(feature = "syn", feature = "syn-ack")),
         allow(unused_variables)
     )]
-    let (tcp_request, tcp_response) = if from_client {
-        (Some(tcp_signature), None)
-    } else {
-        (None, Some(tcp_signature))
-    };
+    let (tcp_request, tcp_response): (Option<ObservableTcp>, Option<ObservableTcp>) =
+        if !is_fingerprintable(tcp_type) {
+            (None, None)
+        } else if tcp_type == SYN {
+            #[cfg(feature = "syn")]
+            {
+                (
+                    Some(ObservableTcp {
+                        matching: tcp_observation(
+                            version,
+                            ittl,
+                            tos,
+                            olen,
+                            mss,
+                            tcp.get_window(),
+                            ip_header_bytes,
+                            tcp,
+                            wscale,
+                            olayout,
+                            quirks,
+                            None,
+                        ),
+                    }),
+                    None,
+                )
+            }
+            #[cfg(not(feature = "syn"))]
+            {
+                // `syn-ack` only: the SYN was recorded above for peer MSS; nothing to emit.
+                drop((olayout, quirks, wscale));
+                (None, None)
+            }
+        } else {
+            #[cfg(feature = "syn-ack")]
+            {
+                use crate::process::flow_state::{FlowKey, SynAckDisposition};
+
+                let key = FlowKey::from_syn_ack(
+                    source_ip,
+                    tcp.get_source(),
+                    destination_ip,
+                    tcp.get_destination(),
+                );
+                match connection_tracker.flows.begin_syn_ack(key) {
+                    SynAckDisposition::Duplicate => (None, None),
+                    SynAckDisposition::First { peer_mss } => (
+                        None,
+                        Some(ObservableTcp {
+                            matching: tcp_observation(
+                                version,
+                                ittl,
+                                tos,
+                                olen,
+                                mss,
+                                tcp.get_window(),
+                                ip_header_bytes,
+                                tcp,
+                                wscale,
+                                olayout,
+                                quirks,
+                                peer_mss,
+                            ),
+                        }),
+                    ),
+                }
+            }
+            #[cfg(not(feature = "syn-ack"))]
+            {
+                (None, None)
+            }
+        };
 
     Ok(ObservableTCPPackage {
         #[cfg(feature = "syn")]

@@ -25,32 +25,32 @@ PCAP dataset: `http-simple-get.pcap` repeated 1000x for statistical stability.
 
 | Operation | Time/Packet | Throughput | Notes |
 |-----------|-------------|------------|-------|
-| Packet Parsing | ~4 ns | ~250M pps | Ethernet/IP/TCP header parsing |
-| Full HTTP Analysis | ~1.39 µs | ~720K pps | Complete flow processing (request + response + matching) |
-| With Browser Matching | ~1.42 µs | ~700K pps | UA → browser DB lookup |
-| Without Browser Matching | ~1.10 µs | ~910K pps | Skip UA lookup |
-| With Server Matching | ~1.48 µs | ~680K pps | Server header → server DB lookup |
-| Without Server Matching | ~1.10 µs | ~915K pps | Skip server lookup |
+| Packet Parsing | ~4 ns | ~237M pps | Ethernet/IP/TCP header parsing |
+| Full HTTP Analysis | ~704 ns | ~1.42M pps | Complete flow processing (request + response + matching) |
+| With Browser Matching | ~618 ns | ~1.62M pps | UA → browser DB lookup |
+| Without Browser Matching | ~617 ns | ~1.62M pps | Skip UA lookup |
+| With Server Matching | ~684 ns | ~1.46M pps | Server header → server DB lookup |
+| Without Server Matching | ~590 ns | ~1.70M pps | Skip server lookup |
 
-> **Matching adds cost** — both browser and server matching require a DB lookup that runs on every successful detection. Disabling matching gives ~30% headroom for use cases that only need flow tracking / header capture without OS/UA fingerprinting.
+> **Matching cost** — browser and server matching perform DB lookups on successful detection. Disable matching for use cases that only need flow tracking / header capture without UA fingerprinting.
 
 ### Feature-Specific Performance
 
 | Feature | Without | With | Delta | Notes |
 |---------|---------|------|-------|-------|
-| Browser Matching | ~1.10 µs (910K pps) | ~1.42 µs (700K pps) | +29% | UA → browser DB lookup |
-| Server Matching | ~1.10 µs (915K pps) | ~1.48 µs (680K pps) | +35% | Response header scan + DB lookup |
-| Protocol Detection | — | ~1.17 µs (854K pps) | — | Fast-reject heuristic + parser dispatch |
-| Header Analysis | — | ~1.10 µs (909K pps) | — | Per-packet header extraction |
+| Browser Matching | ~617 ns (1.62M pps) | ~618 ns (1.62M pps) | ~0% | UA → browser DB lookup |
+| Server Matching | ~590 ns (1.70M pps) | ~684 ns (1.46M pps) | ~16% | Response header scan + DB lookup |
+| Protocol Detection | — | ~576 ns (1.74M pps) | — | Fast-reject heuristic + parser dispatch |
+| Header Analysis | — | ~582 ns (1.72M pps) | — | Per-packet header extraction |
 
 ### Cache Size Impact
 
 | Cache Size | Time/Packet | Throughput | Notes |
 |------------|-------------|------------|-------|
-| Small (100) | ~1.07 µs | ~935K pps | Frequent evictions under load |
-| Large (10K) | ~1.07 µs | ~936K pps | Better flow retention |
+| Small (100) | ~589 ns | ~1.70M pps | Frequent evictions under load |
+| Large (10K) | ~578 ns | ~1.73M pps | Better flow retention |
 
-**Note**: Cache size difference is negligible (<1%) for this workload. The PCAP keeps few concurrent flows, so the 100-slot cache rarely evicts.
+**Note**: Cache size difference is small for this workload. The PCAP keeps few concurrent flows, so the 100-slot cache rarely evicts.
 
 ### Parallel Mode (Multi-Worker)
 
@@ -58,54 +58,54 @@ PCAP dataset: `http-simple-get.pcap` repeated 1000x for statistical stability.
 
 | Workers | Time/Packet | Throughput | Speedup | 1 Gbps CPU | 10 Gbps CPU |
 |---------|-------------|------------|---------|------------|-------------|
-| 1 (seq) | ~1.39 µs | ~720K pps | 1.00x | ~11.3% ✓ | ~113% **[OVERLOAD]** |
-| 2 | ~647 ns | ~1.55M pps | 2.15x | ~5.3% ✓ | ~52.6% ✓ |
-| 4 | ~918 ns | ~1.09M pps | 1.51x | ~7.5% ✓ | ~74.8% ✓ |
-| 8 | ~1.02 µs | ~982K pps | 1.36x | ~8.3% ✓ | ~82.7% ✓ |
+| 1 (seq) | ~704 ns | ~1.42M pps | 1.00x | ~5.7% ✓ | ~57% ✓ |
+| 2 | ~652 ns | ~1.53M pps | 1.08x | ~5.3% ✓ | ~53% ✓ |
+| 4 | ~706 ns | ~1.42M pps | 1.00x | ~5.7% ✓ | ~57% ✓ |
+| 8 | ~740 ns | ~1.35M pps | 0.95x | ~6.0% ✓ | ~60% ✓ |
 
-**Key Insight**: 2 workers is the sweet spot and the **projected minimum** for 10 Gbps line rate. Sequential extrapolates to ~113% CPU at 10 Gbps (overload); 2 workers projects to ~53% with comfortable headroom. 4 and 8 workers show diminishing returns due to flow-based hashing concentrating connection traffic on a single worker.
+**Key Insight**: 2 workers is the highest parallel throughput (~1.53M pps). Sequential full analysis is close (~1.42M pps). 4 and 8 workers show diminishing returns due to flow-based hashing concentrating connection traffic on a single worker.
 
 ### Network Capacity
 
-> **Projections, not measurements** — CPU values below are `target_pps / measured_pps × 100`, not run under sustained packet load. Server-grade hardware typically performs 30–80% better than this 8-core laptop; see the [master README](README.md) for methodology details.
+> **Projections, not measurements** — CPU values below are `target_pps / measured_pps × 100`, not run under sustained packet load. Server-grade hardware typically performs 30–80% better; see the [master README](README.md) for methodology details.
 
 | Scenario | Sequential | 2 Workers | 4 Workers | 8 Workers |
 |----------|-----------|-----------|-----------|-----------|
-| 1 Gbps (81,274 pps) | ~11.3% ✓ | ~5.3% ✓ | ~7.5% ✓ | ~8.3% ✓ |
-| 10 Gbps (812,740 pps) | ~113% **[OVERLOAD]** | ~52.6% ✓ | ~74.8% ✓ | ~82.7% ✓ |
+| 1 Gbps (81,274 pps) | ~5.7% ✓ | ~5.3% ✓ | ~5.7% ✓ | ~6.0% ✓ |
+| 10 Gbps (812,740 pps) | ~57% ✓ | ~53% ✓ | ~57% ✓ | ~60% ✓ |
 
-**1 Gbps projects comfortably across any configuration including sequential**. **10 Gbps projects to require at least 2 workers** — sequential extrapolates above 100% CPU at full analysis on a single core.
+**1 Gbps and 10 Gbps project comfortably across sequential and parallel configurations** on this hardware.
 
 ## Key Findings
 
 ### Performance Characteristics
 
 1. **Fast parsing**: HTTP packet structure validation in ~4 nanoseconds
-2. **Flow processing**: Complete analysis in ~1.39 µs per packet (sequential, full analysis with matching)
-3. **Matching cost**: Browser/server DB lookups add ~30–35% per packet — disable if not needed
-4. **Parallel efficiency**: 2 workers provides 2.15x speedup; beyond 2 workers shows diminishing returns due to flow-based hashing
-5. **10 Gbps projects to need 2 workers**: Sequential extrapolates to ~113% CPU at line rate; 2 workers projects to ~53%
+2. **Flow processing**: Complete analysis in ~704 ns per packet (sequential, full analysis with matching)
+3. **Matching cost**: Browser matching ~0%; server matching ~16%
+4. **Parallel efficiency**: 2 workers ~1.08× sequential; beyond 2 workers shows diminishing returns due to flow-based hashing
+5. **10 Gbps capacity**: Sequential projects to ~57% CPU; 2 workers project to ~53%
 
 ### Architectural Insights
 
 HTTP processing relies on stateful flow tracking (per-connection `TtlCache`) and flow-based hashing that routes same-connection packets to the same worker, which is required for correct HTTP request/response pairing.
 
-This limits parallel scaling compared to stateless protocols (parallel adds only ~2.15x vs ~3–4x for stateless), but 2 workers comfortably handles 10 Gbps so this is rarely a practical concern.
+This limits parallel scaling compared to stateless protocols, but sequential and 2-worker modes both project to handle 10 Gbps with headroom on this hardware.
 
 ## Running Benchmarks
 
 ```bash
-cargo bench --bench bench_http
+cargo bench -p huginn-net-http --features full --bench bench_http
 ```
 
 For multi-run statistical analysis (5 sessions, median across runs):
 
 ```bash
-./benches/run_bench.sh http 5
+./benches/run_bench.sh http
 ```
 
 Use **Criterion output** for analysis, not the inline summary report (which uses fewer iterations and includes construction overhead).
 
 ---
 
-*Hardware: x86_64, 8-core laptop. Absolute numbers are hardware-specific; ratios and overheads transfer across machines.*
+*Hardware: x86_64, 14 CPUs. Absolute numbers are hardware-specific; ratios and overheads transfer across machines.*
