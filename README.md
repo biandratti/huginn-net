@@ -121,14 +121,17 @@ Optional packet filtering by port and/or IP address for improved performance. Fi
 
 ### Matching Quality
 
-Each match gets a quality score based on the **distance** between the observed packet and the closest known signature. A richer database means better scores.
+Database matching follows p0f-style **tier selection**, not a continuous distance score. Each signature field is a pass/fail gate; a candidate that fails any gate is rejected, not ranked lower.
 
-#### Quality Metrics
-- **Perfect Match (1.0)**: Exact signature match with zero distance
-- **High Quality (0.8-0.95)**: Very close match with minimal differences
-- **Medium Quality (0.6-0.8)**: Good match with some variations
-- **Low Quality (0.4-0.6)**: Acceptable match but with notable differences
-- **Poor Quality (<0.4)**: Weak match, use with caution
+The reported `quality` is a **tier label** (ordering matters; values may be recalibrated):
+
+- **1.0** — exact fit on a **specified** signature (concrete product/OS)
+- **0.8** — exact fit on a **generic** catch-all signature
+- **0.5** — **fuzzy** fit (TCP only): the signature holds only after documented tolerances (e.g. missing `df`/`id+`, extra `id-`/`ecn`, implausible TTL hop distance)
+
+Other outcomes: **NotMatched** (matcher active, nothing fit) and **Disabled** (no matcher attached). On TCP, fuzzy matches also surface in `Params:` (`fuzzy (…)`, `generic`, `random_ttl`, `excess_dist`, `tos:0xNN`). HTTP signatures must fit exactly — there is no fuzzy tier.
+
+A richer database improves **coverage** (more traffic gets a label), not a higher score on the same observation.
 
 ## Companion: huginn-proxy
 
