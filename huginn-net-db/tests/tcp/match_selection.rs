@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 
 use huginn_net_db::database::{FingerprintCollection, Label, TcpIndexKey, Type};
 use huginn_net_db::db_matching_trait::FingerprintDb;

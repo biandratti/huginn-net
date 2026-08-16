@@ -1,4 +1,3 @@
-#![cfg(feature = "http")]
 //! `expsw` is p0f's "expected software" field: what the matched signature
 //! claims the software is. It is checked *after* a signature wins, and its
 //! only effect is to flag the host as dishonest, never to reject or demote

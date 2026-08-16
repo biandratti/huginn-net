@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 //! `Dist:` / `params` from a TCP match: hop distance, `random_ttl`, `excess_dist`, `tos`.
 
 use huginn_net_db::database::{FingerprintCollection, Label, Type};

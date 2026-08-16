@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use huginn_net_tcp::output::{MatchQuality, TcpAnalysisResult};

@@ -1,4 +1,3 @@
-#![cfg(all(feature = "tcp", feature = "http"))]
 use huginn_net_db::Database;
 
 #[test]

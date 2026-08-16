@@ -1,4 +1,3 @@
-#![cfg(feature = "http")]
 use huginn_net_db::db_matching_trait::FingerprintDb;
 use huginn_net_db::{http, HttpDatabase, Type};
 use huginn_net_http::matcher_api::HttpMatcher;

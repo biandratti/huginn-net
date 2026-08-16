@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 //! Frozen list of same-tier exact ambiguities in the embedded `p0f.fp`.
 //!
 //! Selection is first-match-wins within a tier, so these pairs are decided only

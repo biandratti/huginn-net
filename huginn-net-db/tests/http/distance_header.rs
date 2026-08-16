@@ -1,4 +1,3 @@
-#![cfg(feature = "http")]
 use huginn_net_db::http::headers_match;
 use huginn_net_db::http::Header;
 

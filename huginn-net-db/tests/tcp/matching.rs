@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 use huginn_net_db::db_matching_trait::{DatabaseSignature, SignatureFit};
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, Signature, Ttl, WindowSize};
 use huginn_net_tcp::observable::TcpObservation;

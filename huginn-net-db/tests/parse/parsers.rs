@@ -1,4 +1,3 @@
-#![cfg(all(feature = "tcp", feature = "http"))]
 use huginn_net_db::http::{
     Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion,
 };

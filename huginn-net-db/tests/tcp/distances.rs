@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 use huginn_net_db::tcp::{ttl_fit, window_size_matches, Ttl, TtlFit, WindowSize, MAX_TTL_DISTANCE};
 use huginn_net_tcp::tcp::WindowMultiplier;
 

@@ -1,4 +1,3 @@
-#![cfg(feature = "tcp")]
 
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
