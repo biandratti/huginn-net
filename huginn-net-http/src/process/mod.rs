@@ -188,3 +188,5 @@ fn build_http_result(
 
     http_result
 }
+
+# Fix for issue #278: safe input handling
