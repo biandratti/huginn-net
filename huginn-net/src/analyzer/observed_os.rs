@@ -1,8 +1,7 @@
 //! SYN OS remembered for later HTTP `NAT_APP_UA` checks.
 //!
-//! Key is `(ip, port)` — this connection. No IP-only index. Not the TCP
-//! `ConnectionTracker` (uptime / SYN+ACK only). Lives in the umbrella so
-//! `huginn-net-http` stays cache-free.
+//! Key is `(ip, port)`, this connection. No IP-only index. Not the TCP
+//! `ConnectionTracker` (uptime / SYN+ACK only). Lives in the umbrella.
 
 use huginn_net_http::ObservedOs;
 use std::net::IpAddr;

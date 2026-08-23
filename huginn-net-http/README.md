@@ -34,7 +34,7 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **Browser Detection** - Identify browsers from HTTP request headers
 - **Web Server Detection** - Identify servers from HTTP response headers
 - **Language Detection** - Extract preferred languages from Accept-Language headers
-- **UA vs observed OS** - Optional `ObservedOsSource` (via `with_observed_os`) compares the User-Agent OS to the OS seen on the wire (`HttpRequestOutput.ua_os`, p0f `NAT_APP_UA`)
+- **UA vs observed OS** - HTTP only compares if you plug an `ObservedOsSource` (`with_observed_os`). It does not see TCP. The [umbrella](../huginn-net/README.md) (`db` + `tcp-syn`) feeds this connection's SYN into `HttpRequestOutput.ua_os`.
 - **HTTP/1.x & HTTP/2** - Support for both major HTTP versions
 - **Quality Scoring** - Confidence metrics for all matches
 - **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
@@ -139,11 +139,11 @@ so external consumers can keep using them.
 Database support is opt-in at the dependency level by adding
 `huginn-net-db` and calling
 [`HuginnNetHttp::with_matcher`](https://docs.rs/huginn-net-http/latest/huginn_net_http/struct.HuginnNetHttp.html#method.with_matcher).
-To compare the User-Agent OS against a network-observed OS, also plug an
+To compare the User-Agent OS against a network-observed OS, plug an
 [`ObservedOsSource`](https://docs.rs/huginn-net-http/latest/huginn_net_http/trait.ObservedOsSource.html)
-via `with_observed_os`. Without one, `HttpRequestOutput.ua_os` reports
-`NotChecked` (the reason says whether a source was missing or an earlier
-gate failed).
+via `with_observed_os`. HTTP does not read SYN itself. Use
+[`huginn-net`](../huginn-net/README.md) with `db` + `tcp-syn` if you want
+that wiring done for you. Without a source, `ua_os` is `NotChecked`.
 
 ### Basic Usage, with database (browser/server fingerprinting)
 
