@@ -1,5 +1,5 @@
 use super::common::{Browser, IpPort, MatchQuality};
-use crate::http::HttpParams;
+use crate::http::{HttpParams, UaOsAgreement};
 use crate::observable::ObservableHttpRequest;
 use std::fmt;
 use std::fmt::Formatter;
@@ -28,6 +28,8 @@ pub struct HttpRequestOutput {
     pub params: HttpParams,
     /// The browser with the highest quality that matches the HTTP request.
     pub browser_matched: BrowserQualityMatched,
+    /// User-Agent OS vs the OS observed on the network (p0f `NAT_APP_UA`).
+    pub ua_os: UaOsAgreement,
     /// The raw signature representing the HTTP headers and their order.
     #[cfg_attr(feature = "json", serde(serialize_with = "super::serialize_display"))]
     pub sig: ObservableHttpRequest,
@@ -41,6 +43,7 @@ impl fmt::Display for HttpRequestOutput {
               Browser: {}\n\
               Lang:    {}\n\
               Params:  {}\n\
+              UA/OS:   {}\n\
               Sig:     {}\n",
             self.source.ip,
             self.source.port,
@@ -62,6 +65,7 @@ impl fmt::Display for HttpRequestOutput {
                 }),
             self.lang.as_deref().unwrap_or("???"),
             self.params,
+            self.ua_os,
             self.sig,
         )
     }

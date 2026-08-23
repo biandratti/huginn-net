@@ -2,12 +2,17 @@ pub mod flow;
 pub mod parallel;
 
 pub use flow::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
-pub use parallel::{DispatchResult, PoolStats, SharedHttpMatcher, WorkerPool, WorkerStats};
+pub use parallel::{
+    DispatchResult, PoolStats, SharedHttpMatcher, SharedObservedOsSource, WorkerPool, WorkerStats,
+};
 
 use self::flow as http_process;
 use crate::error::HuginnNetHttpError;
+use crate::http::ObservedOsSource;
 #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use crate::http::{build_params, MatchedSignatureNotes};
+#[cfg(feature = "p0f-request")]
+use crate::http::{check_ua_os_agreement, ObservedOsInput};
 use crate::matcher_api::HttpMatcher;
 #[cfg(feature = "p0f-request")]
 use crate::output::{BrowserQualityMatched, HttpRequestOutput};
@@ -36,9 +41,10 @@ pub fn process_ipv4_packet(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
+    os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
     let observable_package =
-        create_observable_package_ipv4(ipv4, http_flows, http_processors, matcher)?;
+        create_observable_package_ipv4(ipv4, http_flows, http_processors, matcher, os_source)?;
     Ok(observable_package.http_result)
 }
 
@@ -47,6 +53,7 @@ fn create_observable_package_ipv4(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
+    os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<ObservablePackage, HuginnNetHttpError> {
     let tcp = TcpPacket::new(ipv4.payload())
         .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
@@ -57,7 +64,8 @@ fn create_observable_package_ipv4(
 
     let http_package = http_process::process_http_ipv4(ipv4, http_flows, http_processors)?;
 
-    let http_result = build_http_result(http_package, source.clone(), destination.clone(), matcher);
+    let http_result =
+        build_http_result(http_package, source.clone(), destination.clone(), matcher, os_source);
 
     Ok(ObservablePackage { source, destination, http_result })
 }
@@ -69,9 +77,10 @@ pub fn process_ipv6_packet(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
+    os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
     let observable_package =
-        create_observable_package_ipv6(ipv6, http_flows, http_processors, matcher)?;
+        create_observable_package_ipv6(ipv6, http_flows, http_processors, matcher, os_source)?;
     Ok(observable_package.http_result)
 }
 
@@ -80,6 +89,7 @@ fn create_observable_package_ipv6(
     http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
     http_processors: &http_process::HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
+    os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<ObservablePackage, HuginnNetHttpError> {
     let tcp = TcpPacket::new(ipv6.payload())
         .ok_or_else(|| HuginnNetHttpError::Parse("Invalid TCP packet".to_string()))?;
@@ -90,7 +100,8 @@ fn create_observable_package_ipv6(
 
     let http_package = http_process::process_http_ipv6(ipv6, http_flows, http_processors)?;
 
-    let http_result = build_http_result(http_package, source.clone(), destination.clone(), matcher);
+    let http_result =
+        build_http_result(http_package, source.clone(), destination.clone(), matcher, os_source);
 
     Ok(ObservablePackage { source, destination, http_result })
 }
@@ -104,15 +115,18 @@ fn build_http_result(
     source: IpPort,
     destination: IpPort,
     matcher: Option<&dyn HttpMatcher>,
+    os_source: Option<&dyn ObservedOsSource>,
 ) -> HttpAnalysisResult {
     #[cfg(not(any(feature = "p0f-request", feature = "p0f-response")))]
-    let _ = (&http_package, &source, &destination, &matcher);
+    let _ = (&http_package, &source, &destination, &matcher, &os_source);
+    #[cfg(all(feature = "p0f-response", not(feature = "p0f-request")))]
+    let _ = os_source;
 
     let mut http_result = HttpAnalysisResult::empty();
 
     #[cfg(feature = "p0f-request")]
     if let Some(http_request) = http_package.http_request {
-        let (browser_quality, notes) = match matcher {
+        let (browser_quality, notes, req_match) = match matcher {
             Some(m) => match m.match_http_request(&http_request.matching) {
                 Some(req_match) => {
                     let notes = MatchedSignatureNotes {
@@ -121,20 +135,31 @@ fn build_http_result(
                     };
                     (
                         BrowserQualityMatched {
-                            browser: Some(req_match.browser),
+                            browser: Some(req_match.browser.clone()),
                             quality: MatchQuality::Matched(req_match.quality),
                         },
                         Some(notes),
+                        Some(req_match),
                     )
                 }
                 None => (
                     BrowserQualityMatched { browser: None, quality: MatchQuality::NotMatched },
                     None,
+                    None,
                 ),
             },
-            None => {
-                (BrowserQualityMatched { browser: None, quality: MatchQuality::Disabled }, None)
-            }
+            None => (
+                BrowserQualityMatched { browser: None, quality: MatchQuality::Disabled },
+                None,
+                None,
+            ),
+        };
+
+        let owned_os = os_source.and_then(|s| s.observed_os(source.ip, source.port));
+        let observed = match (os_source, owned_os.as_ref()) {
+            (None, _) => ObservedOsInput::NoSource,
+            (Some(_), None) => ObservedOsInput::Missing,
+            (Some(_), Some(os)) => ObservedOsInput::Present(os),
         };
 
         let request_output = HttpRequestOutput {
@@ -143,6 +168,12 @@ fn build_http_result(
             lang: http_request.lang.clone(),
             params: build_params(&http_request.matching.expsw, notes),
             browser_matched: browser_quality,
+            ua_os: check_ua_os_agreement(
+                http_request.user_agent.as_deref(),
+                req_match.as_ref(),
+                matcher,
+                observed,
+            ),
             sig: http_request,
         };
         http_result.http_request = Some(request_output);

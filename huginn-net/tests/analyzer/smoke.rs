@@ -6,7 +6,7 @@
 //! that the umbrella crate correctly wires and combines both protocols in a
 //! single `FingerprintResult`.
 
-use huginn_net::{Database, HuginnNet, TcpMatchQuality};
+use huginn_net::{Database, HuginnNet, NotCheckedReason, TcpMatchQuality, UaOsAgreement};
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
 use huginn_net_tcp::tcp::{Quirk, QuirkSet};
 use std::path::Path;
@@ -104,6 +104,11 @@ fn e2e_http_pcap_produces_both_tcp_and_http_results() {
         matches!(req.browser_matched.quality, HttpMatchQuality::Matched(_)),
         "browser quality must be Matched, got {:?}",
         req.browser_matched.quality
+    );
+    assert!(
+        !matches!(req.ua_os, UaOsAgreement::NotChecked(NotCheckedReason::NoSource)),
+        "SYN OS must be wired into the request check, got {}",
+        req.ua_os
     );
 
     let resp = results

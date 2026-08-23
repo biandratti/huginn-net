@@ -27,6 +27,7 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 - **Production-ready parallel processing** - Use protocol-specific crates with multi-threaded worker pools for high-throughput live capture
 - **Typed observable data access** - Access to typed TCP signatures, HTTP headers, TLS extensions, and other observable signals for custom fingerprinting and analysis
 - **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTcp`, `ObservableHttpRequest/Response`, `ObservableTlsClient`) without being limited to predefined signatures
+- **UA vs TCP OS** - With `db` + `tcp-syn`, compare the User-Agent OS to this connection's SYN (`HttpRequestOutput.ua_os`)
 
 ## Quick Start
 
@@ -61,7 +62,7 @@ consume, or use `full` to opt into everything this version offers:
 | `tcp-syn-ack` | No | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
 | `tcp-mtu` | No | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
 | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
-| `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`). |
+| `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`, `UaOsAgreement`). With `db` + `tcp-syn`, the umbrella feeds that connection's SYN OS into `ua_os`. |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
 | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
 | `json` | No | Derives `serde::Serialize` on all output types (`FingerprintResult` and its fields). Enables JSON serialization via `serde_json`. Independent of `full` — opt in explicitly: `features = ["full", "json"]`. |
@@ -272,6 +273,7 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
   Browser: Firefox:10.x or newer
   Lang:    English
   Params:  none
+  UA/OS:   consistent (Linux)
   Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
 
 [HTTP Response] 192.168.1.22:58494 → 91.189.91.21:80

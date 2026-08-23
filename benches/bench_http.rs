@@ -346,10 +346,10 @@ fn process_http_packet(
 ) -> Option<huginn_net_http::HttpAnalysisResult> {
     match huginn_net_http::packet_parser::parse_packet(packet) {
         huginn_net_http::packet_parser::IpPacket::Ipv4(ipv4) => {
-            process_ipv4_packet(&ipv4, http_flows, http_processors, matcher).ok()
+            process_ipv4_packet(&ipv4, http_flows, http_processors, matcher, None).ok()
         }
         huginn_net_http::packet_parser::IpPacket::Ipv6(ipv6) => {
-            process_ipv6_packet(&ipv6, http_flows, http_processors, matcher).ok()
+            process_ipv6_packet(&ipv6, http_flows, http_processors, matcher, None).ok()
         }
         huginn_net_http::packet_parser::IpPacket::None => None,
     }
@@ -1044,6 +1044,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                     10,
                     tx,
                     Some(matcher.clone()),
+                    None,
                     1000,
                     None,
                 ) {
@@ -1079,6 +1080,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 10,
                 tx,
                 Some(matcher.clone()),
+                None,
                 1000,
                 None,
             ) {
@@ -1104,6 +1106,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 10,
                 tx,
                 Some(matcher.clone()),
+                None,
                 1000,
                 None,
             ) {
@@ -1129,6 +1132,7 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 10,
                 tx,
                 Some(matcher.clone()),
+                None,
                 1000,
                 None,
             ) {

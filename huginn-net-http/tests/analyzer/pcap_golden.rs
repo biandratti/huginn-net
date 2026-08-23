@@ -32,6 +32,7 @@ struct HttpRequestSnapshot {
     user_agent: Option<String>,
     method: Option<String>,
     uri: Option<String>,
+    raw_signature: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -147,6 +148,14 @@ fn assert_connection_matches_snapshot(
                 "Connection {connection_index}: HTTP URI mismatch"
             );
         }
+
+        if let Some(expected_sig) = &expected_request.raw_signature {
+            assert_eq!(
+                &actual_request.sig.to_string(),
+                expected_sig,
+                "Connection {connection_index}: HTTP raw_signature mismatch"
+            );
+        }
     }
 
     if let Some(expected_response) = &expected.http_response {
@@ -214,9 +223,8 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
 fn test_golden_http_snapshots() {
     let golden_test_cases = [
         "http-simple-get",
-        // Add more PCAP files here as golden tests:
-        // "http-post",
-        // "http-headers",
+        "ua-os-divergent-linux-syn-windows-ua",
+        "ua-os-consistent-linux-syn-linux-ua",
     ];
 
     for pcap_file in golden_test_cases {

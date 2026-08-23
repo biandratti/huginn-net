@@ -1,4 +1,7 @@
 mod matchers;
+#[cfg(all(feature = "db", feature = "tcp-syn", feature = "http-p0f-request"))]
+#[doc(hidden)]
+pub mod observed_os;
 use matchers::cache_sizes;
 #[cfg(feature = "http-p0f-request")]
 use matchers::HttpRequestMatchResult;
@@ -116,6 +119,8 @@ pub struct HuginnNet<'a> {
     connection_tracker: ConnectionTracker,
     http_flows: TtlCache<FlowKey, TcpFlow>,
     http_processors: HttpProcessors,
+    #[cfg(all(feature = "db", feature = "tcp-syn", feature = "http-p0f-request"))]
+    observed_os: observed_os::ObservedOsCache,
     pub(crate) config: AnalysisConfig,
     filter_config: Option<FilterConfig>,
     #[cfg(not(feature = "db"))]
@@ -179,6 +184,8 @@ impl<'a> HuginnNet<'a> {
             connection_tracker: ConnectionTracker::new(connection_tracker_size),
             http_flows: TtlCache::new(http_flows_size),
             http_processors: HttpProcessors::new(),
+            #[cfg(all(feature = "tcp-syn", feature = "http-p0f-request"))]
+            observed_os: observed_os::ObservedOsCache::new(connection_tracker_size),
             config,
             filter_config: None,
         })
@@ -396,6 +403,14 @@ impl<'a> HuginnNet<'a> {
                 let syn: Option<SynTCPOutput> =
                     observable_package.tcp_request.map(|observable_tcp| {
                         let os_quality = self.match_tcp_request(&observable_tcp);
+                        #[cfg(all(feature = "db", feature = "http-p0f-request"))]
+                        if let Some(os) = os_quality.os.as_ref() {
+                            self.observed_os.remember(
+                                observable_package.source.ip,
+                                observable_package.source.port,
+                                os.name.clone(),
+                            );
+                        }
 
                         SynTCPOutput {
                             source: huginn_net_tcp::output::IpPort::new(
@@ -473,8 +488,29 @@ impl<'a> HuginnNet<'a> {
                     observable_package
                         .http_request
                         .map(|observable_http_request| {
-                            let HttpRequestMatchResult { browser_quality, params } =
-                                self.match_http_request(&observable_http_request);
+                            #[cfg(all(feature = "db", feature = "tcp-syn"))]
+                            let observed_os = if self.config.tcp_enabled {
+                                self.observed_os.lookup(
+                                    observable_package.source.ip,
+                                    observable_package.source.port,
+                                )
+                            } else {
+                                None
+                            };
+                            #[cfg(all(feature = "db", feature = "tcp-syn"))]
+                            let observed = if self.config.tcp_enabled {
+                                match observed_os.as_ref() {
+                                    Some(os) => huginn_net_http::ObservedOsInput::Present(os),
+                                    None => huginn_net_http::ObservedOsInput::Missing,
+                                }
+                            } else {
+                                huginn_net_http::ObservedOsInput::NoSource
+                            };
+                            #[cfg(not(all(feature = "db", feature = "tcp-syn")))]
+                            let observed = huginn_net_http::ObservedOsInput::NoSource;
+
+                            let HttpRequestMatchResult { browser_quality, params, ua_os } =
+                                self.match_http_request(&observable_http_request, observed);
 
                             HttpRequestOutput {
                                 source: huginn_net_http::output::IpPort::new(
@@ -488,6 +524,7 @@ impl<'a> HuginnNet<'a> {
                                 lang: observable_http_request.lang.clone(),
                                 browser_matched: browser_quality,
                                 params,
+                                ua_os,
                                 sig: observable_http_request,
                             }
                         });

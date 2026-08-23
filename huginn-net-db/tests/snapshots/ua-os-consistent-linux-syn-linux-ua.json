@@ -1,0 +1,44 @@
+{
+  "pcap_file": "ua-os-consistent-linux-syn-linux-ua.pcap",
+  "pcap_path": "../pcap/ua-os-consistent-linux-syn-linux-ua.pcap",
+  "expected_connections": 2,
+  "connections": [
+    {
+      "source": {
+        "ip": "127.0.0.1",
+        "port": 36210
+      },
+      "destination": {
+        "ip": "127.0.0.1",
+        "port": 18765
+      },
+      "http_request": {
+        "browser": "Chrome",
+        "quality": "Matched(1.0)",
+        "params": "none",
+        "lang": "English",
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "method": "GET",
+        "uri": "/",
+        "raw_signature": "1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],Accept-Encoding=[gzip,deflate,sdch],Accept-Language=[en-US,en;q=0.8],Accept-Charset=[utf-8;q=0.7,*;q=0.3]:Keep-Alive:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+      },
+      "http_response": null
+    },
+    {
+      "source": {
+        "ip": "127.0.0.1",
+        "port": 18765
+      },
+      "destination": {
+        "ip": "127.0.0.1",
+        "port": 36210
+      },
+      "http_request": null,
+      "http_response": {
+        "quality": "NotMatched",
+        "status_code": 200,
+        "headers_count": 4
+      }
+    }
+  ]
+}

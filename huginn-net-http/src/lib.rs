@@ -8,7 +8,9 @@
 //! pulling in `huginn-net-db`. To enable matching against the bundled
 //! signatures, plug a [`HttpMatcher`] implementation
 //! (`huginn-net-db` provides `SharedHttpSignatureMatcher`) via
-//! [`HuginnNetHttp::with_matcher`].
+//! [`HuginnNetHttp::with_matcher`]. An optional [`ObservedOsSource`]
+//! (via [`HuginnNetHttp::with_observed_os`]) compares the User-Agent OS
+//! to the OS seen on the network.
 //!
 //! ## Cargo Features
 //!
@@ -94,8 +96,14 @@ pub use http2::{Http2Frame, Http2FrameType, Http2Parser, HTTP2_CONNECTION_PREFAC
 pub use matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 pub use output::*;
 pub use process::{process_ipv4_packet, process_ipv6_packet};
-pub use process::{DispatchResult, PoolStats, SharedHttpMatcher, WorkerPool, WorkerStats};
+pub use process::{
+    DispatchResult, PoolStats, SharedHttpMatcher, SharedObservedOsSource, WorkerPool, WorkerStats,
+};
 pub use process::{FlowKey, HttpProcessors, TcpFlow};
+pub use ua_os::{
+    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource,
+    UaOsAgreement,
+};
 
 // ---------------------------------------------------------------------------
 // Public module aliases
@@ -113,6 +121,10 @@ pub mod display {
 
 pub mod http_common {
     pub use crate::http::common::*;
+}
+
+pub mod ua_os {
+    pub use crate::http::ua_os::*;
 }
 
 pub mod http_languages {

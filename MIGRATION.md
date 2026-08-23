@@ -31,12 +31,28 @@ os_matched.params()                               // "generic" | "fuzzy (…)" |
 // HTTP notes
 output.diagnosis                                  // v2.0 HttpDiagnosis
 output.params.dishonest                           // v2.1 HttpParams flags
+HttpRequestOutput { … }                           // v2.0
+HttpRequestOutput { …, ua_os }                    // v2.1 UaOsAgreement (p0f-request)
+process_ipv4_packet(..., matcher)                 // v2.0
+process_ipv4_packet(..., matcher, os_source)      // v2.1; pass None if unused
+process_ipv6_packet(..., matcher, os_source)      // same extra argument
+WorkerPool::new(..., matcher)                     // v2.0
+WorkerPool::new(..., matcher, os_source)          // v2.1; pass None if unused
+HuginnNetHttp::with_matcher(m)                    // v2.0
+HuginnNetHttp::with_matcher(m).with_observed_os(s) // v2.1 optional NAT_APP_UA source
 
 // observation
 wsize: WindowSize::Mss(44)                        // v2.0, classified at parse
 wsize: 64240, tot_hdr, peer_mss, tos, quirks: QuirkSet  // v2.1
 observation.window_multiplier()
 ```
+
+### `HttpRequestOutput.ua_os`
+
+Required (`p0f-request`). `NotChecked` / `Consistent` / `Divergent`.
+`Divergent` is NAT/proxy (`bad_sw=1`), not `params.dishonest`.
+`HuginnNet` with `db` + `tcp-syn` fills it from this connection's SYN;
+pass `os_source: None` if unused.
 
 Only SYN / SYN+ACK emit a TCP OS signal (not every ACK). `syn-ack` tracks
 handshake state (`peer_mss`, one fingerprint per flow).
