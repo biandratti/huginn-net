@@ -1,10 +1,14 @@
 use crate::error::HuginnNetHttpError;
 use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
+use crate::http::ObservedOsSource;
 use crate::matcher_api::HttpMatcher;
 use crate::output::HttpAnalysisResult;
 use crate::parser::packet::{parse_packet, IpPacket};
-use crate::process::{FlowKey, HttpProcessors, PoolStats, SharedHttpMatcher, TcpFlow, WorkerPool};
+use crate::process::{
+    FlowKey, HttpProcessors, PoolStats, SharedHttpMatcher, SharedObservedOsSource, TcpFlow,
+    WorkerPool,
+};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
@@ -76,6 +80,7 @@ pub struct HuginnNetHttp {
     parallel_config: Option<ParallelConfig>,
     worker_pool: Option<Arc<WorkerPool>>,
     matcher: Option<SharedHttpMatcher>,
+    os_source: Option<SharedObservedOsSource>,
     max_connections: usize,
     filter_config: Option<FilterConfig>,
 }
@@ -92,6 +97,7 @@ impl HuginnNetHttp {
             parallel_config: None,
             worker_pool: None,
             matcher: None,
+            os_source: None,
             max_connections,
             filter_config: None,
         }
@@ -125,6 +131,17 @@ impl HuginnNetHttp {
         self
     }
 
+    /// Plug an observed-OS source for UA vs network-OS agreement
+    /// (p0f `NAT_APP_UA`).
+    ///
+    /// Without a source, `analyze_*` still returns HTTP signals and the
+    /// `ua_os` field reports [`crate::NotCheckedReason::NoSource`] once the
+    /// HTTP-side gates pass.
+    pub fn with_observed_os(mut self, os_source: SharedObservedOsSource) -> Self {
+        self.os_source = Some(os_source);
+        self
+    }
+
     /// Configure packet filtering (builder pattern)
     pub fn with_filter(mut self, config: FilterConfig) -> Self {
         self.filter_config = Some(config);
@@ -146,6 +163,7 @@ impl HuginnNetHttp {
                 config.timeout_ms,
                 result_tx,
                 self.matcher.clone(),
+                self.os_source.clone(),
                 self.max_connections,
                 self.filter_config.clone(),
             )?;
@@ -333,6 +351,10 @@ impl HuginnNetHttp {
 
         let matcher: Option<&dyn HttpMatcher> =
             self.matcher.as_deref().map(|m| m as &dyn HttpMatcher);
+        let os_source: Option<&dyn ObservedOsSource> = self
+            .os_source
+            .as_deref()
+            .map(|s| s as &dyn ObservedOsSource);
 
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => crate::process::process_ipv4_packet(
@@ -340,12 +362,14 @@ impl HuginnNetHttp {
                 &mut self.http_flows,
                 &self.http_processors,
                 matcher,
+                os_source,
             ),
             IpPacket::Ipv6(ipv6) => crate::process::process_ipv6_packet(
                 &ipv6,
                 &mut self.http_flows,
                 &self.http_processors,
                 matcher,
+                os_source,
             ),
             IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }

@@ -473,7 +473,7 @@ impl<'a> HuginnNet<'a> {
                     observable_package
                         .http_request
                         .map(|observable_http_request| {
-                            let HttpRequestMatchResult { browser_quality, params } =
+                            let HttpRequestMatchResult { browser_quality, params, ua_os } =
                                 self.match_http_request(&observable_http_request);
 
                             HttpRequestOutput {
@@ -488,6 +488,7 @@ impl<'a> HuginnNet<'a> {
                                 lang: observable_http_request.lang.clone(),
                                 browser_matched: browser_quality,
                                 params,
+                                ua_os,
                                 sig: observable_http_request,
                             }
                         });

@@ -9,6 +9,7 @@ use super::flow::{FlowKey, HttpProcessors, TcpFlow};
 use crate::error::HuginnNetHttpError;
 use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
+use crate::http::ObservedOsSource;
 use crate::matcher_api::HttpMatcher;
 use crate::output::HttpAnalysisResult;
 use crate::parser::hash as packet_hash;
@@ -24,6 +25,10 @@ use ttl_cache::TtlCache;
 /// [`crate::HuginnNetHttp`]. The reference implementation is provided by
 /// `huginn-net-db` (`SharedHttpSignatureMatcher`).
 pub type SharedHttpMatcher = Arc<dyn HttpMatcher + Send + Sync>;
+
+/// Shared, thread-safe observed-OS source used by [`WorkerPool`] and
+/// [`crate::HuginnNetHttp`]. Mirrors [`SharedHttpMatcher`].
+pub type SharedObservedOsSource = Arc<dyn ObservedOsSource + Send + Sync>;
 
 /// Worker configuration parameters
 struct WorkerConfig {
@@ -80,6 +85,7 @@ impl WorkerPool {
     /// - `timeout_ms`: Worker receive timeout in milliseconds
     /// - `result_sender`: Channel to send analysis results
     /// - `matcher`: Optional shared signature matcher
+    /// - `os_source`: Optional shared observed-OS source (p0f `NAT_APP_UA`)
     /// - `max_connections`: Maximum HTTP flows to track per worker
     /// - `filter_config`: Optional filter configuration for packet filtering
     ///
@@ -93,6 +99,7 @@ impl WorkerPool {
         timeout_ms: u64,
         result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         matcher: Option<SharedHttpMatcher>,
+        os_source: Option<SharedObservedOsSource>,
         max_connections: usize,
         filter_config: Option<FilterConfig>,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
@@ -112,6 +119,7 @@ impl WorkerPool {
 
             let result_sender_clone = result_sender.clone();
             let matcher_clone = matcher.clone();
+            let os_source_clone = os_source.clone();
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
             let worker_filter = filter_config.clone();
             let dropped_clone = Arc::clone(dropped_slot);
@@ -124,6 +132,7 @@ impl WorkerPool {
                         rx,
                         result_sender_clone,
                         matcher_clone,
+                        os_source_clone,
                         dropped_clone,
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
@@ -157,6 +166,7 @@ impl WorkerPool {
         rx: crossbeam_channel::Receiver<Vec<u8>>,
         result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
         matcher: Option<SharedHttpMatcher>,
+        os_source: Option<SharedObservedOsSource>,
         dropped: Arc<AtomicU64>,
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
@@ -191,12 +201,15 @@ impl WorkerPool {
 
                     let matcher_ref: Option<&dyn HttpMatcher> =
                         matcher.as_deref().map(|m| m as &dyn HttpMatcher);
+                    let os_source_ref: Option<&dyn ObservedOsSource> =
+                        os_source.as_deref().map(|s| s as &dyn ObservedOsSource);
                     for packet in batch.drain(..) {
                         match Self::process_packet(
                             &packet,
                             &mut http_flows,
                             &http_processors,
                             matcher_ref,
+                            os_source_ref,
                             filter_config.as_ref(),
                         ) {
                             Ok(result) => {
@@ -236,6 +249,7 @@ impl WorkerPool {
         http_flows: &mut TtlCache<FlowKey, TcpFlow>,
         http_processors: &HttpProcessors,
         matcher: Option<&dyn HttpMatcher>,
+        os_source: Option<&dyn ObservedOsSource>,
         filter: Option<&FilterConfig>,
     ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
         if let Some(filter_cfg) = filter {
@@ -250,10 +264,10 @@ impl WorkerPool {
 
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => {
-                process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher)
+                process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher, os_source)
             }
             IpPacket::Ipv6(ipv6) => {
-                process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher)
+                process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher, os_source)
             }
             IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }

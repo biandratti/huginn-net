@@ -1,6 +1,8 @@
 use super::HuginnNet;
 #[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
 use huginn_net_http::http::{build_params, HttpParams};
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::http::{check_ua_os_agreement, ObservedOsInput, UaOsAgreement};
 // Notes about a matched signature only exist when there is a database to match
 // against.
 #[cfg(all(
@@ -63,6 +65,7 @@ use crate::AnalysisConfig;
 pub(super) struct HttpRequestMatchResult {
     pub(super) browser_quality: BrowserQualityMatched,
     pub(super) params: HttpParams,
+    pub(super) ua_os: UaOsAgreement,
 }
 
 /// Same, for responses.
@@ -186,7 +189,7 @@ impl<'a> HuginnNet<'a> {
         #[cfg(feature = "db")]
         {
             let observed = &observable_http_request.matching;
-            let (browser_quality, notes) = simple_quality_match!(
+            let (browser_quality, notes, req_match) = simple_quality_match!(
                 enabled: self.config.matcher_enabled,
                 matcher: self.http_matcher,
                 method: match_http_request(observed),
@@ -197,10 +200,11 @@ impl<'a> HuginnNet<'a> {
                     };
                     (
                         BrowserQualityMatched {
-                            browser: Some(found.browser),
+                            browser: Some(found.browser.clone()),
                             quality: HttpMatchQuality::Matched(found.quality),
                         },
                         Some(notes),
+                        Some(found),
                     )
                 },
                 failure: (
@@ -208,6 +212,7 @@ impl<'a> HuginnNet<'a> {
                         browser: None,
                         quality: HttpMatchQuality::NotMatched,
                     },
+                    None,
                     None
                 ),
                 disabled: (
@@ -215,11 +220,23 @@ impl<'a> HuginnNet<'a> {
                         browser: None,
                         quality: HttpMatchQuality::Disabled,
                     },
+                    None,
                     None
                 )
             );
 
-            HttpRequestMatchResult { params: build_params(&observed.expsw, notes), browser_quality }
+            let matcher: Option<&dyn HttpMatcher> =
+                self.http_matcher.as_ref().map(|m| m as &dyn HttpMatcher);
+            HttpRequestMatchResult {
+                params: build_params(&observed.expsw, notes),
+                browser_quality,
+                ua_os: check_ua_os_agreement(
+                    observable_http_request.user_agent.as_deref(),
+                    req_match.as_ref(),
+                    matcher,
+                    ObservedOsInput::NoSource,
+                ),
+            }
         }
         #[cfg(not(feature = "db"))]
         {
@@ -231,6 +248,12 @@ impl<'a> HuginnNet<'a> {
                     browser: None,
                     quality: HttpMatchQuality::Disabled,
                 },
+                ua_os: check_ua_os_agreement(
+                    observable_http_request.user_agent.as_deref(),
+                    None,
+                    None,
+                    ObservedOsInput::NoSource,
+                ),
             }
         }
     }

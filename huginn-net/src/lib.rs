@@ -18,7 +18,7 @@
 //! | `tcp-syn-ack` | No | Pass-through for `huginn-net-tcp/syn-ack`: TCP SYN+ACK fingerprinting (`FingerprintResult::tcp_syn_ack`). |
 //! | `tcp-mtu` | No | Pass-through for `huginn-net-tcp/mtu`: MTU detection (`FingerprintResult::tcp_mtu`). |
 //! | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
-//! | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`]). |
+//! | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`], [`UaOsAgreement`]). |
 //! | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, [`HttpResponseOutput`], [`WebServer`], [`WebServerQualityMatched`]). |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints. |
 //! | `json` | No | Enables [`serde::Serialize`] on [`FingerprintResult`] and analysis output types (pass-through to `huginn-net-tcp/json`, `huginn-net-http/json`, `huginn-net-tls/json`). Not included in `full`. |
@@ -91,6 +91,10 @@ pub use huginn_net_http::output::{
 pub use huginn_net_http::output::{BrowserQualityMatched, HttpRequestOutput};
 #[cfg(feature = "http-p0f-response")]
 pub use huginn_net_http::output::{HttpResponseOutput, WebServerQualityMatched};
+#[cfg(feature = "http-p0f-request")]
+pub use huginn_net_http::{
+    NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsScope, ObservedOsSource, UaOsAgreement,
+};
 
 pub use huginn_net_tls::output::TlsClientOutput;
 pub use huginn_net_tls::ObservableTlsClient;

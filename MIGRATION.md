@@ -31,6 +31,12 @@ os_matched.params()                               // "generic" | "fuzzy (…)" |
 // HTTP notes
 output.diagnosis                                  // v2.0 HttpDiagnosis
 output.params.dishonest                           // v2.1 HttpParams flags
+HttpRequestOutput { … }                           // v2.0
+HttpRequestOutput { …, ua_os }                    // v2.1 UaOsAgreement (p0f-request)
+process_ipv4_packet(..., matcher)                 // v2.0
+process_ipv4_packet(..., matcher, os_source)      // v2.1; pass None if unused
+HuginnNetHttp::with_matcher(m)                    // v2.0
+HuginnNetHttp::with_matcher(m).with_observed_os(s) // v2.1 optional NAT_APP_UA source
 
 // observation
 wsize: WindowSize::Mss(44)                        // v2.0, classified at parse

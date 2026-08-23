@@ -1,6 +1,7 @@
 pub mod common;
 pub mod languages;
 pub mod observable;
+pub mod ua_os;
 
 pub use common::{
     build_params, HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpProcessor,
@@ -8,6 +9,10 @@ pub use common::{
 };
 pub use languages::get_highest_quality_language;
 pub use observable::*;
+pub use ua_os::{
+    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsScope,
+    ObservedOsSource, UaOsAgreement,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Version {
