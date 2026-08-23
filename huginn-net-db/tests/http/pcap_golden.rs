@@ -282,7 +282,8 @@ fn run_golden_test(snapshot_name: &str) {
 fn test_golden_http_pcap_with_matcher() {
     let cases = [
         "http-simple-get",
-        // add more snapshot names here as pcap files are added
+        "ua-os-divergent-linux-syn-windows-ua",
+        "ua-os-consistent-linux-syn-linux-ua",
     ];
     for name in cases {
         run_golden_test(name);

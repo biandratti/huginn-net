@@ -214,9 +214,8 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
 fn test_golden_http_snapshots() {
     let golden_test_cases = [
         "http-simple-get",
-        // Add more PCAP files here as golden tests:
-        // "http-post",
-        // "http-headers",
+        "ua-os-divergent-linux-syn-windows-ua",
+        "ua-os-consistent-linux-syn-linux-ua",
     ];
 
     for pcap_file in golden_test_cases {

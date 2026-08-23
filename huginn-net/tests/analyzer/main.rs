@@ -8,3 +8,4 @@
 
 mod observed_os;
 mod smoke;
+mod ua_os;
