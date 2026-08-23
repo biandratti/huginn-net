@@ -1,6 +1,5 @@
 use huginn_net_http::http::{
-    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsScope,
-    UNKNOWN_SOFTWARE,
+    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, UNKNOWN_SOFTWARE,
 };
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
@@ -55,8 +54,8 @@ fn windows_ua() -> UaOsMatch {
     UaOsMatch { family: "Windows".to_owned(), flavor: None }
 }
 
-fn observed(name: &str, scope: ObservedOsScope) -> ObservedOs {
-    ObservedOs { name: name.to_owned(), scope }
+fn observed(name: &str) -> ObservedOs {
+    ObservedOs { name: name.to_owned() }
 }
 
 fn check(
@@ -79,7 +78,7 @@ fn no_http_match_is_not_checked() {
 fn os_class_signature_is_not_userland() {
     let matched = os_signature();
     let matcher = StubMatcher { request: Some(matched.clone()), ua: Some(windows_ua()) };
-    let os = observed("Linux", ObservedOsScope::Flow);
+    let os = observed("Linux");
     let out = check(
         Some("Mozilla/5.0 (Windows NT 10.0)"),
         Some(&matched),
@@ -110,7 +109,7 @@ fn missing_or_placeholder_ua_is_not_checked() {
 fn dishonest_ua_is_not_checked() {
     let matched = userland(true);
     let matcher = StubMatcher { request: Some(matched.clone()), ua: Some(windows_ua()) };
-    let os = observed("Linux", ObservedOsScope::Flow);
+    let os = observed("Linux");
     let out = check(
         Some("Mozilla/5.0 (Windows NT 10.0)"),
         Some(&matched),
@@ -124,7 +123,7 @@ fn dishonest_ua_is_not_checked() {
 fn ua_not_in_table_is_not_checked() {
     let matched = userland(false);
     let matcher = StubMatcher { request: Some(matched.clone()), ua: None };
-    let os = observed("Linux", ObservedOsScope::Flow);
+    let os = observed("Linux");
     let out = check(
         Some("Mozilla/5.0 (UnknownOS)"),
         Some(&matched),
@@ -164,27 +163,21 @@ fn missing_observed_os_is_not_checked() {
 fn same_names_are_consistent() {
     let matched = userland(false);
     let matcher = StubMatcher { request: Some(matched.clone()), ua: Some(windows_ua()) };
-    let os = observed("Windows", ObservedOsScope::Flow);
+    let os = observed("Windows");
     let out = check(
         Some("Mozilla/5.0 (Windows NT 10.0)"),
         Some(&matched),
         Some(&matcher),
         ObservedOsInput::Present(&os),
     );
-    assert_eq!(
-        out,
-        huginn_net_http::UaOsAgreement::Consistent {
-            os: "Windows".to_owned(),
-            scope: ObservedOsScope::Flow,
-        }
-    );
+    assert_eq!(out, huginn_net_http::UaOsAgreement::Consistent { os: "Windows".to_owned() });
 }
 
 #[test]
 fn different_names_are_divergent() {
     let matched = userland(false);
     let matcher = StubMatcher { request: Some(matched.clone()), ua: Some(windows_ua()) };
-    let os = observed("Linux", ObservedOsScope::Host);
+    let os = observed("Linux");
     let out = check(
         Some("Mozilla/5.0 (Windows NT 10.0)"),
         Some(&matched),
@@ -196,7 +189,6 @@ fn different_names_are_divergent() {
         huginn_net_http::UaOsAgreement::Divergent {
             ua_os: "Windows".to_owned(),
             network_os: "Linux".to_owned(),
-            scope: ObservedOsScope::Host,
         }
     );
 }

@@ -1,5 +1,4 @@
 use huginn_net::analyzer::observed_os::ObservedOsCache;
-use huginn_net::ObservedOsScope;
 use std::net::{IpAddr, Ipv4Addr};
 
 fn ip(a: u8) -> IpAddr {
@@ -7,27 +6,24 @@ fn ip(a: u8) -> IpAddr {
 }
 
 #[test]
-fn exact_port_is_flow_scoped() {
+fn exact_port_is_found() {
     let mut cache = ObservedOsCache::new(8);
     cache.remember(ip(1), 40000, "Linux".to_owned());
     let found = match cache.lookup(ip(1), 40000) {
         Some(os) => os,
-        None => panic!("flow hit"),
+        None => panic!("connection hit"),
     };
     assert_eq!(found.name, "Linux");
-    assert_eq!(found.scope, ObservedOsScope::Flow);
 }
 
 #[test]
-fn same_ip_other_port_is_host_scoped() {
+fn same_ip_other_port_is_missing() {
     let mut cache = ObservedOsCache::new(8);
     cache.remember(ip(1), 40000, "Windows".to_owned());
-    let found = match cache.lookup(ip(1), 50000) {
-        Some(os) => os,
-        None => panic!("host fallback"),
-    };
-    assert_eq!(found.name, "Windows");
-    assert_eq!(found.scope, ObservedOsScope::Host);
+    assert!(
+        cache.lookup(ip(1), 50000).is_none(),
+        "another port on the same IP is a different connection"
+    );
 }
 
 #[test]
@@ -38,17 +34,11 @@ fn unknown_ip_is_missing() {
 }
 
 #[test]
-fn later_syn_updates_both_indexes() {
+fn later_syn_does_not_overwrite_other_ports() {
     let mut cache = ObservedOsCache::new(8);
     cache.remember(ip(1), 40000, "Linux".to_owned());
     cache.remember(ip(1), 40001, "Windows".to_owned());
     assert_eq!(cache.lookup(ip(1), 40000).map(|o| o.name), Some("Linux".to_owned()));
-    assert_eq!(
-        cache.lookup(ip(1), 40001).map(|o| (o.name, o.scope)),
-        Some(("Windows".to_owned(), ObservedOsScope::Flow))
-    );
-    assert_eq!(
-        cache.lookup(ip(1), 9).map(|o| (o.name, o.scope)),
-        Some(("Windows".to_owned(), ObservedOsScope::Host))
-    );
+    assert_eq!(cache.lookup(ip(1), 40001).map(|o| o.name), Some("Windows".to_owned()));
+    assert!(cache.lookup(ip(1), 9).is_none());
 }

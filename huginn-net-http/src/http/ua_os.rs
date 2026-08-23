@@ -8,31 +8,11 @@ use crate::matcher_api::{HttpMatcher, HttpRequestMatch};
 use std::fmt;
 use std::net::IpAddr;
 
-/// Where the observed OS came from, and how ambiguous that is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "json", derive(serde::Serialize))]
-pub enum ObservedOsScope {
-    /// Same TCP connection as this request. Unambiguous.
-    Flow,
-    /// Same client IP, seen earlier. Ambiguous under NAT.
-    Host,
-}
-
-impl fmt::Display for ObservedOsScope {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Flow => "flow",
-            Self::Host => "host",
-        })
-    }
-}
-
-/// OS observed on the network for the client of this request.
+/// OS observed on the network for this connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct ObservedOs {
     pub name: String,
-    pub scope: ObservedOsScope,
 }
 
 /// What the caller satisfies. Mirrors [`HttpMatcher`]: `huginn-net-http`
@@ -95,24 +75,17 @@ impl fmt::Display for NotCheckedReason {
 #[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum UaOsAgreement {
     NotChecked(NotCheckedReason),
-    Consistent {
-        os: String,
-        scope: ObservedOsScope,
-    },
-    Divergent {
-        ua_os: String,
-        network_os: String,
-        scope: ObservedOsScope,
-    },
+    Consistent { os: String },
+    Divergent { ua_os: String, network_os: String },
 }
 
 impl fmt::Display for UaOsAgreement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotChecked(reason) => write!(f, "not checked ({reason})"),
-            Self::Consistent { os, scope } => write!(f, "consistent ({os}, {scope})"),
-            Self::Divergent { ua_os, network_os, scope } => {
-                write!(f, "divergent (ua={ua_os}, net={network_os}, {scope})")
+            Self::Consistent { os } => write!(f, "consistent ({os})"),
+            Self::Divergent { ua_os, network_os } => {
+                write!(f, "divergent (ua={ua_os}, net={network_os})")
             }
         }
     }
@@ -125,7 +98,6 @@ fn usable_user_agent(ua: Option<&str>) -> Option<&str> {
     Some(ua)
 }
 
-/// p0f `NAT_APP_UA` gates, as a pure function. No cache, no I/O.
 pub fn check_ua_os_agreement(
     ua: Option<&str>,
     matched: Option<&HttpRequestMatch>,
@@ -157,12 +129,8 @@ pub fn check_ua_os_agreement(
         ObservedOsInput::Present(os) => os,
     };
     if ua_os.family == observed.name {
-        UaOsAgreement::Consistent { os: ua_os.family, scope: observed.scope }
+        UaOsAgreement::Consistent { os: ua_os.family }
     } else {
-        UaOsAgreement::Divergent {
-            ua_os: ua_os.family,
-            network_os: observed.name.clone(),
-            scope: observed.scope,
-        }
+        UaOsAgreement::Divergent { ua_os: ua_os.family, network_os: observed.name.clone() }
     }
 }

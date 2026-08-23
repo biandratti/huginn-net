@@ -101,8 +101,8 @@ pub use process::{
 };
 pub use process::{FlowKey, HttpProcessors, TcpFlow};
 pub use ua_os::{
-    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsScope,
-    ObservedOsSource, UaOsAgreement,
+    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource,
+    UaOsAgreement,
 };
 
 // ---------------------------------------------------------------------------

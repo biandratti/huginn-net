@@ -93,7 +93,7 @@ pub use huginn_net_http::output::{BrowserQualityMatched, HttpRequestOutput};
 pub use huginn_net_http::output::{HttpResponseOutput, WebServerQualityMatched};
 #[cfg(feature = "http-p0f-request")]
 pub use huginn_net_http::{
-    NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsScope, ObservedOsSource, UaOsAgreement,
+    NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource, UaOsAgreement,
 };
 
 pub use huginn_net_tls::output::TlsClientOutput;

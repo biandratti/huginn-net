@@ -10,8 +10,8 @@ pub use common::{
 pub use languages::get_highest_quality_language;
 pub use observable::*;
 pub use ua_os::{
-    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsScope,
-    ObservedOsSource, UaOsAgreement,
+    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource,
+    UaOsAgreement,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
