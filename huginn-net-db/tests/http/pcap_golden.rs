@@ -37,6 +37,7 @@ struct HttpRequestSnapshot {
     user_agent: Option<String>,
     method: Option<String>,
     uri: Option<String>,
+    raw_signature: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -190,6 +191,10 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 expected_uri,
                 "connection {idx}: uri"
             );
+        }
+
+        if let Some(expected_sig) = &exp_req.raw_signature {
+            assert_eq!(&req.sig.to_string(), expected_sig, "connection {idx}: raw_signature");
         }
     }
 

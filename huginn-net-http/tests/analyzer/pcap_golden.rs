@@ -32,6 +32,7 @@ struct HttpRequestSnapshot {
     user_agent: Option<String>,
     method: Option<String>,
     uri: Option<String>,
+    raw_signature: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -145,6 +146,14 @@ fn assert_connection_matches_snapshot(
                 )),
                 expected_uri,
                 "Connection {connection_index}: HTTP URI mismatch"
+            );
+        }
+
+        if let Some(expected_sig) = &expected_request.raw_signature {
+            assert_eq!(
+                &actual_request.sig.to_string(),
+                expected_sig,
+                "Connection {connection_index}: HTTP raw_signature mismatch"
             );
         }
     }

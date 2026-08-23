@@ -16,7 +16,8 @@
         "lang": "English",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "method": "GET",
-        "uri": "/"
+        "uri": "/",
+        "raw_signature": "1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],Accept-Encoding=[gzip,deflate,sdch],Accept-Language=[en-US,en;q=0.8],Accept-Charset=[utf-8;q=0.7,*;q=0.3]:Keep-Alive:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
       },
       "http_response": null
     },

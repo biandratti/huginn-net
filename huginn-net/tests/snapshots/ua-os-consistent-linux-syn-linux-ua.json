@@ -1,11 +1,99 @@
 {
   "pcap_file": "ua-os-consistent-linux-syn-linux-ua.pcap",
   "pcap_path": "../pcap/ua-os-consistent-linux-syn-linux-ua.pcap",
-  "syn_os": "Linux",
-  "http_request": {
-    "browser": "Chrome",
-    "params": "none",
-    "ua_os": "consistent (Linux)",
-    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-  }
+  "expected_connections": 4,
+  "connections": [
+    {
+      "source": {
+        "ip": "127.0.0.1",
+        "port": 36210
+      },
+      "destination": {
+        "ip": "127.0.0.1",
+        "port": 18765
+      },
+      "tcp_analysis": {
+        "syn": {
+          "os_name": "Linux",
+          "raw_signature": "4:64+0:0:65495:mss*1,10:mss,sok,ts,nop,ws:df,id+:0"
+        },
+        "syn_ack": null,
+        "mtu": {
+          "raw_mtu": 65535
+        },
+        "client_uptime": null,
+        "server_uptime": null
+      },
+      "http_request": null,
+      "http_response": null
+    },
+    {
+      "source": {
+        "ip": "127.0.0.1",
+        "port": 18765
+      },
+      "destination": {
+        "ip": "127.0.0.1",
+        "port": 36210
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": {
+          "raw_signature": "4:64+0:0:65495:mss*1,10:mss,sok,ts,nop,ws:df:0"
+        },
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      },
+      "http_request": null,
+      "http_response": null
+    },
+    {
+      "source": {
+        "ip": "127.0.0.1",
+        "port": 36210
+      },
+      "destination": {
+        "ip": "127.0.0.1",
+        "port": 18765
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": null,
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      },
+      "http_request": {
+        "browser": "Chrome",
+        "params": "none",
+        "ua_os": "consistent (Linux)",
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "raw_signature": "1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],Accept-Encoding=[gzip,deflate,sdch],Accept-Language=[en-US,en;q=0.8],Accept-Charset=[utf-8;q=0.7,*;q=0.3]:Keep-Alive:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+      },
+      "http_response": null
+    },
+    {
+      "source": {
+        "ip": "127.0.0.1",
+        "port": 18765
+      },
+      "destination": {
+        "ip": "127.0.0.1",
+        "port": 36210
+      },
+      "tcp_analysis": {
+        "syn": null,
+        "syn_ack": null,
+        "mtu": null,
+        "client_uptime": null,
+        "server_uptime": null
+      },
+      "http_request": null,
+      "http_response": {
+        "status_code": 200,
+        "headers_count": 4
+      }
+    }
+  ]
 }
