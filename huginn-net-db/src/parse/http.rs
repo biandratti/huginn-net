@@ -32,12 +32,19 @@ pub(super) fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<Stri
     Ok((input, result))
 }
 
+/// p0f `config.h` `NAME_CHARS`: non-alnum allowed in OS names (`http_parse_ua`).
+const UA_OS_NAME_EXTRA: &str = " ./-_!?()";
+
+fn is_ua_os_name_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || UA_OS_NAME_EXTRA.contains(c)
+}
+
 /// One `ua_os` entry: a possibly multi-word family (`Mac OS X`) and an optional
 /// `=[substr]` needle (`iOS=[iPad]`, `Solaris=[SunOS]`). Same bracket form as
-/// HTTP header values; names may contain spaces, so this cannot use `alphanumeric1`.
+/// HTTP header values. Names follow p0f: `isalnum` plus `NAME_CHARS`.
 fn parse_ua_os_entry(input: &str) -> IResult<&str, (&str, Option<&str>)> {
     let (input, _) = space0.parse(input)?;
-    let (input, name) = take_while1(|c: char| c != ',' && c != '=').parse(input)?;
+    let (input, name) = take_while1(is_ua_os_name_char).parse(input)?;
     let name = name.trim_end();
     if name.is_empty() {
         return Err(nom::Err::Error(nom::error::Error::new(

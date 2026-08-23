@@ -283,6 +283,14 @@ fn parse_ua_os_rejects_truncated_or_unclosed_entries() {
         HttpDatabase::from_str("ua_os = iOS=[iPad").is_err(),
         "unclosed =[needle] must fail"
     );
+    assert!(
+        HttpDatabase::from_str("ua_os = Windows:NT").is_err(),
+        "':' is not in p0f NAME_CHARS; leftover must fail"
+    );
+    assert!(
+        HttpDatabase::from_str("ua_os = Foo@Bar").is_err(),
+        "'@' is not in p0f NAME_CHARS; leftover must fail"
+    );
 }
 
 fn header<S: AsRef<str>>(name: S) -> HttpHeader {
