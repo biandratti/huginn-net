@@ -242,7 +242,49 @@ fn test_http_header() {
     }
 }
 
-/// Test helper function to create HTTP headers
+#[test]
+fn parse_ua_os_keeps_multi_word_names_and_bracket_needles() {
+    use huginn_net_db::HttpDatabase;
+    use std::str::FromStr;
+
+    let db = match HttpDatabase::from_str(
+        "ua_os = Linux,Windows,iOS=[iPad],iOS=[iPhone],Mac OS X,FreeBSD,OpenBSD,NetBSD,Solaris=[SunOS]",
+    ) {
+        Ok(db) => db,
+        Err(e) => panic!("ua_os line from p0f.fp must parse: {e}"),
+    };
+
+    assert_eq!(
+        db.ua_os,
+        vec![
+            ("Linux".to_owned(), None),
+            ("Windows".to_owned(), None),
+            ("iOS".to_owned(), Some("iPad".to_owned())),
+            ("iOS".to_owned(), Some("iPhone".to_owned())),
+            ("Mac OS X".to_owned(), None),
+            ("FreeBSD".to_owned(), None),
+            ("OpenBSD".to_owned(), None),
+            ("NetBSD".to_owned(), None),
+            ("Solaris".to_owned(), Some("SunOS".to_owned())),
+        ]
+    );
+}
+
+#[test]
+fn parse_ua_os_rejects_truncated_or_unclosed_entries() {
+    use huginn_net_db::HttpDatabase;
+    use std::str::FromStr;
+
+    assert!(
+        HttpDatabase::from_str("ua_os = Linux=[x]junk").is_err(),
+        "trailing junk after a completed entry must fail"
+    );
+    assert!(
+        HttpDatabase::from_str("ua_os = iOS=[iPad").is_err(),
+        "unclosed =[needle] must fail"
+    );
+}
+
 fn header<S: AsRef<str>>(name: S) -> HttpHeader {
     HttpHeader::new(name)
 }

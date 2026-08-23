@@ -31,4 +31,19 @@ fn test_default_database() {
             ("loopback".to_owned(), vec![3924, 16384, 16436])
         ]
     );
+
+    assert_eq!(
+        db.http.ua_os,
+        vec![
+            ("Linux".to_owned(), None),
+            ("Windows".to_owned(), None),
+            ("iOS".to_owned(), Some("iPad".to_owned())),
+            ("iOS".to_owned(), Some("iPhone".to_owned())),
+            ("Mac OS X".to_owned(), None),
+            ("FreeBSD".to_owned(), None),
+            ("OpenBSD".to_owned(), None),
+            ("NetBSD".to_owned(), None),
+            ("Solaris".to_owned(), Some("SunOS".to_owned())),
+        ]
+    );
 }
