@@ -1,0 +1,11 @@
+{
+  "pcap_file": "ua-os-consistent-linux-syn-linux-ua.pcap",
+  "pcap_path": "../pcap/ua-os-consistent-linux-syn-linux-ua.pcap",
+  "syn_os": "Linux",
+  "http_request": {
+    "browser": "Chrome",
+    "params": "none",
+    "ua_os": "consistent (Linux)",
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+  }
+}

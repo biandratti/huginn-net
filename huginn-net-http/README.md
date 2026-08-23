@@ -247,6 +247,7 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
   Browser: Firefox:10.x or newer
   Lang:    English
   Params:  none
+  UA/OS:   not checked (no source)
   Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
 
 [HTTP Response] 192.168.1.22:58494 → 91.189.91.21:80

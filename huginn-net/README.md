@@ -27,6 +27,7 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 - **Production-ready parallel processing** - Use protocol-specific crates with multi-threaded worker pools for high-throughput live capture
 - **Typed observable data access** - Access to typed TCP signatures, HTTP headers, TLS extensions, and other observable signals for custom fingerprinting and analysis
 - **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableTcp`, `ObservableHttpRequest/Response`, `ObservableTlsClient`) without being limited to predefined signatures
+- **UA vs TCP OS** - With `db` + `tcp-syn`, compare the User-Agent OS to this connection's SYN (`HttpRequestOutput.ua_os`)
 
 ## Quick Start
 
@@ -272,6 +273,7 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
   Browser: Firefox:10.x or newer
   Lang:    English
   Params:  none
+  UA/OS:   consistent (Linux)
   Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
 
 [HTTP Response] 192.168.1.22:58494 → 91.189.91.21:80

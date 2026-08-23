@@ -7,5 +7,5 @@
 ))]
 
 mod observed_os;
+mod pcap_golden;
 mod smoke;
-mod ua_os;
