@@ -221,3 +221,27 @@ fn ua_lookup_returns_known_family() {
         .unwrap_or_else(|| panic!("Windows UA should map to an OS family"));
     assert_eq!(found.family, "Windows");
 }
+
+#[test]
+fn ua_lookup_maps_bracket_needles_and_multi_word_names() {
+    let db = match HttpDatabase::load_default() {
+        Ok(db) => db,
+        Err(e) => panic!("Failed to load default database: {e}"),
+    };
+    let matcher = huginn_net_db::HttpSignatureMatcher::new(&db);
+
+    let mac = matcher
+        .match_user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+        .unwrap_or_else(|| panic!("Mac OS X UA should map to an OS family"));
+    assert_eq!(mac.family, "Mac OS X");
+
+    let ios = matcher
+        .match_user_agent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")
+        .unwrap_or_else(|| panic!("iPhone UA should map via iOS=[iPhone]"));
+    assert_eq!(ios.family, "iOS");
+
+    let solaris = matcher
+        .match_user_agent("Mozilla/5.0 (X11; SunOS i86pc)")
+        .unwrap_or_else(|| panic!("SunOS UA should map via Solaris=[SunOS]"));
+    assert_eq!(solaris.family, "Solaris");
+}

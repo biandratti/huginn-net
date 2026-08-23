@@ -1,9 +1,9 @@
 use super::common::{impl_from_str, str_parser};
 use crate::http::{Header as HttpHeader, Signature as HttpSignature, Version as HttpVersion};
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_until, take_while};
-use nom::character::complete::{alphanumeric1, char, space0};
-use nom::combinator::{map, opt, rest};
+use nom::bytes::complete::{tag, take_until, take_while, take_while1};
+use nom::character::complete::{char, space0};
+use nom::combinator::{eof, map, opt, rest};
 use nom::multi::{separated_list0, separated_list1};
 use nom::sequence::{pair, preceded, terminated};
 use nom::{IResult, Parser};
@@ -18,9 +18,11 @@ pub(super) fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<Stri
         space0,
         tag("="),
         space0,
-        separated_list0(tag(","), parse_key_value),
+        separated_list0(char(','), parse_ua_os_entry),
     )
         .parse(input)?;
+    let (input, _) = space0.parse(input)?;
+    let (input, _) = eof.parse(input)?;
 
     let result = values
         .into_iter()
@@ -30,11 +32,29 @@ pub(super) fn parse_ua_os(input: &str) -> IResult<&str, Vec<(String, Option<Stri
     Ok((input, result))
 }
 
-fn parse_key_value(input: &str) -> IResult<&str, (&str, Option<&str>)> {
-    let (input, (name, _, value)) =
-        (alphanumeric1, space0, opt(preceded((space0, tag("="), space0), alphanumeric1)))
-            .parse(input)?;
+/// p0f `config.h` `NAME_CHARS`: non-alnum allowed in OS names (`http_parse_ua`).
+const UA_OS_NAME_EXTRA: &str = " ./-_!?()";
 
+fn is_ua_os_name_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || UA_OS_NAME_EXTRA.contains(c)
+}
+
+/// One `ua_os` entry: a possibly multi-word family (`Mac OS X`) and an optional
+/// `=[substr]` needle (`iOS=[iPad]`, `Solaris=[SunOS]`). Same bracket form as
+/// HTTP header values. Names follow p0f: `isalnum` plus `NAME_CHARS`.
+fn parse_ua_os_entry(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    let (input, _) = space0.parse(input)?;
+    let (input, name) = take_while1(is_ua_os_name_char).parse(input)?;
+    let name = name.trim_end();
+    if name.is_empty() {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::TakeWhile1,
+        )));
+    }
+    let (input, value) =
+        opt(preceded(tag("=["), terminated(take_until("]"), char(']')))).parse(input)?;
+    let (input, _) = space0.parse(input)?;
     Ok((input, (name, value)))
 }
 
