@@ -6,4 +6,5 @@
     feature = "http-p0f-response"
 ))]
 
+mod observed_os;
 mod smoke;

@@ -1,15 +1,13 @@
 use super::HuginnNet;
-#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
-use huginn_net_http::http::{build_params, HttpParams};
-#[cfg(feature = "http-p0f-request")]
-use huginn_net_http::http::{check_ua_os_agreement, ObservedOsInput, UaOsAgreement};
-// Notes about a matched signature only exist when there is a database to match
-// against.
 #[cfg(all(
     feature = "db",
     any(feature = "http-p0f-request", feature = "http-p0f-response")
 ))]
 use huginn_net_http::http::MatchedSignatureNotes;
+#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
+use huginn_net_http::http::{build_params, HttpParams};
+#[cfg(feature = "http-p0f-request")]
+use huginn_net_http::http::{check_ua_os_agreement, ObservedOsInput, UaOsAgreement};
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]
@@ -185,6 +183,7 @@ impl<'a> HuginnNet<'a> {
     pub(super) fn match_http_request(
         &self,
         observable_http_request: &ObservableHttpRequest,
+        os_observed: ObservedOsInput<'_>,
     ) -> HttpRequestMatchResult {
         #[cfg(feature = "db")]
         {
@@ -234,7 +233,7 @@ impl<'a> HuginnNet<'a> {
                     observable_http_request.user_agent.as_deref(),
                     req_match.as_ref(),
                     matcher,
-                    ObservedOsInput::NoSource,
+                    os_observed,
                 ),
             }
         }
@@ -252,7 +251,7 @@ impl<'a> HuginnNet<'a> {
                     observable_http_request.user_agent.as_deref(),
                     None,
                     None,
-                    ObservedOsInput::NoSource,
+                    os_observed,
                 ),
             }
         }
