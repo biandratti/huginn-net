@@ -93,7 +93,7 @@ huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
 - OS fingerprinting (Windows, Linux, macOS, etc.)
 - MTU detection and link type identification
 - System uptime calculation from TCP timestamps
-- Quality scoring for match confidence
+- Match tiers (`Specific` / `Generic` / `Fuzzy`) instead of a continuous score
 - Typed observable data (`ObservableTcp`, `ObservableMtu`, `ObservableUptime`) for custom fingerprints
 
 ### huginn-net-http - HTTP Analysis & Browser Detection
@@ -179,9 +179,11 @@ huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
 **Key Features:**
 
 - P0f signature database parsing
-- Distance-based quality scoring
-- Extensible matching algorithms
+- Gate-based matching: a field that does not fit rejects the signature
+- Match tiers: `Specific` / `Generic` / `Fuzzy` (TCP only); HTTP has no error budget
 - `SharedTcpSignatureMatcher` / `SharedHttpSignatureMatcher` for use with `.with_matcher(...)`
+
+How labels and `Params` are produced is documented under [Matching](../matching/).
 
 Dependency versions in the snippets above match each crate’s published `max_version` on [crates.io](https://crates.io/) at site build time.
 
