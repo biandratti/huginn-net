@@ -16,11 +16,9 @@ where
     DS: DatabaseSignature<OF>,
     K: IndexKey,
 {
-    pub entries: Vec<(Label, Vec<DS>)>,
-    pub(crate) index: HashMap<K, Vec<(usize, usize)>>,
-    _observed_marker: PhantomData<OF>,
-    _database_sig_marker: PhantomData<DS>,
-    _key_marker: PhantomData<K>,
+    entries: Vec<(Label, Vec<DS>)>,
+    index: HashMap<K, Vec<(usize, usize)>>,
+    _observed: PhantomData<OF>,
 }
 
 impl<OF, DS, K> Default for FingerprintCollection<OF, DS, K>
@@ -30,13 +28,7 @@ where
     K: IndexKey,
 {
     fn default() -> Self {
-        Self {
-            entries: Vec::new(),
-            index: HashMap::new(),
-            _observed_marker: PhantomData,
-            _database_sig_marker: PhantomData,
-            _key_marker: PhantomData,
-        }
+        Self { entries: Vec::new(), index: HashMap::new(), _observed: PhantomData }
     }
 }
 
@@ -48,24 +40,23 @@ where
 {
     /// Creates a new collection and builds an index for it.
     pub fn new(entries: Vec<(Label, Vec<DS>)>) -> Self {
-        let mut index_map = HashMap::new();
+        let mut index = HashMap::new();
         for (label_idx, (_label, sig_vec)) in entries.iter().enumerate() {
             for (sig_idx, db_sig) in sig_vec.iter().enumerate() {
                 for key in db_sig.generate_index_keys_for_db_entry() {
-                    index_map
+                    index
                         .entry(key)
                         .or_insert_with(Vec::new)
                         .push((label_idx, sig_idx));
                 }
             }
         }
-        FingerprintCollection {
-            entries,
-            index: index_map,
-            _observed_marker: PhantomData,
-            _database_sig_marker: PhantomData,
-            _key_marker: PhantomData,
-        }
+        Self { entries, index, _observed: PhantomData }
+    }
+
+    /// Labels and their signatures, in database order.
+    pub fn entries(&self) -> &[(Label, Vec<DS>)] {
+        &self.entries
     }
 
     /// Buckets of `(label_idx, sig_idx)` in declaration order, for coverage checks.

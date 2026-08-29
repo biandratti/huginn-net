@@ -92,7 +92,7 @@ pub fn ambiguous_exact_pairs(
 
     for (_key, bucket) in collection.index_buckets() {
         for (i, &(li, si)) in bucket.iter().enumerate() {
-            let (label_i, sigs_i) = &collection.entries[li];
+            let (label_i, sigs_i) = &collection.entries()[li];
             let sig_i = &sigs_i[si];
             let Some(obs) = synthetic_observation(sig_i) else {
                 continue;
@@ -106,7 +106,7 @@ pub fn ambiguous_exact_pairs(
             // Same-tier only: specific always outranks generic, so mixed pairs
             // are not ambiguous under p0f selection.
             for &(lj, sj) in bucket.iter().skip(i.saturating_add(1)) {
-                let (label_j, sigs_j) = &collection.entries[lj];
+                let (label_j, sigs_j) = &collection.entries()[lj];
                 let sig_j = &sigs_j[sj];
                 if label_j.ty != label_i.ty {
                     continue;
