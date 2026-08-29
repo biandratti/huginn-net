@@ -83,6 +83,7 @@ export default defineConfig({
           items: [
             { label: 'Overview', slug: 'docs/overview' },
             { label: 'Ecosystem', slug: 'docs/ecosystem' },
+            { label: 'Matching', slug: 'docs/matching' },
             { label: 'Quick example', slug: 'docs/quick-example' },
           ],
         },

@@ -86,19 +86,22 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
             <strong>Multi-protocol:</strong> TCP, HTTP/1.x, HTTP/2, and TLS together.
           </li>
           <li>
-            <strong>TLS and JA4:</strong> ClientHello parsing and JA4 (FoxIO-style), SNI, ALPN, GREASE, plus an optional additional stable signature.
+            <strong>TLS and JA4:</strong> ClientHello parsing and JA4 (FoxIO), SNI, ALPN, GREASE, plus an optional additional stable signature.
           </li>
           <li>
-            <strong>Akamai HTTP/2:</strong> frame parsing and Akamai-style fingerprints from SETTINGS/HEADERS order (Blackhat EU 2017 spec).
+            <strong>Akamai HTTP/2:</strong> frame parsing and Akamai fingerprints from SETTINGS/HEADERS order (Blackhat EU 2017 spec).
           </li>
           <li>
             <strong>p0f-style TCP:</strong> OS fingerprinting, MTU, uptime hints, signature databases.
           </li>
           <li>
+            <strong>Typed signatures:</strong> observations are typed structs, so you can build your own database instead of using p0f's.
+          </li>
+          <li>
             <strong>Rust performance:</strong> memory-safe concurrency for high-volume capture and batch PCAP.
           </li>
           <li>
-            <strong>Flexible input:</strong> live interfaces or pcap files, same pipeline for lab and production.
+            <strong>Raw packets:</strong> fingerprints come from the wire or a pcap, not from logs or a tshark/Wireshark pipeline.
           </li>
         </ul>
       </section>

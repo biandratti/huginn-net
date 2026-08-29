@@ -29,7 +29,7 @@ The Huginn Net ecosystem consists of 5 specialized crates:
 - **[huginn-net-tcp](https://crates.io/crates/huginn-net-tcp)** - TCP fingerprinting & OS detection
 - **[huginn-net-http](https://crates.io/crates/huginn-net-http)** - HTTP analysis & browser detection
 - **[huginn-net-tls](https://crates.io/crates/huginn-net-tls)** - JA4 TLS client fingerprinting
-- **[huginn-net-db](https://crates.io/crates/huginn-net-db)** - P0f database parser & matching engine
+- **[huginn-net-db](https://crates.io/crates/huginn-net-db)** - P0f database parser & matching engine ([Matching](../matching/))
 
 For detailed information about each crate, see the [Ecosystem](../ecosystem/) documentation.
 
@@ -37,7 +37,7 @@ To get started with cargo, choose your approach:
 
 #### Multi-Protocol Analysis
 
-All features are **opt-in** in v2.x. Use `full` to opt into everything this version offers, or pick only the analyses you consume:
+All features are **opt-in**. Use `full` for everything, or pick only the analyses you consume:
 
 ```toml
 [dependencies]
@@ -58,19 +58,17 @@ The version strings above are resolved when the documentation site is built (eac
 
 ### Why choose Huginn Net?
 
-- No third-party tools - No tshark, wireshark, or external tools required
-- Same accuracy as p0f - Validated against extensive device testing
-- Modern Rust implementation - Memory safety and zero-cost abstractions
-- High performance - disabled features cost zero at runtime; parallel mode scales to production capture rates
+- No tshark or Wireshark - Fingerprints come from packets in-process. Live capture uses libpcap; nothing else sits in the pipeline.
+- Ahead of p0f - Each protocol is parsed on its own (TCP, HTTP, TLS), the figures are better, and capture can be parallelized
+- High performance - Disabled features cost zero at runtime
 - Type-safe architecture - Prevents entire classes of bugs at compile time
 - Comprehensive testing - Full unit and integration test coverage
-- Simple integration - Pure Rust implementation, no system libraries required
+- Simple integration - A library you call from your own process
 - Multi-protocol support - TCP, HTTP/1.x, HTTP/2, and TLS analysis in one unified interface
-- Opt-in feature system - Enable only the analyses you consume; disabled features cost zero at runtime
+- Opt-in feature system - Enable only the analyses you consume
 - Optional packet filtering - Filter by port, IP address, or CIDR subnet to reduce processing overhead
-- Parallel processing - Multi-threaded worker pools for high-throughput live capture
-- Typed observable data access - Access typed TCP signatures, HTTP headers, TLS extensions, and other observable signals for custom fingerprinting
-- Extensible fingerprinting - Build custom fingerprints using typed observable data without being limited to predefined signatures
+- Parallel processing - A simple interface to parallelize network processing
+- Extensible fingerprinting - Typed signatures, so you can build your own database and matching instead of p0f's
 - Active development - Continuously improved and maintained
 
 ### Use Cases
@@ -79,6 +77,7 @@ The version strings above are resolved when the documentation site is built (eac
 - Asset Discovery - Map network infrastructure and application stack passively and safely
 - Threat Detection - Detect hidden systems, suspicious TLS clients, and malicious applications
 - Application Monitoring - Track browser types, versions, and TLS capabilities across networks
+- Reverse proxy - [huginn-proxy](https://github.com/biandratti/huginn-proxy) terminates TLS and forwards JA4, HTTP/2 (Akamai), and TCP SYN fingerprints to backends as headers
 - Research & Forensics - Analyze traffic patterns, TLS usage, and improve security posture
 - Compliance Monitoring - Track device types, OS versions, and TLS configurations
 

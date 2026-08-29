@@ -109,9 +109,9 @@ Initiate a TCP connection. Sent by the client to a server.
 
 ### SYN Key Fields
 
-- **OS**: The identified operating system matched from the database signature.
-- **Dist**: The distance in network hops to the server.
-- **Params**: Optional TCP parameters.
+- **OS**: The identified operating system, when a matcher is attached.
+- **Dist**: Hop count inferred from TTL. Not a match score.
+- **Params**: Match annotations (`none`, `generic`, `fuzzy (…)`, `random_ttl`, …). See [Matching](../matching/).
 - **Sig**: The TCP signature showing packet structure (ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass).
 
 ## SYN+ACK Packet
@@ -130,7 +130,7 @@ Sent by the server in response to a SYN, signaling acknowledgment and readiness 
 
 ### SYN+ACK Key Fields
 
-- **OS**: The identified operating system matched from the database signature.
-- **Dist**: The distance in network hops (always 0 for server responses).
-- **Params**: Optional TCP parameters.
+- **OS**: The identified operating system, when a matcher is attached.
+- **Dist**: Hop count inferred from TTL. Not a match score. `0` when the capture sits on the responder.
+- **Params**: Match annotations (`none`, `generic`, `fuzzy (…)`, `random_ttl`, …). See [Matching](../matching/).
 - **Sig**: The TCP signature showing packet structure (ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass).

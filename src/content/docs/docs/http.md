@@ -31,14 +31,16 @@ These are sent by the client (typically a web browser) to request resources from
   Browser: Firefox:10.x or newer
   Lang:    English
   Params:  none
+  UA/OS:   consistent (Windows)
   Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
 ```
 
 ### HTTP Request Key Fields
 
-- **Browser**: The identified browser matched from the database signature.
+- **Browser**: The identified browser, when a matcher is attached. HTTP matching is exact only (`Specific` / `Generic`); there is no fuzzy tier.
 - **Lang**: The detected language from Accept-Language header.
-- **Params**: Additional parameters or optional data included in the headers.
+- **Params**: Match notes (`none`, `dishonest`, `anonymous`, `generic`). `expsw` never rejects; a contradicting User-Agent sets `dishonest`.
+- **UA/OS**: User-Agent OS vs this connection's TCP SYN (`NotChecked` / `Consistent` / `Divergent`). See [Matching](../matching/).
 - **Sig**: The HTTP request signature showing header order and values.
 
 ## HTTP Response
@@ -56,8 +58,8 @@ These are sent by the server in reply to the client's request, containing the re
 
 ### HTTP Response Key Fields
 
-- **Server**: The identified web server matched from the database signature.
-- **Params**: Additional parameters or optional data included in the headers.
+- **Server**: The identified web server, when a matcher is attached.
+- **Params**: Match notes (`none`, `dishonest`, `anonymous`, `generic`), same rules as requests.
 - **Sig**: The HTTP response signature showing header order and values.
 
 ## p0f HTTP vs Akamai HTTP/2
