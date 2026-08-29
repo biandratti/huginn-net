@@ -8,7 +8,6 @@ pub mod syn_ack;
 #[cfg(feature = "uptime")]
 pub mod uptime;
 
-// Only the SYN / SYN+ACK outputs stringify a field this way.
 #[cfg(all(feature = "json", any(feature = "syn", feature = "syn-ack")))]
 pub(crate) fn serialize_display<T: std::fmt::Display, S: serde::Serializer>(
     val: &T,
