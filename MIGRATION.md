@@ -79,6 +79,7 @@ Matcher methods are the traits: `match_tcp_request` / `match_http_request` / …
 | `TcpIndexKey.olayout_key: String` | `olayout_hash: u32` |
 | `distance_ttl` / `detect_win_multiplicator` | `ttl_fit` / `detect_win_multi` |
 | `distance_*` (tcp/http) | `*_matches` (`bool`) |
+| `FingerprintCollection.entries` (field) | `entries()` (read-only) |
 
 ---
 

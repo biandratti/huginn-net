@@ -82,7 +82,7 @@ fn every_request_signature_is_reachable() {
     };
     let matcher = TcpSignatureMatcher::new(&db);
 
-    let unreachable = unreachable_signatures(&db.tcp_request.entries, |obs| {
+    let unreachable = unreachable_signatures(db.tcp_request.entries(), |obs| {
         matcher.match_tcp_request(&obs.matching).is_some()
     });
 
@@ -102,7 +102,7 @@ fn every_response_signature_is_reachable() {
     };
     let matcher = TcpSignatureMatcher::new(&db);
 
-    let unreachable = unreachable_signatures(&db.tcp_response.entries, |obs| {
+    let unreachable = unreachable_signatures(db.tcp_response.entries(), |obs| {
         matcher.match_tcp_response(&obs.matching).is_some()
     });
 

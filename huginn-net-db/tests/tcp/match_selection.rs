@@ -49,7 +49,7 @@ fn label(name: &str, ty: Type) -> Label {
 }
 
 /// An application rather than an OS: p0f writes these as `s:!:…`, which parses
-/// to a label with no class.
+/// to [`Label::is_userland`].
 fn application_label(name: &str) -> Label {
     Label { ty: Type::Specified, class: None, name: name.to_string(), flavor: None }
 }

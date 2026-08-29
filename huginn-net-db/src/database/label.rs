@@ -2,14 +2,26 @@
 
 use std::fmt;
 
-/// Represents a label associated with a signature, which provides metadata about
-/// the signature, such as type, class, name, and optional flavor details.
+/// Signature metadata from a p0f-style label (`s`/`g`:`class`:`name`:`flavor`).
+///
+/// For TCP, `class: None` is p0f's `!` (userland tool such as NMap), not a
+/// missing OS family. HTTP browser/server labels often have no class either;
+/// that is unrelated to the fuzzy-userland gate, which only applies to TCP.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Label {
     pub ty: Type,
     pub class: Option<String>,
     pub name: String,
     pub flavor: Option<String>,
+}
+
+impl Label {
+    /// p0f userland entry (`s:!:…` / `g:!:…`): no OS class, so a fuzzy match
+    /// must not be reported (guessing which tool sent an approximate packet is
+    /// worse than saying nothing). Exact matches against userland still count.
+    pub fn is_userland(&self) -> bool {
+        self.class.is_none()
+    }
 }
 
 /// Enum representing the type of `Label`.
