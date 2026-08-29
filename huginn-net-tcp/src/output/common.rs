@@ -85,30 +85,56 @@ impl fmt::Display for FuzzyReason {
     }
 }
 
+/// Which tier a match landed in, in preference order: `Specific` beats
+/// `Generic`, and both beat `Fuzzy`.
+///
+/// The tier and the tolerance are the same fact, so they are one value: a match
+/// is fuzzy exactly when there is a [`FuzzyReason`] to report, which makes a
+/// "perfect fuzzy match" unrepresentable.
+///
+/// Distinct from [`OsKind`], which describes the matched *label* rather than
+/// the fit: a fuzzy match against a specified signature is `Fuzzy` here and
+/// `Specified` there.
+#[derive(Clone, Debug, PartialEq)]
+pub enum MatchRank {
+    /// Exact fit against a signature naming a concrete product.
+    Specific,
+    /// Exact fit against a catch-all signature.
+    Generic,
+    /// Only holds because the carried tolerance was applied. The matched
+    /// product is still the best explanation available, but it was not an
+    /// exact fit.
+    Fuzzy(FuzzyReason),
+}
+
+impl MatchRank {
+    /// Score in `[0.0, 1.0]` for this tier. The ordering is the contract; the
+    /// values are free to be recalibrated.
+    pub fn as_quality(&self) -> f32 {
+        match self {
+            MatchRank::Specific => 1.0,
+            MatchRank::Generic => 0.8,
+            MatchRank::Fuzzy(_) => 0.5,
+        }
+    }
+
+    /// The tolerance that was applied, or `None` for an exact fit.
+    pub fn fuzzy(&self) -> Option<&FuzzyReason> {
+        match self {
+            MatchRank::Specific | MatchRank::Generic => None,
+            MatchRank::Fuzzy(reason) => Some(reason),
+        }
+    }
+}
+
 /// Outcome of matching an observation against a fingerprint database.
 ///
 /// Independent of any specific database type so that consumers of this
 /// crate don't need to depend on `huginn-net-db`.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum MatchQuality {
-    /// A signature matched.
-    Matched {
-        /// Which tier the match landed in, as a number in `[0.0, 1.0]`: an
-        /// exact fit against a signature naming a concrete product scores
-        /// highest, a catch-all signature lower, and a match that needed a
-        /// tolerance lowest. The ordering is the contract; the values are free
-        /// to be recalibrated.
-        quality: f32,
-        /// Set when the match only holds because a tolerance was applied. The
-        /// matched product is still the best explanation available, but it was
-        /// not an exact fit.
-        #[cfg_attr(
-            feature = "json",
-            serde(serialize_with = "super::serialize_optional_display")
-        )]
-        fuzzy: Option<FuzzyReason>,
-    },
+    /// A signature matched, in the carried tier.
+    Matched(MatchRank),
     /// A matcher was attached but no signature matched the observation.
     NotMatched,
     /// No matcher was attached, so matching was skipped entirely.
@@ -116,9 +142,38 @@ pub enum MatchQuality {
 }
 
 impl MatchQuality {
-    /// A match that fit every field exactly.
-    pub fn exact(quality: f32) -> Self {
-        MatchQuality::Matched { quality, fuzzy: None }
+    /// The tolerance the winning signature needed, if any. `None` for an exact
+    /// fit and for every non-match.
+    pub fn fuzzy(&self) -> Option<&FuzzyReason> {
+        match self {
+            MatchQuality::Matched(rank) => rank.fuzzy(),
+            MatchQuality::NotMatched | MatchQuality::Disabled => None,
+        }
+    }
+}
+
+/// The wire format keeps the tier numeric: `Matched` serializes as a
+/// `quality` score plus a stringified `fuzzy`.
+#[cfg(feature = "json")]
+impl serde::Serialize for MatchQuality {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStructVariant;
+
+        match self {
+            MatchQuality::Matched(rank) => {
+                let mut variant =
+                    serializer.serialize_struct_variant("MatchQuality", 0, "Matched", 2)?;
+                variant.serialize_field("quality", &rank.as_quality())?;
+                variant.serialize_field("fuzzy", &rank.fuzzy().map(ToString::to_string))?;
+                variant.end()
+            }
+            MatchQuality::NotMatched => {
+                serializer.serialize_unit_variant("MatchQuality", 1, "NotMatched")
+            }
+            MatchQuality::Disabled => {
+                serializer.serialize_unit_variant("MatchQuality", 2, "Disabled")
+            }
+        }
     }
 }
 
@@ -177,7 +232,7 @@ impl OSQualityMatched {
         {
             flags.push("generic".to_string());
         }
-        if let MatchQuality::Matched { fuzzy: Some(reason), .. } = &self.quality {
+        if let Some(reason) = self.quality.fuzzy() {
             flags.push(format!("fuzzy ({reason})"));
         }
         if self.random_ttl {

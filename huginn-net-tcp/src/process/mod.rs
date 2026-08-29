@@ -16,7 +16,7 @@ use crate::output::SynAckTCPOutput;
 use crate::output::SynTCPOutput;
 use crate::output::{IpPort, TcpAnalysisResult};
 #[cfg(feature = "mtu")]
-use crate::output::{MTUOutput, MTUQualityMatched};
+use crate::output::{MTUOutput, MTUQualityMatched, MatchRank};
 #[cfg(feature = "uptime")]
 use crate::output::{UptimeOutput, UptimeRole};
 use pnet::packet::ipv4::Ipv4Packet;
@@ -331,7 +331,7 @@ where
         Some(m) => match call(m) {
             Some(found) => OSQualityMatched {
                 os: Some(found.os),
-                quality: MatchQuality::Matched { quality: found.quality, fuzzy: found.fuzzy },
+                quality: MatchQuality::Matched(found.rank),
                 dist: found.dist,
                 random_ttl: found.random_ttl,
                 excess_dist: found.excess_dist,
@@ -347,9 +347,10 @@ where
 fn classify_mtu_match(matcher: Option<&dyn TcpMatcher>, mtu: u16) -> MTUQualityMatched {
     match matcher {
         Some(m) => match m.match_mtu(mtu) {
-            Some(found) => {
-                MTUQualityMatched { link: Some(found.link), quality: MatchQuality::exact(1.0) }
-            }
+            Some(found) => MTUQualityMatched {
+                link: Some(found.link),
+                quality: MatchQuality::Matched(MatchRank::Specific),
+            },
             None => MTUQualityMatched { link: None, quality: MatchQuality::NotMatched },
         },
         None => MTUQualityMatched { link: None, quality: MatchQuality::Disabled },

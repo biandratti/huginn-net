@@ -3,7 +3,7 @@ use huginn_net_http::http::{
 };
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
-use huginn_net_http::output::{Browser, OsKind};
+use huginn_net_http::output::{Browser, MatchRank, OsKind};
 
 struct StubMatcher {
     request: Option<HttpRequestMatch>,
@@ -32,7 +32,7 @@ fn userland(dishonest: bool) -> HttpRequestMatch {
             variant: None,
             kind: OsKind::Specified,
         },
-        quality: 1.0,
+        rank: MatchRank::Specific,
         dishonest,
     }
 }
@@ -45,7 +45,7 @@ fn os_signature() -> HttpRequestMatch {
             variant: None,
             kind: OsKind::Specified,
         },
-        quality: 1.0,
+        rank: MatchRank::Specific,
         dishonest: false,
     }
 }

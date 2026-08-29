@@ -93,7 +93,7 @@ fn software_string_does_not_change_the_fit() {
         .http_request
         .find_best_match(&observation("definitely-not-firefox"))
         .unwrap_or_else(|| panic!("a dishonest software string must not reject the signature"));
-    assert_eq!(honest_match.quality, lying_match.quality);
+    assert_eq!(honest_match.rank, lying_match.rank);
 }
 
 /// The flag rides along with the match, because it takes the winning

@@ -1,9 +1,9 @@
 use crate::database::{HttpDatabase, Label, Type};
-use crate::db_matching_trait::FingerprintDb;
+use crate::db_matching_trait::{FingerprintDb, MatchRank, NoFuzziness};
 use crate::http::expsw_matches;
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
-use huginn_net_http::output::{Browser, OsKind, WebServer};
+use huginn_net_http::output::{Browser, MatchRank as HttpMatchRank, OsKind, WebServer};
 use std::sync::Arc;
 
 pub struct HttpSignatureMatcher<'a> {
@@ -48,6 +48,17 @@ impl From<&Label> for WebServer {
     }
 }
 
+impl From<MatchRank<NoFuzziness>> for HttpMatchRank {
+    fn from(rank: MatchRank<NoFuzziness>) -> Self {
+        match rank {
+            MatchRank::Specific => HttpMatchRank::Specific,
+            MatchRank::Generic => HttpMatchRank::Generic,
+            // `NoFuzziness` is uninhabited: HTTP signatures have no tolerances.
+            MatchRank::Fuzzy(never) => match never {},
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Shared matching helpers
 // ---------------------------------------------------------------------------
@@ -59,7 +70,7 @@ fn match_http_request_impl(
     let found = db.http_request.find_best_match(obs)?;
     Some(HttpRequestMatch {
         browser: Browser::from(found.label),
-        quality: found.quality,
+        rank: found.rank.into(),
         dishonest: !expsw_matches(&obs.expsw, &found.signature.expsw),
     })
 }
@@ -71,7 +82,7 @@ fn match_http_response_impl(
     let found = db.http_response.find_best_match(obs)?;
     Some(HttpResponseMatch {
         web_server: WebServer::from(found.label),
-        quality: found.quality,
+        rank: found.rank.into(),
         dishonest: !expsw_matches(&obs.expsw, &found.signature.expsw),
     })
 }

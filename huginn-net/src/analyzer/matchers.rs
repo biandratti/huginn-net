@@ -29,6 +29,8 @@ use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::output::MTUQualityMatched;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack", feature = "tcp-mtu"))]
 use huginn_net_tcp::output::MatchQuality as TcpMatchQuality;
+#[cfg(all(feature = "db", feature = "tcp-mtu"))]
+use huginn_net_tcp::output::MatchRank as TcpMatchRank;
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 use huginn_net_tcp::output::OSQualityMatched;
 
@@ -100,7 +102,8 @@ impl<'a> HuginnNet<'a> {
                 method: match_mtu(*mtu),
                 success: found => MTUQualityMatched {
                     link: Some(found.link),
-                    quality: TcpMatchQuality::exact(1.0),
+                    // An MTU lookup is an exact table hit or nothing.
+                    quality: TcpMatchQuality::Matched(TcpMatchRank::Specific),
                 },
                 failure: MTUQualityMatched {
                     link: None,
@@ -130,10 +133,7 @@ impl<'a> HuginnNet<'a> {
                 method: match_tcp_request(obs),
                 success: found => OSQualityMatched {
                     os: Some(found.os),
-                    quality: TcpMatchQuality::Matched {
-                        quality: found.quality,
-                        fuzzy: found.fuzzy,
-                    },
+                    quality: TcpMatchQuality::Matched(found.rank),
                     dist: found.dist,
                     random_ttl: found.random_ttl,
                     excess_dist: found.excess_dist,
@@ -160,10 +160,7 @@ impl<'a> HuginnNet<'a> {
                 method: match_tcp_response(obs),
                 success: found => OSQualityMatched {
                     os: Some(found.os),
-                    quality: TcpMatchQuality::Matched {
-                        quality: found.quality,
-                        fuzzy: found.fuzzy,
-                    },
+                    quality: TcpMatchQuality::Matched(found.rank),
                     dist: found.dist,
                     random_ttl: found.random_ttl,
                     excess_dist: found.excess_dist,
@@ -200,7 +197,7 @@ impl<'a> HuginnNet<'a> {
                     (
                         BrowserQualityMatched {
                             browser: Some(found.browser.clone()),
-                            quality: HttpMatchQuality::Matched(found.quality),
+                            quality: HttpMatchQuality::Matched(found.rank.clone()),
                         },
                         Some(notes),
                         Some(found),
@@ -277,7 +274,7 @@ impl<'a> HuginnNet<'a> {
                     (
                         WebServerQualityMatched {
                             web_server: Some(found.web_server),
-                            quality: HttpMatchQuality::Matched(found.quality),
+                            quality: HttpMatchQuality::Matched(found.rank),
                         },
                         Some(notes),
                     )

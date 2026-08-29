@@ -6,7 +6,7 @@
 ///
 /// ```rust
 /// use huginn_net::quality_match;
-/// # use huginn_net_tcp::output::{MatchQuality, OSQualityMatched};
+/// # use huginn_net_tcp::output::{MatchQuality, MatchRank, OSQualityMatched};
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # let config = Config { matcher_enabled: true };
@@ -14,10 +14,10 @@
 /// let quality = quality_match!(
 ///     enabled: config.matcher_enabled,
 ///     matcher: matcher,
-///     call: matcher => None::<(String, f32)>,
-///     matched: (name, quality) => OSQualityMatched {
+///     call: matcher => None::<(String, MatchRank)>,
+///     matched: (name, rank) => OSQualityMatched {
 ///         os: None, // real code: Some(OperativeSystem::from(label))
-///         quality: MatchQuality::exact(quality),
+///         quality: MatchQuality::Matched(rank),
 ///         dist: 0,
 ///         random_ttl: false,
 ///         excess_dist: false,
@@ -73,7 +73,7 @@ macro_rules! quality_match {
 ///
 /// ```rust
 /// use huginn_net::{simple_quality_match, quality_match};
-/// # use huginn_net_tcp::output::{MTUQualityMatched, MatchQuality};
+/// # use huginn_net_tcp::output::{MTUQualityMatched, MatchQuality, MatchRank};
 /// # struct Config { matcher_enabled: bool }
 /// # struct Matcher;
 /// # impl Matcher {
@@ -89,7 +89,7 @@ macro_rules! quality_match {
 ///     method: match_mtu(observable_mtu.value),
 ///     success: found => MTUQualityMatched {
 ///         link: Some(found.link),
-///         quality: MatchQuality::exact(1.0),
+///         quality: MatchQuality::Matched(MatchRank::Specific),
 ///     },
 ///     failure: MTUQualityMatched {
 ///         link: None,

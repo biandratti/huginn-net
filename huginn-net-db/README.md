@@ -83,20 +83,25 @@ let analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
 
 ## Reading match results
 
-The matcher either returns a label or nothing. When it returns one, `quality`
-is one of three fixed tiers:
+The matcher either returns a label or nothing. When it returns one,
+`DatabaseMatch.rank` names one of three fixed tiers:
 
-| Outcome | `quality` | Meaning |
-|---------|-----------|---------|
-| Specific exact | `1.0` | Named product, every field fit |
-| Generic exact | `0.8` | Family catch-all, still exact |
-| Fuzzy | `0.5` | Held only with a documented tolerance (`FuzzyReason`) |
+| `MatchRank` | Score | Meaning |
+|-------------|-------|---------|
+| `Specific` | `1.0` | Named product, every field fit |
+| `Generic` | `0.8` | Family catch-all, still exact |
+| `Fuzzy(FuzzyReason)` | `0.5` | Held only with a documented tolerance |
 | No match | - | No signature passed the gates |
 | Disabled | - | No matcher was attached |
 
-Prefer `1.0` without `fuzzy`. Treat `0.5` as a hint and inspect `FuzzyReason`
-plus TCP `params` (`dist`, `random_ttl`, `excess_dist`, `tos`). HTTP has no
-fuzzy tier: a hit is exact, and `HttpParams` flags annotate the claim.
+The tolerance is carried by the `Fuzzy` variant, so there is no such thing as
+an exact match with a tolerance attached. `as_quality()` renders the score for
+display and JSON.
+
+Prefer `Specific`. Treat `Fuzzy` as a hint and inspect its `FuzzyReason` plus
+TCP `params` (`dist`, `random_ttl`, `excess_dist`, `tos`). HTTP has no fuzzy
+tier: its `Fuzziness` type is uninhabited, so a hit is always exact, and
+`HttpParams` flags annotate the claim.
 
 Match quality is also bounded by the bundled `p0f.fp` (last updated 2012):
 a correct algorithm cannot name a product the database does not list.

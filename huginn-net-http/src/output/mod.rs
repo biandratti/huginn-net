@@ -4,7 +4,11 @@ pub mod request;
 #[cfg(feature = "p0f-response")]
 pub mod response;
 
-#[cfg(feature = "json")]
+// Only the request / response outputs stringify a field this way.
+#[cfg(all(
+    feature = "json",
+    any(feature = "p0f-request", feature = "p0f-response")
+))]
 pub(crate) fn serialize_display<T: std::fmt::Display, S: serde::Serializer>(
     val: &T,
     s: S,

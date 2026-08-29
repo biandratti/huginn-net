@@ -118,8 +118,7 @@ where
                         return Some(DatabaseMatch {
                             label,
                             signature: db_sig,
-                            quality: MatchRank::Specific.as_quality(),
-                            fuzzy: None,
+                            rank: MatchRank::Specific,
                         });
                     }
                     Type::Generic => {
@@ -142,22 +141,12 @@ where
         }
 
         if let Some((label, signature)) = gmatch {
-            return Some(DatabaseMatch {
-                label,
-                signature,
-                quality: MatchRank::Generic.as_quality(),
-                fuzzy: None,
-            });
+            return Some(DatabaseMatch { label, signature, rank: MatchRank::Generic });
         }
 
         if let Some((label, signature, fuzzy)) = fmatch {
             label.class.as_ref()?;
-            return Some(DatabaseMatch {
-                label,
-                signature,
-                quality: MatchRank::Fuzzy.as_quality(),
-                fuzzy: Some(fuzzy),
-            });
+            return Some(DatabaseMatch { label, signature, rank: MatchRank::Fuzzy(fuzzy) });
         }
 
         None

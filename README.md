@@ -123,11 +123,11 @@ Optional packet filtering by port and/or IP address for improved performance. Fi
 
 Database matching follows p0f-style **tier selection**, not a continuous distance score. Each signature field is a pass/fail gate; a candidate that fails any gate is rejected, not ranked lower.
 
-The reported `quality` is a **tier label** (ordering matters; values may be recalibrated):
+A match reports its tier as `MatchQuality::Matched(MatchRank)` (ordering matters; the scores from `as_quality()` may be recalibrated):
 
-- **1.0** — exact fit on a **specified** signature (concrete product/OS)
-- **0.8** — exact fit on a **generic** catch-all signature
-- **0.5** — **fuzzy** fit (TCP only): the signature holds only after documented tolerances (e.g. missing `df`/`id+`, extra `id-`/`ecn`, implausible TTL hop distance)
+- **`Specific`** (1.0) — exact fit on a **specified** signature (concrete product/OS)
+- **`Generic`** (0.8) — exact fit on a **generic** catch-all signature
+- **`Fuzzy(FuzzyReason)`** (0.5) — **fuzzy** fit (TCP only): the signature holds only after documented tolerances (e.g. missing `df`/`id+`, extra `id-`/`ecn`, implausible TTL hop distance), and the variant carries which ones
 
 Other outcomes: **NotMatched** (matcher active, nothing fit) and **Disabled** (no matcher attached). On TCP, fuzzy matches also surface in `Params:` (`fuzzy (…)`, `generic`, `random_ttl`, `excess_dist`, `tos:0xNN`). HTTP signatures must fit exactly — there is no fuzzy tier.
 

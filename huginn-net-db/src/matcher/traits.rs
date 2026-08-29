@@ -64,28 +64,42 @@ pub trait DatabaseSignature<OF: ObservedFingerprint> {
 /// Base trait for keys used in fingerprint indexes.
 pub trait IndexKey: Debug + Clone + Eq + Hash {}
 
-/// Preference order: Specific > Generic > Fuzzy (`Ord` is best-first).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MatchRank {
+/// Which tier a match landed in, in preference order: `Specific` beats
+/// `Generic`, and both beat `Fuzzy`.
+///
+/// The tier and the tolerance are the same fact, so they are one value: a match
+/// is fuzzy exactly when there is a tolerance to report. `F` is the
+/// protocol-specific tolerance, [`NoFuzziness`] for protocols with none, which
+/// makes `Fuzzy` unconstructible for them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MatchRank<F> {
     /// Exact fit against a signature naming a concrete product.
     Specific,
     /// Exact fit against a catch-all signature.
     Generic,
-    /// Only holds because a documented tolerance was applied.
-    Fuzzy,
+    /// Only holds because the carried tolerance was applied.
+    Fuzzy(F),
 }
 
-impl MatchRank {
+impl<F> MatchRank<F> {
     /// Quality score reported to consumers.
     ///
     /// The contract is the ordering, not the numbers: a specific match always
     /// scores above a generic one, which always scores above a fuzzy one. The
     /// values themselves are free to be recalibrated.
-    pub fn as_quality(self) -> f32 {
+    pub fn as_quality(&self) -> f32 {
         match self {
             MatchRank::Specific => 1.0,
             MatchRank::Generic => 0.8,
-            MatchRank::Fuzzy => 0.5,
+            MatchRank::Fuzzy(_) => 0.5,
+        }
+    }
+
+    /// The tolerance that was applied, or `None` for an exact fit.
+    pub fn fuzzy(&self) -> Option<&F> {
+        match self {
+            MatchRank::Specific | MatchRank::Generic => None,
+            MatchRank::Fuzzy(reason) => Some(reason),
         }
     }
 }
@@ -97,10 +111,9 @@ pub struct DatabaseMatch<'a, DS, F> {
     pub label: &'a Label,
     /// The signature that matched, as written in the database.
     pub signature: &'a DS,
-    /// Quality score derived from the tier the match landed in.
-    pub quality: f32,
-    /// The tolerance that was applied, when the match is not exact.
-    pub fuzzy: Option<F>,
+    /// The tier this match landed in, carrying the applied tolerance when the
+    /// fit is not exact.
+    pub rank: MatchRank<F>,
 }
 
 /// Represents a collection of database signatures of a specific type.

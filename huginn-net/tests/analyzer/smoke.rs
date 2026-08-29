@@ -6,7 +6,9 @@
 //! that the umbrella crate correctly wires and combines both protocols in a
 //! single `FingerprintResult`.
 
-use huginn_net::{Database, HuginnNet, NotCheckedReason, TcpMatchQuality, UaOsAgreement};
+use huginn_net::{
+    Database, HuginnNet, NotCheckedReason, TcpMatchQuality, TcpMatchRank, UaOsAgreement,
+};
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
 use huginn_net_tcp::tcp::{Quirk, QuirkSet};
 use std::path::Path;
@@ -47,7 +49,7 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
         .unwrap_or_else(|| panic!("expected an OS match for the first SYN"));
     assert_eq!(os.name, "Mac OS X", "first SYN OS name");
     match &first_syn.os_matched.quality {
-        TcpMatchQuality::Matched { fuzzy: Some(reason), .. } => {
+        TcpMatchQuality::Matched(TcpMatchRank::Fuzzy(reason)) => {
             assert_eq!(reason.missing_quirks, QuirkSet::from([Quirk::NonZeroID]));
             assert_eq!(reason.added_quirks, QuirkSet::from([Quirk::Ecn]));
             assert_eq!(

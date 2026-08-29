@@ -88,13 +88,14 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
 
 fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
     match actual {
-        MatchQuality::Matched { quality, .. } => {
+        MatchQuality::Matched(rank) => {
             let expected_q: f32 = expected
                 .strip_prefix("Matched(")
                 .and_then(|s| s.strip_suffix(")"))
                 .unwrap_or_else(|| panic!("{ctx}: unexpected quality format: {expected}"))
                 .parse()
                 .unwrap_or_else(|_| panic!("{ctx}: cannot parse quality float: {expected}"));
+            let quality = rank.as_quality();
             assert!(
                 (quality - expected_q).abs() < 0.01,
                 "{ctx}: quality mismatch, expected {expected_q}, got {quality}"
@@ -106,10 +107,9 @@ fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
 }
 
 fn assert_fuzzy(actual: &MatchQuality, expected: &str, ctx: &str) {
-    let rendered = match actual {
-        MatchQuality::Matched { fuzzy: Some(reason), .. } => reason.to_string(),
-        _ => "none".to_string(),
-    };
+    let rendered = actual
+        .fuzzy()
+        .map_or_else(|| "none".to_string(), ToString::to_string);
     assert_eq!(rendered, expected, "{ctx}: tolerated difference");
 }
 

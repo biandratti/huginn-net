@@ -1,7 +1,8 @@
 use huginn_net_db::database::{FingerprintCollection, Label, TcpIndexKey, Type};
-use huginn_net_db::db_matching_trait::FingerprintDb;
+use huginn_net_db::db_matching_trait::{FingerprintDb, MatchRank};
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Quirk, QuirkSet, Signature, Ttl, WindowSize};
 use huginn_net_tcp::observable::TcpObservation;
+use huginn_net_tcp::output::FuzzyReason;
 
 type TcpCollection = FingerprintCollection<TcpObservation, Signature, TcpIndexKey>;
 
@@ -53,11 +54,11 @@ fn application_label(name: &str) -> Label {
     Label { ty: Type::Specified, class: None, name: name.to_string(), flavor: None }
 }
 
-fn best_match(entries: Vec<(Label, Vec<Signature>)>) -> Option<(String, f32)> {
+fn best_match(entries: Vec<(Label, Vec<Signature>)>) -> Option<(String, MatchRank<FuzzyReason>)> {
     let collection = TcpCollection::new(entries);
     collection
         .find_best_match(&observation())
-        .map(|found| (found.label.name.clone(), found.quality))
+        .map(|found| (found.label.name.clone(), found.rank))
 }
 
 #[test]
@@ -71,9 +72,9 @@ fn a_specific_signature_wins_over_a_generic_one_whatever_the_database_order() {
             entries.reverse();
         }
 
-        let (name, quality) = best_match(entries).unwrap_or_else(|| panic!("expected a match"));
+        let (name, rank) = best_match(entries).unwrap_or_else(|| panic!("expected a match"));
         assert_eq!(name, "Specific OS");
-        assert_eq!(quality, 1.0);
+        assert_eq!(rank, MatchRank::Specific);
     }
 }
 
@@ -81,24 +82,31 @@ fn a_specific_signature_wins_over_a_generic_one_whatever_the_database_order() {
 fn an_exact_generic_match_wins_over_a_fuzzy_specific_one() {
     // p0f keeps its fuzzy candidate aside and only reaches for it once no
     // generic signature fit either, so a tolerance never outranks an exact fit.
-    let (name, quality) = best_match(vec![
+    let (name, rank) = best_match(vec![
         (label("Fuzzy Specific OS", Type::Specified), vec![fuzzy_signature()]),
         (label("Generic OS", Type::Generic), vec![signature()]),
     ])
     .unwrap_or_else(|| panic!("expected a match"));
 
     assert_eq!(name, "Generic OS");
-    assert_eq!(quality, 0.8);
+    assert_eq!(rank, MatchRank::Generic);
 }
 
 #[test]
 fn a_fuzzy_match_is_reported_when_nothing_fits_exactly() {
-    let (name, quality) =
+    let (name, rank) =
         best_match(vec![(label("Fuzzy OS", Type::Specified), vec![fuzzy_signature()])])
             .unwrap_or_else(|| panic!("expected a fuzzy match"));
 
     assert_eq!(name, "Fuzzy OS");
-    assert_eq!(quality, 0.5);
+    let reason = rank
+        .fuzzy()
+        .unwrap_or_else(|| panic!("expected the fuzzy tier, got {rank:?}"));
+    assert_eq!(
+        reason.missing_quirks,
+        QuirkSet::from([Quirk::Df]),
+        "the signature declares df, the traffic did not show it"
+    );
 }
 
 #[test]
@@ -110,7 +118,7 @@ fn an_application_is_never_reported_on_a_fuzzy_match() {
 
 #[test]
 fn an_application_is_still_reported_on_an_exact_match() {
-    let (name, _quality) = best_match(vec![(application_label("NMap"), vec![signature()])])
+    let (name, _rank) = best_match(vec![(application_label("NMap"), vec![signature()])])
         .unwrap_or_else(|| panic!("an exact fit against an application signature is a match"));
 
     assert_eq!(name, "NMap");

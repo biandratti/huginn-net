@@ -1,9 +1,9 @@
 use crate::database::{Label, TcpDatabase, Type};
-use crate::db_matching_trait::{DatabaseMatch, FingerprintDb};
+use crate::db_matching_trait::{DatabaseMatch, FingerprintDb, MatchRank};
 use crate::tcp::{report_hop_distance, Ttl, MAX_TTL_DISTANCE};
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
 use huginn_net_tcp::observable::TcpObservation;
-use huginn_net_tcp::output::{FuzzyReason, OperativeSystem, OsKind};
+use huginn_net_tcp::output::{FuzzyReason, MatchRank as TcpMatchRank, OperativeSystem, OsKind};
 use std::sync::Arc;
 
 pub struct TcpSignatureMatcher<'a> {
@@ -38,6 +38,16 @@ impl From<&Label> for OperativeSystem {
 // Shared matching helpers
 // ---------------------------------------------------------------------------
 
+impl From<MatchRank<FuzzyReason>> for TcpMatchRank {
+    fn from(rank: MatchRank<FuzzyReason>) -> Self {
+        match rank {
+            MatchRank::Specific => TcpMatchRank::Specific,
+            MatchRank::Generic => TcpMatchRank::Generic,
+            MatchRank::Fuzzy(reason) => TcpMatchRank::Fuzzy(reason),
+        }
+    }
+}
+
 fn tcp_match_from_db(
     found: DatabaseMatch<'_, crate::tcp::Signature, FuzzyReason>,
     obs: &TcpObservation,
@@ -45,8 +55,7 @@ fn tcp_match_from_db(
     let dist = report_hop_distance(&obs.ittl, &found.signature.ittl);
     TcpMatch {
         os: OperativeSystem::from(found.label),
-        quality: found.quality,
-        fuzzy: found.fuzzy,
+        rank: found.rank.into(),
         dist,
         random_ttl: matches!(found.signature.ittl, Ttl::Bad(_)),
         excess_dist: dist > MAX_TTL_DISTANCE,
