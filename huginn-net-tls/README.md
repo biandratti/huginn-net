@@ -50,7 +50,7 @@ fingerprinting flow; that covers most TLS analysis use cases:
 
 ```toml
 [dependencies]
-huginn-net-tls = "2.0.0"
+huginn-net-tls = "2.1.0"
 ```
 
 If you also want `JA4_s1` / `JA4_rs1` (or want to opt into every TLS
@@ -59,7 +59,7 @@ analysis this version offers, including future additions), enable the
 
 ```toml
 [dependencies]
-huginn-net-tls = { version = "2.0.0", features = ["full"] }
+huginn-net-tls = { version = "2.1.0", features = ["full"] }
 ```
 
 ### Cargo Features
@@ -78,7 +78,7 @@ Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:
 
 ```toml
 [dependencies]
-huginn-net-tls = { version = "2.0.0", features = ["stable-v1"] }
+huginn-net-tls = { version = "2.1.0", features = ["stable-v1"] }
 ```
 
 When `stable-v1` is enabled (included by the `full` alias), `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:

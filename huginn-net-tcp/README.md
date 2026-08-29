@@ -52,13 +52,13 @@ Add this to your `Cargo.toml`:
 [dependencies]
 # Pick the TCP analyses you want via `features` (see "Cargo Features" below).
 # `full` is the convenience alias for "everything this version offers".
-huginn-net-tcp = { version = "2.0.0", features = ["full"] }
+huginn-net-tcp = { version = "2.1.0", features = ["full"] }
 # Optional: only needed if you want OS fingerprint matching against the
 # bundled p0f database. Skip it for an observation-only build (raw TCP
 # signatures + MTU + uptime). With `features = ["tcp"]` you only pull in
 # the TCP half of the p0f database (no HTTP parser, no HTTP signatures
 # embedded).
-huginn-net-db = { version = "2.0.0", features = ["tcp"] }
+huginn-net-db = { version = "2.1.0", features = ["tcp"] }
 ```
 
 ### Cargo Features
@@ -86,16 +86,16 @@ Common opt-in patterns:
 
 ```toml
 # Everything this version offers (forward-compatible with future axes).
-huginn-net-tcp = { version = "2.0.0", features = ["full"] }
+huginn-net-tcp = { version = "2.1.0", features = ["full"] }
 
 # Fingerprint only clients connecting to you, no MTU/uptime, no ttl_cache.
-huginn-net-tcp = { version = "2.0.0", features = ["syn"] }
+huginn-net-tcp = { version = "2.1.0", features = ["syn"] }
 
 # Recon: fingerprint only servers you connect to, with MTU detection.
-huginn-net-tcp = { version = "2.0.0", features = ["syn-ack", "mtu"] }
+huginn-net-tcp = { version = "2.1.0", features = ["syn-ack", "mtu"] }
 
 # Full OS fingerprinting, no MTU/uptime.
-huginn-net-tcp = { version = "2.0.0", features = ["syn", "syn-ack"] }
+huginn-net-tcp = { version = "2.1.0", features = ["syn", "syn-ack"] }
 ```
 
 > Fields on `TcpAnalysisResult` (`syn`, `syn_ack`, `mtu`, `client_uptime`,
