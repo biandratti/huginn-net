@@ -1,4 +1,4 @@
-use huginn_net_db::db_matching_trait::FingerprintDb;
+use huginn_net_db::db_matching_trait::{FingerprintDb, MatchRank};
 use huginn_net_db::{http, HttpDatabase, Type};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
@@ -31,7 +31,7 @@ fn matching_firefox2_by_http_request() {
         assert_eq!(found.label.class, None);
         assert_eq!(found.label.flavor, Some("2.x".to_string()));
         assert_eq!(found.label.ty, Type::Specified);
-        assert_eq!(found.quality, 1.0);
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found for Firefox 2.x HTTP signature");
     }
@@ -71,7 +71,7 @@ fn matching_apache_by_http_response() {
         assert_eq!(found.label.class, None);
         assert_eq!(found.label.flavor, Some("2.x".to_string()));
         assert_eq!(found.label.ty, Type::Specified);
-        assert_eq!(found.quality, 1.0);
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found for Apache 2.x HTTP response signature");
     }
@@ -107,7 +107,7 @@ fn matching_chrome11_by_http_request() {
         assert_eq!(found.label.class, None);
         assert_eq!(found.label.flavor, Some("11 or newer".to_string()));
         assert_eq!(found.label.ty, Type::Specified);
-        assert_eq!(found.quality, 1.0);
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found for Chrome 11 HTTP signature");
     }
@@ -136,7 +136,7 @@ fn matching_modern_curl_by_http_request() {
         assert_eq!(found.label.class, None);
         assert_eq!(found.label.flavor, None);
         assert_eq!(found.label.ty, Type::Specified);
-        assert_eq!(found.quality, 1.0);
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found for modern curl HTTP signature");
     }
@@ -202,7 +202,7 @@ fn unknown_request_signature_does_not_match() {
     assert!(
         result.is_none(),
         "expected no match for synthetic signature, got {:?}",
-        result.map(|found| (found.label.name.clone(), found.quality))
+        result.map(|found| (found.label.name.clone(), found.rank))
     );
 }
 

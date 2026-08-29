@@ -15,10 +15,12 @@
     { "crate": "huginn-net-tcp",  "features": "syn,mtu,uptime" },
     { "crate": "huginn-net-tcp",  "features": "syn-ack,mtu,uptime" },
     { "crate": "huginn-net-tcp",  "features": "full", "with_tests": true, "with_bench": true },
+    { "crate": "huginn-net-tcp",  "features": "json" },
 
     { "crate": "huginn-net-tls",  "features": "" },
     { "crate": "huginn-net-tls",  "features": "stable-v1" },
     { "crate": "huginn-net-tls",  "features": "full" },
+    { "crate": "huginn-net-tls",  "features": "json" },
 
     { "crate": "huginn-net-db",   "features": "" },
     { "crate": "huginn-net-db",   "features": "tcp" },
@@ -33,6 +35,7 @@
     { "crate": "huginn-net-http", "features": "p0f-request,akamai" },
     { "crate": "huginn-net-http", "features": "p0f-response,akamai" },
     { "crate": "huginn-net-http", "features": "full", "with_tests": true, "with_bench": true },
+    { "crate": "huginn-net-http", "features": "json" },
 
     { "crate": "huginn-net",      "features": "" },
     { "crate": "huginn-net",      "features": "db" },
@@ -48,5 +51,6 @@
     { "crate": "huginn-net",      "features": "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-response" },
     { "crate": "huginn-net",      "features": "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request,http-p0f-response" },
     { "crate": "huginn-net",      "features": "tls-stable-v1" },
-    { "crate": "huginn-net",      "features": "full", "with_tests": true }
+    { "crate": "huginn-net",      "features": "full", "with_tests": true },
+    { "crate": "huginn-net",      "features": "json" }
 ]

@@ -7,14 +7,14 @@
 //! but downstream users are free to plug their own.
 
 use crate::observable::{HttpRequestObservation, HttpResponseObservation};
-use crate::output::{Browser, WebServer};
+use crate::output::{Browser, MatchRank, WebServer};
 
 /// Result of matching an [`HttpRequestObservation`] against a database.
 /// `dishonest` is set when the User-Agent does not back the matched signature.
 #[derive(Debug, Clone)]
 pub struct HttpRequestMatch {
     pub browser: Browser,
-    pub quality: f32,
+    pub rank: MatchRank,
     pub dishonest: bool,
 }
 
@@ -23,7 +23,7 @@ pub struct HttpRequestMatch {
 #[derive(Debug, Clone)]
 pub struct HttpResponseMatch {
     pub web_server: WebServer,
-    pub quality: f32,
+    pub rank: MatchRank,
     pub dishonest: bool,
 }
 

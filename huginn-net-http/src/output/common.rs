@@ -34,18 +34,60 @@ impl fmt::Display for OsKind {
     }
 }
 
+/// Which tier an HTTP match landed in: `Specific` beats `Generic`.
+///
+/// HTTP signatures have no tolerances: a field that disagrees rejects the
+/// signature, so there is no fuzzy tier here, unlike TCP.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MatchRank {
+    /// Fit against a signature naming a concrete product.
+    Specific,
+    /// Fit against a catch-all signature.
+    Generic,
+}
+
+impl MatchRank {
+    /// Score in `[0.0, 1.0]` for this tier. The ordering is the contract; the
+    /// values are free to be recalibrated.
+    pub fn as_quality(&self) -> f32 {
+        match self {
+            MatchRank::Specific => 1.0,
+            MatchRank::Generic => 0.8,
+        }
+    }
+}
+
 /// Quality classification for an HTTP match.
 ///
-/// - `Matched(score)` a signature was matched with the given quality score
-///   (higher is better, typically in `[0.0, 1.0]`).
+/// - `Matched(rank)` a signature was matched, in the carried tier.
 /// - `NotMatched` the matcher was active but no signature was a viable fit.
 /// - `Disabled` matching was disabled (no matcher plugged in).
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum MatchQuality {
-    Matched(f32),
+    Matched(MatchRank),
     NotMatched,
     Disabled,
+}
+
+/// The wire format keeps the tier numeric: `Matched` serializes as its score.
+#[cfg(feature = "json")]
+impl serde::Serialize for MatchQuality {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            MatchQuality::Matched(rank) => serializer.serialize_newtype_variant(
+                "MatchQuality",
+                0,
+                "Matched",
+                &rank.as_quality(),
+            ),
+            MatchQuality::NotMatched => {
+                serializer.serialize_unit_variant("MatchQuality", 1, "NotMatched")
+            }
+            MatchQuality::Disabled => {
+                serializer.serialize_unit_variant("MatchQuality", 2, "Disabled")
+            }
+        }
+    }
 }
 
 /// Represents a browser identified from an HTTP request signature.

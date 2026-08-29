@@ -72,7 +72,8 @@ pub use huginn_net_tcp::output::SynTCPOutput;
 #[cfg(feature = "tcp-mtu")]
 pub use huginn_net_tcp::output::{MTUOutput, MTUQualityMatched};
 pub use huginn_net_tcp::output::{
-    MatchQuality as TcpMatchQuality, OperativeSystem, OsKind as TcpOsKind,
+    MatchQuality as TcpMatchQuality, MatchRank as TcpMatchRank, OperativeSystem,
+    OsKind as TcpOsKind,
 };
 #[cfg(feature = "tcp-uptime")]
 pub use huginn_net_tcp::output::{UptimeOutput, UptimeRole};
@@ -85,7 +86,8 @@ pub use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]
 pub use huginn_net_http::observable::ObservableHttpResponse;
 pub use huginn_net_http::output::{
-    Browser, MatchQuality as HttpMatchQuality, OsKind as HttpOsKind, WebServer,
+    Browser, MatchQuality as HttpMatchQuality, MatchRank as HttpMatchRank, OsKind as HttpOsKind,
+    WebServer,
 };
 #[cfg(feature = "http-p0f-request")]
 pub use huginn_net_http::output::{BrowserQualityMatched, HttpRequestOutput};

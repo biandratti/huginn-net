@@ -82,13 +82,14 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
 
 fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
     match actual {
-        MatchQuality::Matched(q) => {
+        MatchQuality::Matched(rank) => {
             let expected_q: f32 = expected
                 .strip_prefix("Matched(")
                 .and_then(|s| s.strip_suffix(")"))
                 .unwrap_or_else(|| panic!("{ctx}: unexpected quality format: {expected}"))
                 .parse()
                 .unwrap_or_else(|_| panic!("{ctx}: cannot parse quality float from: {expected}"));
+            let q = rank.as_quality();
             assert!(
                 (q - expected_q).abs() < 0.01,
                 "{ctx}: quality mismatch, expected {expected_q}, got {q}"

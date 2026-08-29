@@ -136,7 +136,7 @@ fn build_http_result(
                     (
                         BrowserQualityMatched {
                             browser: Some(req_match.browser.clone()),
-                            quality: MatchQuality::Matched(req_match.quality),
+                            quality: MatchQuality::Matched(req_match.rank.clone()),
                         },
                         Some(notes),
                         Some(req_match),
@@ -191,7 +191,7 @@ fn build_http_result(
                     (
                         WebServerQualityMatched {
                             web_server: Some(resp_match.web_server),
-                            quality: MatchQuality::Matched(resp_match.quality),
+                            quality: MatchQuality::Matched(resp_match.rank),
                         },
                         Some(notes),
                     )

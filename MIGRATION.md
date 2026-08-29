@@ -6,22 +6,26 @@
 
 Matching follows p0f: a field that does not fit is a rejection (HTTP has no
 error budget). TCP still has a fuzzy tier for the documented TTL/quirk
-tolerances. Scores are **tiers**, not a penalty sum:
+tolerances. The outcome is a **tier**, not a penalty sum, and it is now a type
+(`MatchRank`) rather than an `f32`:
 
-| Score | Meaning |
-|-------|---------|
-| `1.0` | Exact, named product |
-| `0.8` | Exact, generic catch-all |
-| `0.5` | Fuzzy (TCP only) |
+| Tier | Score | Meaning |
+|------|-------|---------|
+| `Specific` | `1.0` | Exact, named product |
+| `Generic` | `0.8` | Exact, generic catch-all |
+| `Fuzzy(FuzzyReason)` | `0.5` | Fuzzy (TCP only), carrying what was tolerated |
 
+The tolerance lives inside `Fuzzy`, so a match cannot be exact and fuzzy at
+once. Scores are derived with `rank.as_quality()`; the JSON is unchanged.
 First-match-wins within a tier. Userland (`s:!:…`) is never reported as fuzzy.
 
 ### Call sites
 
 ```rust
 // quality
-MatchQuality::Matched(q)                          // v2.0
-MatchQuality::Matched { quality, fuzzy }          // v2.1; inspect FuzzyReason
+MatchQuality::Matched(q)                          // v2.0, f32
+MatchQuality::Matched(rank)                       // v2.1, MatchRank
+quality.fuzzy()                                   // Option<&FuzzyReason>
 
 // TCP result
 OSQualityMatched { os, quality }                  // v2.0
@@ -67,7 +71,8 @@ Matcher methods are the traits: `match_tcp_request` / `match_http_request` / …
 |------|------|
 | `get_diagnostic` | `build_params` |
 | `calculate_distance` / `get_quality_score` | `fit` → `Option<SignatureFit<_>>` |
-| `find_best_match` → `(&Label, &DS, f32)` | `DatabaseMatch` |
+| `find_best_match` → `(&Label, &DS, f32)` | `DatabaseMatch { label, signature, rank }` |
+| `TcpMatch` / `HttpRequestMatch` / `HttpResponseMatch` `.quality: f32` (+ `.fuzzy`) | `.rank: MatchRank` |
 | `matching_by_*` | `TcpMatcher` / `HttpMatcher` |
 | `db` / `db_parse` / `observable_*_signals_matching` | `database` / `parse` (matching is private) |
 | `Vec<Quirk>` | `QuirkSet` |

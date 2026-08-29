@@ -84,7 +84,7 @@ fn tcp_matcher_fills_random_ttl_dist_and_params_tos() {
 
     let matched = OSQualityMatched {
         os: Some(found.os),
-        quality: MatchQuality::Matched { quality: found.quality, fuzzy: found.fuzzy },
+        quality: MatchQuality::Matched(found.rank),
         dist: found.dist,
         random_ttl: found.random_ttl,
         excess_dist: found.excess_dist,

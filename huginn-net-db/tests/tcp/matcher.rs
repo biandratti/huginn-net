@@ -1,9 +1,10 @@
-use huginn_net_db::db_matching_trait::FingerprintDb;
+use huginn_net_db::db_matching_trait::{FingerprintDb, MatchRank};
 use huginn_net_db::tcp::{
     IpVersion, PayloadSize, Quirk, QuirkSet, Signature, TcpOption, Ttl, WindowSize,
 };
 use huginn_net_db::{TcpDatabase, Type};
 use huginn_net_tcp::observable::TcpObservation;
+use huginn_net_tcp::output::FuzzyReason;
 
 /// Resolves the window a signature declares into a concrete value a packet
 /// could have carried, so the signature can be replayed as an observation.
@@ -35,11 +36,11 @@ fn observation_from_signature(sig: &Signature) -> TcpObservation {
     }
 }
 
+/// `(name, class, flavor)` of the winning label plus the tier it won in.
+type MatchedLabel = (String, Option<String>, Option<String>, MatchRank<FuzzyReason>);
+
 /// Parses `raw` as a TCP signature and matches it against the request collection.
-fn match_request(
-    db: &TcpDatabase,
-    raw: &str,
-) -> Option<(String, Option<String>, Option<String>, f32)> {
+fn match_request(db: &TcpDatabase, raw: &str) -> Option<MatchedLabel> {
     let sig: Signature = match raw.parse() {
         Ok(sig) => sig,
         Err(e) => panic!("Failed to parse signature {raw}: {e}"),
@@ -50,7 +51,7 @@ fn match_request(
         found.label.name.clone(),
         found.label.class.clone(),
         found.label.flavor.clone(),
-        found.quality,
+        found.rank,
     ))
 }
 
@@ -84,10 +85,9 @@ fn matching_linux_by_tcp_request() {
         assert_eq!(found.label.class, Some("unix".to_string()));
         assert_eq!(found.label.flavor, Some("2.2.x-3.x".to_string()));
         assert_eq!(found.label.ty, Type::Generic);
-        // A catch-all signature fits, so the match is real but ranks below what
-        // a signature naming a concrete release would have scored.
-        assert_eq!(found.quality, 0.8);
-        assert_eq!(found.fuzzy, None, "every field fit, nothing was tolerated");
+        // A catch-all signature fits every field, so the match is real but
+        // ranks below what a signature naming a concrete release would have.
+        assert_eq!(found.rank, MatchRank::Generic);
     } else {
         panic!("No match found");
     }
@@ -139,8 +139,7 @@ fn matching_android_by_tcp_request() {
         assert_eq!(found.label.class, Some("unix".to_string()));
         assert_eq!(found.label.flavor, Some("Android".to_string()));
         assert_eq!(found.label.ty, Type::Specified);
-        assert_eq!(found.quality, 1.0);
-        assert_eq!(found.fuzzy, None);
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found");
     }
@@ -153,10 +152,9 @@ fn matching_android_by_tcp_request() {
         assert_eq!(found.label.class, Some("unix".to_string()));
         assert_eq!(found.label.flavor, Some("Android".to_string()));
         assert_eq!(found.label.ty, Type::Specified);
-        assert_eq!(found.quality, 1.0);
         // The packet crossed routers, which is ordinary: a plausible hop count
-        // is not a tolerance.
-        assert_eq!(found.fuzzy, None);
+        // is not a tolerance, so this stays out of the fuzzy tier.
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found");
     }
