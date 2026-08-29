@@ -33,8 +33,6 @@ TCP can still land on `Fuzzy` when p0f would: hop count that is hard to trust, o
 | `excess_dist` | Hop count above p0f's `MAX_DIST` (35) |
 | `tos:0xNN` | Non-zero DSCP / traffic class |
 
-A match cannot be exact and fuzzy at once: the tolerance lives inside `Fuzzy`.
-
 Only SYN and SYN+ACK emit a TCP OS label (not every ACK).
 
 ## HTTP
