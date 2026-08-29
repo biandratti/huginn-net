@@ -149,6 +149,8 @@ jobs:
           toolchain: ${{ env.rust_stable }}
       - name: Check examples
         run: cargo check --examples -p huginn-net --features full
+      - name: Smoke example CLIs (PCAP)
+        run: ./scripts/smoke-examples.sh
       - name: Check benchmarks
         run: cargo check --benches -p huginn-net --features full
 

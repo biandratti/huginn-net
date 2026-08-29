@@ -3,6 +3,18 @@
 ip link show
 ```
 
+### Smoke test (PCAP / optional live)
+
+Before a release, or locally after touching examples:
+
+```
+# PCAP only (no root)
+./scripts/smoke-examples.sh
+
+# Also open a live capture for a few seconds on INTERFACE (may need root)
+./scripts/smoke-examples.sh -i eth0
+```
+
 ### Output formats
 
 All examples support `--format human` (default) and `--format json`.
