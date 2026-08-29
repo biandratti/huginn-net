@@ -92,7 +92,7 @@ where
     K: IndexKey,
 {
     /// First specific exact, else first generic exact, else first fuzzy.
-    /// A fuzzy application (`label.class` empty) is not reported.
+    /// A fuzzy [`Label::is_userland`] hit is not reported.
     fn find_best_match(&self, observed: &OF) -> Option<DatabaseMatch<'_, DS, DS::Fuzziness>> {
         let observed_key = observed.generate_index_key();
         let candidate_indices = self.index.get(&observed_key)?;
@@ -145,7 +145,9 @@ where
         }
 
         if let Some((label, signature, fuzzy)) = fmatch {
-            label.class.as_ref()?;
+            if label.is_userland() {
+                return None;
+            }
             return Some(DatabaseMatch { label, signature, rank: MatchRank::Fuzzy(fuzzy) });
         }
 
