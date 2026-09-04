@@ -24,8 +24,13 @@ fn test_ja4_generation() {
     let sig = create_test_signature();
     let ja4 = sig.generate_ja4();
 
-    // Test JA4_a format: protocol + version + sni + cipher_count + extension_count + alpn_first + alpn_last
+    // FoxIO rust/ja4 `test_client_stats_into_out` goldens (same ClientHello pieces).
     assert_eq!(ja4.ja4_a, "t13d1516h2");
+    assert_eq!(ja4.full.value(), "t13d1516h2_8daaf6152771_e5627efa2ab1");
+    assert_eq!(
+        ja4.raw.value(),
+        "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0015,0017,001b,0023,002b,002d,0033,4469,ff01_0403,0804,0401,0503,0805,0501,0806,0601"
+    );
 
     // Test that cipher suites are sorted and properly formatted
     assert!(ja4.ja4_b.contains("002f"));
@@ -50,6 +55,12 @@ fn test_ja4_original_order() {
     let sig = create_test_signature();
     let ja4_sorted = sig.generate_ja4();
     let ja4_original = sig.generate_ja4_original();
+
+    assert_eq!(ja4_original.full.value(), "t13d1516h2_acb858a92679_18f69afefd3d");
+    assert_eq!(
+        ja4_original.raw.value(),
+        "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_001b,0000,0033,0010,4469,0017,002d,000d,0005,0023,0012,002b,ff01,000b,000a,0015_0403,0804,0401,0503,0805,0501,0806,0601"
+    );
 
     // JA4_original should differ from JA4 in both cipher and extension order
     assert_ne!(ja4_original.raw.value(), ja4_sorted.raw.value());
@@ -93,6 +104,9 @@ fn test_grease_filtering() {
     assert!(!ja4.ja4_b.contains("0a0a"));
     assert!(!ja4.ja4_c.contains("1a1a"));
     assert!(!ja4.ja4_c.contains("2a2a"));
+    // Counts ignore GREASE (FoxIO)
+    assert_eq!(ja4.ja4_a, "t13d1516h2");
+    assert_eq!(ja4.full.value(), "t13d1516h2_8daaf6152771_e5627efa2ab1");
 }
 
 #[test]
@@ -116,11 +130,13 @@ fn test_alpn_first_last() {
 #[test]
 fn test_sni_indicator() {
     let mut sig = create_test_signature();
-    sig.sni = Some("example.com".to_string());
-    let ja4_with_sni = sig.generate_ja4();
-    assert!(ja4_with_sni.ja4_a.contains('d'));
+    assert!(sig.extensions.contains(&0x0000));
+    assert!(sig.generate_ja4().ja4_a.contains('d'));
 
     sig.sni = None;
+    assert!(sig.generate_ja4().ja4_a.contains('d'));
+
+    sig.extensions.retain(|&ext| ext != 0x0000);
     let ja4_without_sni = sig.generate_ja4();
     assert!(ja4_without_sni.ja4_a.contains('i'));
 }
@@ -135,6 +151,15 @@ fn test_no_signature_algorithms() {
     // Should not end with underscore when no signature algorithms
     assert!(!ja4.ja4_c.ends_with('_'));
     assert!(!ja4.raw.value().contains("__"));
+}
+
+#[test]
+fn test_empty_extensions_keeps_sigalg_underscore() {
+    let mut sig = create_test_signature();
+    sig.extensions.clear();
+    let ja4 = sig.generate_ja4();
+    assert!(ja4.ja4_c.starts_with('_'));
+    assert!(ja4.ja4_c.contains("0403"));
 }
 
 #[test]

@@ -92,9 +92,14 @@ impl Signature {
 
         let protocol = "t";
         let tls_version_str = format!("{}", self.version);
-        let sni_indicator = if self.sni.is_some() { "d" } else { "i" };
-        let cipher_count = format!("{:02}", self.cipher_suites.len().min(99));
-        let extension_count = format!("{:02}", extensions_after_exclude.len().min(99));
+
+        let sni_indicator = if self.extensions.contains(&0x0000) {
+            "d"
+        } else {
+            "i"
+        };
+        let cipher_count = format!("{:02}", filtered_ciphers.len().min(99));
+        let extension_count = format!("{:02}", filtered_extensions.len().min(99));
 
         let (alpn_first, alpn_last) = match &self.alpn {
             Some(alpn) => first_last_alpn(alpn),
@@ -139,10 +144,10 @@ impl Signature {
             let _ = write!(sig_algs_str, "{s:04x}");
         }
 
+        // FoxIO: if there are signature algorithms, always prefix them with `_`
+        // (including when the extension list is empty).
         let ja4_c_raw = if sig_algs_str.is_empty() {
             extensions_str
-        } else if extensions_str.is_empty() {
-            sig_algs_str
         } else {
             format!("{extensions_str}_{sig_algs_str}")
         };

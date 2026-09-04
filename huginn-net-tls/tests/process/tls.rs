@@ -3,7 +3,6 @@ use huginn_net_tls::tls_process::{
     determine_tls_version, extract_tls_signature_from_client_hello, is_tls_traffic,
 };
 use huginn_net_tls::*;
-use tls_parser::TlsExtensionType;
 
 const TLS_HANDSHAKE_TYPE: u8 = 0x16;
 
@@ -47,26 +46,26 @@ fn test_non_tls_traffic() {
 fn test_version_detection() {
     // Test TLS 1.2 detection
     let legacy_v12 = tls_parser::TlsVersion::Tls12;
-    assert_eq!(determine_tls_version(&legacy_v12, &[]), TlsVersion::V1_2);
+    assert_eq!(determine_tls_version(&legacy_v12, None), TlsVersion::V1_2);
 
     // Test TLS 1.3 detection via supported_versions extension
     let legacy_v12_but_13 = tls_parser::TlsVersion::Tls12;
     assert_eq!(
-        determine_tls_version(&legacy_v12_but_13, &[TlsExtensionType::SupportedVersions.into()]),
+        determine_tls_version(&legacy_v12_but_13, Some(&[tls_parser::TlsVersion::Tls13])),
         TlsVersion::V1_3
     );
 
     // Test TLS 1.1 detection
     let legacy_v11 = tls_parser::TlsVersion::Tls11;
-    assert_eq!(determine_tls_version(&legacy_v11, &[]), TlsVersion::V1_1);
+    assert_eq!(determine_tls_version(&legacy_v11, None), TlsVersion::V1_1);
 
     // Test TLS 1.0 detection
     let legacy_v10 = tls_parser::TlsVersion::Tls10;
-    assert_eq!(determine_tls_version(&legacy_v10, &[]), TlsVersion::V1_0);
+    assert_eq!(determine_tls_version(&legacy_v10, None), TlsVersion::V1_0);
 
     // Test SSL 3.0 detection (legacy)
     let ssl30 = tls_parser::TlsVersion::Ssl30;
-    assert_eq!(determine_tls_version(&ssl30, &[]), TlsVersion::Ssl3_0);
+    assert_eq!(determine_tls_version(&ssl30, None), TlsVersion::Ssl3_0);
 }
 
 #[test]
@@ -344,29 +343,23 @@ fn test_signature_struct_completeness() {
 
 #[test]
 fn test_extension_parsing_edge_cases() {
-    // Test empty extension list
-    let empty_extensions: Vec<u16> = vec![];
+    assert_eq!(determine_tls_version(&tls_parser::TlsVersion::Tls12, None), TlsVersion::V1_2);
+
+    // Test with supported_versions extension (highest listed version, ignoring GREASE)
     assert_eq!(
-        determine_tls_version(&tls_parser::TlsVersion::Tls12, &empty_extensions),
+        determine_tls_version(
+            &tls_parser::TlsVersion::Tls12,
+            Some(&[tls_parser::TlsVersion::Tls13])
+        ),
+        TlsVersion::V1_3
+    );
+
+    assert_eq!(
+        determine_tls_version(
+            &tls_parser::TlsVersion::Tls12,
+            Some(&[tls_parser::TlsVersion(0x0a0a), tls_parser::TlsVersion::Tls12])
+        ),
         TlsVersion::V1_2
-    );
-
-    // Test with supported_versions extension (should detect TLS 1.3)
-    let tls13_extensions = vec![TlsExtensionType::SupportedVersions.into()];
-    assert_eq!(
-        determine_tls_version(&tls_parser::TlsVersion::Tls12, &tls13_extensions),
-        TlsVersion::V1_3
-    );
-
-    // Test with mixed extensions
-    let mixed_extensions = vec![
-        TlsExtensionType::ServerName.into(),
-        TlsExtensionType::ApplicationLayerProtocolNegotiation.into(),
-        TlsExtensionType::SupportedVersions.into(),
-    ];
-    assert_eq!(
-        determine_tls_version(&tls_parser::TlsVersion::Tls12, &mixed_extensions),
-        TlsVersion::V1_3
     );
 }
 
@@ -374,7 +367,7 @@ fn test_extension_parsing_edge_cases() {
 fn test_ssl_version_support() {
     // Test that SSL 3.0 is properly supported (even though rare)
     let ssl30 = tls_parser::TlsVersion::Ssl30;
-    assert_eq!(determine_tls_version(&ssl30, &[]), TlsVersion::Ssl3_0);
+    assert_eq!(determine_tls_version(&ssl30, None), TlsVersion::Ssl3_0);
 
     // Test SSL 3.0 display formatting
     assert_eq!(TlsVersion::Ssl3_0.to_string(), "s3");

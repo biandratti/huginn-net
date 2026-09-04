@@ -33,7 +33,7 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 
 - **JA4 Fingerprinting** - Complete implementation of the official JA4 specification
 - **TLS Version Support** - TLS 1.0, 1.1, 1.2, 1.3, and SSL 3.0/2.0
-- **GREASE Filtering** - Proper handling of GREASE values per RFC 8701
+- **GREASE Filtering** - GREASE ignored in ciphers, extension types, and signature algorithms (RFC 8701 / FoxIO JA4)
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
 - **Extension Analysis** - Comprehensive TLS extension parsing
 - **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
