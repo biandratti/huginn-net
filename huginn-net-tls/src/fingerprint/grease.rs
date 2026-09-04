@@ -7,6 +7,10 @@ pub const TLS_GREASE_VALUES: [u16; 16] = [
     0xcaca, 0xdada, 0xeaea, 0xfafa,
 ];
 
+/// Server Name Indication (IANA `server_name`)
+pub const TLS_EXT_SERVER_NAME: u16 = 0x0000;
+/// Application-Layer Protocol Negotiation (IANA `application_layer_protocol_negotiation`)
+pub const TLS_EXT_ALPN: u16 = 0x0010;
 /// TLS Session Ticket extension (RFC 9149): ephemeral, varies per-connection
 pub const TLS_EXT_SESSION_TICKET: u16 = 0x0023;
 /// Pre-Shared Key extension (RFC 8446): ephemeral, varies per-connection

@@ -1,6 +1,6 @@
 #[cfg(feature = "stable-v1")]
 use super::grease::filter_ephemeral_extensions;
-use super::grease::filter_grease_values;
+use super::grease::{filter_grease_values, TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
 use super::ja4::{Ja4Mode, Ja4Payload};
 use super::version::TlsVersion;
 use sha2::{Digest, Sha256};
@@ -93,7 +93,7 @@ impl Signature {
         let protocol = "t";
         let tls_version_str = format!("{}", self.version);
 
-        let sni_indicator = if self.extensions.contains(&0x0000) {
+        let sni_indicator = if self.extensions.contains(&TLS_EXT_SERVER_NAME) {
             "d"
         } else {
             "i"
@@ -124,7 +124,7 @@ impl Signature {
 
         let mut extensions_for_c = filtered_extensions;
         if !original_order {
-            extensions_for_c.retain(|&ext| ext != 0x0000 && ext != 0x0010);
+            extensions_for_c.retain(|&ext| ext != TLS_EXT_SERVER_NAME && ext != TLS_EXT_ALPN);
             extensions_for_c.sort_unstable();
         }
 
@@ -144,8 +144,6 @@ impl Signature {
             let _ = write!(sig_algs_str, "{s:04x}");
         }
 
-        // FoxIO: if there are signature algorithms, always prefix them with `_`
-        // (including when the extension list is empty).
         let ja4_c_raw = if sig_algs_str.is_empty() {
             extensions_str
         } else {

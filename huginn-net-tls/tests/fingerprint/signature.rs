@@ -24,7 +24,6 @@ fn test_ja4_generation() {
     let sig = create_test_signature();
     let ja4 = sig.generate_ja4();
 
-    // FoxIO rust/ja4 `test_client_stats_into_out` goldens (same ClientHello pieces).
     assert_eq!(ja4.ja4_a, "t13d1516h2");
     assert_eq!(ja4.full.value(), "t13d1516h2_8daaf6152771_e5627efa2ab1");
     assert_eq!(
