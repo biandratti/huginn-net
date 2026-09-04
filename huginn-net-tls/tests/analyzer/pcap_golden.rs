@@ -274,6 +274,9 @@ fn test_golden_pcap_snapshots() {
         "tls12.pcap",
         "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
         "macos_safari_tls_extensions.pcap", // Safari on macOS with ephemeral extensions varying per connection
+        // FoxIO reference capture: GREASE (0x0a0a) inside signature_algorithms.
+        // JA4 must match FoxIO's own snapshot: t13d1517h2_8daaf6152771_cb7bf5808d99
+        "sigalg-grease.pcap",
     ];
 
     for pcap_file in golden_test_cases {

@@ -124,6 +124,13 @@ fn test_alpn_first_last() {
 
     // Test empty (should not happen in practice)
     assert_eq!(first_last_alpn(""), ('0', '0'));
+
+    // FoxIO rust/ja4 `test_first_last_non_ascii`
+    assert_eq!(first_last_alpn("\u{fffd}"), ('9', '0'));
+    assert_eq!(first_last_alpn("\u{fffd}\u{fffd}"), ('9', '9'));
+    assert_eq!(first_last_alpn("\u{fffd}x\u{fffd}"), ('9', '9'));
+    assert_eq!(first_last_alpn("x\u{fffd}"), ('x', '9'));
+    assert_eq!(first_last_alpn("\u{fffd}x"), ('9', 'x'));
 }
 
 #[test]
@@ -186,6 +193,51 @@ fn test_ssl_version_in_ja4() {
         ja4_string.starts_with("ts3d"),
         "JA4 should start with 'ts3d' for SSL 3.0, got: {ja4_string}"
     );
+}
+
+#[test]
+fn test_hash12_matches_foxio_vectors() {
+    // FoxIO rust/ja4 `test_hash12`
+    assert_eq!(hash12("551d0f,551d25,551d11"), "aae71e8db6d7");
+    assert_eq!(hash12(""), "000000000000");
+}
+
+#[test]
+fn test_empty_ciphers_and_extensions_hash_to_zeros() {
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.full.value(), "t13i000000_000000000000_000000000000");
+}
+
+#[test]
+fn test_ja4_a_matches_foxio_quic_transport_params_vector() {
+    // FoxIO rust/ja4 `test_client_quic_marker_uses_packet_context`: TLS 1.3, no SNI,
+    // no ciphers, a single extension (quic_transport_parameters), no ALPN.
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![0x0039],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.ja4_a, "t13i000100");
+    assert_eq!(ja4.ja4_c, "0039");
+    assert!(ja4.full.value().contains("_000000000000_"));
 }
 
 #[test]

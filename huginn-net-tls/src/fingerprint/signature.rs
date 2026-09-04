@@ -41,8 +41,14 @@ pub fn first_last_alpn(s: &str) -> (char, char) {
     (first, if s.len() == 1 { '0' } else { last })
 }
 
-/// Generate 12-character hash (first 12 chars of SHA256)
+/// Generate 12-character hash (first 12 chars of SHA256).
+///
+/// An empty input hashes to `000000000000` rather than the SHA-256 of the empty
+/// string, so an absent field is visibly empty instead of a constant digest.
 pub fn hash12(input: &str) -> String {
+    if input.is_empty() {
+        return "000000000000".to_owned();
+    }
     Sha256::digest(input.as_bytes())[..6]
         .iter()
         .fold(String::with_capacity(12), |mut acc, b| {
