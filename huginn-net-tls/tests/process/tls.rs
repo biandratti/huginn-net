@@ -229,7 +229,8 @@ fn test_signature_parsing_functional_approach() {
     // Verify the elegant enum approach for sorted/unsorted
     assert_eq!(ja4.full.variant_name(), "ja4"); // Sorted version
     let ja4_original = sig.generate_ja4_original();
-    assert_eq!(ja4_original.full.variant_name(), "ja4_o"); // Unsorted version
+    assert_eq!(ja4_original.full.variant_name(), "ja4_o"); // Original version
+    assert_eq!(ja4_original.raw.variant_name(), "ja4_ro");
 }
 
 #[test]

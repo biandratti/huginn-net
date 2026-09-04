@@ -399,6 +399,7 @@ fn test_ja4_stable_filters_ephemeral_extensions() {
     // Ephemeral extensions absent from ja4_stable raw output
     assert!(!ja4_stable.raw.value().contains("0023")); // session_ticket
     assert!(!ja4_stable.raw.value().contains("0029")); // pre_shared_key
+    assert!(!ja4_stable.raw.value().contains("002a")); // early_data
     assert!(!ja4_stable.raw.value().contains("0015")); // padding
 
     // Non-ephemeral extensions still present
@@ -422,6 +423,31 @@ fn test_ja4_stable_uses_stable_enum_variants() {
     let ja4 = sig.generate_ja4();
     assert_eq!(ja4.full.variant_name(), "ja4");
     assert_eq!(ja4.raw.variant_name(), "ja4_r");
+}
+
+/// A 0-RTT resumption sends `pre_shared_key` plus `early_data` (RFC 8446), and a
+/// full handshake sends neither. JA4_s1 must collapse both to one fingerprint.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_stable_collapses_zero_rtt_resumption() {
+    let mut fresh = create_test_signature();
+    fresh
+        .extensions
+        .retain(|e| !EPHEMERAL_TLS_EXTENSIONS.contains(e));
+
+    let mut resumed = fresh.clone();
+    resumed
+        .extensions
+        .extend_from_slice(&[TLS_EXT_PRE_SHARED_KEY, TLS_EXT_EARLY_DATA]);
+
+    // Standard JA4 splits them: the extension count and JA4_c both move
+    assert_ne!(fresh.generate_ja4().full.value(), resumed.generate_ja4().full.value());
+
+    // JA4_s1 does not
+    assert_eq!(
+        fresh.generate_ja4_stable_v1().full.value(),
+        resumed.generate_ja4_stable_v1().full.value()
+    );
 }
 
 #[cfg(feature = "stable-v1")]
