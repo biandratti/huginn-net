@@ -34,6 +34,33 @@ JA4_rs1: …   // v2.2
 `Ja4RawFingerprint::Unsorted::variant_name()` was already `"ja4_ro"`.
 `Ja4RawFingerprint::StableV1::variant_name()` was already `"ja4_rs1"`.
 
+### GREASE in signature algorithms (FoxIO, 2026-09)
+
+FoxIO just fixed the reference JA4 implementations (Rust tool, Zeek, Arkime,
+Wireshark): they were **not** dropping GREASE from the `signature_algorithms`
+extension, so Chromium / Google clients hashed wrong. GREASE must be ignored
+everywhere (ciphers, extension types, sig algs, `supported_versions`, curves).
+
+2.2 follows that same fix. Fingerprints for those clients change; the value
+is the one FoxIO now publishes. Chromium v152 initial TCP:
+
+```text
+t13d1517h2_8daaf6152771_cb7bf5808d99
+```
+
+### `determine_tls_version`
+
+JA4 version is the highest `supported_versions` (0x002b) value, ignoring
+GREASE (already in the FoxIO spec). If that list is missing or empty, use
+ClientHello protocol version (`legacy_version`). An unknown wire value is
+`00`, not TLS 1.2.
+
+```rust
+determine_tls_version(legacy, &[0x002b])                    // v2.1, always V1_3
+determine_tls_version(legacy, Some(&[TlsVersion::Tls13]))   // v2.2
+determine_tls_version(legacy, None)                         // no 0x002b
+```
+
 ---
 
 ## v2.0.0 → v2.1.0
