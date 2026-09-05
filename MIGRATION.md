@@ -2,6 +2,40 @@
 
 ---
 
+## v2.1.0 → v2.2.0
+
+FoxIO names the original-order raw fingerprint `ja4_ro` (`r` = raw, `o` =
+original). huginn 2.1 published that same string as `ja4_or`. The value was
+never swapped; only the key. 2.2 uses FoxIO's name.
+
+The same modifier order applies to the huginn-only stable variant
+(`feature = "stable-v1"` / `tls-stable-v1`): raw is `ja4_rs1`, not `ja4_s1r`.
+
+### JSON (`feature = "json"`)
+
+`TlsClientOutput.sig`:
+
+| v2.1 | v2.2 |
+|------|------|
+| `ja4_or` | `ja4_ro` |
+| `ja4_s1r` | `ja4_rs1` |
+
+`ja4`, `ja4_r`, `ja4_o`, and `ja4_s1` are unchanged.
+
+### `Display`
+
+```text
+JA4_or:  …   // v2.1
+JA4_ro:  …   // v2.2
+JA4_s1r: …   // v2.1
+JA4_rs1: …   // v2.2
+```
+
+`Ja4RawFingerprint::Unsorted::variant_name()` was already `"ja4_ro"`.
+`Ja4RawFingerprint::StableV1::variant_name()` was already `"ja4_rs1"`.
+
+---
+
 ## v2.0.0 → v2.1.0
 
 Matching follows p0f: a field that does not fit is a rejection (HTTP has no
