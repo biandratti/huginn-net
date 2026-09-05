@@ -47,6 +47,8 @@ Chrome extras such as `0xca34`) are dropped. Official JA4 is unchanged.
 `EPHEMERAL_TLS_EXTENSIONS` is removed. Use `S1_EXTENSION_ALLOWLIST`.
 Stored `ja4_s1` / `ja4_rs1` values may change; re-fingerprint.
 
+Allowlist contents and curation rule: [`huginn-net-tls/JA4S1.md`](huginn-net-tls/JA4S1.md).
+
 ### GREASE in signature algorithms (FoxIO, 2026-09)
 
 FoxIO just fixed the reference JA4 implementations (Rust tool, Zeek, Arkime,

@@ -30,6 +30,11 @@ pub const TLS_EXT_COOKIE: u16 = 0x002c;
 ///
 /// `psk_key_exchange_modes` (0x002d) is excluded: some stacks send it only when
 /// offering a PSK, which would flip s1 between fresh and resumed handshakes.
+///
+/// Rationale and curation rule:
+/// <https://github.com/biandratti/huginn-net/blob/master/huginn-net-tls/JA4S1.md>
+///
+/// Not part of the FoxIO JA4 spec; `JA4_s1` is huginn-only.
 #[cfg(feature = "stable-v1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
 pub const S1_EXTENSION_ALLOWLIST: &[u16] = &[
