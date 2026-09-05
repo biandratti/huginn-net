@@ -28,8 +28,8 @@ pub const TLS_EXT_COOKIE: u16 = 0x002c;
 /// `pre_shared_key`, `early_data`, `cookie`) and any unlisted ID are dropped.
 /// Promoting an always-on ID is a breaking s1 bump.
 ///
-/// `psk_key_exchange_modes` (0x002d) is included: Chrome/Safari send it on
-/// every Hello. Stacks that emit it only with PSK will split s1.
+/// `psk_key_exchange_modes` (0x002d) is excluded: some stacks send it only when
+/// offering a PSK, which would flip s1 between fresh and resumed handshakes.
 #[cfg(feature = "stable-v1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
 pub const S1_EXTENSION_ALLOWLIST: &[u16] = &[
@@ -45,7 +45,6 @@ pub const S1_EXTENSION_ALLOWLIST: &[u16] = &[
     0x001c, // record_size_limit
     0x0022, // delegated_credential
     0x002b, // supported_versions
-    0x002d, // psk_key_exchange_modes
     0x0031, // post_handshake_auth
     0x0032, // signature_algorithms_cert
     0x0033, // key_share

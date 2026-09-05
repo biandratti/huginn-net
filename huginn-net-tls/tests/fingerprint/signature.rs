@@ -380,6 +380,8 @@ fn test_ja4_s1_drops_session_types() {
     assert!(!s1.raw.value().contains("0015"));
     assert!(!s1.raw.value().contains("002a"));
     assert!(!s1.raw.value().contains("002c"));
+    // psk_key_exchange_modes: recent Firefox couples it to PSK
+    assert!(!s1.raw.value().contains("002d"));
     assert!(s1.raw.value().contains("000d"));
     assert!(s1.raw.value().contains("002b"));
     assert_ne!(s1.full.value(), ja4.full.value());
