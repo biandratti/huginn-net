@@ -280,7 +280,7 @@ fn test_golden_pcap_snapshots() {
     let golden_test_cases = [
         "tls12.pcap",
         "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
-        "macos_safari_tls_extensions.pcap", // Safari on macOS with ephemeral extensions varying per connection
+        "macos_safari_tls_extensions.pcap", // Safari: session types flip; s1 must stay one key
         "sigalg-grease.pcap",
     ];
 

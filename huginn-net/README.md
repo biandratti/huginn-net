@@ -64,7 +64,7 @@ consume, or use `full` to opt into everything this version offers:
 | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`, `UaOsAgreement`). With `db` + `tcp-syn`, the umbrella feeds that connection's SYN OS into `ua_os`. |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
-| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1`: official JA4 intersected with the s1 allowlist (session / unlisted types dropped). |
 | `json` | No | Derives `serde::Serialize` on all output types (`FingerprintResult` and its fields). Enables JSON serialization via `serde_json`. Independent of `full` — opt in explicitly: `features = ["full", "json"]`. |
 
 Each `tcp-*` / `http-*` feature gates the corresponding field on
@@ -114,9 +114,13 @@ With `db` disabled, use `HuginnNet::new_observable(max_connections, None)` inste
 When `tls-stable-v1` is enabled (included by the `full` alias), `TlsClient` output gains two extra lines:
 
 ```text
-  JA4_s1:  t13d1416h2_8daaf6152771_b0da82dd1658
-  JA4_rs1: t13d1416h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033,002d
+  JA4_s1:  t13d0708h2_ed7cf3b2e3d4_49cf42c5a352
+  JA4_rs1: t13d0708h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033
 ```
+
+`JA4_s1` hashes only the extension types in `S1_EXTENSION_ALLOWLIST`, so session /
+resumption types do not change the key. See
+[`huginn-net-tls/JA4S1.md`](../huginn-net-tls/JA4S1.md).
 
 ### Examples & Tutorials
 
@@ -288,8 +292,8 @@ All filters support both Allow (allowlist) and Deny (denylist) modes. See the [f
   JA4_r:   t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601
   JA4_o:   t13d1516h2_acb858a92679_b0dc76ca1c15
   JA4_ro:  t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0023,0017,001b,0012,000a,0000,fe0d,44cd,000d,ff01,0005,002b,000b,002d,0010,0033_0403,0804,0401,0503,0805,0501,0806,0601
-  JA4_s1:  t13d1515h2_8daaf6152771_31ec0a762479
-  JA4_rs1: t13d1515h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601
+  JA4_s1:  t13d1514h2_8daaf6152771_f835621b68aa
+  JA4_rs1: t13d1514h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,002b,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601
 ```
 
 ## Protocol-Specific Crates
