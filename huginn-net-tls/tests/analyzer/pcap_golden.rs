@@ -280,7 +280,14 @@ fn test_golden_pcap_snapshots() {
     let golden_test_cases = [
         "tls12.pcap",
         "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
-        "macos_safari_tls_extensions.pcap", // Safari: session types flip; s1 must stay one key
+        // Named for Safari but the traffic is Chromium (ALPS 0x44cd, shuffled
+        // extension order, Chrome cipher list). Session types flip across the
+        // six hellos; s1 must stay one key.
+        "macos_safari_tls_extensions.pcap",
+        // The only Apple-stack capture we have. Its JA4 and s1 match the uTLS
+        // HelloIOS_13 / HelloIOS_14 parrots exactly, so it pins a non-Chromium
+        // cipher list (26 suites) against a second, independent source.
+        "macos_tcp_flags.pcap",
         "sigalg-grease.pcap",
     ];
 
@@ -288,4 +295,48 @@ fn test_golden_pcap_snapshots() {
         println!("Running golden test for: {pcap_file}");
         test_pcap_with_snapshot(pcap_file);
     }
+}
+
+/// The s1 invariant, asserted rather than inferred from the snapshot: one
+/// client to one host over one ALPN yields a single `JA4_s1`, even though the
+/// session types make official JA4 split. Regenerating the snapshot cannot
+/// silently drop this.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_pcap_group_yields_single_ja4_s1() {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
+    let results = analyze_pcap_file(&snapshot.pcap_path);
+    assert!(results.len() > 1, "need several hellos to group");
+
+    let mut groups: BTreeMap<(String, String, String), Vec<&TlsClientOutput>> = BTreeMap::new();
+    for out in &results {
+        let key = (
+            out.source.ip.to_string(),
+            out.sig.sni.clone().unwrap_or_default(),
+            out.sig.alpn.clone().unwrap_or_default(),
+        );
+        groups.entry(key).or_default().push(out);
+    }
+
+    let mut collapsed_groups = 0;
+    for (key, members) in &groups {
+        let ja4: BTreeSet<&str> = members.iter().map(|m| m.sig.ja4.full.value()).collect();
+        let s1: BTreeSet<&str> = members
+            .iter()
+            .map(|m| m.sig.ja4_stable_v1.full.value())
+            .collect();
+
+        assert_eq!(s1.len(), 1, "{key:?}: expected one JA4_s1, got {s1:?} (JA4 was {ja4:?})");
+        if ja4.len() > 1 {
+            collapsed_groups += 1;
+        }
+    }
+
+    assert!(
+        collapsed_groups > 0,
+        "this pcap must contain at least one group that official JA4 splits, \
+         otherwise it does not exercise the collapse"
+    );
 }

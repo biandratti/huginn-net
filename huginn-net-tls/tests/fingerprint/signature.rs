@@ -367,6 +367,26 @@ fn test_s1_allowlist_is_sorted() {
     assert_eq!(S1_EXTENSION_ALLOWLIST, sorted.as_slice());
 }
 
+/// Promoting a session / resumption type would silently break the collapse s1
+/// exists for, so the exclusion is asserted instead of only documented.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_s1_allowlist_excludes_session_types() {
+    for (id, name) in [
+        (0x0015, "padding"),
+        (0x0023, "session_ticket"),
+        (0x0029, "pre_shared_key"),
+        (0x002a, "early_data"),
+        (0x002c, "cookie"),
+        (0x002d, "psk_key_exchange_modes"),
+    ] {
+        assert!(
+            !S1_EXTENSION_ALLOWLIST.contains(&id),
+            "{name} ({id:#06x}) must stay out of S1_EXTENSION_ALLOWLIST"
+        );
+    }
+}
+
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_s1_drops_session_types() {
