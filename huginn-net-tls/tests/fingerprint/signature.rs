@@ -93,6 +93,9 @@ fn test_grease_filtering() {
     assert!(!ja4.ja4_b.contains("0a0a"));
     assert!(!ja4.ja4_c.contains("1a1a"));
     assert!(!ja4.ja4_c.contains("2a2a"));
+
+    // FoxIO rust/ja4: GREASE in signature_algorithms must not appear in raw JA4_c
+    assert!(!ja4.raw.value().contains("2a2a"));
 }
 
 #[test]

@@ -246,12 +246,7 @@ pub fn parse_tls_client_hello_ja4(data: &[u8]) -> Option<String> {
 pub fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, HuginnNetTlsError> {
-    let cipher_suites: Vec<u16> = client_hello
-        .ciphers
-        .iter()
-        .map(|c| c.0)
-        .filter(|&cipher| !TLS_GREASE_VALUES.contains(&cipher))
-        .collect();
+    let cipher_suites = without_grease(client_hello.ciphers.iter().map(|c| c.0));
 
     let mut extensions = Vec::new();
     let mut sni = None;
@@ -280,10 +275,10 @@ pub fn extract_tls_signature_from_client_hello(
                             }
                         }
                         TlsExtension::SignatureAlgorithms(sig_algs) => {
-                            signature_algorithms = sig_algs.clone();
+                            signature_algorithms = without_grease(sig_algs.iter().copied());
                         }
                         TlsExtension::EllipticCurves(curves) => {
-                            elliptic_curves = curves.iter().map(|c| c.0).collect();
+                            elliptic_curves = without_grease(curves.iter().map(|c| c.0));
                         }
                         TlsExtension::EcPointFormats(formats) => {
                             elliptic_curve_point_formats = formats.to_vec();
@@ -310,6 +305,13 @@ pub fn extract_tls_signature_from_client_hello(
         sni,
         alpn,
     })
+}
+
+fn without_grease(values: impl IntoIterator<Item = u16>) -> Vec<u16> {
+    values
+        .into_iter()
+        .filter(|v| !TLS_GREASE_VALUES.contains(v))
+        .collect()
 }
 
 pub fn determine_tls_version(
