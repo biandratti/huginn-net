@@ -1,6 +1,6 @@
 #[cfg(feature = "stable-v1")]
 use super::grease::filter_ephemeral_extensions;
-use super::grease::filter_grease_values;
+use super::grease::{filter_grease_values, TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
 use super::ja4::{Ja4Mode, Ja4Payload};
 use super::version::TlsVersion;
 use sha2::{Digest, Sha256};
@@ -41,8 +41,14 @@ pub fn first_last_alpn(s: &str) -> (char, char) {
     (first, if s.len() == 1 { '0' } else { last })
 }
 
-/// Generate 12-character hash (first 12 chars of SHA256)
+/// Generate 12-character hash (first 12 chars of SHA256).
+///
+/// An empty input hashes to `000000000000` rather than the SHA-256 of the empty
+/// string, so an absent field is visibly empty instead of a constant digest.
 pub fn hash12(input: &str) -> String {
+    if input.is_empty() {
+        return "000000000000".to_owned();
+    }
     Sha256::digest(input.as_bytes())[..6]
         .iter()
         .fold(String::with_capacity(12), |mut acc, b| {
@@ -92,9 +98,14 @@ impl Signature {
 
         let protocol = "t";
         let tls_version_str = format!("{}", self.version);
-        let sni_indicator = if self.sni.is_some() { "d" } else { "i" };
-        let cipher_count = format!("{:02}", self.cipher_suites.len().min(99));
-        let extension_count = format!("{:02}", extensions_after_exclude.len().min(99));
+
+        let sni_indicator = if self.extensions.contains(&TLS_EXT_SERVER_NAME) {
+            "d"
+        } else {
+            "i"
+        };
+        let cipher_count = format!("{:02}", filtered_ciphers.len().min(99));
+        let extension_count = format!("{:02}", filtered_extensions.len().min(99));
 
         let (alpn_first, alpn_last) = match &self.alpn {
             Some(alpn) => first_last_alpn(alpn),
@@ -119,7 +130,7 @@ impl Signature {
 
         let mut extensions_for_c = filtered_extensions;
         if !original_order {
-            extensions_for_c.retain(|&ext| ext != 0x0000 && ext != 0x0010);
+            extensions_for_c.retain(|&ext| ext != TLS_EXT_SERVER_NAME && ext != TLS_EXT_ALPN);
             extensions_for_c.sort_unstable();
         }
 
@@ -141,8 +152,6 @@ impl Signature {
 
         let ja4_c_raw = if sig_algs_str.is_empty() {
             extensions_str
-        } else if extensions_str.is_empty() {
-            sig_algs_str
         } else {
             format!("{extensions_str}_{sig_algs_str}")
         };

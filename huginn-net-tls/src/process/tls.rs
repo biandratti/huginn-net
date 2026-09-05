@@ -246,12 +246,7 @@ pub fn parse_tls_client_hello_ja4(data: &[u8]) -> Option<String> {
 pub fn extract_tls_signature_from_client_hello(
     client_hello: &TlsClientHelloContents,
 ) -> Result<Signature, HuginnNetTlsError> {
-    let cipher_suites: Vec<u16> = client_hello
-        .ciphers
-        .iter()
-        .map(|c| c.0)
-        .filter(|&cipher| !TLS_GREASE_VALUES.contains(&cipher))
-        .collect();
+    let cipher_suites = without_grease(client_hello.ciphers.iter().map(|c| c.0));
 
     let mut extensions = Vec::new();
     let mut sni = None;
@@ -259,6 +254,7 @@ pub fn extract_tls_signature_from_client_hello(
     let mut signature_algorithms = Vec::new();
     let mut elliptic_curves = Vec::new();
     let mut elliptic_curve_point_formats = Vec::new();
+    let mut supported_versions = None;
 
     if let Some(ext_data) = &client_hello.ext {
         match parse_tls_extensions(ext_data) {
@@ -280,10 +276,13 @@ pub fn extract_tls_signature_from_client_hello(
                             }
                         }
                         TlsExtension::SignatureAlgorithms(sig_algs) => {
-                            signature_algorithms = sig_algs.clone();
+                            signature_algorithms = without_grease(sig_algs.iter().copied());
                         }
                         TlsExtension::EllipticCurves(curves) => {
-                            elliptic_curves = curves.iter().map(|c| c.0).collect();
+                            elliptic_curves = without_grease(curves.iter().map(|c| c.0));
+                        }
+                        TlsExtension::SupportedVersions(versions) => {
+                            supported_versions = Some(versions.clone());
                         }
                         TlsExtension::EcPointFormats(formats) => {
                             elliptic_curve_point_formats = formats.to_vec();
@@ -298,7 +297,7 @@ pub fn extract_tls_signature_from_client_hello(
         }
     }
 
-    let version = determine_tls_version(&client_hello.version, &extensions);
+    let version = determine_tls_version(&client_hello.version, supported_versions.as_deref());
 
     Ok(Signature {
         version,
@@ -312,23 +311,31 @@ pub fn extract_tls_signature_from_client_hello(
     })
 }
 
+fn without_grease(values: impl IntoIterator<Item = u16>) -> Vec<u16> {
+    values
+        .into_iter()
+        .filter(|v| !TLS_GREASE_VALUES.contains(v))
+        .collect()
+}
+
+/// JA4 version (FoxIO): if `supported_versions` (0x002b) is present, take the
+/// highest value ignoring GREASE. If that extension is absent or empty, use
+/// ClientHello protocol version (`legacy_version` / `client_hello.version`).
+/// The TLS record / handshake version at the top of the packet is ignored.
 pub fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
-    extensions: &[u16],
+    supported_versions: Option<&[tls_parser::TlsVersion]>,
 ) -> TlsVersion {
-    if extensions.contains(&TlsExtensionType::SupportedVersions.into()) {
-        return TlsVersion::V1_3;
-    }
-
-    match *legacy_version {
-        tls_parser::TlsVersion::Tls13 => TlsVersion::V1_3,
-        tls_parser::TlsVersion::Tls12 => TlsVersion::V1_2,
-        tls_parser::TlsVersion::Tls11 => TlsVersion::V1_1,
-        tls_parser::TlsVersion::Tls10 => TlsVersion::V1_0,
-        tls_parser::TlsVersion::Ssl30 => TlsVersion::Ssl3_0,
-        _ => {
-            debug!("Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2", legacy_version);
-            TlsVersion::V1_2
+    if let Some(versions) = supported_versions {
+        if let Some(code) = versions
+            .iter()
+            .map(|v| v.0)
+            .filter(|v| !TLS_GREASE_VALUES.contains(v))
+            .max()
+        {
+            return TlsVersion::from_wire(code);
         }
     }
+
+    TlsVersion::from_wire(legacy_version.0)
 }

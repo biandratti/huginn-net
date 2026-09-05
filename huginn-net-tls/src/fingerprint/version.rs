@@ -14,6 +14,21 @@ pub enum TlsVersion {
     Unknown(u16),
 }
 
+impl TlsVersion {
+    /// Map a TLS protocol version wire value (e.g. `0x0304`) to JA4's version token.
+    pub(crate) fn from_wire(code: u16) -> Self {
+        match code {
+            0x0304 => TlsVersion::V1_3,
+            0x0303 => TlsVersion::V1_2,
+            0x0302 => TlsVersion::V1_1,
+            0x0301 => TlsVersion::V1_0,
+            0x0300 => TlsVersion::Ssl3_0,
+            0x0002 => TlsVersion::Ssl2_0,
+            _ => TlsVersion::Unknown(code),
+        }
+    }
+}
+
 impl fmt::Display for TlsVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

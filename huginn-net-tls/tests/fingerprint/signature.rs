@@ -24,8 +24,12 @@ fn test_ja4_generation() {
     let sig = create_test_signature();
     let ja4 = sig.generate_ja4();
 
-    // Test JA4_a format: protocol + version + sni + cipher_count + extension_count + alpn_first + alpn_last
     assert_eq!(ja4.ja4_a, "t13d1516h2");
+    assert_eq!(ja4.full.value(), "t13d1516h2_8daaf6152771_e5627efa2ab1");
+    assert_eq!(
+        ja4.raw.value(),
+        "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0015,0017,001b,0023,002b,002d,0033,4469,ff01_0403,0804,0401,0503,0805,0501,0806,0601"
+    );
 
     // Test that cipher suites are sorted and properly formatted
     assert!(ja4.ja4_b.contains("002f"));
@@ -93,6 +97,9 @@ fn test_grease_filtering() {
     assert!(!ja4.ja4_b.contains("0a0a"));
     assert!(!ja4.ja4_c.contains("1a1a"));
     assert!(!ja4.ja4_c.contains("2a2a"));
+
+    // FoxIO rust/ja4: GREASE in signature_algorithms must not appear in raw JA4_c
+    assert!(!ja4.raw.value().contains("2a2a"));
 }
 
 #[test]
@@ -116,13 +123,15 @@ fn test_alpn_first_last() {
 #[test]
 fn test_sni_indicator() {
     let mut sig = create_test_signature();
-    sig.sni = Some("example.com".to_string());
-    let ja4_with_sni = sig.generate_ja4();
-    assert!(ja4_with_sni.ja4_a.contains('d'));
+    assert!(sig.extensions.contains(&0x0000));
+    assert!(sig.generate_ja4().ja4_a.contains('d'));
 
+    // Hostname parse failure must not flip SNI: FoxIO keys on extension 0x0000
     sig.sni = None;
-    let ja4_without_sni = sig.generate_ja4();
-    assert!(ja4_without_sni.ja4_a.contains('i'));
+    assert!(sig.generate_ja4().ja4_a.contains('d'));
+
+    sig.extensions.retain(|&ext| ext != 0x0000);
+    assert!(sig.generate_ja4().ja4_a.contains('i'));
 }
 
 #[test]
@@ -175,6 +184,46 @@ fn test_hash12_function() {
 
     // Different input should produce different hash
     assert_ne!(hash12("different"), hash12(input));
+}
+
+#[test]
+fn test_hash12_matches_foxio_vectors() {
+    assert_eq!(hash12("551d0f,551d25,551d11"), "aae71e8db6d7");
+    assert_eq!(hash12(""), "000000000000");
+}
+
+#[test]
+fn test_empty_ciphers_and_extensions_hash_to_zeros() {
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.full.value(), "t13i000000_000000000000_000000000000");
+}
+
+#[test]
+fn test_ja4_c_keeps_underscore_when_extensions_empty() {
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![0x0403],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.ja4_c, "_0403");
 }
 
 #[test]
