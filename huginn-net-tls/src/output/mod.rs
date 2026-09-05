@@ -44,11 +44,11 @@ fn serialize_tls_client<S: serde::Serializer>(
     map.serialize_entry("ja4", val.ja4.full.value())?;
     map.serialize_entry("ja4_r", val.ja4.raw.value())?;
     map.serialize_entry("ja4_o", val.ja4_original.full.value())?;
-    map.serialize_entry("ja4_or", val.ja4_original.raw.value())?;
+    map.serialize_entry("ja4_ro", val.ja4_original.raw.value())?;
     #[cfg(feature = "stable-v1")]
     map.serialize_entry("ja4_s1", val.ja4_stable_v1.full.value())?;
     #[cfg(feature = "stable-v1")]
-    map.serialize_entry("ja4_s1r", val.ja4_stable_v1.raw.value())?;
+    map.serialize_entry("ja4_rs1", val.ja4_stable_v1.raw.value())?;
     map.end()
 }
 
@@ -62,7 +62,7 @@ impl fmt::Display for TlsClientOutput {
               JA4:     {}\n\
               JA4_r:   {}\n\
               JA4_o:   {}\n\
-              JA4_or:  {}\n",
+              JA4_ro:  {}\n",
             self.source.ip,
             self.source.port,
             self.destination.ip,
@@ -78,7 +78,7 @@ impl fmt::Display for TlsClientOutput {
         write!(
             f,
             "JA4_s1:  {}\n\
-              JA4_s1r: {}\n",
+              JA4_rs1: {}\n",
             self.sig.ja4_stable_v1.full.value(),
             self.sig.ja4_stable_v1.raw.value(),
         )?;
