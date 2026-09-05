@@ -71,7 +71,7 @@ future axes added in later releases):
 | Feature     | Default | Description                                                                                    |
 |-------------|---------|------------------------------------------------------------------------------------------------|
 | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
-| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1`: official JA4 intersected with `S1_EXTENSION_ALLOWLIST` (session / unlisted types dropped). |
 | `json`      | No      | Derives `serde::Serialize` on all output types (`TlsClientOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:

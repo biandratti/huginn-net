@@ -12,7 +12,7 @@
 //! | Feature     | Default | Description |
 //! |-------------|---------|-------------|
 //! | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades. |
-//! | `stable-v1` | No      | Adds [`Signature::generate_ja4_stable_v1`] / [`ObservableTlsClient::ja4_stable_v1`], ephemeral extensions excluded for stable fingerprints. |
+//! | `stable-v1` | No      | Adds [`Signature::generate_ja4_stable_v1`] / [`ObservableTlsClient::ja4_stable_v1`]: JA4 intersected with [`S1_EXTENSION_ALLOWLIST`] (session / unlisted types dropped). |
 //! | `json`      | No      | Enables [`serde::Serialize`] on [`TlsClientOutput`] for JSON/NDJSON consumers. Not included in `full`. |
 //!
 //! Common opt-in examples:

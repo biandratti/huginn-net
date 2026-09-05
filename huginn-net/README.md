@@ -64,7 +64,7 @@ consume, or use `full` to opt into everything this version offers:
 | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`, `UaOsAgreement`). With `db` + `tcp-syn`, the umbrella feeds that connection's SYN OS into `ua_os`. |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
-| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1`: official JA4 intersected with the s1 allowlist (session / unlisted types dropped). |
 | `json` | No | Derives `serde::Serialize` on all output types (`FingerprintResult` and its fields). Enables JSON serialization via `serde_json`. Independent of `full` — opt in explicitly: `features = ["full", "json"]`. |
 
 Each `tcp-*` / `http-*` feature gates the corresponding field on

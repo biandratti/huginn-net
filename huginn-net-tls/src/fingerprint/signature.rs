@@ -1,5 +1,5 @@
 #[cfg(feature = "stable-v1")]
-use super::grease::filter_ephemeral_extensions;
+use super::grease::filter_s1_extensions;
 use super::grease::{filter_grease_values, TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
 use super::ja4::{Ja4Mode, Ja4Payload};
 use super::version::TlsVersion;
@@ -70,7 +70,11 @@ impl Signature {
         self.compute_ja4(Ja4Mode::Unsorted)
     }
 
-    /// Generate JA4 fingerprint with ephemeral extensions excluded (sorted)
+    /// Generate JA4 fingerprint using the huginn s1 allowlist (sorted).
+    ///
+    /// Same algorithm as [`Self::generate_ja4`], but `JA4_a` count and `JA4_c`
+    /// extension types are intersected with [`super::S1_EXTENSION_ALLOWLIST`].
+    /// Session / resumption types and unlisted IDs are dropped.
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     #[inline]
@@ -83,8 +87,8 @@ impl Signature {
         let original_order = mode.is_original_order();
 
         #[cfg(feature = "stable-v1")]
-        let extensions_after_exclude: Cow<[u16]> = if mode.is_exclude_ephemeral() {
-            filter_ephemeral_extensions(&self.extensions)
+        let extensions_after_exclude: Cow<[u16]> = if mode.is_stable_v1() {
+            filter_s1_extensions(&self.extensions)
         } else {
             Cow::Borrowed(&self.extensions)
         };

@@ -360,26 +360,96 @@ fn test_captured_traffic_ja4() {
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_ja4_stable_filters_ephemeral_extensions() {
+fn test_s1_allowlist_is_sorted() {
+    let mut sorted = S1_EXTENSION_ALLOWLIST.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(S1_EXTENSION_ALLOWLIST, sorted.as_slice());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_drops_session_types() {
     let sig = create_test_signature();
-    // create_test_signature includes 0x0023 (session_ticket) and 0x0015 (padding)
     let ja4 = sig.generate_ja4();
-    let ja4_stable = sig.generate_ja4_stable_v1();
+    let s1 = sig.generate_ja4_stable_v1();
 
-    // JA4_a differs: extension count drops after ephemeral removal
-    assert_ne!(ja4_stable.ja4_a, ja4.ja4_a);
+    assert_ne!(s1.ja4_a, ja4.ja4_a);
+    assert!(!s1.raw.value().contains("0023"));
+    assert!(!s1.raw.value().contains("0029"));
+    assert!(!s1.raw.value().contains("0015"));
+    assert!(!s1.raw.value().contains("002a"));
+    assert!(!s1.raw.value().contains("002c"));
+    assert!(s1.raw.value().contains("000d"));
+    assert!(s1.raw.value().contains("002b"));
+    assert_ne!(s1.full.value(), ja4.full.value());
+}
 
-    // Ephemeral extensions absent from ja4_stable raw output
-    assert!(!ja4_stable.raw.value().contains("0023")); // session_ticket
-    assert!(!ja4_stable.raw.value().contains("0029")); // pre_shared_key
-    assert!(!ja4_stable.raw.value().contains("0015")); // padding
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_unknown_id_does_not_flip() {
+    let mut sig = create_test_signature();
+    let baseline = sig.generate_ja4_stable_v1();
 
-    // Non-ephemeral extensions still present
-    assert!(ja4_stable.raw.value().contains("000d")); // signature_algorithms ext
-    assert!(ja4_stable.raw.value().contains("002b")); // supported_versions ext
+    sig.extensions.push(0x002a);
+    sig.extensions.push(0xbeef);
+    sig.extensions.push(0x0a0a);
+    let with_unknown = sig.generate_ja4_stable_v1();
 
-    // Hashed fingerprint differs from standard JA4
-    assert_ne!(ja4_stable.full.value(), ja4.full.value());
+    assert_eq!(with_unknown.full.value(), baseline.full.value());
+    assert_eq!(with_unknown.raw.value(), baseline.raw.value());
+    assert_ne!(sig.generate_ja4().full.value(), baseline.full.value());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_allowlisted_id_counts() {
+    let mut sig = create_test_signature();
+    sig.extensions.retain(|&e| e != 0x001c);
+    let without = sig.generate_ja4_stable_v1();
+
+    sig.extensions.push(0x001c);
+    let with = sig.generate_ja4_stable_v1();
+
+    assert_ne!(with.full.value(), without.full.value());
+    assert_ne!(with.ja4_a, without.ja4_a);
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_session_collapse() {
+    let mut fresh = create_test_signature();
+    fresh
+        .extensions
+        .retain(|&e| !matches!(e, 0x0015 | 0x0023 | 0x0029 | 0x002a | 0x002c));
+
+    let mut resumed = fresh.clone();
+    resumed.extensions.extend([0x0023, 0x0029, 0x002a, 0x0015]);
+
+    let s1_fresh = fresh.generate_ja4_stable_v1();
+    let s1_resumed = resumed.generate_ja4_stable_v1();
+    assert_eq!(s1_fresh.full.value(), s1_resumed.full.value());
+    assert_eq!(s1_fresh.raw.value(), s1_resumed.raw.value());
+    assert_ne!(fresh.generate_ja4().full.value(), resumed.generate_ja4().full.value());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_alpn_and_sni_still_distinguish() {
+    let mut sig = create_test_signature();
+    let h2 = sig.generate_ja4_stable_v1();
+
+    sig.alpn = Some("http/1.1".to_string());
+    let h1 = sig.generate_ja4_stable_v1();
+    assert_ne!(h2.ja4_a, h1.ja4_a);
+    assert!(h2.ja4_a.contains("h2"));
+    assert!(h1.ja4_a.contains("h1"));
+
+    sig.alpn = Some("h2".to_string());
+    sig.extensions.retain(|&e| e != 0x0000);
+    let no_sni = sig.generate_ja4_stable_v1();
+    assert!(h2.ja4_a.contains('d'));
+    assert!(no_sni.ja4_a.contains('i'));
 }
 
 #[cfg(feature = "stable-v1")]
@@ -391,7 +461,6 @@ fn test_ja4_stable_uses_stable_enum_variants() {
     assert_eq!(ja4_stable.full.variant_name(), "ja4_s1");
     assert_eq!(ja4_stable.raw.variant_name(), "ja4_rs1");
 
-    // Standard JA4 uses different variants
     let ja4 = sig.generate_ja4();
     assert_eq!(ja4.full.variant_name(), "ja4");
     assert_eq!(ja4.raw.variant_name(), "ja4_r");
@@ -399,14 +468,14 @@ fn test_ja4_stable_uses_stable_enum_variants() {
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_ja4_stable_idempotent_without_ephemeral_exts() {
+fn test_ja4_s1_matches_ja4_when_only_allowlisted() {
     let mut sig = create_test_signature();
     sig.extensions
-        .retain(|e| !EPHEMERAL_TLS_EXTENSIONS.contains(e));
+        .retain(|e| S1_EXTENSION_ALLOWLIST.contains(e));
 
     let ja4 = sig.generate_ja4();
-    let ja4_stable = sig.generate_ja4_stable_v1();
+    let s1 = sig.generate_ja4_stable_v1();
 
-    assert_eq!(ja4.full.value(), ja4_stable.full.value());
-    assert_eq!(ja4.raw.value(), ja4_stable.raw.value());
+    assert_eq!(ja4.full.value(), s1.full.value());
+    assert_eq!(ja4.raw.value(), s1.raw.value());
 }

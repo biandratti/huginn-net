@@ -5,7 +5,7 @@ use std::fmt;
 pub enum Ja4Fingerprint {
     Sorted(String),
     Unsorted(String),
-    /// JA4 with ephemeral extensions excluded
+    /// JA4 with s1 allowlist (session / unlisted types dropped)
     StableV1(String),
 }
 
@@ -42,7 +42,7 @@ impl Ja4Fingerprint {
 pub enum Ja4RawFingerprint {
     Sorted(String),
     Unsorted(String),
-    /// JA4 raw with ephemeral extensions excluded
+    /// JA4 raw with s1 allowlist (session / unlisted types dropped)
     StableV1(String),
 }
 
@@ -104,7 +104,7 @@ impl Ja4Mode {
     }
 
     #[cfg(feature = "stable-v1")]
-    pub(super) fn is_exclude_ephemeral(&self) -> bool {
+    pub(super) fn is_stable_v1(&self) -> bool {
         matches!(self, Ja4Mode::StableV1)
     }
 

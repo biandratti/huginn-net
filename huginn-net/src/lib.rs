@@ -20,7 +20,7 @@
 //! | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 //! | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`], [`UaOsAgreement`]). |
 //! | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, [`HttpResponseOutput`], [`WebServer`], [`WebServerQualityMatched`]). |
-//! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` fingerprints via [`huginn_net_tls`], ephemeral extensions excluded for stable fingerprints. |
+//! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` via [`huginn_net_tls`]: JA4 intersected with the s1 allowlist (session / unlisted types dropped). |
 //! | `json` | No | Enables [`serde::Serialize`] on [`FingerprintResult`] and analysis output types (pass-through to `huginn-net-tcp/json`, `huginn-net-http/json`, `huginn-net-tls/json`). Not included in `full`. |
 //!
 //! Each `tcp-*` / `http-*` feature gates the corresponding field on
