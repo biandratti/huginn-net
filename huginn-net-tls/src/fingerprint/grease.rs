@@ -15,12 +15,18 @@ pub const TLS_EXT_ALPN: u16 = 0x0010;
 pub const TLS_EXT_SESSION_TICKET: u16 = 0x0023;
 /// Pre-Shared Key extension (RFC 8446): ephemeral, varies per-connection
 pub const TLS_EXT_PRE_SHARED_KEY: u16 = 0x0029;
+/// Early Data extension (RFC 8446): ephemeral, sent alongside `pre_shared_key` on 0-RTT
+pub const TLS_EXT_EARLY_DATA: u16 = 0x002a;
 /// Padding extension (RFC 7685): ephemeral, varies per-connection
 pub const TLS_EXT_PADDING: u16 = 0x0015;
 
 /// Ephemeral TLS extensions that may vary per-connection and break JA4 stability
-pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 3] =
-    [TLS_EXT_SESSION_TICKET, TLS_EXT_PRE_SHARED_KEY, TLS_EXT_PADDING];
+pub const EPHEMERAL_TLS_EXTENSIONS: [u16; 4] = [
+    TLS_EXT_SESSION_TICKET,
+    TLS_EXT_PRE_SHARED_KEY,
+    TLS_EXT_EARLY_DATA,
+    TLS_EXT_PADDING,
+];
 
 /// Check if a value is a GREASE value according to RFC 8701
 #[inline(always)]
@@ -40,20 +46,14 @@ pub(super) fn filter_grease_values(values: &[u16]) -> Vec<u16> {
 
 #[cfg(feature = "stable-v1")]
 pub(super) fn filter_ephemeral_extensions(values: &[u16]) -> Cow<'_, [u16]> {
-    if values
-        .iter()
-        .any(|v| matches!(v, &TLS_EXT_SESSION_TICKET | &TLS_EXT_PRE_SHARED_KEY | &TLS_EXT_PADDING))
-    {
+    let is_ephemeral = |v: u16| EPHEMERAL_TLS_EXTENSIONS.contains(&v);
+
+    if values.iter().copied().any(is_ephemeral) {
         Cow::Owned(
             values
                 .iter()
                 .copied()
-                .filter(|v| {
-                    !matches!(
-                        v,
-                        &TLS_EXT_SESSION_TICKET | &TLS_EXT_PRE_SHARED_KEY | &TLS_EXT_PADDING
-                    )
-                })
+                .filter(|&v| !is_ephemeral(v))
                 .collect(),
         )
     } else {

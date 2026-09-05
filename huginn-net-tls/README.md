@@ -33,7 +33,7 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 
 - **JA4 Fingerprinting** - Complete implementation of the official JA4 specification
 - **TLS Version Support** - TLS 1.0, 1.1, 1.2, 1.3, and SSL 3.0/2.0
-- **GREASE Filtering** - GREASE ignored in ciphers, extension types, signature algorithms, and curves (RFC 8701 / FoxIO JA4)
+- **GREASE Filtering** - GREASE ignored in ciphers, extension types, signature algorithms, supported versions, and curves (RFC 8701 / FoxIO JA4)
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
 - **Extension Analysis** - Comprehensive TLS extension parsing
 - **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
@@ -71,7 +71,7 @@ future axes added in later releases):
 | Feature     | Default | Description                                                                                    |
 |-------------|---------|------------------------------------------------------------------------------------------------|
 | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
-| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints; session-dependent extensions (`session_ticket`, `pre_shared_key`, `early_data`, `padding`) excluded so the same client keeps one fingerprint across resumptions. |
 | `json`      | No      | Derives `serde::Serialize` on all output types (`TlsClientOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:

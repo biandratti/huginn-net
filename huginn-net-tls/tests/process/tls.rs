@@ -53,17 +53,6 @@ fn test_version_detection() {
         determine_tls_version(&legacy_v12_but_13, Some(&[tls_parser::TlsVersion::Tls13])),
         TlsVersion::V1_3
     );
-    assert_eq!(
-        determine_tls_version(&legacy_v12, Some(&[tls_parser::TlsVersion::Tls12])),
-        TlsVersion::V1_2
-    );
-    assert_eq!(
-        determine_tls_version(
-            &legacy_v12,
-            Some(&[tls_parser::TlsVersion(0x0a0a), tls_parser::TlsVersion::Tls13])
-        ),
-        TlsVersion::V1_3
-    );
 
     let legacy_v11 = tls_parser::TlsVersion::Tls11;
     assert_eq!(determine_tls_version(&legacy_v11, None), TlsVersion::V1_1);

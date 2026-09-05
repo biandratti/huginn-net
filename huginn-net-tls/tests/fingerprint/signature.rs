@@ -55,6 +55,12 @@ fn test_ja4_original_order() {
     let ja4_sorted = sig.generate_ja4();
     let ja4_original = sig.generate_ja4_original();
 
+    assert_eq!(ja4_original.full.value(), "t13d1516h2_acb858a92679_18f69afefd3d");
+    assert_eq!(
+        ja4_original.raw.value(),
+        "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_001b,0000,0033,0010,4469,0017,002d,000d,0005,0023,0012,002b,ff01,000b,000a,0015_0403,0804,0401,0503,0805,0501,0806,0601"
+    );
+
     // JA4_original should differ from JA4 in both cipher and extension order
     assert_ne!(ja4_original.raw.value(), ja4_sorted.raw.value());
     assert_eq!(
@@ -97,9 +103,9 @@ fn test_grease_filtering() {
     assert!(!ja4.ja4_b.contains("0a0a"));
     assert!(!ja4.ja4_c.contains("1a1a"));
     assert!(!ja4.ja4_c.contains("2a2a"));
-
-    // FoxIO rust/ja4: GREASE in signature_algorithms must not appear in raw JA4_c
-    assert!(!ja4.raw.value().contains("2a2a"));
+    // Counts ignore GREASE (FoxIO)
+    assert_eq!(ja4.ja4_a, "t13d1516h2");
+    assert_eq!(ja4.full.value(), "t13d1516h2_8daaf6152771_e5627efa2ab1");
 }
 
 #[test]
@@ -118,6 +124,13 @@ fn test_alpn_first_last() {
 
     // Test empty (should not happen in practice)
     assert_eq!(first_last_alpn(""), ('0', '0'));
+
+    // FoxIO rust/ja4 `test_first_last_non_ascii`
+    assert_eq!(first_last_alpn("\u{fffd}"), ('9', '0'));
+    assert_eq!(first_last_alpn("\u{fffd}\u{fffd}"), ('9', '9'));
+    assert_eq!(first_last_alpn("\u{fffd}x\u{fffd}"), ('9', '9'));
+    assert_eq!(first_last_alpn("x\u{fffd}"), ('x', '9'));
+    assert_eq!(first_last_alpn("\u{fffd}x"), ('9', 'x'));
 }
 
 #[test]
@@ -131,7 +144,8 @@ fn test_sni_indicator() {
     assert!(sig.generate_ja4().ja4_a.contains('d'));
 
     sig.extensions.retain(|&ext| ext != 0x0000);
-    assert!(sig.generate_ja4().ja4_a.contains('i'));
+    let ja4_without_sni = sig.generate_ja4();
+    assert!(ja4_without_sni.ja4_a.contains('i'));
 }
 
 #[test]
@@ -144,6 +158,15 @@ fn test_no_signature_algorithms() {
     // Should not end with underscore when no signature algorithms
     assert!(!ja4.ja4_c.ends_with('_'));
     assert!(!ja4.raw.value().contains("__"));
+}
+
+#[test]
+fn test_empty_extensions_keeps_sigalg_underscore() {
+    let mut sig = create_test_signature();
+    sig.extensions.clear();
+    let ja4 = sig.generate_ja4();
+    assert!(ja4.ja4_c.starts_with('_'));
+    assert!(ja4.ja4_c.contains("0403"));
 }
 
 #[test]
@@ -171,6 +194,51 @@ fn test_ssl_version_in_ja4() {
         ja4_string.starts_with("ts3d"),
         "JA4 should start with 'ts3d' for SSL 3.0, got: {ja4_string}"
     );
+}
+
+#[test]
+fn test_hash12_matches_foxio_vectors() {
+    // FoxIO rust/ja4 `test_hash12`
+    assert_eq!(hash12("551d0f,551d25,551d11"), "aae71e8db6d7");
+    assert_eq!(hash12(""), "000000000000");
+}
+
+#[test]
+fn test_empty_ciphers_and_extensions_hash_to_zeros() {
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.full.value(), "t13i000000_000000000000_000000000000");
+}
+
+#[test]
+fn test_ja4_a_matches_foxio_quic_transport_params_vector() {
+    // FoxIO rust/ja4 `test_client_quic_marker_uses_packet_context`: TLS 1.3, no SNI,
+    // no ciphers, a single extension (quic_transport_parameters), no ALPN.
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![0x0039],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.ja4_a, "t13i000100");
+    assert_eq!(ja4.ja4_c, "0039");
+    assert!(ja4.full.value().contains("_000000000000_"));
 }
 
 #[test]
@@ -372,6 +440,7 @@ fn test_ja4_stable_filters_ephemeral_extensions() {
     // Ephemeral extensions absent from ja4_stable raw output
     assert!(!ja4_stable.raw.value().contains("0023")); // session_ticket
     assert!(!ja4_stable.raw.value().contains("0029")); // pre_shared_key
+    assert!(!ja4_stable.raw.value().contains("002a")); // early_data
     assert!(!ja4_stable.raw.value().contains("0015")); // padding
 
     // Non-ephemeral extensions still present
@@ -395,6 +464,31 @@ fn test_ja4_stable_uses_stable_enum_variants() {
     let ja4 = sig.generate_ja4();
     assert_eq!(ja4.full.variant_name(), "ja4");
     assert_eq!(ja4.raw.variant_name(), "ja4_r");
+}
+
+/// A 0-RTT resumption sends `pre_shared_key` plus `early_data` (RFC 8446), and a
+/// full handshake sends neither. JA4_s1 must collapse both to one fingerprint.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_stable_collapses_zero_rtt_resumption() {
+    let mut fresh = create_test_signature();
+    fresh
+        .extensions
+        .retain(|e| !EPHEMERAL_TLS_EXTENSIONS.contains(e));
+
+    let mut resumed = fresh.clone();
+    resumed
+        .extensions
+        .extend_from_slice(&[TLS_EXT_PRE_SHARED_KEY, TLS_EXT_EARLY_DATA]);
+
+    // Standard JA4 splits them: the extension count and JA4_c both move
+    assert_ne!(fresh.generate_ja4().full.value(), resumed.generate_ja4().full.value());
+
+    // JA4_s1 does not
+    assert_eq!(
+        fresh.generate_ja4_stable_v1().full.value(),
+        resumed.generate_ja4_stable_v1().full.value()
+    );
 }
 
 #[cfg(feature = "stable-v1")]

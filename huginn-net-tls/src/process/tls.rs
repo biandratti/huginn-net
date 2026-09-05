@@ -318,10 +318,7 @@ fn without_grease(values: impl IntoIterator<Item = u16>) -> Vec<u16> {
         .collect()
 }
 
-/// JA4 version (FoxIO): if `supported_versions` (0x002b) is present, take the
-/// highest value ignoring GREASE. If that extension is absent or empty, use
-/// ClientHello protocol version (`legacy_version` / `client_hello.version`).
-/// The TLS record / handshake version at the top of the packet is ignored.
+/// JA4 version: highest `supported_versions` value ignoring GREASE, else handshake version.
 pub fn determine_tls_version(
     legacy_version: &tls_parser::TlsVersion,
     supported_versions: Option<&[tls_parser::TlsVersion]>,
@@ -334,6 +331,18 @@ pub fn determine_tls_version(
             .max()
         {
             return TlsVersion::from_wire(code);
+        }
+    }
+
+    match *legacy_version {
+        tls_parser::TlsVersion::Tls13 => TlsVersion::V1_3,
+        tls_parser::TlsVersion::Tls12 => TlsVersion::V1_2,
+        tls_parser::TlsVersion::Tls11 => TlsVersion::V1_1,
+        tls_parser::TlsVersion::Tls10 => TlsVersion::V1_0,
+        tls_parser::TlsVersion::Ssl30 => TlsVersion::Ssl3_0,
+        _ => {
+            debug!("Unknown/unsupported TLS version {:?}, defaulting to TLS 1.2", legacy_version);
+            TlsVersion::V1_2
         }
     }
 
