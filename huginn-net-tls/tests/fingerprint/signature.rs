@@ -139,6 +139,7 @@ fn test_sni_indicator() {
     assert!(sig.extensions.contains(&0x0000));
     assert!(sig.generate_ja4().ja4_a.contains('d'));
 
+    // Hostname parse failure must not flip SNI: FoxIO keys on extension 0x0000
     sig.sni = None;
     assert!(sig.generate_ja4().ja4_a.contains('d'));
 
@@ -251,6 +252,46 @@ fn test_hash12_function() {
 
     // Different input should produce different hash
     assert_ne!(hash12("different"), hash12(input));
+}
+
+#[test]
+fn test_hash12_matches_foxio_vectors() {
+    assert_eq!(hash12("551d0f,551d25,551d11"), "aae71e8db6d7");
+    assert_eq!(hash12(""), "000000000000");
+}
+
+#[test]
+fn test_empty_ciphers_and_extensions_hash_to_zeros() {
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.full.value(), "t13i000000_000000000000_000000000000");
+}
+
+#[test]
+fn test_ja4_c_keeps_underscore_when_extensions_empty() {
+    let sig = Signature {
+        version: TlsVersion::V1_3,
+        cipher_suites: vec![],
+        extensions: vec![],
+        elliptic_curves: vec![],
+        elliptic_curve_point_formats: vec![],
+        signature_algorithms: vec![0x0403],
+        sni: None,
+        alpn: None,
+    };
+
+    let ja4 = sig.generate_ja4();
+    assert_eq!(ja4.ja4_c, "_0403");
 }
 
 #[test]

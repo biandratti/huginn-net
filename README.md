@@ -110,7 +110,7 @@ See [benches/README.md](benches/README.md) for detailed throughput numbers, 10 G
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
 - **HTTP Request/Response** analysis for application identification
 - **HTTP/2 Akamai fingerprinting** extracts SETTINGS, WINDOW_UPDATE, PRIORITY, and pseudo-header order; used by huginn-proxy to inject fingerprints as HTTP headers
-- **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant `JA4_s1` / `JA4_s1r`
+- **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant `JA4_s1` / `JA4_rs1`
 - **MTU Discovery** for link type detection
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
 - **Custom Signature Databases** - bring your own signatures or contribute to the shared database

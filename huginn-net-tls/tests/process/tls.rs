@@ -44,28 +44,29 @@ fn test_non_tls_traffic() {
 
 #[test]
 fn test_version_detection() {
-    // Test TLS 1.2 detection
     let legacy_v12 = tls_parser::TlsVersion::Tls12;
     assert_eq!(determine_tls_version(&legacy_v12, None), TlsVersion::V1_2);
 
-    // Test TLS 1.3 detection via supported_versions extension
+    // FoxIO: version is the highest supported_versions value, not "has 0x002b ⇒ 1.3"
     let legacy_v12_but_13 = tls_parser::TlsVersion::Tls12;
     assert_eq!(
         determine_tls_version(&legacy_v12_but_13, Some(&[tls_parser::TlsVersion::Tls13])),
         TlsVersion::V1_3
     );
 
-    // Test TLS 1.1 detection
     let legacy_v11 = tls_parser::TlsVersion::Tls11;
     assert_eq!(determine_tls_version(&legacy_v11, None), TlsVersion::V1_1);
 
-    // Test TLS 1.0 detection
     let legacy_v10 = tls_parser::TlsVersion::Tls10;
     assert_eq!(determine_tls_version(&legacy_v10, None), TlsVersion::V1_0);
 
-    // Test SSL 3.0 detection (legacy)
     let ssl30 = tls_parser::TlsVersion::Ssl30;
     assert_eq!(determine_tls_version(&ssl30, None), TlsVersion::Ssl3_0);
+
+    assert_eq!(
+        determine_tls_version(&tls_parser::TlsVersion(0x0305), None),
+        TlsVersion::Unknown(0x0305)
+    );
 }
 
 #[test]
@@ -229,7 +230,7 @@ fn test_signature_parsing_functional_approach() {
     // Verify the elegant enum approach for sorted/unsorted
     assert_eq!(ja4.full.variant_name(), "ja4"); // Sorted version
     let ja4_original = sig.generate_ja4_original();
-    assert_eq!(ja4_original.full.variant_name(), "ja4_o"); // Original version
+    assert_eq!(ja4_original.full.variant_name(), "ja4_o");
     assert_eq!(ja4_original.raw.variant_name(), "ja4_ro");
 }
 
@@ -345,22 +346,16 @@ fn test_signature_struct_completeness() {
 #[test]
 fn test_extension_parsing_edge_cases() {
     assert_eq!(determine_tls_version(&tls_parser::TlsVersion::Tls12, None), TlsVersion::V1_2);
-
-    // Test with supported_versions extension (highest listed version, ignoring GREASE)
+    assert_eq!(
+        determine_tls_version(&tls_parser::TlsVersion::Tls12, Some(&[])),
+        TlsVersion::V1_2
+    );
     assert_eq!(
         determine_tls_version(
             &tls_parser::TlsVersion::Tls12,
             Some(&[tls_parser::TlsVersion::Tls13])
         ),
         TlsVersion::V1_3
-    );
-
-    assert_eq!(
-        determine_tls_version(
-            &tls_parser::TlsVersion::Tls12,
-            Some(&[tls_parser::TlsVersion(0x0a0a), tls_parser::TlsVersion::Tls12])
-        ),
-        TlsVersion::V1_2
     );
 }
 

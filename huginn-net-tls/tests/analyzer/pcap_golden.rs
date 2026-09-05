@@ -269,6 +269,13 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
 }
 
 #[test]
+fn test_golden_sigalg_grease_pcap() {
+    // FoxIO reference: GREASE (0x0a0a) inside signature_algorithms.
+    // JA4 must match FoxIO: t13d1517h2_8daaf6152771_cb7bf5808d99
+    test_pcap_with_snapshot("sigalg-grease.pcap");
+}
+
+#[test]
 fn test_golden_pcap_snapshots() {
     let golden_test_cases = [
         "tls12.pcap",

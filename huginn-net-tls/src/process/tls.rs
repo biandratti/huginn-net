@@ -345,4 +345,6 @@ pub fn determine_tls_version(
             TlsVersion::V1_2
         }
     }
+
+    TlsVersion::from_wire(legacy_version.0)
 }
