@@ -34,20 +34,20 @@ JA4_rs1: …   // v2.2
 `Ja4RawFingerprint::Unsorted::variant_name()` was already `"ja4_ro"`.
 `Ja4RawFingerprint::StableV1::variant_name()` was already `"ja4_rs1"`.
 
-### `JA4_s1` allowlist (`feature = "stable-v1"`)
+### `JA4_s1` session extensions (`feature = "stable-v1"`)
 
 2.1 s1 was official JA4 minus three session types (`padding` 0x0015,
 `session_ticket` 0x0023, `pre_shared_key` 0x0029). A new resumption
 companion (e.g. `early_data` 0x002a) still changed the key.
 
-2.2 intersects extension types with `S1_EXTENSION_ALLOWLIST` before the
-`JA4_a` count and `JA4_c` hash. Unlisted IDs (session types, `Unknown`,
-Chrome extras such as `0xca34`) are dropped. Official JA4 is unchanged.
+2.2 subtracts `S1_SESSION_EXTENSIONS`, the nine types an RFC defines as session,
+resumption or retry state, before the `JA4_a` count and `JA4_c` hash. Everything
+else is hashed as official JA4 hashes it. Official JA4 is unchanged.
 
-`EPHEMERAL_TLS_EXTENSIONS` is removed. Use `S1_EXTENSION_ALLOWLIST`.
+`EPHEMERAL_TLS_EXTENSIONS` is removed. Use `S1_SESSION_EXTENSIONS`.
 Stored `ja4_s1` / `ja4_rs1` values may change; re-fingerprint.
 
-Allowlist contents and curation rule: [`huginn-net-tls/JA4S1.md`](huginn-net-tls/JA4S1.md).
+List contents and curation rule: [`huginn-net-tls/JA4S1.md`](huginn-net-tls/JA4S1.md).
 
 ### GREASE in signature algorithms (FoxIO, 2026-09)
 

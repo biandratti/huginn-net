@@ -360,18 +360,18 @@ fn test_captured_traffic_ja4() {
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_s1_allowlist_is_sorted() {
-    let mut sorted = S1_EXTENSION_ALLOWLIST.to_vec();
+fn test_s1_session_extensions_is_sorted() {
+    let mut sorted = S1_SESSION_EXTENSIONS.to_vec();
     sorted.sort_unstable();
     sorted.dedup();
-    assert_eq!(S1_EXTENSION_ALLOWLIST, sorted.as_slice());
+    assert_eq!(S1_SESSION_EXTENSIONS, sorted.as_slice());
 }
 
-/// Promoting a session / resumption type would silently break the collapse s1
-/// exists for, so the exclusion is asserted instead of only documented.
+/// Dropping one of these would let resumption split the key again, which is the
+/// whole point of s1, so the list is asserted instead of only documented.
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_s1_allowlist_excludes_session_types() {
+fn test_s1_session_extensions_cover_rfc_session_types() {
     for (id, name) in [
         (0x0015, "padding"),
         (0x0023, "session_ticket"),
@@ -381,8 +381,30 @@ fn test_s1_allowlist_excludes_session_types() {
         (0x002d, "psk_key_exchange_modes"),
     ] {
         assert!(
-            !S1_EXTENSION_ALLOWLIST.contains(&id),
-            "{name} ({id:#06x}) must stay out of S1_EXTENSION_ALLOWLIST"
+            S1_SESSION_EXTENSIONS.contains(&id),
+            "{name} ({id:#06x}) must stay in S1_SESSION_EXTENSIONS"
+        );
+    }
+}
+
+/// The denylist half of the contract: a capability type that is not session
+/// related must keep reaching s1, otherwise s1 is silently discarding signal.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_s1_session_extensions_hold_no_capability_types() {
+    for (id, name) in [
+        (0x0000, "server_name"),
+        (0x000d, "signature_algorithms"),
+        (0x0010, "alpn"),
+        (0x001b, "compress_certificate"),
+        (0x002b, "supported_versions"),
+        (0x0033, "key_share"),
+        (0x44cd, "alps"),
+        (0xfe0d, "ech"),
+    ] {
+        assert!(
+            !S1_SESSION_EXTENSIONS.contains(&id),
+            "{name} ({id:#06x}) is a capability type and must not be dropped by s1"
         );
     }
 }
@@ -407,25 +429,40 @@ fn test_ja4_s1_drops_session_types() {
     assert_ne!(s1.full.value(), ja4.full.value());
 }
 
+/// An unassigned type is signal, not noise: s1 only removes session variance,
+/// so `0xbeef` must move it exactly as it moves official JA4.
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_ja4_s1_unknown_id_does_not_flip() {
+fn test_ja4_s1_keeps_unknown_id() {
     let mut sig = create_test_signature();
     let baseline = sig.generate_ja4_stable_v1();
 
-    sig.extensions.push(0x002a);
     sig.extensions.push(0xbeef);
-    sig.extensions.push(0x0a0a);
     let with_unknown = sig.generate_ja4_stable_v1();
 
-    assert_eq!(with_unknown.full.value(), baseline.full.value());
-    assert_eq!(with_unknown.raw.value(), baseline.raw.value());
-    assert_ne!(sig.generate_ja4().full.value(), baseline.full.value());
+    assert_ne!(with_unknown.full.value(), baseline.full.value());
+    assert!(with_unknown.raw.value().contains("beef"));
+    assert_ne!(with_unknown.ja4_a, baseline.ja4_a);
+}
+
+/// GREASE is stripped one layer earlier, by the JA4 algorithm itself, so it
+/// still must not reach s1 even though it is not a session type.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_still_drops_grease() {
+    let mut sig = create_test_signature();
+    let baseline = sig.generate_ja4_stable_v1();
+
+    sig.extensions.push(0x0a0a);
+    let with_grease = sig.generate_ja4_stable_v1();
+
+    assert_eq!(with_grease.full.value(), baseline.full.value());
+    assert_eq!(with_grease.raw.value(), baseline.raw.value());
 }
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_ja4_s1_allowlisted_id_counts() {
+fn test_ja4_s1_capability_id_counts() {
     let mut sig = create_test_signature();
     sig.extensions.retain(|&e| e != 0x001c);
     let without = sig.generate_ja4_stable_v1();
@@ -490,10 +527,10 @@ fn test_ja4_stable_uses_stable_enum_variants() {
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_ja4_s1_matches_ja4_when_only_allowlisted() {
+fn test_ja4_s1_matches_ja4_without_session_types() {
     let mut sig = create_test_signature();
     sig.extensions
-        .retain(|e| S1_EXTENSION_ALLOWLIST.contains(e));
+        .retain(|e| !S1_SESSION_EXTENSIONS.contains(e));
 
     let ja4 = sig.generate_ja4();
     let s1 = sig.generate_ja4_stable_v1();

@@ -21,15 +21,22 @@ pub const TLS_EXT_PADDING: u16 = 0x0015;
 pub const TLS_EXT_EARLY_DATA: u16 = 0x002a;
 /// cookie (RFC 8446): HelloRetryRequest only
 pub const TLS_EXT_COOKIE: u16 = 0x002c;
+/// psk_key_exchange_modes (RFC 8446): coupled to PSK by some stacks
+pub const TLS_EXT_PSK_KEY_EXCHANGE_MODES: u16 = 0x002d;
 
-/// Capability extension types hashed by `JA4_s1` (`feature = "stable-v1"`).
+/// Session / resumption extension types dropped by `JA4_s1`
+/// (`feature = "stable-v1"`).
 ///
-/// Sorted. Session / resumption types (`padding`, `session_ticket`,
-/// `pre_shared_key`, `early_data`, `cookie`) and any unlisted ID are dropped.
-/// Promoting an always-on ID is a breaking s1 bump.
+/// Sorted. Every other extension type, listed by IANA or not, is hashed exactly
+/// as official JA4 hashes it: s1 removes session variance, not signal.
 ///
-/// `psk_key_exchange_modes` (0x002d) is excluded: some stacks send it only when
-/// offering a PSK, which would flip s1 between fresh and resumed handshakes.
+/// Membership follows RFC semantics rather than observation, so an extension
+/// stays out of s1 even when a given capture never flips it. `0x002d`
+/// `psk_key_exchange_modes` is the one judgement call: some stacks send it only
+/// when offering a PSK, which would flip s1 between fresh and resumed
+/// handshakes.
+///
+/// Adding an ID is a breaking s1 bump.
 ///
 /// Rationale and curation rule:
 /// <https://github.com/biandratti/huginn-net/blob/master/huginn-net-tls/JA4S1.md>
@@ -37,26 +44,16 @@ pub const TLS_EXT_COOKIE: u16 = 0x002c;
 /// Not part of the FoxIO JA4 spec; `JA4_s1` is huginn-only.
 #[cfg(feature = "stable-v1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
-pub const S1_EXTENSION_ALLOWLIST: &[u16] = &[
-    0x0000, // server_name
-    0x0005, // status_request
-    0x000a, // supported_groups
-    0x000b, // ec_point_formats
-    0x000d, // signature_algorithms
-    0x0010, // ALPN
-    0x0012, // signed_certificate_timestamp
-    0x0017, // extended_master_secret
-    0x001b, // compress_certificate
-    0x001c, // record_size_limit
-    0x0022, // delegated_credential
-    0x002b, // supported_versions
-    0x0031, // post_handshake_auth
-    0x0032, // signature_algorithms_cert
-    0x0033, // key_share
-    0x4469, // ALPS (old)
-    0x44cd, // ALPS
-    0xfe0d, // ECH
-    0xff01, // renegotiation_info
+pub const S1_SESSION_EXTENSIONS: &[u16] = &[
+    0x0015, // padding (RFC 7685): covariant with ClientHello size
+    0x0019, // cached_info (RFC 7924)
+    0x0020, // ticket_pinning (RFC 8672)
+    0x0023, // session_ticket (RFC 5077 / 8446)
+    0x0029, // pre_shared_key (RFC 8446)
+    0x002a, // early_data (RFC 8446)
+    0x002c, // cookie (RFC 8446): HelloRetryRequest only
+    0x002d, // psk_key_exchange_modes (RFC 8446)
+    0x003a, // ticket_request (RFC 9149)
 ];
 
 /// Check if a value is a GREASE value according to RFC 8701
@@ -77,21 +74,21 @@ pub(super) fn filter_grease_values(values: &[u16]) -> Vec<u16> {
 
 #[cfg(feature = "stable-v1")]
 #[inline]
-pub(super) fn is_s1_extension(id: u16) -> bool {
-    S1_EXTENSION_ALLOWLIST.binary_search(&id).is_ok()
+pub(super) fn is_s1_session_extension(id: u16) -> bool {
+    S1_SESSION_EXTENSIONS.binary_search(&id).is_ok()
 }
 
 #[cfg(feature = "stable-v1")]
 pub(super) fn filter_s1_extensions(values: &[u16]) -> Cow<'_, [u16]> {
-    if values.iter().all(|&v| is_s1_extension(v)) {
-        Cow::Borrowed(values)
-    } else {
+    if values.iter().any(|&v| is_s1_session_extension(v)) {
         Cow::Owned(
             values
                 .iter()
                 .copied()
-                .filter(|&v| is_s1_extension(v))
+                .filter(|&v| !is_s1_session_extension(v))
                 .collect(),
         )
+    } else {
+        Cow::Borrowed(values)
     }
 }

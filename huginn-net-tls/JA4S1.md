@@ -15,18 +15,37 @@ One browser talking to one host over one ALPN therefore produces several JA4
 values (the fresh handshake and the resumed one hash differently), which breaks
 using JA4 as a database key.
 
-`JA4_s1` answers a narrower question: *what does this stack support?* Same stack,
-same ALPN, same SNI presence → **one** row.
+This is a known property of JA4, reported to FoxIO as
+[issue #303](https://github.com/FoxIO-LLC/ja4/issues/303). Independently of ntop's
+writeup, several implementations (nDPI, fingerproxy, huginn) hit the same split
+and converged on dropping a small set of session / resumption types.
+
+FoxIO's position (John Althouse, 2026-07-21) is that the split is **intentional**:
+a library doing something different (initial vs resumed) is useful signal, and
+lookup tables should hold the few fingerprints per stack rather than collapsing
+them. A `JA4_e` sibling that ignores those extensions was left as optional, not
+adopted as the spec.
+
+huginn takes the other side of that trade-off. `JA4_s1` is the matcher key:
+*what does this stack support?* Same stack, same ALPN, same SNI presence →
+**one** row. Official JA4 is still emitted unchanged for anyone who wants the
+session-state signal FoxIO keeps.
+
+Because s1 is a denylist, a new session / resumption extension in a future TLS
+revision will split the key again until that ID is added to
+`S1_SESSION_EXTENSIONS` (a breaking s1 bump). That is accepted: the list is
+versioned, not claimed complete forever.
 
 ## Construction
 
-Same algorithm as `generate_ja4()` (sorted mode), with one change: extension types
-are intersected with `S1_EXTENSION_ALLOWLIST` before both the `JA4_a` extension
-count and the `JA4_c` hash.
+Same algorithm as `generate_ja4()` (sorted mode), with one change: the extension
+types in `S1_SESSION_EXTENSIONS` are removed before both the `JA4_a` extension
+count and the `JA4_c` hash. Every other type is hashed exactly as official JA4
+hashes it.
 
 ```text
-extensions → ∩ allowlist → drop GREASE → count (JA4_a)
-                                       → drop SNI + ALPN, sort → JA4_c
+extensions → drop session types → drop GREASE → count (JA4_a)
+                                              → drop SNI + ALPN, sort → JA4_c
 ```
 
 Unchanged from official JA4:
@@ -42,82 +61,87 @@ Unchanged from official JA4:
 So `JA4_s1` still separates HTTP/1.1 from h2 (ALPN) and SNI from no-SNI (`d`/`i`).
 That is intentional: those are different observations, not session noise.
 
-## Allowlist, not denylist
-
-The first cut subtracted a fixed set of session extensions (`padding` 0x0015,
-`session_ticket` 0x0023, `pre_shared_key` 0x0029). That is a denylist, and a
-denylist fails on anything it has not seen: a resumption companion such as
-`early_data` (0x002a), a new draft extension, or a vendor-specific ID still changed
-the key.
-
-`S1_EXTENSION_ALLOWLIST` inverts it: it enumerates the capability extensions that
-are hashed, and **everything not listed is dropped**, including unknown and future
-IDs. The failure mode moves from "s1 silently splits" to "a new capability is
-ignored until it is added on purpose", which is recoverable and a deliberate
-breaking bump.
-
-### Hashed (`S1_EXTENSION_ALLOWLIST`)
-
-`0000` server_name, `0005` status_request, `000a` supported_groups,
-`000b` ec_point_formats, `000d` signature_algorithms, `0010` ALPN,
-`0012` signed_certificate_timestamp, `0017` extended_master_secret,
-`001b` compress_certificate, `001c` record_size_limit, `0022` delegated_credential,
-`002b` supported_versions, `0031` post_handshake_auth,
-`0032` signature_algorithms_cert, `0033` key_share, `4469`/`44cd` ALPS,
-`fe0d` ECH, `ff01` renegotiation_info.
-
-Kept sorted; lookup is a binary search.
-
-### Dropped, and why
+### Dropped (`S1_SESSION_EXTENSIONS`)
 
 | ID | Extension | Reason |
 |----|-----------|--------|
 | `0015` | padding (RFC 7685) | covaries with ClientHello size |
+| `0019` | cached_info (RFC 7924) | depends on what the client has cached |
+| `0020` | ticket_pinning (RFC 8672) | ticket state |
 | `0023` | session_ticket (RFC 5077) | present only with a cached ticket |
 | `0029` | pre_shared_key (RFC 8446) | resumption |
 | `002a` | early_data (RFC 8446) | 0-RTT, travels with the PSK |
 | `002c` | cookie (RFC 8446) | HelloRetryRequest only |
 | `002d` | psk_key_exchange_modes (RFC 8446) | some stacks send it only when offering a PSK, which flips s1 between fresh and resumed handshakes |
-| GREASE | RFC 8701 | random by design |
-| unlisted | e.g. `0xca34`, unparsed IDs | not audited as always-on |
+| `003a` | ticket_request (RFC 9149) | ticket state |
+
+GREASE never reaches s1 either, but that is the JA4 algorithm's doing, one layer
+earlier, not this list's.
+
+Kept sorted; lookup is a binary search.
 
 `002d` is the one judgement call: it is always present in some browsers and
 conditional in others. Since s1 exists to survive resumption, the conditional case
-wins and the extension is excluded, losing a bit of build signal to gain the
+wins and the extension is dropped, losing a little build signal to gain the
 invariant.
+
+## Denylist, not allowlist
+
+The inverse design, enumerating the capability types that *are* hashed and
+dropping everything else, was implemented and then reverted. Two reasons.
+
+**It cost measurable signal and bought none.** Across the capture corpus, every
+split that s1 had to repair came from `pre_shared_key` appearing and `padding`
+disappearing, both of which a denylist removes, so the collapse was identical
+either way. What differed is what the allowlist discarded on top: Chrome 70 and
+Chrome 72, which differ only by the unlisted `7550` channel_id, collapsed into one
+key, and `0xca34` vanished from the FoxIO `sigalg-grease` capture. Neither has
+anything to do with sessions.
+
+**Its failure mode is untestable.** A denylist fails when a new flipping extension
+ships: the key splits, `test_pcap_group_yields_single_ja4_s1` goes red, and the
+damage is confined to the one stack that emits it while existing rows keep
+working. An allowlist fails when a new always-on capability ships: it is silently
+ignored, two genuinely different stacks collapse into one key, and no test can
+catch it, because "s1 did not change" is indistinguishable from correct behaviour.
+For a fingerprinting library the silent merge is the worse error, since it yields a
+wrong attribution rather than a miss.
+
+The base rates point the same way. Session semantics have been essentially closed
+since RFC 8446 in 2018, while capability extensions keep arriving (ECH, ALPS and
+its codepoint move, `compress_certificate`, `record_size_limit`, post-quantum key
+shares). An allowlist taxes the frequent event to insure against the rare one.
 
 ## Curation rule
 
-An ID is added only if both hold:
+An ID is dropped only if both hold:
 
-1. **Empirical.** Across ≥10 ClientHellos per browser to the same host with the
-   same ALPN (fresh + resume + 0-RTT), `∪ − ∩` of the extension sets does not
-   contain it. Extraction: `tshark -Y tls.handshake.type==1 -T fields -e tls.handshake.extension.type`.
-2. **Normative.** No RFC defines it as a session, resumption, or retry parameter,
-   even if a given capture never shows it flipping.
+1. **Normative.** An RFC defines it as a session, resumption, or retry parameter.
+   This is the primary test: membership follows the spec, not a capture.
+2. **Empirical.** Nothing in the corpus contradicts it. Across ≥10 ClientHellos
+   per browser to the same host with the same ALPN (fresh + resume + 0-RTT),
+   `∪ − ∩` of the extension sets must be a subset of this list. Extraction:
+   `tshark -Y tls.handshake.type==1 -T fields -e tls.handshake.extension.type`.
 
-An ID observed flipping is removed. Scope is **browser** traffic; a custom TLS
-client that gates a listed extension on session state is out of scope.
+An ID observed flipping outside the list is added, which bumps s1. Scope is
+**browser** traffic; a custom TLS client that gates a capability extension on
+session state is out of scope.
 
 ## Invariants
 
-- session / resumption types and unknown IDs do not change s1
+- session / resumption types and GREASE do not change s1
 - fresh, resumed and 0-RTT handshakes from one client collapse to one s1
 - ALPN and SNI presence still separate
-- s1 equals official JA4 when only allowlisted types are present
+- an unassigned or unknown type still changes s1, exactly as in official JA4
+- s1 equals official JA4 when no session type is present
 
-Not an invariant: that the allowlist holds for every browser build ever shipped. It
-is empirical, so it is versioned: a capture that breaks the collapse removes an ID
-and bumps s1.
-
-Observed: the six Safari ClientHellos in `macos_safari_tls_extensions.pcap` produce
-two official JA4 values (`t13d1516h2_8daaf6152771_d8a2da3f94cd` four times,
-`t13d1517h2_8daaf6152771_b6f405a00624` twice) and one `JA4_s1`
-(`t13d1514h2_8daaf6152771_f835621b68aa`).
+Not an invariant: that the list is complete for every browser build ever shipped.
+It is versioned: a capture that breaks the collapse adds an ID and bumps s1.
 
 ## References
 
 - [JA4 specification, FoxIO LLC](https://github.com/FoxIO-LLC/ja4): official `JA4`/`JA4_r`/`JA4_o`/`JA4_ro`
+- [FoxIO-LLC/ja4#303](https://github.com/FoxIO-LLC/ja4/issues/303): ephemeral-extension-invariant proposal (`JA4E`); FoxIO keeps the split in official JA4
 - [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) TLS 1.3: `pre_shared_key`, `early_data`, `cookie`, `psk_key_exchange_modes`
 - [RFC 5077](https://www.rfc-editor.org/rfc/rfc5077) session tickets, [RFC 7685](https://www.rfc-editor.org/rfc/rfc7685) padding, [RFC 8701](https://www.rfc-editor.org/rfc/rfc8701) GREASE
 - [IANA TLS ExtensionType values](https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml)

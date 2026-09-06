@@ -71,7 +71,7 @@ future axes added in later releases):
 | Feature     | Default | Description                                                                                    |
 |-------------|---------|------------------------------------------------------------------------------------------------|
 | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
-| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1`: official JA4 intersected with `S1_EXTENSION_ALLOWLIST` (session / unlisted types dropped). |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1`: official JA4 minus `S1_SESSION_EXTENSIONS`, so resumption does not split the key. |
 | `json`      | No      | Derives `serde::Serialize` on all output types (`TlsClientOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:
@@ -88,7 +88,7 @@ When `stable-v1` is enabled (included by the `full` alias), `ObservableTlsClient
   JA4_rs1: t13d0708h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033
 ```
 
-How the allowlist is built and what s1 does (and does not) guarantee:
+How the list is built and what s1 does (and does not) guarantee:
 [`JA4S1.md`](JA4S1.md).
 
 ### Basic Usage

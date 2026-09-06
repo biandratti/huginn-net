@@ -70,11 +70,11 @@ impl Signature {
         self.compute_ja4(Ja4Mode::Unsorted)
     }
 
-    /// Generate JA4 fingerprint using the huginn s1 allowlist (sorted).
+    /// Generate the huginn stable JA4 variant, `JA4_s1` (sorted).
     ///
     /// Same algorithm as [`Self::generate_ja4`], but `JA4_a` count and `JA4_c`
-    /// extension types are intersected with [`super::S1_EXTENSION_ALLOWLIST`].
-    /// Session / resumption types and unlisted IDs are dropped.
+    /// extension types exclude [`super::S1_SESSION_EXTENSIONS`], so a fresh and
+    /// a resumed handshake from one client collapse to a single value.
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     #[inline]

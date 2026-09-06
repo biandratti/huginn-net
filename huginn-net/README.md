@@ -64,7 +64,7 @@ consume, or use `full` to opt into everything this version offers:
 | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`, `UaOsAgreement`). With `db` + `tcp-syn`, the umbrella feeds that connection's SYN OS into `ua_os`. |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
-| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1`: official JA4 intersected with the s1 allowlist (session / unlisted types dropped). |
+| `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1`: official JA4 minus the session / resumption extension types. |
 | `json` | No | Derives `serde::Serialize` on all output types (`FingerprintResult` and its fields). Enables JSON serialization via `serde_json`. Independent of `full` — opt in explicitly: `features = ["full", "json"]`. |
 
 Each `tcp-*` / `http-*` feature gates the corresponding field on
@@ -118,8 +118,8 @@ When `tls-stable-v1` is enabled (included by the `full` alias), `TlsClient` outp
   JA4_rs1: t13d0708h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033
 ```
 
-`JA4_s1` hashes only the extension types in `S1_EXTENSION_ALLOWLIST`, so session /
-resumption types do not change the key. See
+`JA4_s1` drops the extension types in `S1_SESSION_EXTENSIONS`, so resumption does
+not change the key. See
 [`huginn-net-tls/JA4S1.md`](../huginn-net-tls/JA4S1.md).
 
 ### Examples & Tutorials

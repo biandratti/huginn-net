@@ -5,7 +5,7 @@ use std::fmt;
 pub enum Ja4Fingerprint {
     Sorted(String),
     Unsorted(String),
-    /// JA4 with s1 allowlist (session / unlisted types dropped)
+    /// JA4_s1: session / resumption extension types dropped
     StableV1(String),
 }
 
@@ -42,7 +42,7 @@ impl Ja4Fingerprint {
 pub enum Ja4RawFingerprint {
     Sorted(String),
     Unsorted(String),
-    /// JA4 raw with s1 allowlist (session / unlisted types dropped)
+    /// JA4_rs1: session / resumption extension types dropped
     StableV1(String),
 }
 
