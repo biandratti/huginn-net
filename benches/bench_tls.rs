@@ -381,10 +381,10 @@ fn process_tls_packet(
 ) -> Option<huginn_net_tls::TlsClientOutput> {
     match huginn_net_tls::packet_parser::parse_packet(packet) {
         huginn_net_tls::packet_parser::IpPacket::Ipv4(ipv4) => {
-            process_ipv4_packet(&ipv4, tcp_flows).ok().flatten()
+            process_ipv4_packet(&ipv4, tcp_flows, &[]).ok().flatten()
         }
         huginn_net_tls::packet_parser::IpPacket::Ipv6(ipv6) => {
-            process_ipv6_packet(&ipv6, tcp_flows).ok().flatten()
+            process_ipv6_packet(&ipv6, tcp_flows, &[]).ok().flatten()
         }
         huginn_net_tls::packet_parser::IpPacket::None => None,
     }
@@ -903,6 +903,7 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
                     tx,
                     10000,
                     None,
+                    std::sync::Arc::from([]),
                 ) {
                     Ok(p) => p,
                     Err(e) => panic!("Failed to create worker pool: {e}"),
@@ -929,7 +930,16 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
     let parallel_2_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_tls::WorkerPool::new(2, 100, 32, 10, tx, 10000, None) {
+            let pool = match huginn_net_tls::WorkerPool::new(
+                2,
+                100,
+                32,
+                10,
+                tx,
+                10000,
+                None,
+                std::sync::Arc::from([]),
+            ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };
@@ -945,7 +955,16 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
     let parallel_4_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_tls::WorkerPool::new(4, 100, 32, 10, tx, 10000, None) {
+            let pool = match huginn_net_tls::WorkerPool::new(
+                4,
+                100,
+                32,
+                10,
+                tx,
+                10000,
+                None,
+                std::sync::Arc::from([]),
+            ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };
@@ -961,7 +980,16 @@ fn bench_tls_parallel_processing(c: &mut Criterion) {
     let parallel_8_workers_time = measure_average_time(
         || {
             let (tx, rx) = std::sync::mpsc::channel();
-            let pool = match huginn_net_tls::WorkerPool::new(8, 100, 32, 10, tx, 10000, None) {
+            let pool = match huginn_net_tls::WorkerPool::new(
+                8,
+                100,
+                32,
+                10,
+                tx,
+                10000,
+                None,
+                std::sync::Arc::from([]),
+            ) {
                 Ok(p) => p,
                 Err(e) => panic!("Failed to create worker pool: {e}"),
             };

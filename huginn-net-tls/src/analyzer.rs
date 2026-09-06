@@ -73,6 +73,9 @@ pub struct HuginnNetTls {
     worker_pool: Option<Arc<WorkerPool>>,
     filter_config: Option<FilterConfig>,
     max_connections: usize,
+    /// Extra session-type IDs dropped by `JA4_s1` on top of `S1_SESSION_EXTENSIONS`.
+    /// Empty (default) uses [`crate::Signature::generate_ja4_stable_v1`].
+    s1_extra: Arc<[u16]>,
 }
 
 impl HuginnNetTls {
@@ -87,6 +90,7 @@ impl HuginnNetTls {
             worker_pool: None,
             filter_config: None,
             max_connections,
+            s1_extra: Arc::from([]),
         }
     }
 
@@ -112,6 +116,22 @@ impl HuginnNetTls {
     /// Configure packet filtering (builder pattern).
     pub fn with_filter(mut self, config: FilterConfig) -> Self {
         self.filter_config = Some(config);
+        self
+    }
+
+    /// Widen the `JA4_s1` denylist for every Hello this analyzer emits.
+    ///
+    /// Additive: IDs are dropped *in addition to* [`crate::S1_SESSION_EXTENSIONS`].
+    /// Empty `extra` is the canonical path (`generate_ja4_stable_v1`). Sequential
+    /// and parallel capture both use this list. Values with a non-empty `extra`
+    /// are still tagged `ja4_s1` but are not comparable across deployments.
+    ///
+    /// Projects that parse a ClientHello themselves should call
+    /// [`crate::Signature::generate_ja4_stable_v1_with_extra`] instead.
+    #[cfg(feature = "stable-v1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
+    pub fn with_s1_session_extra(mut self, extra: impl Into<Arc<[u16]>>) -> Self {
+        self.s1_extra = extra.into();
         self
     }
 }
@@ -147,6 +167,7 @@ impl HuginnNetTls {
                 sender,
                 self.max_connections,
                 self.filter_config.clone(),
+                Arc::clone(&self.s1_extra),
             )?);
             self.worker_pool = Some(worker_pool);
         }
@@ -333,8 +354,12 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, &mut self.tcp_flows),
-            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, &mut self.tcp_flows),
+            IpPacket::Ipv4(ipv4) => {
+                process_ipv4_packet(&ipv4, &mut self.tcp_flows, self.s1_extra.as_ref())
+            }
+            IpPacket::Ipv6(ipv6) => {
+                process_ipv6_packet(&ipv6, &mut self.tcp_flows, self.s1_extra.as_ref())
+            }
             IpPacket::None => Ok(None),
         }
     }

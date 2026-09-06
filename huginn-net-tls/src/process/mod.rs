@@ -27,10 +27,13 @@ pub struct ObservablePackage {
     pub tls_client: Option<ObservableTlsClient>,
 }
 
+/// `s1_extra` widens the s1 denylist when `stable-v1` is on. Pass `&[]` for
+/// the canonical list. Ignored without that feature.
 #[inline]
 pub fn process_ipv4_packet(
     ipv4: &pnet::packet::ipv4::Ipv4Packet,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
+    s1_extra: &[u16],
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     if ipv4.get_next_level_protocol() != pnet::packet::ip::IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetTlsError::UnsupportedProtocol("IPv4".to_string()));
@@ -46,6 +49,7 @@ pub fn process_ipv4_packet(
         IpAddr::V4(ipv4.get_source()),
         IpAddr::V4(ipv4.get_destination()),
         tcp_flows,
+        s1_extra,
     )
 }
 
@@ -53,6 +57,7 @@ pub fn process_ipv4_packet(
 pub fn process_ipv6_packet(
     ipv6: &pnet::packet::ipv6::Ipv6Packet,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
+    s1_extra: &[u16],
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     if ipv6.get_next_header() != pnet::packet::ip::IpNextHeaderProtocols::Tcp {
         return Err(HuginnNetTlsError::UnsupportedProtocol("IPv6".to_string()));
@@ -68,6 +73,7 @@ pub fn process_ipv6_packet(
         IpAddr::V6(ipv6.get_source()),
         IpAddr::V6(ipv6.get_destination()),
         tcp_flows,
+        s1_extra,
     )
 }
 
@@ -76,6 +82,7 @@ fn process_tcp_packet(
     src_ip: IpAddr,
     dst_ip: IpAddr,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
+    s1_extra: &[u16],
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
     let src_port = tcp.get_source();
     let dst_port = tcp.get_destination();
@@ -91,7 +98,7 @@ fn process_tcp_packet(
     let is_tls = if has_active_flow {
         true
     } else {
-        self::tls::is_tls_traffic(payload)
+        is_tls_traffic(payload)
     };
 
     if !is_tls {
@@ -115,7 +122,13 @@ fn process_tcp_packet(
             let ja4 = signature.generate_ja4();
             let ja4_original = signature.generate_ja4_original();
             #[cfg(feature = "stable-v1")]
-            let ja4_stable_v1 = signature.generate_ja4_stable_v1();
+            let ja4_stable_v1 = if s1_extra.is_empty() {
+                signature.generate_ja4_stable_v1()
+            } else {
+                signature.generate_ja4_stable_v1_with_extra(s1_extra)
+            };
+            #[cfg(not(feature = "stable-v1"))]
+            let _ = s1_extra;
             let tls_client = ObservableTlsClient {
                 version: signature.version,
                 sni: signature.sni,

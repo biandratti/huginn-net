@@ -47,6 +47,15 @@ else is hashed as official JA4 hashes it. Official JA4 is unchanged.
 `EPHEMERAL_TLS_EXTENSIONS` is removed. Use `S1_SESSION_EXTENSIONS`.
 Stored `ja4_s1` / `ja4_rs1` values may change; re-fingerprint.
 
+To widen the denylist for one Hello, call
+`Signature::generate_ja4_stable_v1_with_extra`. To widen it for every Hello
+from `HuginnNetTls` (sequential and parallel), use
+`with_s1_session_extra`. Empty extra is the canonical list.
+
+`process_ipv4_packet` / `process_ipv6_packet` take `s1_extra: &[u16]`
+(pass `&[]` for canonical). `WorkerPool::new` takes `s1_extra: Arc<[u16]>`
+(pass `Arc::from([])` for canonical).
+
 List contents and curation rule: [`huginn-net-tls/JA4S1.md`](huginn-net-tls/JA4S1.md).
 
 ### GREASE in signature algorithms (FoxIO, 2026-09)

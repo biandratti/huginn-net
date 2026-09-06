@@ -44,8 +44,12 @@ fn process_tls_packet(
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
 ) -> Option<huginn_net_tls::TlsClientOutput> {
     match packet_parser::parse_packet(packet) {
-        packet_parser::IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, tcp_flows).ok().flatten(),
-        packet_parser::IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, tcp_flows).ok().flatten(),
+        packet_parser::IpPacket::Ipv4(ipv4) => {
+            process_ipv4_packet(&ipv4, tcp_flows, &[]).ok().flatten()
+        }
+        packet_parser::IpPacket::Ipv6(ipv6) => {
+            process_ipv6_packet(&ipv6, tcp_flows, &[]).ok().flatten()
+        }
         packet_parser::IpPacket::None => None,
     }
 }

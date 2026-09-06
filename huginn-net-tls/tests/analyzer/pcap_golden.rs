@@ -340,3 +340,59 @@ fn test_pcap_group_yields_single_ja4_s1() {
          otherwise it does not exercise the collapse"
     );
 }
+
+#[cfg(feature = "stable-v1")]
+fn analyze_pcap_with(pcap_path: &str, analyzer: HuginnNetTls) -> Vec<TlsClientOutput> {
+    assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
+    let mut analyzer = analyzer;
+    let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
+    let pcap_file = pcap_path.to_string();
+    let handle = thread::spawn(move || analyzer.analyze_pcap(&pcap_file, sender, None));
+    let mut results = Vec::new();
+    for tls_output in receiver {
+        results.push(tls_output);
+    }
+    match handle.join() {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            panic!("PCAP analysis failed: {e}");
+        }
+        Err(e) => {
+            panic!("Thread join failed: {e:?}");
+        }
+    }
+
+    results
+}
+
+/// Analyzer extra list: empty equals canonical; a capability ID present in the
+/// Chromium capture (ALPS 0x44cd) changes s1 and leaves official JA4 alone.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_analyzer_s1_extra_widens_denylist() {
+    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
+    let canonical = analyze_pcap_file(&snapshot.pcap_path);
+    let empty_extra =
+        analyze_pcap_with(&snapshot.pcap_path, HuginnNetTls::new(10000).with_s1_session_extra([]));
+    let widened = analyze_pcap_with(
+        &snapshot.pcap_path,
+        HuginnNetTls::new(10000).with_s1_session_extra([0x44cd]),
+    );
+
+    assert!(!canonical.is_empty());
+    assert_eq!(canonical.len(), empty_extra.len());
+    assert_eq!(canonical.len(), widened.len());
+
+    for i in 0..canonical.len() {
+        assert_eq!(
+            canonical[i].sig.ja4_stable_v1.full.value(),
+            empty_extra[i].sig.ja4_stable_v1.full.value()
+        );
+        assert_ne!(
+            canonical[i].sig.ja4_stable_v1.full.value(),
+            widened[i].sig.ja4_stable_v1.full.value()
+        );
+        assert_eq!(canonical[i].sig.ja4.full.value(), widened[i].sig.ja4.full.value());
+        assert!(canonical[i].sig.extensions.contains(&0x44cd));
+    }
+}

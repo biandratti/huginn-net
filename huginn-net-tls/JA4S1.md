@@ -140,22 +140,26 @@ It is versioned: a capture that breaks the collapse adds an ID and bumps s1.
 
 ## Hardcoded list vs additive extra
 
-`S1_SESSION_EXTENSIONS` is a `const` denylist. The analyzer always calls
-`generate_ja4_stable_v1()`, so every captured Hello pays the hardcoded path
-(`binary_search` on the `const` slice). That is the comparable `ja4_s1` key.
+`S1_SESSION_EXTENSIONS` is a `const` denylist. Default capture calls
+`generate_ja4_stable_v1()` (hardcoded `binary_search`). That is the comparable
+`ja4_s1` key.
 
-A second method, `generate_ja4_stable_v1_with_extra`, widens the list for one
-call. Empty `extra` delegates to the canonical method (no clone). Non-empty
-`extra` clones the `Signature`, drops those IDs, then calls s1. Additive only:
-an ID already on the canonical list is a no-op, so the API cannot resurrect a
-session type.
+Two ways to widen the list (additive: extra IDs on top of the const denylist):
+
+- Parser-only: `Signature::generate_ja4_stable_v1_with_extra`. Empty `extra`
+  delegates to the canonical method (no clone).
+- Capture (`HuginnNetTls`, sequential and parallel):
+  `with_s1_session_extra`. Empty extra is the canonical path. Not part of
+  `FilterConfig` (that drops packets before parse).
 
 Values with a non-empty `extra` are tagged `ja4_s1` but are **not** comparable
-across deployments. Keep the canonical method for database keys.
+across deployments. Keep the empty / default list for shared database keys.
 
 ```rust
 let canonical = sig.generate_ja4_stable_v1();
 let widened = sig.generate_ja4_stable_v1_with_extra(&[0xbeef]);
+
+let analyzer = HuginnNetTls::new(10000).with_s1_session_extra([0xbeef]);
 ```
 
 The clone-and-`retain` workaround that calls `generate_ja4()` still works and

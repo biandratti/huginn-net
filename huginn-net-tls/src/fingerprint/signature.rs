@@ -88,9 +88,10 @@ impl Signature {
     /// it. An ID already on the canonical list is a no-op. `extra` needs no
     /// ordering or dedup.
     ///
-    /// Empty `extra` is [`Self::generate_ja4_stable_v1`]. The analyzer always
-    /// calls that method, so the capture path never clones and never scans
-    /// `extra`. Use this method only when a caller has IDs to add.
+    /// Empty `extra` is [`Self::generate_ja4_stable_v1`]. Capture uses this
+    /// method when [`crate::HuginnNetTls::with_s1_session_extra`] is set;
+    /// otherwise the analyzer calls [`Self::generate_ja4_stable_v1`]. Parser-only
+    /// callers use this method directly.
     ///
     /// Tagged `ja4_s1` / `ja4_rs1`. Values with a non-empty `extra` are not
     /// comparable across deployments; keep the canonical list for database keys.
