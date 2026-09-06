@@ -65,6 +65,21 @@ TLS processing uses hash-based flow dispatch (`packet_hash::hash_flow`): packets
 
 Unlike TCP and HTTP, TLS scaling is dominated by per-packet reassembly cost rather than dispatch overhead. This means adding workers cannot remove the bottleneck — only faster per-packet processing can.
 
+## JA4_s1 list cost
+
+Signature-level benches live in `bench_ja4s1.rs` (not in `bench_tls.rs`). They
+compare the hardcoded `generate_ja4_stable_v1()` path with
+`generate_ja4_stable_v1_with_extra` (empty `extra` must match hardcoded; a
+non-empty `extra` is the optional clone + retain path) and with the
+clone-and-`generate_ja4()` workaround.
+
+```bash
+cargo bench -p huginn-net-tls --bench bench_ja4s1 --features stable-v1
+```
+
+See `huginn-net-tls/JA4S1.md` for the numbers and the design (two methods, analyzer
+stays canonical).
+
 ## Running Benchmarks
 
 ```bash

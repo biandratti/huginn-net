@@ -138,6 +138,54 @@ session state is out of scope.
 Not an invariant: that the list is complete for every browser build ever shipped.
 It is versioned: a capture that breaks the collapse adds an ID and bumps s1.
 
+## Hardcoded list vs additive extra
+
+`S1_SESSION_EXTENSIONS` is a `const` denylist. The analyzer always calls
+`generate_ja4_stable_v1()`, so every captured Hello pays the hardcoded path
+(`binary_search` on the `const` slice). That is the comparable `ja4_s1` key.
+
+A second method, `generate_ja4_stable_v1_with_extra`, widens the list for one
+call. Empty `extra` delegates to the canonical method (no clone). Non-empty
+`extra` clones the `Signature`, drops those IDs, then calls s1. Additive only:
+an ID already on the canonical list is a no-op, so the API cannot resurrect a
+session type.
+
+Values with a non-empty `extra` are tagged `ja4_s1` but are **not** comparable
+across deployments. Keep the canonical method for database keys.
+
+```rust
+let canonical = sig.generate_ja4_stable_v1();
+let widened = sig.generate_ja4_stable_v1_with_extra(&[0xbeef]);
+```
+
+The clone-and-`retain` workaround that calls `generate_ja4()` still works and
+produces the same `value()`. Its payload tag is `ja4`, not `ja4_s1`. The `d`/`i`
+indicator is read from `extensions` after the extra IDs are dropped (pathological
+only if `extra` included SNI).
+
+### Cost (`benches/bench_ja4s1.rs`)
+
+Signature-level, ClientHello from `macos_safari_tls_extensions.pcap` (16
+extensions, 2 session types dropped). Criterion `--quick`, this machine.
+
+| bench | time | vs hardcoded s1 |
+|-------|------|-----------------|
+| `ja4_official` (`generate_ja4`) | 2.28 µs | −5% |
+| `s1_canonical_hardcoded` (`generate_ja4_stable_v1`) | 2.41 µs | baseline |
+| `s1_extra_empty` (`with_extra(&[])`) | same path as baseline | no clone |
+| `s1_extra_three` (`with_extra(&[3 ids])`) | clone + retain + s1 | optional path only |
+| `s1_prefilter_canonical_list` | 2.63 µs | +9% |
+| `s1_prefilter_wider_list` | 2.51 µs | +4% |
+
+The optional path's extra cost is a clone plus `retain` (~0.1–0.2 µs). Full TLS
+packet processing is ~5.6 µs, so the delta is invisible on the capture path. The
+canonical method is unchanged, so capture never pays it.
+
+| | Hardcoded (`generate_ja4_stable_v1`) | `with_extra` (optional) |
+|--|-------------------------------------|-------------------------|
+| Pros | One meaning of `ja4_s1` on the wire; analyzer never clones | Reacts to a new session type without a crate release; tagged `ja4_s1` |
+| Cons | A new flipping extension splits keys until the next s1 bump | Non-empty `extra` is not comparable across deployments |
+
 ## References
 
 - [JA4 specification, FoxIO LLC](https://github.com/FoxIO-LLC/ja4): official `JA4`/`JA4_r`/`JA4_o`/`JA4_ro`

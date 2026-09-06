@@ -11,6 +11,7 @@ Performance benchmarks for all Huginn-Net protocol libraries.
 | Protocol | Benchmark File | Library | Command |
 |----------|---------------|---------|---------|
 | **TLS** | `bench_tls.rs` | `huginn-net-tls` | `cargo bench -p huginn-net-tls` |
+| **TLS s1** | `bench_ja4s1.rs` | `huginn-net-tls` | `cargo bench -p huginn-net-tls --bench bench_ja4s1 --features stable-v1` |
 | **TCP** | `bench_tcp.rs` | `huginn-net-tcp` | `cargo bench -p huginn-net-tcp --features full` |
 | **HTTP** | `bench_http.rs` | `huginn-net-http` | `cargo bench -p huginn-net-http --features full` |
 

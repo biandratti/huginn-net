@@ -538,3 +538,114 @@ fn test_ja4_s1_matches_ja4_without_session_types() {
     assert_eq!(ja4.full.value(), s1.full.value());
     assert_eq!(ja4.raw.value(), s1.raw.value());
 }
+
+#[cfg(feature = "stable-v1")]
+fn via_prefilter(sig: &Signature, extra: &[u16]) -> Ja4Payload {
+    let mut custom = sig.clone();
+    custom
+        .extensions
+        .retain(|id| !extra.contains(id) && !S1_SESSION_EXTENSIONS.contains(id));
+    custom.generate_ja4()
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_empty_is_canonical() {
+    let sig = create_test_signature();
+    let canonical = sig.generate_ja4_stable_v1();
+    let with_empty = sig.generate_ja4_stable_v1_with_extra(&[]);
+
+    assert_eq!(with_empty.full.value(), canonical.full.value());
+    assert_eq!(with_empty.raw.value(), canonical.raw.value());
+    assert_eq!(with_empty.full.variant_name(), "ja4_s1");
+    assert_eq!(with_empty.raw.variant_name(), "ja4_rs1");
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_drops_unknown_id() {
+    let mut sig = create_test_signature();
+    sig.extensions.push(0xbeef);
+    let canonical = sig.generate_ja4_stable_v1();
+    let with_extra = sig.generate_ja4_stable_v1_with_extra(&[0xbeef]);
+
+    assert_ne!(with_extra.full.value(), canonical.full.value());
+    assert!(canonical.raw.value().contains("beef"));
+    assert!(!with_extra.raw.value().contains("beef"));
+    assert_ne!(with_extra.ja4_a, canonical.ja4_a);
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_canonical_id_is_noop() {
+    let sig = create_test_signature();
+    let canonical = sig.generate_ja4_stable_v1();
+    let with_ticket = sig.generate_ja4_stable_v1_with_extra(&[0x0023]);
+
+    assert_eq!(with_ticket.full.value(), canonical.full.value());
+    assert_eq!(with_ticket.raw.value(), canonical.raw.value());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_cannot_resurrect_session_type() {
+    let sig = create_test_signature();
+    assert!(sig.extensions.contains(&0x002d));
+    let with_psk_modes = sig.generate_ja4_stable_v1_with_extra(&[0x002d]);
+
+    assert!(!with_psk_modes.raw.value().contains("002d"));
+    assert_eq!(with_psk_modes.full.value(), sig.generate_ja4_stable_v1().full.value());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_ignores_order_and_duplicates() {
+    let mut sig = create_test_signature();
+    sig.extensions.extend([0xbeef, 0x0aaa]);
+    let once = sig.generate_ja4_stable_v1_with_extra(&[0xbeef, 0x0aaa]);
+    let messy = sig.generate_ja4_stable_v1_with_extra(&[0xbeef, 0x0aaa, 0xbeef]);
+
+    assert_eq!(once.full.value(), messy.full.value());
+    assert_eq!(once.raw.value(), messy.raw.value());
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_collapses_flipping_id() {
+    let fresh = create_test_signature();
+    let mut resumed = create_test_signature();
+    resumed.extensions.push(0xbeef);
+
+    assert_ne!(
+        fresh.generate_ja4_stable_v1().full.value(),
+        resumed.generate_ja4_stable_v1().full.value()
+    );
+
+    let extra = [0xbeef];
+    assert_eq!(
+        fresh.generate_ja4_stable_v1_with_extra(&extra).full.value(),
+        resumed
+            .generate_ja4_stable_v1_with_extra(&extra)
+            .full
+            .value()
+    );
+    assert_eq!(
+        fresh.generate_ja4_stable_v1_with_extra(&extra).full.value(),
+        fresh.generate_ja4_stable_v1().full.value()
+    );
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_ja4_s1_with_extra_matches_prefilter_ja4_value() {
+    let mut sig = create_test_signature();
+    sig.extensions.push(0xbeef);
+    let extra = [0xbeef];
+    let with_extra = sig.generate_ja4_stable_v1_with_extra(&extra);
+    let emulated = via_prefilter(&sig, &extra);
+
+    assert_eq!(with_extra.full.value(), emulated.full.value());
+    assert_eq!(with_extra.raw.value(), emulated.raw.value());
+    assert_eq!(with_extra.full.variant_name(), "ja4_s1");
+    assert_eq!(emulated.full.variant_name(), "ja4");
+}

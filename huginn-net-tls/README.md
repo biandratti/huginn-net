@@ -71,7 +71,7 @@ future axes added in later releases):
 | Feature     | Default | Description                                                                                    |
 |-------------|---------|------------------------------------------------------------------------------------------------|
 | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
-| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1`: official JA4 minus `S1_SESSION_EXTENSIONS`, so resumption does not split the key. |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1`: official JA4 minus `S1_SESSION_EXTENSIONS`, so resumption does not split the key. `Signature::generate_ja4_stable_v1_with_extra` widens that list for a single call; the analyzer stays canonical. |
 | `json`      | No      | Derives `serde::Serialize` on all output types (`TlsClientOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:

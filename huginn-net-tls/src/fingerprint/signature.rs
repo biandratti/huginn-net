@@ -82,6 +82,30 @@ impl Signature {
         self.compute_ja4(Ja4Mode::StableV1)
     }
 
+    /// Generate `JA4_s1` with additional session-type IDs dropped.
+    ///
+    /// Additive: `extra` widens [`super::S1_SESSION_EXTENSIONS`], never shrinks
+    /// it. An ID already on the canonical list is a no-op. `extra` needs no
+    /// ordering or dedup.
+    ///
+    /// Empty `extra` is [`Self::generate_ja4_stable_v1`]. The analyzer always
+    /// calls that method, so the capture path never clones and never scans
+    /// `extra`. Use this method only when a caller has IDs to add.
+    ///
+    /// Tagged `ja4_s1` / `ja4_rs1`. Values with a non-empty `extra` are not
+    /// comparable across deployments; keep the canonical list for database keys.
+    #[cfg(feature = "stable-v1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
+    #[inline]
+    pub fn generate_ja4_stable_v1_with_extra(&self, extra: &[u16]) -> Ja4Payload {
+        if extra.is_empty() {
+            return self.generate_ja4_stable_v1();
+        }
+        let mut custom = self.clone();
+        custom.extensions.retain(|id| !extra.contains(id));
+        custom.generate_ja4_stable_v1()
+    }
+
     /// Core JA4 computation
     fn compute_ja4(&self, mode: Ja4Mode) -> Ja4Payload {
         let original_order = mode.is_original_order();
