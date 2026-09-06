@@ -371,18 +371,44 @@ fn test_s1_session_extensions_is_sorted() {
 /// whole point of s1, so the list is asserted instead of only documented.
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_s1_session_extensions_cover_rfc_session_types() {
+fn test_s1_session_extensions_cover_session_types() {
+    // 0015 / 0023 / 0029 are the set ja4#303 proposes; 002a is added on RFC 8446
+    // §4.2.10 grounds. See JA4S1.md.
     for (id, name) in [
         (0x0015, "padding"),
         (0x0023, "session_ticket"),
         (0x0029, "pre_shared_key"),
         (0x002a, "early_data"),
-        (0x002c, "cookie"),
-        (0x002d, "psk_key_exchange_modes"),
     ] {
         assert!(
             S1_SESSION_EXTENSIONS.contains(&id),
             "{name} ({id:#06x}) must stay in S1_SESSION_EXTENSIONS"
+        );
+    }
+    assert_eq!(
+        S1_SESSION_EXTENSIONS.len(),
+        4,
+        "adding an ID to the s1 denylist is a breaking s1 bump"
+    );
+}
+
+/// The list stops where the evidence stops. `002c` / `002d` are candidates no
+/// implementation reports and no capture has shown splitting a key, and the last
+/// three are session state per RFC that no client emits, so listing any of them
+/// would widen the blind spot without collapsing anything.
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_s1_session_extensions_hold_unevidenced_types() {
+    for (id, name) in [
+        (0x002c, "cookie"),
+        (0x002d, "psk_key_exchange_modes"),
+        (0x0019, "cached_info"),
+        (0x0020, "ticket_pinning"),
+        (0x003a, "ticket_request"),
+    ] {
+        assert!(
+            !S1_SESSION_EXTENSIONS.contains(&id),
+            "{name} ({id:#06x}) needs a capture that splits a key before s1 drops it"
         );
     }
 }
@@ -417,13 +443,10 @@ fn test_ja4_s1_drops_session_types() {
     let s1 = sig.generate_ja4_stable_v1();
 
     assert_ne!(s1.ja4_a, ja4.ja4_a);
-    assert!(!s1.raw.value().contains("0023"));
-    assert!(!s1.raw.value().contains("0029"));
     assert!(!s1.raw.value().contains("0015"));
-    assert!(!s1.raw.value().contains("002a"));
-    assert!(!s1.raw.value().contains("002c"));
-    // psk_key_exchange_modes: recent Firefox couples it to PSK
-    assert!(!s1.raw.value().contains("002d"));
+    assert!(!s1.raw.value().contains("0023"));
+    // psk_key_exchange_modes is a candidate, not on the list: still hashed
+    assert!(s1.raw.value().contains("002d"));
     assert!(s1.raw.value().contains("000d"));
     assert!(s1.raw.value().contains("002b"));
     assert_ne!(s1.full.value(), ja4.full.value());
@@ -480,7 +503,7 @@ fn test_ja4_s1_session_collapse() {
     let mut fresh = create_test_signature();
     fresh
         .extensions
-        .retain(|&e| !matches!(e, 0x0015 | 0x0023 | 0x0029 | 0x002a | 0x002c));
+        .retain(|&e| !matches!(e, 0x0015 | 0x0023 | 0x0029 | 0x002a));
 
     let mut resumed = fresh.clone();
     resumed.extensions.extend([0x0023, 0x0029, 0x002a, 0x0015]);
@@ -580,21 +603,21 @@ fn test_ja4_s1_excluding_drops_unknown_id() {
 fn test_ja4_s1_excluding_canonical_id_is_noop() {
     let sig = create_test_signature();
     let canonical = sig.generate_ja4_stable_v1();
-    let with_ticket = sig.generate_ja4_stable_v1_excluding(&[0x0023]);
+    let with_padding = sig.generate_ja4_stable_v1_excluding(&[0x0015]);
 
-    assert_eq!(with_ticket.full.value(), canonical.full.value());
-    assert_eq!(with_ticket.raw.value(), canonical.raw.value());
+    assert_eq!(with_padding.full.value(), canonical.full.value());
+    assert_eq!(with_padding.raw.value(), canonical.raw.value());
 }
 
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_s1_excluding_cannot_resurrect_session_type() {
     let sig = create_test_signature();
-    assert!(sig.extensions.contains(&0x002d));
-    let with_psk_modes = sig.generate_ja4_stable_v1_excluding(&[0x002d]);
+    assert!(sig.extensions.contains(&0x0015));
+    let with_padding = sig.generate_ja4_stable_v1_excluding(&[0x0015]);
 
-    assert!(!with_psk_modes.raw.value().contains("002d"));
-    assert_eq!(with_psk_modes.full.value(), sig.generate_ja4_stable_v1().full.value());
+    assert!(!with_padding.raw.value().contains("0015"));
+    assert_eq!(with_padding.full.value(), sig.generate_ja4_stable_v1().full.value());
 }
 
 #[cfg(feature = "stable-v1")]

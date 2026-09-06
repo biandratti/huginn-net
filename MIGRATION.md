@@ -37,15 +37,19 @@ JA4_rs1: …   // v2.2
 ### `JA4_s1` session extensions (`feature = "stable-v1"`)
 
 2.1 s1 was official JA4 minus three session types (`padding` 0x0015,
-`session_ticket` 0x0023, `pre_shared_key` 0x0029). A new resumption
-companion (e.g. `early_data` 0x002a) still changed the key.
+`session_ticket` 0x0023, `pre_shared_key` 0x0029), the set nDPI also strips.
+A resumed 0-RTT Hello still changed the key.
 
-2.2 subtracts `S1_SESSION_EXTENSIONS`, the nine types an RFC defines as session,
-resumption or retry state, before the `JA4_a` count and `JA4_c` hash. Everything
-else is hashed as official JA4 hashes it. Official JA4 is unchanged.
+2.2 subtracts `S1_SESSION_EXTENSIONS`, which adds `early_data` 0x002a to those
+three, before the `JA4_a` count and `JA4_c` hash. RFC 8446 §4.2.10 permits
+`early_data` only alongside a `pre_shared_key`, so it cannot appear outside the
+resumption state s1 already strips. Everything else is hashed as official JA4
+hashes it. Official JA4 is unchanged.
 
 `EPHEMERAL_TLS_EXTENSIONS` is removed. Use `S1_SESSION_EXTENSIONS`.
-Stored `ja4_s1` / `ja4_rs1` values may change; re-fingerprint.
+Stored `ja4_s1` / `ja4_rs1` values are unchanged unless your traffic carries
+`early_data`, which no current capture in this repo does; no re-fingerprint
+needed in that case.
 
 To widen the denylist for one Hello, call
 `Signature::generate_ja4_stable_v1_excluding`. To widen it for every Hello
