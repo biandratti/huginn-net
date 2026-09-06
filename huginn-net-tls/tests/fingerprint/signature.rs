@@ -623,14 +623,20 @@ fn test_ja4_s1_excluding_collapses_flipping_id() {
 
     let excluded = [0xbeef];
     assert_eq!(
-        fresh.generate_ja4_stable_v1_excluding(&excluded).full.value(),
+        fresh
+            .generate_ja4_stable_v1_excluding(&excluded)
+            .full
+            .value(),
         resumed
             .generate_ja4_stable_v1_excluding(&excluded)
             .full
             .value()
     );
     assert_eq!(
-        fresh.generate_ja4_stable_v1_excluding(&excluded).full.value(),
+        fresh
+            .generate_ja4_stable_v1_excluding(&excluded)
+            .full
+            .value(),
         fresh.generate_ja4_stable_v1().full.value()
     );
 }

@@ -355,12 +355,16 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => {
-                process_ipv4_packet(&ipv4, &mut self.tcp_flows, self.s1_excluded_extensions.as_ref())
-            }
-            IpPacket::Ipv6(ipv6) => {
-                process_ipv6_packet(&ipv6, &mut self.tcp_flows, self.s1_excluded_extensions.as_ref())
-            }
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(
+                &ipv4,
+                &mut self.tcp_flows,
+                self.s1_excluded_extensions.as_ref(),
+            ),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(
+                &ipv6,
+                &mut self.tcp_flows,
+                self.s1_excluded_extensions.as_ref(),
+            ),
             IpPacket::None => Ok(None),
         }
     }
