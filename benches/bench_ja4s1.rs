@@ -6,9 +6,9 @@
 //!
 //! The workaround (drop a caller-supplied denylist from `Signature::extensions`,
 //! then `generate_ja4()`) is byte-identical to `generate_ja4_stable_v1()` when
-//! the list is `S1_SESSION_EXTENSIONS`. `generate_ja4_stable_v1_with_extra`
-//! is the labeled form of that path: empty `extra` delegates to the hardcoded
-//! method; a non-empty `extra` clones and drops those IDs, then calls s1.
+//! the list is `S1_SESSION_EXTENSIONS`. `generate_ja4_stable_v1_excluding`
+//! is the labeled form of that path: empty `excluded` delegates to the
+//! hardcoded method; a non-empty list clones and drops those IDs, then calls s1.
 //!
 //! ```bash
 //! cargo bench -p huginn-net-tls --bench bench_ja4s1 --features stable-v1
@@ -148,13 +148,13 @@ fn bench_ja4s1_list_cost(c: &mut Criterion) {
         b.iter(|| black_box(s1_via_prefilter(black_box(&sig), black_box(&wider))))
     });
 
-    group.bench_function("s1_extra_empty", |b| {
-        b.iter(|| black_box(black_box(&sig).generate_ja4_stable_v1_with_extra(&[])))
+    group.bench_function("s1_excluding_empty", |b| {
+        b.iter(|| black_box(black_box(&sig).generate_ja4_stable_v1_excluding(&[])))
     });
 
-    group.bench_function("s1_extra_three", |b| {
+    group.bench_function("s1_excluding_three", |b| {
         b.iter(|| {
-            black_box(black_box(&sig).generate_ja4_stable_v1_with_extra(black_box(&EXTRA_IDS)))
+            black_box(black_box(&sig).generate_ja4_stable_v1_excluding(black_box(&EXTRA_IDS)))
         })
     });
 

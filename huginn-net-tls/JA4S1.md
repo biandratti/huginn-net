@@ -138,7 +138,7 @@ session state is out of scope.
 Not an invariant: that the list is complete for every browser build ever shipped.
 It is versioned: a capture that breaks the collapse adds an ID and bumps s1.
 
-## Hardcoded list vs additive extra
+## Hardcoded list vs excluded extensions
 
 `S1_SESSION_EXTENSIONS` is a `const` denylist. Default capture calls
 `generate_ja4_stable_v1()` (hardcoded `binary_search`). That is the comparable
@@ -146,26 +146,27 @@ It is versioned: a capture that breaks the collapse adds an ID and bumps s1.
 
 Two ways to widen the list (additive: extra IDs on top of the const denylist):
 
-- Parser-only: `Signature::generate_ja4_stable_v1_with_extra`. Empty `extra`
+- Parser-only: `Signature::generate_ja4_stable_v1_excluding`. Empty `excluded`
   delegates to the canonical method (no clone).
 - Capture (`HuginnNetTls`, sequential and parallel):
-  `with_s1_session_extra`. Empty extra is the canonical path. Not part of
-  `FilterConfig` (that drops packets before parse).
+  `with_s1_excluded_extensions`. Empty excluded is the canonical path. Not
+  part of `FilterConfig` (that drops packets before parse).
 
-Values with a non-empty `extra` are tagged `ja4_s1` but are **not** comparable
-across deployments. Keep the empty / default list for shared database keys.
+Values with a non-empty `excluded` list are tagged `ja4_s1` but are **not**
+comparable across deployments. Keep the empty / default list for shared
+database keys.
 
 ```rust
 let canonical = sig.generate_ja4_stable_v1();
-let widened = sig.generate_ja4_stable_v1_with_extra(&[0xbeef]);
+let widened = sig.generate_ja4_stable_v1_excluding(&[0xbeef]);
 
-let analyzer = HuginnNetTls::new(10000).with_s1_session_extra([0xbeef]);
+let analyzer = HuginnNetTls::new(10000).with_s1_excluded_extensions([0xbeef]);
 ```
 
 The clone-and-`retain` workaround that calls `generate_ja4()` still works and
 produces the same `value()`. Its payload tag is `ja4`, not `ja4_s1`. The `d`/`i`
-indicator is read from `extensions` after the extra IDs are dropped (pathological
-only if `extra` included SNI).
+indicator is read from `extensions` after the excluded IDs are dropped
+(pathological only if `excluded` included SNI).
 
 ### Cost (`benches/bench_ja4s1.rs`)
 
@@ -176,8 +177,8 @@ extensions, 2 session types dropped). Criterion `--quick`, this machine.
 |-------|------|-----------------|
 | `ja4_official` (`generate_ja4`) | 2.28 µs | −5% |
 | `s1_canonical_hardcoded` (`generate_ja4_stable_v1`) | 2.41 µs | baseline |
-| `s1_extra_empty` (`with_extra(&[])`) | same path as baseline | no clone |
-| `s1_extra_three` (`with_extra(&[3 ids])`) | clone + retain + s1 | optional path only |
+| `s1_excluding_empty` (`excluding(&[])`) | same path as baseline | no clone |
+| `s1_excluding_three` (`excluding(&[3 ids])`) | clone + retain + s1 | optional path only |
 | `s1_prefilter_canonical_list` | 2.63 µs | +9% |
 | `s1_prefilter_wider_list` | 2.51 µs | +4% |
 
@@ -185,10 +186,10 @@ The optional path's extra cost is a clone plus `retain` (~0.1–0.2 µs). Full T
 packet processing is ~5.6 µs, so the delta is invisible on the capture path. The
 canonical method is unchanged, so capture never pays it.
 
-| | Hardcoded (`generate_ja4_stable_v1`) | `with_extra` (optional) |
-|--|-------------------------------------|-------------------------|
+| | Hardcoded (`generate_ja4_stable_v1`) | `excluding` (optional) |
+|--|-------------------------------------|------------------------|
 | Pros | One meaning of `ja4_s1` on the wire; analyzer never clones | Reacts to a new session type without a crate release; tagged `ja4_s1` |
-| Cons | A new flipping extension splits keys until the next s1 bump | Non-empty `extra` is not comparable across deployments |
+| Cons | A new flipping extension splits keys until the next s1 bump | Non-empty `excluded` is not comparable across deployments |
 
 ## References
 

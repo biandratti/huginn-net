@@ -82,28 +82,29 @@ impl Signature {
         self.compute_ja4(Ja4Mode::StableV1)
     }
 
-    /// Generate `JA4_s1` with additional session-type IDs dropped.
+    /// Generate `JA4_s1` excluding additional session-type IDs.
     ///
-    /// Additive: `extra` widens [`super::S1_SESSION_EXTENSIONS`], never shrinks
-    /// it. An ID already on the canonical list is a no-op. `extra` needs no
-    /// ordering or dedup.
+    /// Additive: `excluded` widens [`super::S1_SESSION_EXTENSIONS`], never
+    /// shrinks it. An ID already on the canonical list is a no-op. `excluded`
+    /// needs no ordering or dedup.
     ///
-    /// Empty `extra` is [`Self::generate_ja4_stable_v1`]. Capture uses this
-    /// method when [`crate::HuginnNetTls::with_s1_session_extra`] is set;
+    /// Empty `excluded` is [`Self::generate_ja4_stable_v1`]. Capture uses this
+    /// method when [`crate::HuginnNetTls::with_s1_excluded_extensions`] is set;
     /// otherwise the analyzer calls [`Self::generate_ja4_stable_v1`]. Parser-only
     /// callers use this method directly.
     ///
-    /// Tagged `ja4_s1` / `ja4_rs1`. Values with a non-empty `extra` are not
-    /// comparable across deployments; keep the canonical list for database keys.
+    /// Tagged `ja4_s1` / `ja4_rs1`. Values with a non-empty `excluded` list are
+    /// not comparable across deployments; keep the canonical list for database
+    /// keys.
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     #[inline]
-    pub fn generate_ja4_stable_v1_with_extra(&self, extra: &[u16]) -> Ja4Payload {
-        if extra.is_empty() {
+    pub fn generate_ja4_stable_v1_excluding(&self, excluded: &[u16]) -> Ja4Payload {
+        if excluded.is_empty() {
             return self.generate_ja4_stable_v1();
         }
         let mut custom = self.clone();
-        custom.extensions.retain(|id| !extra.contains(id));
+        custom.extensions.retain(|id| !excluded.contains(id));
         custom.generate_ja4_stable_v1()
     }
 

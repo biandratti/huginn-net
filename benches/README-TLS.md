@@ -69,8 +69,8 @@ Unlike TCP and HTTP, TLS scaling is dominated by per-packet reassembly cost rath
 
 Signature-level benches live in `bench_ja4s1.rs` (not in `bench_tls.rs`). They
 compare the hardcoded `generate_ja4_stable_v1()` path with
-`generate_ja4_stable_v1_with_extra` (empty `extra` must match hardcoded; a
-non-empty `extra` is the optional clone + retain path) and with the
+`generate_ja4_stable_v1_excluding` (empty `excluded` must match hardcoded; a
+non-empty `excluded` list is the optional clone + retain path) and with the
 clone-and-`generate_ja4()` workaround.
 
 ```bash

@@ -365,28 +365,30 @@ fn analyze_pcap_with(pcap_path: &str, analyzer: HuginnNetTls) -> Vec<TlsClientOu
     results
 }
 
-/// Analyzer extra list: empty equals canonical; a capability ID present in the
-/// Chromium capture (ALPS 0x44cd) changes s1 and leaves official JA4 alone.
+/// Analyzer excluded list: empty equals canonical; a capability ID present in
+/// the Chromium capture (ALPS 0x44cd) changes s1 and leaves official JA4 alone.
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_analyzer_s1_extra_widens_denylist() {
+fn test_analyzer_s1_excluded_extensions_widens_denylist() {
     let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
     let canonical = analyze_pcap_file(&snapshot.pcap_path);
-    let empty_extra =
-        analyze_pcap_with(&snapshot.pcap_path, HuginnNetTls::new(10000).with_s1_session_extra([]));
+    let empty_excluded = analyze_pcap_with(
+        &snapshot.pcap_path,
+        HuginnNetTls::new(10000).with_s1_excluded_extensions([]),
+    );
     let widened = analyze_pcap_with(
         &snapshot.pcap_path,
-        HuginnNetTls::new(10000).with_s1_session_extra([0x44cd]),
+        HuginnNetTls::new(10000).with_s1_excluded_extensions([0x44cd]),
     );
 
     assert!(!canonical.is_empty());
-    assert_eq!(canonical.len(), empty_extra.len());
+    assert_eq!(canonical.len(), empty_excluded.len());
     assert_eq!(canonical.len(), widened.len());
 
     for i in 0..canonical.len() {
         assert_eq!(
             canonical[i].sig.ja4_stable_v1.full.value(),
-            empty_extra[i].sig.ja4_stable_v1.full.value()
+            empty_excluded[i].sig.ja4_stable_v1.full.value()
         );
         assert_ne!(
             canonical[i].sig.ja4_stable_v1.full.value(),

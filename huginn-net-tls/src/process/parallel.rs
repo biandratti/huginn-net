@@ -96,7 +96,7 @@ pub struct WorkerPool {
 impl WorkerPool {
     /// Create a new worker pool.
     ///
-    /// `s1_extra` widens `JA4_s1` when `stable-v1` is on. Pass `Arc::from([])`
+    /// `s1_excluded_extensions` widens `JA4_s1` when `stable-v1` is on. Pass `Arc::from([])`
     /// for the canonical list.
     ///
     /// # Errors
@@ -111,7 +111,7 @@ impl WorkerPool {
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
         max_connections: usize,
         filter_config: Option<FilterConfig>,
-        s1_extra: Arc<[u16]>,
+        s1_excluded_extensions: Arc<[u16]>,
     ) -> Result<Self, HuginnNetTlsError> {
         let num_workers = NonZeroUsize::new(num_workers).ok_or_else(|| {
             HuginnNetTlsError::Misconfiguration("Worker count must be greater than 0".to_string())
@@ -139,7 +139,7 @@ impl WorkerPool {
             let result_sender_clone = result_sender.clone();
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
             let filter_clone = filter_arc.clone();
-            let s1_extra_clone = Arc::clone(&s1_extra);
+            let s1_excluded_extensions_clone = Arc::clone(&s1_excluded_extensions);
 
             let handle = thread::Builder::new()
                 .name(format!("tls-worker-{worker_id}"))
@@ -150,7 +150,7 @@ impl WorkerPool {
                         result_sender_clone,
                         shutdown_flag_clone,
                         filter_clone,
-                        s1_extra_clone,
+                        s1_excluded_extensions_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
                     );
                 })
@@ -247,7 +247,7 @@ impl WorkerPool {
         result_sender: std::sync::mpsc::Sender<TlsClientOutput>,
         shutdown_flag: Arc<AtomicBool>,
         filter_config: Option<Arc<FilterConfig>>,
-        s1_extra: Arc<[u16]>,
+        s1_excluded_extensions: Arc<[u16]>,
         config: WorkerConfig,
     ) {
         debug!("TLS worker {} started", worker_id);
@@ -293,7 +293,7 @@ impl WorkerPool {
                     &packet,
                     &mut tcp_flows,
                     filter_config.as_deref(),
-                    &s1_extra,
+                    &s1_excluded_extensions,
                 ) {
                     Ok(Some(result)) => {
                         if result_sender.send(result).is_err() {
@@ -314,7 +314,7 @@ impl WorkerPool {
         packet: &[u8],
         tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
         filter: Option<&FilterConfig>,
-        s1_extra: &[u16],
+        s1_excluded_extensions: &[u16],
     ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
         if let Some(filter_cfg) = filter {
             if !raw_filter::apply(packet, filter_cfg) {
@@ -324,8 +324,8 @@ impl WorkerPool {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, tcp_flows, s1_extra),
-            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, tcp_flows, s1_extra),
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, tcp_flows, s1_excluded_extensions),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, tcp_flows, s1_excluded_extensions),
             IpPacket::None => Ok(None),
         }
     }
