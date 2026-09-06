@@ -144,9 +144,9 @@ Routes incoming connections to backend services while passively extracting TLS (
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on how to get started.
 
 ## Next Milestones
--  **Enhanced Database** - Continuous signature updates and community contributions
--  **Advanced Analytics** - Pattern analysis and reporting tools
--  **Real-time Streaming** - High-performance packet processing pipelines
+-  **JA4 over QUIC and DTLS** - ClientHello on UDP (`q` prefix) and DTLS. TCP (`t`) is what ships today.
+-  **Enhanced Database** - Continuous signature updates and community contributions (`p0f.fp` is still 2012)
+-  **SSH / DNS / DHCP** - Planned as a separate crate, not part of this TCP/HTTP/TLS library. Same idea (passive fingerprints), different protocols.
 
 ## 📄 License
 

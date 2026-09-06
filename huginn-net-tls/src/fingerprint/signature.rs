@@ -1,6 +1,7 @@
 #[cfg(feature = "stable-v1")]
 use super::grease::filter_s1_extensions;
-use super::grease::{filter_grease_values, TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
+use super::extensions::{TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
+use super::grease::filter_grease_values;
 use super::ja4::{Ja4Mode, Ja4Payload};
 use super::version::TlsVersion;
 use sha2::{Digest, Sha256};

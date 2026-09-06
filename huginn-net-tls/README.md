@@ -16,12 +16,17 @@
 
 ## Overview
 
-This crate provides JA4 TLS client fingerprinting capabilities for passive network analysis. It implements the official JA4 specification by FoxIO, LLC for identifying TLS clients through ClientHello analysis.
+This crate fingerprints TLS ClientHello on **TCP** (JA4 prefix `t`) for passive
+network analysis. That path follows the official JA4 specification by FoxIO, LLC
+(`JA4` / `JA4_r` / `JA4_o` / `JA4_ro`).
+
+JA4 over QUIC (`q` prefix) and DTLS are on the roadmap; those packets are not
+parsed yet. The FoxIO series implemented here is client-TCP only.
 
 ### Why choose huginn-net-tls?
 
 - **No third-party tools** - No tshark, wireshark, or external tools required
-- **Official JA4 implementation** - Complete spec compliance for TLS fingerprinting
+- **Official JA4 (TCP)** - FoxIO spec for TLS ClientHello on TCP
 - **Pure Rust implementation** - No system libraries required
 - **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores) (fewer features enabled means higher throughput)
 - **Parallel processing** - Multi-threaded worker pool for production workloads
@@ -31,7 +36,7 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 
 ## Features
 
-- **JA4 Fingerprinting** - Complete implementation of the official JA4 specification
+- **JA4 Fingerprinting** - Official JA4 for TLS ClientHello on TCP (`t` prefix). QUIC (`q`) and DTLS are on the roadmap.
 - **TLS Version Support** - TLS 1.0, 1.1, 1.2, 1.3, and SSL 3.0/2.0
 - **GREASE Filtering** - GREASE ignored in ciphers, extension types, signature algorithms, and curves (RFC 8701 / FoxIO JA4)
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
@@ -174,9 +179,9 @@ For complete documentation, examples, and JA4 specification details, see the mai
 
 ## Attribution
 
-This implementation follows the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
+This implementation follows the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS ClientHello on TCP. QUIC and DTLS from that spec are on the roadmap. JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
 
-Additional reference: [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) by ntop: analysis of JA4 fingerprinting evolution and limitations.
+ntop's [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) describes the session-split problem (fresh vs resumed ClientHello). Huginn's answer is `JA4_s1` / `JA4_rs1` (`stable-v1`); see [`JA4S1.md`](JA4S1.md).
 
 ## License
 
