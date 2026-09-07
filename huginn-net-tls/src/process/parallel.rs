@@ -104,11 +104,10 @@ impl WorkerPool {
     ///
     /// # Parameters
     ///
-    /// - `num_workers`: threads to spawn (must be > 0; typical 2–4)
-    /// - `queue_size`: bounded packet queue per worker (typical 100–200)
-    /// - `batch_size`: packets drained per idle wait (typical 16–64; 32 recommended)
+    /// - `num_workers`: threads to spawn (must be > 0)
+    /// - `queue_size`: bounded packet queue per worker
+    /// - `batch_size`: packets drained per idle wait
     /// - `timeout_ms`: receive timeout when a queue is empty, in milliseconds
-    ///   (typical 5–50; 10 recommended)
     /// - `result_sender`: completed [`TlsClientOutput`]s
     /// - `max_connections`: per-worker TCP flow cache size
     /// - `filter_config`: optional early drop before parse
