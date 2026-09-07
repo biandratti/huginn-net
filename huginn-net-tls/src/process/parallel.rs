@@ -94,14 +94,32 @@ pub struct WorkerPool {
 }
 
 impl WorkerPool {
-    /// Create a new worker pool.
+    /// Spawn a pool of TLS workers.
     ///
-    /// `s1_excluded_extensions` widens `JA4_s1` when `stable-v1` is on. Pass `Arc::from([])`
-    /// for the canonical list.
+    /// Same TCP flow always lands on the same worker, so ClientHello reassembly
+    /// stays local. Each worker has its own flow cache.
+    ///
+    /// Capture callers should use [`crate::HuginnNetTls::with_parallel`] instead
+    /// of constructing this type directly.
+    ///
+    /// # Parameters
+    ///
+    /// - `num_workers`: threads to spawn (must be > 0; typical 2–4)
+    /// - `queue_size`: bounded packet queue per worker (typical 100–200)
+    /// - `batch_size`: packets drained per idle wait (typical 16–64; 32 recommended)
+    /// - `timeout_ms`: receive timeout when a queue is empty, in milliseconds
+    ///   (typical 5–50; 10 recommended)
+    /// - `result_sender`: completed [`TlsClientOutput`]s
+    /// - `max_connections`: per-worker TCP flow cache size
+    /// - `filter_config`: optional early drop before parse
+    /// - `s1_excluded_extensions`: extra `JA4_s1` denylist IDs when `stable-v1`
+    ///   is on (additive on the hardcoded list). `Arc::from([])` is the
+    ///   canonical key. Ignored without that feature.
     ///
     /// # Errors
     ///
-    /// Returns an error if unable to spawn worker threads or if num_workers is 0
+    /// [`HuginnNetTlsError::Misconfiguration`] if `num_workers` is 0 or a
+    /// worker thread cannot be spawned.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         num_workers: usize,

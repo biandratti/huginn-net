@@ -27,8 +27,6 @@ pub struct ObservablePackage {
     pub tls_client: Option<ObservableTlsClient>,
 }
 
-/// `s1_excluded_extensions` widens the s1 denylist when `stable-v1` is on. Pass `&[]` for
-/// the canonical list. Ignored without that feature.
 #[inline]
 pub fn process_ipv4_packet(
     ipv4: &pnet::packet::ipv4::Ipv4Packet,

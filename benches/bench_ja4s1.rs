@@ -86,7 +86,6 @@ fn load_signature() -> Option<(Signature, &'static str)> {
     None
 }
 
-/// Drop `deny` from a clone, then official sorted JA4.
 fn s1_via_prefilter(sig: &Signature, deny: &[u16]) -> Ja4Payload {
     let mut custom = sig.clone();
     custom.extensions.retain(|e| !deny.contains(e));

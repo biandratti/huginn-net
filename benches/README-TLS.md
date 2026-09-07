@@ -67,18 +67,12 @@ Unlike TCP and HTTP, TLS scaling is dominated by per-packet reassembly cost rath
 
 ## JA4_s1 list cost
 
-Signature-level benches live in `bench_ja4s1.rs` (not in `bench_tls.rs`). They
-compare the hardcoded `generate_ja4_stable_v1()` path with
-`generate_ja4_stable_v1_excluding` (empty `excluded` must match hardcoded; a
-non-empty `excluded` list is the optional clone + retain path) and with the
-clone-and-`generate_ja4()` workaround.
+Signature-level (`bench_ja4s1.rs`, not packet TLS). Command and numbers:
+[huginn-net-tls/JA4S1.md](../huginn-net-tls/JA4S1.md).
 
 ```bash
 cargo bench -p huginn-net-tls --bench bench_ja4s1 --features stable-v1
 ```
-
-See `huginn-net-tls/JA4S1.md` for the numbers and the design (two methods, analyzer
-stays canonical).
 
 ## Running Benchmarks
 

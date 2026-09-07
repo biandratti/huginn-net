@@ -270,8 +270,6 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
 
 #[test]
 fn test_golden_sigalg_grease_pcap() {
-    // FoxIO reference: GREASE (0x0a0a) inside signature_algorithms.
-    // JA4 must match FoxIO: t13d1517h2_8daaf6152771_cb7bf5808d99
     test_pcap_with_snapshot("sigalg-grease.pcap");
 }
 
@@ -284,9 +282,6 @@ fn test_golden_pcap_snapshots() {
         // extension order, Chrome cipher list). Session types flip across the
         // six hellos; s1 must stay one key.
         "macos_safari_tls_extensions.pcap",
-        // The only Apple-stack capture we have. Its JA4 and s1 match the uTLS
-        // HelloIOS_13 / HelloIOS_14 parrots exactly, so it pins a non-Chromium
-        // cipher list (26 suites) against a second, independent source.
         "macos_tcp_flags.pcap",
         "sigalg-grease.pcap",
     ];
@@ -297,10 +292,6 @@ fn test_golden_pcap_snapshots() {
     }
 }
 
-/// The s1 invariant, asserted rather than inferred from the snapshot: one
-/// client to one host over one ALPN yields a single `JA4_s1`, even though the
-/// session types make official JA4 split. Regenerating the snapshot cannot
-/// silently drop this.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_pcap_group_yields_single_ja4_s1() {
@@ -365,8 +356,6 @@ fn analyze_pcap_with(pcap_path: &str, analyzer: HuginnNetTls) -> Vec<TlsClientOu
     results
 }
 
-/// Analyzer excluded list: empty equals canonical; a capability ID present in
-/// the Chromium capture (ALPS 0x44cd) changes s1 and leaves official JA4 alone.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_analyzer_s1_excluded_extensions_widens_denylist() {

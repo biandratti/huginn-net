@@ -31,6 +31,9 @@ struct ParallelConfig {
 /// Extracts JA4 client-hello fingerprints from raw network traffic without
 /// decrypting TLS, no database or external matcher is required.
 ///
+/// Extra `JA4_s1` denylist IDs (`stable-v1`): `with_s1_excluded_extensions`.
+/// Default is the canonical list.
+///
 /// # Examples
 ///
 /// **Sequential: JA4 fingerprints from a PCAP file:**
@@ -73,8 +76,6 @@ pub struct HuginnNetTls {
     worker_pool: Option<Arc<WorkerPool>>,
     filter_config: Option<FilterConfig>,
     max_connections: usize,
-    /// Extra session-type IDs excluded from `JA4_s1` on top of `S1_SESSION_EXTENSIONS`.
-    /// Empty (default) uses [`crate::Signature::generate_ja4_stable_v1`].
     s1_excluded_extensions: Arc<[u16]>,
 }
 
@@ -119,16 +120,12 @@ impl HuginnNetTls {
         self
     }
 
-    /// Widen the `JA4_s1` denylist for every Hello this analyzer emits.
+    /// Workaround: extra IDs dropped from `JA4_s1` until they land on
+    /// [`crate::S1_SESSION_EXTENSIONS`].
     ///
-    /// Additive: IDs are excluded *in addition to* [`crate::S1_SESSION_EXTENSIONS`].
-    /// Empty `excluded` is the canonical path (`generate_ja4_stable_v1`). Sequential
-    /// and parallel capture both use this list. Values with a non-empty
-    /// `excluded` list are still tagged `ja4_s1` but are not comparable across
-    /// deployments.
-    ///
-    /// Projects that parse a ClientHello themselves should call
-    /// [`crate::Signature::generate_ja4_stable_v1_excluding`] instead.
+    /// Additive. Empty `excluded` is the shared key. A non-empty list is not
+    /// comparable across deployments. Parser-only:
+    /// [`crate::Signature::generate_ja4_stable_v1_excluding`].
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     pub fn with_s1_excluded_extensions(mut self, excluded: impl Into<Arc<[u16]>>) -> Self {

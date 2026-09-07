@@ -367,13 +367,9 @@ fn test_s1_session_extensions_is_sorted() {
     assert_eq!(S1_SESSION_EXTENSIONS, sorted.as_slice());
 }
 
-/// Dropping one of these would let resumption split the key again, which is the
-/// whole point of s1, so the list is asserted instead of only documented.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_s1_session_extensions_cover_session_types() {
-    // 0015 / 0023 / 0029 are the set ja4#303 proposes; 002a is added on RFC 8446
-    // §4.2.10 grounds. See JA4S1.md.
     for (id, name) in [
         (0x0015, "padding"),
         (0x0023, "session_ticket"),
@@ -392,10 +388,6 @@ fn test_s1_session_extensions_cover_session_types() {
     );
 }
 
-/// The list stops where the evidence stops. `002c` / `002d` are candidates no
-/// implementation reports and no capture has shown splitting a key, and the last
-/// three are session state per RFC that no client emits, so listing any of them
-/// would widen the blind spot without collapsing anything.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_s1_session_extensions_hold_unevidenced_types() {
@@ -413,8 +405,6 @@ fn test_s1_session_extensions_hold_unevidenced_types() {
     }
 }
 
-/// The denylist half of the contract: a capability type that is not session
-/// related must keep reaching s1, otherwise s1 is silently discarding signal.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_s1_session_extensions_hold_no_capability_types() {
@@ -452,8 +442,6 @@ fn test_ja4_s1_drops_session_types() {
     assert_ne!(s1.full.value(), ja4.full.value());
 }
 
-/// An unassigned type is signal, not noise: s1 only removes session variance,
-/// so `0xbeef` must move it exactly as it moves official JA4.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_s1_keeps_unknown_id() {
@@ -468,8 +456,6 @@ fn test_ja4_s1_keeps_unknown_id() {
     assert_ne!(with_unknown.ja4_a, baseline.ja4_a);
 }
 
-/// GREASE is stripped one layer earlier, by the JA4 algorithm itself, so it
-/// still must not reach s1 even though it is not a session type.
 #[cfg(feature = "stable-v1")]
 #[test]
 fn test_ja4_s1_still_drops_grease() {

@@ -71,12 +71,8 @@ impl Signature {
         self.compute_ja4(Ja4Mode::Unsorted)
     }
 
-    /// Generate the huginn stable JA4 variant, `JA4_s1` (sorted).
-    ///
-    /// Same algorithm as [`Self::generate_ja4`], but `JA4_a` count and `JA4_c`
-    /// extension types exclude [`super::S1_SESSION_EXTENSIONS`], so the fresh,
-    /// resumed and resumed-0-RTT handshakes of one client collapse to a single
-    /// value.
+    /// huginn `JA4_s1` (sorted): [`Self::generate_ja4`] minus [`super::S1_SESSION_EXTENSIONS`].
+    /// Fresh, resumed and 0-RTT Hellos collapse to one value.
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     #[inline]
@@ -84,20 +80,9 @@ impl Signature {
         self.compute_ja4(Ja4Mode::StableV1)
     }
 
-    /// Generate `JA4_s1` excluding additional session-type IDs.
-    ///
-    /// Additive: `excluded` widens [`super::S1_SESSION_EXTENSIONS`], never
-    /// shrinks it. An ID already on the canonical list is a no-op. `excluded`
-    /// needs no ordering or dedup.
-    ///
-    /// Empty `excluded` is [`Self::generate_ja4_stable_v1`]. Capture uses this
-    /// method when [`crate::HuginnNetTls::with_s1_excluded_extensions`] is set;
-    /// otherwise the analyzer calls [`Self::generate_ja4_stable_v1`]. Parser-only
-    /// callers use this method directly.
-    ///
-    /// Tagged `ja4_s1` / `ja4_rs1`. Values with a non-empty `excluded` list are
-    /// not comparable across deployments; keep the canonical list for database
-    /// keys.
+    /// `JA4_s1` plus extra denylist IDs (additive on [`super::S1_SESSION_EXTENSIONS`]).
+    /// Empty `excluded` is [`Self::generate_ja4_stable_v1`]. Non-empty values are not
+    /// comparable across deployments.
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     #[inline]
