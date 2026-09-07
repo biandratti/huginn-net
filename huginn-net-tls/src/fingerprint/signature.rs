@@ -1,6 +1,7 @@
+use super::extensions::{TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
+use super::grease::filter_grease_values;
 #[cfg(feature = "stable-v1")]
-use super::grease::filter_ephemeral_extensions;
-use super::grease::{filter_grease_values, TLS_EXT_ALPN, TLS_EXT_SERVER_NAME};
+use super::grease::filter_s1_extensions;
 use super::ja4::{Ja4Mode, Ja4Payload};
 use super::version::TlsVersion;
 use sha2::{Digest, Sha256};
@@ -70,7 +71,8 @@ impl Signature {
         self.compute_ja4(Ja4Mode::Unsorted)
     }
 
-    /// Generate JA4 fingerprint with ephemeral extensions excluded (sorted)
+    /// huginn `JA4_s1` (sorted): [`Self::generate_ja4`] minus [`super::S1_SESSION_EXTENSIONS`].
+    /// Fresh, resumed and 0-RTT Hellos collapse to one value.
     #[cfg(feature = "stable-v1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
     #[inline]
@@ -78,13 +80,28 @@ impl Signature {
         self.compute_ja4(Ja4Mode::StableV1)
     }
 
+    /// `JA4_s1` plus extra denylist IDs (additive on [`super::S1_SESSION_EXTENSIONS`]).
+    /// Empty `excluded` is [`Self::generate_ja4_stable_v1`]. Non-empty values are not
+    /// comparable across deployments.
+    #[cfg(feature = "stable-v1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
+    #[inline]
+    pub fn generate_ja4_stable_v1_excluding(&self, excluded: &[u16]) -> Ja4Payload {
+        if excluded.is_empty() {
+            return self.generate_ja4_stable_v1();
+        }
+        let mut custom = self.clone();
+        custom.extensions.retain(|id| !excluded.contains(id));
+        custom.generate_ja4_stable_v1()
+    }
+
     /// Core JA4 computation
     fn compute_ja4(&self, mode: Ja4Mode) -> Ja4Payload {
         let original_order = mode.is_original_order();
 
         #[cfg(feature = "stable-v1")]
-        let extensions_after_exclude: Cow<[u16]> = if mode.is_exclude_ephemeral() {
-            filter_ephemeral_extensions(&self.extensions)
+        let extensions_after_exclude: Cow<[u16]> = if mode.is_stable_v1() {
+            filter_s1_extensions(&self.extensions)
         } else {
             Cow::Borrowed(&self.extensions)
         };

@@ -31,6 +31,9 @@ struct ParallelConfig {
 /// Extracts JA4 client-hello fingerprints from raw network traffic without
 /// decrypting TLS, no database or external matcher is required.
 ///
+/// Extra `JA4_s1` denylist IDs (`stable-v1`): `with_s1_excluded_extensions`.
+/// Default is the canonical list.
+///
 /// # Examples
 ///
 /// **Sequential: JA4 fingerprints from a PCAP file:**
@@ -73,6 +76,7 @@ pub struct HuginnNetTls {
     worker_pool: Option<Arc<WorkerPool>>,
     filter_config: Option<FilterConfig>,
     max_connections: usize,
+    s1_excluded_extensions: Arc<[u16]>,
 }
 
 impl HuginnNetTls {
@@ -87,6 +91,7 @@ impl HuginnNetTls {
             worker_pool: None,
             filter_config: None,
             max_connections,
+            s1_excluded_extensions: Arc::from([]),
         }
     }
 
@@ -112,6 +117,19 @@ impl HuginnNetTls {
     /// Configure packet filtering (builder pattern).
     pub fn with_filter(mut self, config: FilterConfig) -> Self {
         self.filter_config = Some(config);
+        self
+    }
+
+    /// Workaround: extra IDs dropped from `JA4_s1` until they land on
+    /// [`crate::S1_SESSION_EXTENSIONS`].
+    ///
+    /// Additive. Empty `excluded` is the shared key. A non-empty list is not
+    /// comparable across deployments. Parser-only:
+    /// [`crate::Signature::generate_ja4_stable_v1_excluding`].
+    #[cfg(feature = "stable-v1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "stable-v1")))]
+    pub fn with_s1_excluded_extensions(mut self, excluded: impl Into<Arc<[u16]>>) -> Self {
+        self.s1_excluded_extensions = excluded.into();
         self
     }
 }
@@ -147,6 +165,7 @@ impl HuginnNetTls {
                 sender,
                 self.max_connections,
                 self.filter_config.clone(),
+                Arc::clone(&self.s1_excluded_extensions),
             )?);
             self.worker_pool = Some(worker_pool);
         }
@@ -333,8 +352,16 @@ impl HuginnNetTls {
         }
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => process_ipv4_packet(&ipv4, &mut self.tcp_flows),
-            IpPacket::Ipv6(ipv6) => process_ipv6_packet(&ipv6, &mut self.tcp_flows),
+            IpPacket::Ipv4(ipv4) => process_ipv4_packet(
+                &ipv4,
+                &mut self.tcp_flows,
+                self.s1_excluded_extensions.as_ref(),
+            ),
+            IpPacket::Ipv6(ipv6) => process_ipv6_packet(
+                &ipv6,
+                &mut self.tcp_flows,
+                self.s1_excluded_extensions.as_ref(),
+            ),
             IpPacket::None => Ok(None),
         }
     }

@@ -16,12 +16,17 @@
 
 ## Overview
 
-This crate provides JA4 TLS client fingerprinting capabilities for passive network analysis. It implements the official JA4 specification by FoxIO, LLC for identifying TLS clients through ClientHello analysis.
+This crate fingerprints TLS ClientHello on **TCP** (JA4 prefix `t`) for passive
+network analysis. That path follows the official JA4 specification by FoxIO, LLC
+(`JA4` / `JA4_r` / `JA4_o` / `JA4_ro`).
+
+JA4 over QUIC (`q` prefix) and DTLS are on the roadmap; those packets are not
+parsed yet. The FoxIO series implemented here is client-TCP only.
 
 ### Why choose huginn-net-tls?
 
 - **No third-party tools** - No tshark, wireshark, or external tools required
-- **Official JA4 implementation** - Complete spec compliance for TLS fingerprinting
+- **Official JA4 (TCP)** - FoxIO spec for TLS ClientHello on TCP
 - **Pure Rust implementation** - No system libraries required
 - **High performance** - 84.6K pps sequential, 608.8K pps parallel (8 cores) (fewer features enabled means higher throughput)
 - **Parallel processing** - Multi-threaded worker pool for production workloads
@@ -31,7 +36,7 @@ This crate provides JA4 TLS client fingerprinting capabilities for passive netwo
 
 ## Features
 
-- **JA4 Fingerprinting** - Complete implementation of the official JA4 specification
+- **JA4 Fingerprinting** - Official JA4 for TLS ClientHello on TCP (`t` prefix). QUIC (`q`) and DTLS are on the roadmap.
 - **TLS Version Support** - TLS 1.0, 1.1, 1.2, 1.3, and SSL 3.0/2.0
 - **GREASE Filtering** - GREASE ignored in ciphers, extension types, signature algorithms, and curves (RFC 8701 / FoxIO JA4)
 - **SNI & ALPN** - Server Name Indication and ALPN parsing
@@ -71,7 +76,7 @@ future axes added in later releases):
 | Feature     | Default | Description                                                                                    |
 |-------------|---------|------------------------------------------------------------------------------------------------|
 | `full`      | No      | Convenience alias for "everything this version offers" (currently `stable-v1`). Stable across version upgrades; additions land here automatically. |
-| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1` fingerprints; ephemeral extensions excluded for stable fingerprints. |
+| `stable-v1` | No      | Adds `JA4_s1` / `JA4_rs1`: official JA4 minus `S1_SESSION_EXTENSIONS`, so resumption does not split the key. Widen the list per Hello with `Signature::generate_ja4_stable_v1_excluding`, or for the whole analyzer with `HuginnNetTls::with_s1_excluded_extensions`. |
 | `json`      | No      | Derives `serde::Serialize` on all output types (`TlsClientOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Cherry-pick `stable-v1` directly when you only want the stable JA4 variant:
@@ -84,9 +89,12 @@ huginn-net-tls = { version = "2.1.0", features = ["stable-v1"] }
 When `stable-v1` is enabled (included by the `full` alias), `ObservableTlsClient` gains a `ja4_stable_v1: Ja4Payload` field and output includes two extra lines:
 
 ```text
-  JA4_s1:  t13d1416h2_8daaf6152771_b0da82dd1658
-  JA4_rs1: t13d1416h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033,002d
+  JA4_s1:  t13d0708h2_ed7cf3b2e3d4_49cf42c5a352
+  JA4_rs1: t13d0708h2_002f,0035,009c,009d,1301,1302,1303_000a,000b,000d,0012,002b,0033
 ```
+
+How the list is built and what s1 does (and does not) guarantee:
+[`JA4S1.md`](JA4S1.md).
 
 ### Basic Usage
 
@@ -104,6 +112,8 @@ fn main() -> Result<(), HuginnNetTlsError> {
             .with_port_filter(PortFilter::new().destination(443))
             .with_subnet_filter(subnet_filter);
         analyzer = analyzer.with_filter(filter);
+        // Optional: widen JA4_s1 (stable-v1). Empty excluded is the canonical list.
+        // analyzer = analyzer.with_s1_excluded_extensions([0xbeef]);
     }
     
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
@@ -153,8 +163,8 @@ JA4:     t13d1516h2_8daaf6152771_d8a2da3f94cd
 JA4_r:   t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601
 JA4_o:   t13d1516h2_acb858a92679_b0dc76ca1c15
 JA4_ro:  t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0023,0017,001b,0012,000a,0000,fe0d,44cd,000d,ff01,0005,002b,000b,002d,0010,0033_0403,0804,0401,0503,0805,0501,0806,0601
-JA4_s1:  t13d1515h2_8daaf6152771_31ec0a762479
-JA4_rs1: t13d1515h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601
+JA4_s1:  t13d1514h2_8daaf6152771_f835621b68aa
+JA4_rs1: t13d1514h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,002b,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601
 ```
 
 ## Huginn Net Ecosystem
@@ -169,9 +179,9 @@ For complete documentation, examples, and JA4 specification details, see the mai
 
 ## Attribution
 
-This implementation follows the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4). JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
+This implementation follows the [JA4 specification by FoxIO, LLC](https://github.com/FoxIO-LLC/ja4) for TLS ClientHello on TCP. QUIC and DTLS from that spec are on the roadmap. JA4 methodology and specification are Copyright (c) 2023, FoxIO, LLC.
 
-Additional reference: [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) by ntop: analysis of JA4 fingerprinting evolution and limitations.
+ntop's [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) describes the session-split problem (fresh vs resumed ClientHello). Huginn's answer is `JA4_s1` / `JA4_rs1` (`stable-v1`); see [`JA4S1.md`](JA4S1.md).
 
 ## License
 

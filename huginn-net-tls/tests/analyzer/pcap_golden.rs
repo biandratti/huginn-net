@@ -270,8 +270,6 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
 
 #[test]
 fn test_golden_sigalg_grease_pcap() {
-    // FoxIO reference: GREASE (0x0a0a) inside signature_algorithms.
-    // JA4 must match FoxIO: t13d1517h2_8daaf6152771_cb7bf5808d99
     test_pcap_with_snapshot("sigalg-grease.pcap");
 }
 
@@ -280,12 +278,112 @@ fn test_golden_pcap_snapshots() {
     let golden_test_cases = [
         "tls12.pcap",
         "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
-        "macos_safari_tls_extensions.pcap", // Safari on macOS with ephemeral extensions varying per connection
+        // Named for Safari but the traffic is Chromium (ALPS 0x44cd, shuffled
+        // extension order, Chrome cipher list). Session types flip across the
+        // six hellos; s1 must stay one key.
+        "macos_safari_tls_extensions.pcap",
+        "macos_tcp_flags.pcap",
         "sigalg-grease.pcap",
     ];
 
     for pcap_file in golden_test_cases {
         println!("Running golden test for: {pcap_file}");
         test_pcap_with_snapshot(pcap_file);
+    }
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_pcap_group_yields_single_ja4_s1() {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
+    let results = analyze_pcap_file(&snapshot.pcap_path);
+    assert!(results.len() > 1, "need several hellos to group");
+
+    let mut groups: BTreeMap<(String, String, String), Vec<&TlsClientOutput>> = BTreeMap::new();
+    for out in &results {
+        let key = (
+            out.source.ip.to_string(),
+            out.sig.sni.clone().unwrap_or_default(),
+            out.sig.alpn.clone().unwrap_or_default(),
+        );
+        groups.entry(key).or_default().push(out);
+    }
+
+    let mut collapsed_groups = 0;
+    for (key, members) in &groups {
+        let ja4: BTreeSet<&str> = members.iter().map(|m| m.sig.ja4.full.value()).collect();
+        let s1: BTreeSet<&str> = members
+            .iter()
+            .map(|m| m.sig.ja4_stable_v1.full.value())
+            .collect();
+
+        assert_eq!(s1.len(), 1, "{key:?}: expected one JA4_s1, got {s1:?} (JA4 was {ja4:?})");
+        if ja4.len() > 1 {
+            collapsed_groups += 1;
+        }
+    }
+
+    assert!(
+        collapsed_groups > 0,
+        "this pcap must contain at least one group that official JA4 splits, \
+         otherwise it does not exercise the collapse"
+    );
+}
+
+#[cfg(feature = "stable-v1")]
+fn analyze_pcap_with(pcap_path: &str, analyzer: HuginnNetTls) -> Vec<TlsClientOutput> {
+    assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
+    let mut analyzer = analyzer;
+    let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
+    let pcap_file = pcap_path.to_string();
+    let handle = thread::spawn(move || analyzer.analyze_pcap(&pcap_file, sender, None));
+    let mut results = Vec::new();
+    for tls_output in receiver {
+        results.push(tls_output);
+    }
+    match handle.join() {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            panic!("PCAP analysis failed: {e}");
+        }
+        Err(e) => {
+            panic!("Thread join failed: {e:?}");
+        }
+    }
+
+    results
+}
+
+#[cfg(feature = "stable-v1")]
+#[test]
+fn test_analyzer_s1_excluded_extensions_widens_denylist() {
+    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
+    let canonical = analyze_pcap_file(&snapshot.pcap_path);
+    let empty_excluded = analyze_pcap_with(
+        &snapshot.pcap_path,
+        HuginnNetTls::new(10000).with_s1_excluded_extensions([]),
+    );
+    let widened = analyze_pcap_with(
+        &snapshot.pcap_path,
+        HuginnNetTls::new(10000).with_s1_excluded_extensions([0x44cd]),
+    );
+
+    assert!(!canonical.is_empty());
+    assert_eq!(canonical.len(), empty_excluded.len());
+    assert_eq!(canonical.len(), widened.len());
+
+    for i in 0..canonical.len() {
+        assert_eq!(
+            canonical[i].sig.ja4_stable_v1.full.value(),
+            empty_excluded[i].sig.ja4_stable_v1.full.value()
+        );
+        assert_ne!(
+            canonical[i].sig.ja4_stable_v1.full.value(),
+            widened[i].sig.ja4_stable_v1.full.value()
+        );
+        assert_eq!(canonical[i].sig.ja4.full.value(), widened[i].sig.ja4.full.value());
+        assert!(canonical[i].sig.extensions.contains(&0x44cd));
     }
 }

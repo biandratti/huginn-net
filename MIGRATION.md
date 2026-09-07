@@ -4,45 +4,42 @@
 
 ## v2.1.0 → v2.2.0
 
-FoxIO names the original-order raw fingerprint `ja4_ro` (`r` = raw, `o` =
-original). huginn 2.1 published that same string as `ja4_or`. The value was
-never swapped; only the key. 2.2 uses FoxIO's name.
+**Crate:** [`huginn-net-tls`](huginn-net-tls). Same types if you consume TLS through
+`huginn-net`. Other crates are unchanged.
 
-The same modifier order applies to the huginn-only stable variant
-(`feature = "stable-v1"` / `tls-stable-v1`): raw is `ja4_rs1`, not `ja4_s1r`.
+### Fingerprint names (`json` / `Display`)
 
-### JSON (`feature = "json"`)
+FoxIO order is raw-then-mode. The fingerprint string did not move; only the
+key. `stable-v1` / `tls-stable-v1` follows the same order.
 
-`TlsClientOutput.sig`:
+| | v2.1 | v2.2 |
+|--|------|------|
+| JSON | `ja4_or` | `ja4_ro` |
+| Display | `JA4_or` | `JA4_ro` |
+| JSON (`stable-v1`) | `ja4_s1r` | `ja4_rs1` |
+| Display (`stable-v1`) | `JA4_s1r` | `JA4_rs1` |
 
-| v2.1 | v2.2 |
-|------|------|
-| `ja4_or` | `ja4_ro` |
-| `ja4_s1r` | `ja4_rs1` |
+`ja4`, `ja4_r`, `ja4_o`, `ja4_s1` unchanged.
 
-`ja4`, `ja4_r`, `ja4_o`, and `ja4_s1` are unchanged.
+### `JA4_s1` (`stable-v1`)
 
-### `Display`
+2.1 dropped padding `0x0015`, session_ticket `0x0023`, PSK `0x0029`. 2.2 uses
+`S1_SESSION_EXTENSIONS` and also drops `early_data` `0x002a`. Official JA4
+is unchanged. Stored s1 keys change only if you see 0-RTT.
 
-```text
-JA4_or:  …   // v2.1
-JA4_ro:  …   // v2.2
-JA4_s1r: …   // v2.1
-JA4_rs1: …   // v2.2
-```
+`EPHEMERAL_TLS_EXTENSIONS` → `S1_SESSION_EXTENSIONS`. List:
+[`huginn-net-tls/JA4S1.md`](huginn-net-tls/JA4S1.md).
 
-`Ja4RawFingerprint::Unsorted::variant_name()` was already `"ja4_ro"`.
-`Ja4RawFingerprint::StableV1::variant_name()` was already `"ja4_rs1"`.
+Local extra IDs (workaround until they land on that list):
+`Signature::generate_ja4_stable_v1_excluding` /
+`HuginnNetTls::with_s1_excluded_extensions`. Empty = canonical.
+`process_ipv4_packet` / `process_ipv6_packet` take `&[u16]`; `WorkerPool::new`
+takes `Arc<[u16]>` (`&[]` / `Arc::from([])`).
 
-### GREASE in signature algorithms (FoxIO, 2026-09)
+### GREASE in signature algorithms
 
-FoxIO just fixed the reference JA4 implementations (Rust tool, Zeek, Arkime,
-Wireshark): they were **not** dropping GREASE from the `signature_algorithms`
-extension, so Chromium / Google clients hashed wrong. GREASE must be ignored
-everywhere (ciphers, extension types, sig algs, `supported_versions`, curves).
-
-2.2 follows that same fix. Fingerprints for those clients change; the value
-is the one FoxIO now publishes. Chromium v152 initial TCP:
+FoxIO now strips GREASE from `signature_algorithms`. 2.2 matches; Chromium /
+Google JA4 values change. Chromium v152 initial:
 
 ```text
 t13d1517h2_8daaf6152771_cb7bf5808d99
@@ -50,13 +47,10 @@ t13d1517h2_8daaf6152771_cb7bf5808d99
 
 ### `determine_tls_version`
 
-JA4 version is the highest `supported_versions` (0x002b) value, ignoring
-GREASE (already in the FoxIO spec). If that list is missing or empty, use
-ClientHello protocol version (`legacy_version`). An unknown wire value is
-`00`, not TLS 1.2.
+Highest non-GREASE `supported_versions`; else `legacy_version`. Unknown → `00`.
 
 ```rust
-determine_tls_version(legacy, &[0x002b])                    // v2.1, always V1_3
+determine_tls_version(legacy, &[0x002b])                    // v2.1
 determine_tls_version(legacy, Some(&[TlsVersion::Tls13]))   // v2.2
 determine_tls_version(legacy, None)                         // no 0x002b
 ```

@@ -110,7 +110,7 @@ See [benches/README.md](benches/README.md) for detailed throughput numbers, 10 G
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
 - **HTTP Request/Response** analysis for application identification
 - **HTTP/2 Akamai fingerprinting** extracts SETTINGS, WINDOW_UPDATE, PRIORITY, and pseudo-header order; used by huginn-proxy to inject fingerprints as HTTP headers
-- **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant `JA4_s1` / `JA4_rs1`
+- **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant [`JA4_s1` / `JA4_rs1`](huginn-net-tls/JA4S1.md)
 - **MTU Discovery** for link type detection
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)
 - **Custom Signature Databases** - bring your own signatures or contribute to the shared database
@@ -144,9 +144,9 @@ Routes incoming connections to backend services while passively extracting TLS (
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on how to get started.
 
 ## Next Milestones
--  **Enhanced Database** - Continuous signature updates and community contributions
--  **Advanced Analytics** - Pattern analysis and reporting tools
--  **Real-time Streaming** - High-performance packet processing pipelines
+-  **JA4 over QUIC and DTLS** - ClientHello on UDP (`q` prefix) and DTLS. TCP (`t`) is what ships today.
+-  **Enhanced Database** - Continuous signature updates and community contributions (`p0f.fp` is still 2012)
+-  **SSH / DNS / DHCP** - Planned as a separate crate, not part of this TCP/HTTP/TLS library. Same idea (passive fingerprints), different protocols.
 
 ## 📄 License
 

@@ -53,3 +53,9 @@ required-features = ["stable-v1"]
 name = "bench_tls"
 path = "../benches/bench_tls.rs"
 harness = false
+
+[[bench]]
+name = "bench_ja4s1"
+path = "../benches/bench_ja4s1.rs"
+harness = false
+required-features = ["stable-v1"]
