@@ -13,7 +13,7 @@ This ecosystem is under active development. Feedback and contributions welcome.
 
 | Layer | Name              | Protocol / Feature | Example in Huginn Net                                      |
 | ----- | ----------------- | -------------------- | ---------------------------------------------------------- |
-| 7     | Application Layer | TLS                  | JA4 (FoxIO-style)                                          |
+| 7     | Application Layer | TLS (TCP)            | JA4 (FoxIO-style)                                          |
 | 7     | Application Layer | HTTP                 | HTTP/1.1 & HTTP/2, Headers, Cookies, Referer, User-Agent, Lang |
 | 4     | Transport Layer   | TCP                  | OS Fingerprinting (p0f-style)                              |
 
@@ -28,7 +28,7 @@ The Huginn Net ecosystem consists of 5 specialized crates:
 - **[huginn-net](https://crates.io/crates/huginn-net)** - Complete multi-protocol analysis suite
 - **[huginn-net-tcp](https://crates.io/crates/huginn-net-tcp)** - TCP fingerprinting & OS detection
 - **[huginn-net-http](https://crates.io/crates/huginn-net-http)** - HTTP analysis & browser detection
-- **[huginn-net-tls](https://crates.io/crates/huginn-net-tls)** - JA4 TLS client fingerprinting
+- **[huginn-net-tls](https://crates.io/crates/huginn-net-tls)** - JA4 TLS client fingerprinting (TCP; optional `JA4_s1` / `JA4_rs1`)
 - **[huginn-net-db](https://crates.io/crates/huginn-net-db)** - P0f database parser & matching engine ([Matching](../matching/))
 
 For detailed information about each crate, see the [Ecosystem](../ecosystem/) documentation.

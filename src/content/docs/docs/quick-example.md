@@ -252,7 +252,7 @@ Use `huginn-net-tls` for JA4 fingerprinting and TLS client identification.
 # Core JA4 fingerprinting
 huginn-net-tls = "{{huginn-net-tls}}"
 
-# With stable fingerprints (JA4_s1 / JA4_s1r) and everything this version offers
+# With stable fingerprints (JA4_s1 / JA4_rs1) and everything this version offers
 huginn-net-tls = { version = "{{huginn-net-tls}}", features = ["full"] }
 ```
 
