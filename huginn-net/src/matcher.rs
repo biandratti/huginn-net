@@ -45,12 +45,12 @@
 #[macro_export]
 macro_rules! quality_match {
     (
-        enabled: $enabled:expr_2021,
-        matcher: $matcher:expr_2021,
-        call: $matcher_var:ident => $call:expr_2021,
-        matched: $result:pat => $matched_expr:expr_2021,
-        not_matched: $not_matched_expr:expr_2021,
-        disabled: $disabled_expr:expr_2021
+        enabled: $enabled:expr,
+        matcher: $matcher:expr,
+        call: $matcher_var:ident => $call:expr,
+        matched: $result:pat => $matched_expr:expr,
+        not_matched: $not_matched_expr:expr,
+        disabled: $disabled_expr:expr
     ) => {
         if $enabled {
             $matcher
@@ -104,12 +104,12 @@ macro_rules! quality_match {
 #[macro_export]
 macro_rules! simple_quality_match {
     (
-        enabled: $enabled:expr_2021,
-        matcher: $matcher:expr_2021,
-        method: $method:ident($($args:expr_2021),*),
-        success: $result:pat => $success_expr:expr_2021,
-        failure: $failure_expr:expr_2021,
-        disabled: $disabled_expr:expr_2021
+        enabled: $enabled:expr,
+        matcher: $matcher:expr,
+        method: $method:ident($($args:expr),*),
+        success: $result:pat => $success_expr:expr,
+        failure: $failure_expr:expr,
+        disabled: $disabled_expr:expr
     ) => {
         quality_match!(
             enabled: $enabled,
