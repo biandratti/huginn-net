@@ -1,3 +1,7 @@
+[graph]
+# Published crates do not include [dev-dependencies] (examples, tests, benches).
+exclude-dev = true
+
 [advisories]
 version = 2
 unmaintained = "all"
