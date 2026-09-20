@@ -1,7 +1,7 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use huginn_net_db::{Database, SharedTcpSignatureMatcher, TcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;
-use huginn_net_tcp::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
+use huginn_net_tcp::{ConnectionTracker, process_ipv4_packet, process_ipv6_packet};
 use std::sync::Arc;
 
 fn shared_matcher(db: Arc<Database>) -> Arc<dyn TcpMatcher + Send + Sync> {

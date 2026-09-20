@@ -86,23 +86,23 @@ pub use filter::*;
 pub use http::common::HttpProcessor;
 pub use http::observable::*;
 pub use http1::process::{
-    build_absent_headers_from_new_parser, convert_headers_to_http_format, parse_http1_request,
-    Http1Processor,
+    Http1Processor, build_absent_headers_from_new_parser, convert_headers_to_http_format,
+    parse_http1_request,
 };
-pub use http2::process::{parse_http2_request, Http2Processor};
 #[cfg(feature = "akamai")]
 pub use http2::Http2FingerprintExtractor;
-pub use http2::{Http2Frame, Http2FrameType, Http2Parser, HTTP2_CONNECTION_PREFACE};
+pub use http2::process::{Http2Processor, parse_http2_request};
+pub use http2::{HTTP2_CONNECTION_PREFACE, Http2Frame, Http2FrameType, Http2Parser};
 pub use matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 pub use output::*;
-pub use process::{process_ipv4_packet, process_ipv6_packet};
 pub use process::{
     DispatchResult, PoolStats, SharedHttpMatcher, SharedObservedOsSource, WorkerPool, WorkerStats,
 };
 pub use process::{FlowKey, HttpProcessors, TcpFlow};
+pub use process::{process_ipv4_packet, process_ipv6_packet};
 pub use ua_os::{
-    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource,
-    UaOsAgreement,
+    NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource, UaOsAgreement,
+    check_ua_os_agreement,
 };
 
 // ---------------------------------------------------------------------------

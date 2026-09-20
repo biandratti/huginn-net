@@ -1,11 +1,11 @@
 use huginn_net_http::http;
+use huginn_net_http::http_common::HttpProcessor;
 use huginn_net_http::http2_parser::HTTP2_CONNECTION_PREFACE;
 use huginn_net_http::http2_process::{
-    convert_http2_request_to_observable, convert_http2_response_to_observable,
-    extract_traffic_classification, has_complete_data, looks_like_http2_response, Http2Processor,
+    Http2Processor, convert_http2_request_to_observable, convert_http2_response_to_observable,
+    extract_traffic_classification, has_complete_data, looks_like_http2_response,
 };
-use huginn_net_http::http_common::HttpProcessor;
-use huginn_net_http::{http2_parser, http_common};
+use huginn_net_http::{http_common, http2_parser};
 
 #[test]
 fn test_http2_request_conversion() {

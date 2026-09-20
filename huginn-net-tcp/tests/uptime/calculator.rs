@@ -1,6 +1,6 @@
 //! Tests for uptime calculation validations
 
-use huginn_net_tcp::uptime::{check_ts_tcp, Connection};
+use huginn_net_tcp::uptime::{Connection, check_ts_tcp};
 use std::net::{IpAddr, Ipv4Addr};
 use std::time::Duration;
 use ttl_cache::TtlCache;

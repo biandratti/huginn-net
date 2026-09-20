@@ -61,7 +61,7 @@ pub use error::HuginnNetError;
 pub use output::FingerprintResult;
 
 #[cfg(feature = "db")]
-pub use huginn_net_db::{db_matching_trait, Database, Label};
+pub use huginn_net_db::{Database, Label, db_matching_trait};
 
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 pub use huginn_net_tcp::output::OSQualityMatched;
@@ -98,8 +98,8 @@ pub use huginn_net_http::{
     NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource, UaOsAgreement,
 };
 
-pub use huginn_net_tls::output::TlsClientOutput;
 pub use huginn_net_tls::ObservableTlsClient;
+pub use huginn_net_tls::output::TlsClientOutput;
 
 #[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 pub use huginn_net_tcp::observable::ObservableTcp;

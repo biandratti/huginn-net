@@ -1,4 +1,4 @@
-use huginn_net_tcp::{calculate_uptime_improved, FrequencyState, TcpTimestamp, UptimeTracker};
+use huginn_net_tcp::{FrequencyState, TcpTimestamp, UptimeTracker, calculate_uptime_improved};
 
 #[test]
 fn test_improved_uptime_tracking() {

@@ -19,10 +19,10 @@ use crate::output::{IpPort, TcpAnalysisResult};
 use crate::output::{MTUOutput, MTUQualityMatched, MatchRank};
 #[cfg(feature = "uptime")]
 use crate::output::{UptimeOutput, UptimeRole};
+use pnet::packet::Packet;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
-use pnet::packet::Packet;
 use std::net::IpAddr;
 
 pub use parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};

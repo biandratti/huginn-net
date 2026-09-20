@@ -160,10 +160,12 @@ fn test_case_variations_detection() {
     let result = unwrap_parser_result(parser.parse_request(data));
 
     assert!(result.parsing_metadata.case_variations.contains_key("host"));
-    assert!(result
-        .parsing_metadata
-        .duplicate_headers
-        .contains(&"host".to_string()));
+    assert!(
+        result
+            .parsing_metadata
+            .duplicate_headers
+            .contains(&"host".to_string())
+    );
 }
 
 // ========== SECURITY TESTS ==========
@@ -589,23 +591,33 @@ fn test_can_parse_detection() {
     let processors = HttpProcessors::new();
 
     // Valid HTTP/1.x requests - should be parseable
-    assert!(processors
-        .parse_request(b"GET / HTTP/1.1\r\n\r\n")
-        .is_some());
-    assert!(processors
-        .parse_request(b"POST /api HTTP/1.0\r\n\r\n")
-        .is_some());
-    assert!(processors
-        .parse_request(b"PUT /data HTTP/1.1\r\n\r\n")
-        .is_some());
+    assert!(
+        processors
+            .parse_request(b"GET / HTTP/1.1\r\n\r\n")
+            .is_some()
+    );
+    assert!(
+        processors
+            .parse_request(b"POST /api HTTP/1.0\r\n\r\n")
+            .is_some()
+    );
+    assert!(
+        processors
+            .parse_request(b"PUT /data HTTP/1.1\r\n\r\n")
+            .is_some()
+    );
 
     // Valid HTTP/1.x responses - should be parseable
-    assert!(processors
-        .parse_response(b"HTTP/1.1 200 OK\r\n\r\n")
-        .is_some());
-    assert!(processors
-        .parse_response(b"HTTP/1.0 404 Not Found\r\n\r\n")
-        .is_some());
+    assert!(
+        processors
+            .parse_response(b"HTTP/1.1 200 OK\r\n\r\n")
+            .is_some()
+    );
+    assert!(
+        processors
+            .parse_response(b"HTTP/1.0 404 Not Found\r\n\r\n")
+            .is_some()
+    );
 
     // Invalid data - should not be parseable
     assert!(processors.parse_request(b"").is_none());

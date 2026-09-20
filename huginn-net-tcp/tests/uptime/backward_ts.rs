@@ -1,6 +1,6 @@
 //! Tests for backward timestamp detection and handling
 
-use huginn_net_tcp::uptime::{check_ts_tcp, Connection};
+use huginn_net_tcp::uptime::{Connection, check_ts_tcp};
 use std::net::{IpAddr, Ipv4Addr};
 use std::time::Duration;
 use ttl_cache::TtlCache;
@@ -179,7 +179,9 @@ fn test_normal_forward_progression() {
         check_ts_tcp(&mut connection_tracker, &server_connection, false, forward_timestamp);
 
     // This should be processed normally (though may fail other validations)
-    println!("Normal forward progression test result: client={client_uptime:?}, server={server_uptime:?}");
+    println!(
+        "Normal forward progression test result: client={client_uptime:?}, server={server_uptime:?}"
+    );
 }
 
 #[test]

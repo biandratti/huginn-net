@@ -1,6 +1,6 @@
 use crate::observable::TcpObservation;
-use crate::tcp::ttl::{guess_distance, observed_ttl, MAX_DIST};
 use crate::tcp::QuirkSet;
+use crate::tcp::ttl::{MAX_DIST, guess_distance, observed_ttl};
 use std::fmt;
 use std::fmt::Formatter;
 

@@ -1,5 +1,5 @@
-use huginn_net_db::http::headers_match;
 use huginn_net_db::http::Header;
+use huginn_net_db::http::headers_match;
 
 #[test]
 fn test_headers_with_one_optional_header_mismatch() {

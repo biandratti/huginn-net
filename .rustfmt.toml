@@ -1,7 +1,7 @@
 # Rustfmt configuration for huginn-net
 # See https://rust-lang.github.io/rustfmt/ for all options
 
-edition = "2021"
+edition = "2024"
 hard_tabs = false
 tab_spaces = 4
 max_width = 100

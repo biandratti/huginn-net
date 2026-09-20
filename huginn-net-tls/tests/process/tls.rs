@@ -285,7 +285,7 @@ fn test_extract_signature_with_mock_client_hello() {
     let ja4 = signature.generate_ja4();
     assert!(ja4.ja4_a.starts_with("t12i")); // TLS 1.2, no SNI (i = no SNI)
     assert!(!ja4.ja4_b.is_empty()); // Cipher suites present
-                                    // ja4_c might be empty or just a hash of empty extensions
+    // ja4_c might be empty or just a hash of empty extensions
 }
 
 #[test]

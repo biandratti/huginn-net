@@ -1,4 +1,4 @@
-use huginn_net_tcp::tcp::{detect_win_multi, IpVersion, WindowMultiplier};
+use huginn_net_tcp::tcp::{IpVersion, WindowMultiplier, detect_win_multi};
 
 /// Twenty bytes of IP header plus twenty of TCP, no options on either.
 const NO_OPTIONS: u16 = 40;

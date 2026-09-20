@@ -1,4 +1,4 @@
-use super::frames::{Http2Frame, Http2FrameType, HTTP2_CONNECTION_PREFACE};
+use super::frames::{HTTP2_CONNECTION_PREFACE, Http2Frame, Http2FrameType};
 use crate::http;
 use crate::http::common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
 use hpack_patched::Decoder;

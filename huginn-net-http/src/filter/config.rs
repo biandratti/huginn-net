@@ -168,16 +168,14 @@ impl PortFilter {
                 .copied()
                 .collect();
 
-            let port_match = all_ports.contains(&src_port)
+            all_ports.contains(&src_port)
                 || all_ports.contains(&dst_port)
                 || all_ranges
                     .iter()
                     .any(|(start, end)| src_port >= *start && src_port <= *end)
                 || all_ranges
                     .iter()
-                    .any(|(start, end)| dst_port >= *start && dst_port <= *end);
-
-            port_match
+                    .any(|(start, end)| dst_port >= *start && dst_port <= *end)
         } else {
             let src_match = self.source_ports.contains(&src_port)
                 || self

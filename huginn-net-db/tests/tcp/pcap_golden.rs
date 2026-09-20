@@ -1,11 +1,11 @@
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
-use huginn_net_tcp::output::{MatchQuality, TcpAnalysisResult};
 use huginn_net_tcp::HuginnNetTcp;
+use huginn_net_tcp::output::{MatchQuality, TcpAnalysisResult};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
-use std::sync::mpsc;
 use std::sync::Arc;
+use std::sync::mpsc;
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {

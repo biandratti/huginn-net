@@ -103,7 +103,9 @@ impl TlsClientHelloReader {
                 Ok(Some(signature))
             }
             Err(HuginnNetTlsError::NotClientHello) => {
-                debug!("TLS record is not a ClientHello (likely ServerHello or Application Data), ignoring");
+                debug!(
+                    "TLS record is not a ClientHello (likely ServerHello or Application Data), ignoring"
+                );
                 self.reset();
                 Ok(None)
             }

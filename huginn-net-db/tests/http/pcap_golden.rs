@@ -1,11 +1,11 @@
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
-use huginn_net_http::output::{HttpAnalysisResult, MatchQuality};
 use huginn_net_http::HuginnNetHttp;
+use huginn_net_http::output::{HttpAnalysisResult, MatchQuality};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
-use std::sync::mpsc::channel;
 use std::sync::Arc;
+use std::sync::mpsc::channel;
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {

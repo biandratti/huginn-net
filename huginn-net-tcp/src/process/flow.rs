@@ -6,18 +6,18 @@ use crate::mtu::ObservableMtu;
 use crate::process::ConnectionTracker;
 use crate::tcp;
 #[cfg(any(feature = "syn", feature = "syn-ack"))]
-use crate::tcp::observable::{ObservableTcp, TcpObservation};
-#[cfg(any(feature = "syn", feature = "syn-ack"))]
 use crate::tcp::PayloadSize;
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
+use crate::tcp::observable::{ObservableTcp, TcpObservation};
 use crate::tcp::{IpOptions, IpVersion, Quirk, QuirkSet, TcpOption, Ttl};
 #[cfg(feature = "uptime")]
-use crate::uptime::{check_ts_tcp, Connection, ObservableUptime};
+use crate::uptime::{Connection, ObservableUptime, check_ts_tcp};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{
+    Packet, PacketSize,
     ipv4::{Ipv4Flags, Ipv4Packet},
     ipv6::Ipv6Packet,
     tcp::{TcpFlags, TcpOptionNumbers::*, TcpOptionPacket, TcpPacket},
-    Packet, PacketSize,
 };
 use std::convert::TryInto;
 use std::net::IpAddr;

@@ -1,15 +1,15 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use huginn_net_tls::TlsClientHelloReader;
 use huginn_net_tls::{
-    process_ipv4_packet, process_ipv6_packet, tls_process::is_tls_traffic, FlowKey,
+    FlowKey, process_ipv4_packet, process_ipv6_packet, tls_process::is_tls_traffic,
 };
 use pcap_file::pcap::PcapReader;
+use pnet::packet::Packet;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
-use pnet::packet::Packet;
 use std::error::Error;
 use std::fs::File;
 use std::sync::Mutex;
@@ -301,7 +301,9 @@ fn generate_final_report(_c: &mut Criterion) {
 
             println!();
             println!("Note: TLS uses hash-based flow dispatch (stateful per-worker TtlCache)");
-            println!("      Same TCP flow always routes to the same worker (required for TCP reassembly)");
+            println!(
+                "      Same TCP flow always routes to the same worker (required for TCP reassembly)"
+            );
             println!(
                 "      Parallel benchmarks include worker pool creation/dispatch/shutdown overhead"
             );

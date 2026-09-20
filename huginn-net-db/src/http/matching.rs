@@ -5,7 +5,7 @@ use crate::db_matching_trait::{DatabaseSignature, NoFuzziness, ObservedFingerpri
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 
 use super::{
-    absent_headers_match, headers_match, http_version_matches, Header, Signature, Version,
+    Header, Signature, Version, absent_headers_match, headers_match, http_version_matches,
 };
 
 impl ObservedFingerprint for HttpRequestObservation {

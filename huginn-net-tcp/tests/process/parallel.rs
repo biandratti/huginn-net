@@ -1,7 +1,7 @@
-use huginn_net_tcp::parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 use huginn_net_tcp::HuginnNetTcpError;
-use std::sync::mpsc;
+use huginn_net_tcp::parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 use std::sync::Arc;
+use std::sync::mpsc;
 use std::thread;
 
 fn unwrap_worker_pool(result: Result<WorkerPool, HuginnNetTcpError>) -> WorkerPool {
@@ -22,7 +22,7 @@ fn create_ipv4_packet(src_ip: [u8; 4]) -> Vec<u8> {
     // IPv4 header (starts at offset 14)
     packet[14] = 0x45; // Version 4, IHL 5
     packet[23] = 0x06; // Protocol TCP
-                       // Source IP (offset 26-29)
+    // Source IP (offset 26-29)
     packet[26..30].copy_from_slice(&src_ip);
     // Destination IP (offset 30-33)
     packet[30..34].copy_from_slice(&[10, 0, 0, 2]);

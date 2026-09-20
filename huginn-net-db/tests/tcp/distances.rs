@@ -1,4 +1,4 @@
-use huginn_net_db::tcp::{ttl_fit, window_size_matches, Ttl, TtlFit, WindowSize, MAX_TTL_DISTANCE};
+use huginn_net_db::tcp::{MAX_TTL_DISTANCE, Ttl, TtlFit, WindowSize, ttl_fit, window_size_matches};
 use huginn_net_tcp::tcp::WindowMultiplier;
 
 /// The observation supports the signature's initial TTL, `hops` routers away.

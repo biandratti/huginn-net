@@ -1,6 +1,6 @@
 use huginn_net_http::http2_parser::{
-    is_http2_traffic, Http2Config, Http2FrameType, Http2ParseError, Http2Parser,
-    HTTP2_CONNECTION_PREFACE,
+    HTTP2_CONNECTION_PREFACE, Http2Config, Http2FrameType, Http2ParseError, Http2Parser,
+    is_http2_traffic,
 };
 
 fn assert_parser_error<T>(

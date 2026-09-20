@@ -3,11 +3,11 @@ use crate::http::common::HttpProcessor;
 use crate::http::observable::{ObservableHttpRequest, ObservableHttpResponse};
 use crate::http1::process as http1_process;
 use crate::http2::process as http2_process;
+use pnet::packet::Packet;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
-use pnet::packet::Packet;
 use std::net::IpAddr;
 #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use std::time::Duration;

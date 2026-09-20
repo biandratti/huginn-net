@@ -1,13 +1,13 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{initialize_logging, FilterOptions, OutputFormat};
+use support::{FilterOptions, OutputFormat, initialize_logging};
 
 use clap::{Parser, Subcommand};
 use huginn_net_tls::{FilterConfig, HuginnNetTls, IpFilter, PortFilter, TlsClientOutput};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
 use std::thread;
 use tracing::{error, info};
 
@@ -131,7 +131,9 @@ fn main() {
                 analyzer
             }
             LiveMode::Parallel { workers, queue_size, batch_size, timeout_ms, .. } => {
-                info!("Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}");
+                info!(
+                    "Using parallel mode: workers={workers}, queue_size={queue_size}, batch_size={batch_size}, timeout_ms={timeout_ms}"
+                );
                 let mut analyzer = HuginnNetTls::new(10000).with_parallel(
                     *workers,
                     *queue_size,

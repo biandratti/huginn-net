@@ -1,6 +1,6 @@
 //! Golden tests for Akamai HTTP/2 fingerprinting
 
-use huginn_net_http::{extract_akamai_fingerprint, Http2Frame};
+use huginn_net_http::{Http2Frame, extract_akamai_fingerprint};
 use serde::{Deserialize, Serialize};
 use std::fs;
 

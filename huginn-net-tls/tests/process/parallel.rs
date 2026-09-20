@@ -1,7 +1,7 @@
-use huginn_net_tls::parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 use huginn_net_tls::HuginnNetTlsError;
-use std::sync::mpsc;
+use huginn_net_tls::parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 use std::sync::Arc;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -29,10 +29,10 @@ fn create_ipv4_tcp_packet(
 
     // IPv4 header (starts at offset 14)
     packet[14] = 0x45; // Version 4, IHL 5
-                       // Total length: 20 (IP) + 20 (TCP) + 5 (TLS) = 45
+    // Total length: 20 (IP) + 20 (TCP) + 5 (TLS) = 45
     packet[16..18].copy_from_slice(&45u16.to_be_bytes());
     packet[23] = 0x06; // Protocol TCP
-                       // Source IP (offset 26-29)
+    // Source IP (offset 26-29)
     packet[26..30].copy_from_slice(&src_ip);
     // Destination IP (offset 30-33)
     packet[30..34].copy_from_slice(&dst_ip);

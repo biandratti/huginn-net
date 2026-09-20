@@ -2,8 +2,8 @@
 
 use huginn_net_db::database::{FingerprintCollection, Label, Type};
 use huginn_net_db::tcp::{
-    report_hop_distance, IpVersion, PayloadSize, QuirkSet, Signature, Ttl, WindowSize,
-    MAX_TTL_DISTANCE,
+    IpVersion, MAX_TTL_DISTANCE, PayloadSize, QuirkSet, Signature, Ttl, WindowSize,
+    report_hop_distance,
 };
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;

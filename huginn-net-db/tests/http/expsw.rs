@@ -4,7 +4,7 @@
 //! the signature.
 
 use huginn_net_db::db_matching_trait::{DatabaseSignature, FingerprintDb};
-use huginn_net_db::{http, HttpDatabase, SharedHttpSignatureMatcher};
+use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher, http};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::observable::HttpRequestObservation;
 use std::sync::Arc;

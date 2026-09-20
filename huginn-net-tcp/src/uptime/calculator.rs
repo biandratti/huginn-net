@@ -265,7 +265,12 @@ pub fn check_ts_tcp(
 
                     debug!(
                         "CLIENT Uptime detected: {:.2} Hz -> {} Hz, {} days {} hrs {} min (mod {} days)",
-                        raw_freq, final_freq, uptime_info.days, uptime_info.hours, uptime_info.min, uptime_info.up_mod_days
+                        raw_freq,
+                        final_freq,
+                        uptime_info.days,
+                        uptime_info.hours,
+                        uptime_info.min,
+                        uptime_info.up_mod_days
                     );
 
                     return (Some(uptime_info), None);
@@ -343,7 +348,12 @@ pub fn check_ts_tcp(
 
                     debug!(
                         "SERVER Uptime detected: {:.2} Hz -> {} Hz, {} days {} hrs {} min (mod {} days)",
-                        raw_freq, final_freq, uptime_info.days, uptime_info.hours, uptime_info.min, uptime_info.up_mod_days
+                        raw_freq,
+                        final_freq,
+                        uptime_info.days,
+                        uptime_info.hours,
+                        uptime_info.min,
+                        uptime_info.up_mod_days
                     );
 
                     return (None, Some(uptime_info));
