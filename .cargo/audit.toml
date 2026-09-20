@@ -1,0 +1,5 @@
+[advisories]
+# cargo-audit has no exclude-dev; it scans the whole lockfile. deny.toml
+# uses [graph] exclude-dev = true. time is only via tracing-appender (dev).
+ignore = ["RUSTSEC-2026-0009"]
+
