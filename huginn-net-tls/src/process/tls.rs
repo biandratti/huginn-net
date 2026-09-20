@@ -1,15 +1,15 @@
 use crate::error::HuginnNetTlsError;
 use crate::fingerprint::{
-    ObservableTlsClient, ObservableTlsPackage, Signature, TlsVersion, TLS_GREASE_VALUES,
+    ObservableTlsClient, ObservableTlsPackage, Signature, TLS_GREASE_VALUES, TlsVersion,
 };
+use pnet::packet::Packet;
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
-use pnet::packet::Packet;
 use tls_parser::{
-    parse_tls_extensions, parse_tls_plaintext, TlsClientHelloContents, TlsExtension,
-    TlsExtensionType, TlsMessage, TlsMessageHandshake,
+    TlsClientHelloContents, TlsExtension, TlsExtensionType, TlsMessage, TlsMessageHandshake,
+    parse_tls_extensions, parse_tls_plaintext,
 };
 use tracing::{debug, error};
 
@@ -63,9 +63,15 @@ pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNe
 
     if !is_tls {
         if !payload.is_empty() && (payload[0] == 0x17 || payload[0] == 0x15 || payload[0] == 0x14) {
-            debug!("Not TLS Handshake but TLS-like: first_byte=0x{:02x}, payload_len={}, first_bytes={:02x?}",
-                   first_byte, payload.len(),
-                   payload.get(0..10.min(payload.len())).map(|s| s.to_vec()).unwrap_or_default());
+            debug!(
+                "Not TLS Handshake but TLS-like: first_byte=0x{:02x}, payload_len={}, first_bytes={:02x?}",
+                first_byte,
+                payload.len(),
+                payload
+                    .get(0..10.min(payload.len()))
+                    .map(|s| s.to_vec())
+                    .unwrap_or_default()
+            );
         }
         return Ok(ObservableTlsPackage { tls_client: None });
     }

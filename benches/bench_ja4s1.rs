@@ -14,10 +14,10 @@
 //! cargo bench -p huginn-net-tls --bench bench_ja4s1 --features stable-v1
 //! ```
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use huginn_net_tls::{
-    packet_parser, process_ipv4_packet, process_ipv6_packet, FlowKey, Ja4Payload, Signature,
-    TlsClientHelloReader, S1_SESSION_EXTENSIONS,
+    FlowKey, Ja4Payload, S1_SESSION_EXTENSIONS, Signature, TlsClientHelloReader, packet_parser,
+    process_ipv4_packet, process_ipv6_packet,
 };
 use pcap_file::pcap::PcapReader;
 use std::fs::File;

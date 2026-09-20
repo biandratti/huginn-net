@@ -8,9 +8,9 @@ pub mod window_size;
 pub use ip_options::IpOptions;
 pub use observable::{ObservableTcp, TcpObservation};
 pub use quirks::QuirkSet;
-pub use syn_options::{parse_options_raw, ParsedTcpOptions};
-pub use ttl::{calculate_ttl, guess_distance, observed_ttl, MAX_DIST};
-pub use window_size::{detect_win_multi, WindowMultiplier};
+pub use syn_options::{ParsedTcpOptions, parse_options_raw};
+pub use ttl::{MAX_DIST, calculate_ttl, guess_distance, observed_ttl};
+pub use window_size::{WindowMultiplier, detect_win_multi};
 
 use core::fmt;
 use std::fmt::Formatter;

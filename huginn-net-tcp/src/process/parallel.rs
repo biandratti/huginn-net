@@ -1,12 +1,12 @@
-use super::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
+use super::{ConnectionTracker, process_ipv4_packet, process_ipv6_packet};
 use crate::error::HuginnNetTcpError;
-use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
+use crate::filter::raw as raw_filter;
 use crate::matcher_api::TcpMatcher;
 use crate::output::TcpAnalysisResult;
 use crate::parser::hash as packet_hash;
-use crate::parser::packet::{parse_packet, IpPacket};
-use crossbeam_channel::{bounded, Sender, TrySendError};
+use crate::parser::packet::{IpPacket, parse_packet};
+use crossbeam_channel::{Sender, TrySendError, bounded};
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};

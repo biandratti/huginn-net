@@ -1,5 +1,5 @@
 use huginn_net_http::http::{
-    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, UNKNOWN_SOFTWARE,
+    NotCheckedReason, ObservedOs, ObservedOsInput, UNKNOWN_SOFTWARE, check_ua_os_agreement,
 };
 use huginn_net_http::matcher_api::{HttpMatcher, HttpRequestMatch, HttpResponseMatch, UaOsMatch};
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};

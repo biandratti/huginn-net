@@ -1,6 +1,6 @@
 use crate::database::{Label, TcpDatabase, Type};
 use crate::db_matching_trait::{DatabaseMatch, FingerprintDb, MatchRank};
-use crate::tcp::{report_hop_distance, Ttl, MAX_TTL_DISTANCE};
+use crate::tcp::{MAX_TTL_DISTANCE, Ttl, report_hop_distance};
 use huginn_net_tcp::matcher_api::{MtuMatch, TcpMatch, TcpMatcher};
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::{FuzzyReason, MatchRank as TcpMatchRank, OperativeSystem, OsKind};

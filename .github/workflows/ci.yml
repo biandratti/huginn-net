@@ -136,7 +136,7 @@ jobs:
         with:
           toolchain: ${{ env.rust_min }}
       - name: Check MSRV
-        run: cargo check --workspace --all-features
+        run: cargo check --workspace --all-features --locked
 
   examples-and-benchmarks:
     name: Examples and benchmarks

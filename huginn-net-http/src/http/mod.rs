@@ -4,14 +4,14 @@ pub mod observable;
 pub mod ua_os;
 
 pub use common::{
-    build_params, HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpProcessor,
-    MatchedSignatureNotes, ParsingMetadata,
+    HeaderSource, HttpCookie, HttpHeader, HttpParser, HttpProcessor, MatchedSignatureNotes,
+    ParsingMetadata, build_params,
 };
 pub use languages::get_highest_quality_language;
 pub use observable::*;
 pub use ua_os::{
-    check_ua_os_agreement, NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource,
-    UaOsAgreement,
+    NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource, UaOsAgreement,
+    check_ua_os_agreement,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

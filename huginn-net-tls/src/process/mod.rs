@@ -12,8 +12,8 @@ use crate::error::HuginnNetTlsError;
 use crate::fingerprint::ObservableTlsClient;
 use crate::output::{IpPort, TlsClientOutput};
 use crate::parser::TlsClientHelloReader;
-use pnet::packet::tcp::TcpPacket;
 use pnet::packet::Packet;
+use pnet::packet::tcp::TcpPacket;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 

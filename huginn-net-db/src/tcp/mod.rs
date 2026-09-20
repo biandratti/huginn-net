@@ -13,9 +13,9 @@ mod distances;
 mod matching;
 mod signature;
 
-pub use coverage::{ambiguous_exact_pairs, warn_ambiguous_coverage, AmbiguousExactPair};
+pub use coverage::{AmbiguousExactPair, ambiguous_exact_pairs, warn_ambiguous_coverage};
 pub use distances::{
-    ip_version_matches, payload_size_matches, report_hop_distance, ttl_fit, window_size_matches,
-    TtlFit, MAX_TTL_DISTANCE,
+    MAX_TTL_DISTANCE, TtlFit, ip_version_matches, payload_size_matches, report_hop_distance,
+    ttl_fit, window_size_matches,
 };
 pub use signature::Signature;

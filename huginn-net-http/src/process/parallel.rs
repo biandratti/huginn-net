@@ -7,13 +7,13 @@
 
 use super::flow::{FlowKey, HttpProcessors, TcpFlow};
 use crate::error::HuginnNetHttpError;
-use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
+use crate::filter::raw as raw_filter;
 use crate::http::ObservedOsSource;
 use crate::matcher_api::HttpMatcher;
 use crate::output::HttpAnalysisResult;
 use crate::parser::hash as packet_hash;
-use crossbeam_channel::{bounded, Sender};
+use crossbeam_channel::{Sender, bounded};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -259,7 +259,7 @@ impl WorkerPool {
             }
         }
 
-        use crate::packet_parser::{parse_packet, IpPacket};
+        use crate::packet_parser::{IpPacket, parse_packet};
         use crate::process;
 
         match parse_packet(packet) {

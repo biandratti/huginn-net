@@ -1,14 +1,14 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{initialize_logging, FilterOptions, OutputFormat};
+use support::{FilterOptions, OutputFormat, initialize_logging};
 
 use clap::{Parser, Subcommand};
 use huginn_net::output::FingerprintResult;
 use huginn_net::{Database, FilterConfig, HuginnNet, IpFilter, PortFilter};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
 use std::thread;
 use tracing::{debug, error, info};
 

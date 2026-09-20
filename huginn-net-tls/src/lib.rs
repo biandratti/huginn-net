@@ -71,4 +71,4 @@ pub use process::parallel::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use process::tls::{
     parse_tls_client_hello, parse_tls_client_hello_ja4, process_tls_ipv4, process_tls_ipv6,
 };
-pub use process::{process_ipv4_packet, process_ipv6_packet, FlowKey, ObservablePackage};
+pub use process::{FlowKey, ObservablePackage, process_ipv4_packet, process_ipv6_packet};

@@ -64,12 +64,14 @@ fn test_ip_filter_v4() {
 
     assert!(filter.matches(&ip_match, &ip_other));
     assert!(filter.matches(&ip_other, &ip_match));
-    assert!(!filter.matches(
-        &ip_other,
-        &"10.0.0.1"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"))
-    ));
+    assert!(
+        !filter.matches(
+            &ip_other,
+            &"10.0.0.1"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"))
+        )
+    );
 }
 
 #[test]
@@ -85,12 +87,14 @@ fn test_ip_filter_v6() {
         .unwrap_or_else(|e| panic!("Invalid IPv6: {e}"));
 
     assert!(filter.matches(&ip_match, &ip_other));
-    assert!(!filter.matches(
-        &ip_other,
-        &"2001:db8::3"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv6: {e}"))
-    ));
+    assert!(
+        !filter.matches(
+            &ip_other,
+            &"2001:db8::3"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv6: {e}"))
+        )
+    );
 }
 
 #[test]
@@ -140,12 +144,14 @@ fn test_subnet_filter_v4() {
         .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"));
 
     assert!(filter.matches(&ip_in, &ip_out));
-    assert!(!filter.matches(
-        &ip_out,
-        &"10.0.0.1"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"))
-    ));
+    assert!(
+        !filter.matches(
+            &ip_out,
+            &"10.0.0.1"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"))
+        )
+    );
 }
 
 #[test]
@@ -161,12 +167,14 @@ fn test_subnet_filter_v6() {
         .unwrap_or_else(|e| panic!("Invalid IPv6: {e}"));
 
     assert!(filter.matches(&ip_in, &ip_out));
-    assert!(!filter.matches(
-        &ip_out,
-        &"2001:dba::1"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv6: {e}"))
-    ));
+    assert!(
+        !filter.matches(
+            &ip_out,
+            &"2001:dba::1"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv6: {e}"))
+        )
+    );
 }
 
 #[test]
@@ -191,12 +199,14 @@ fn test_subnet_filter_multiple() {
     assert!(filter.matches(&ip1, &ip_out));
     assert!(filter.matches(&ip2, &ip_out));
     assert!(filter.matches(&ip3, &ip_out));
-    assert!(!filter.matches(
-        &ip_out,
-        &"1.1.1.1"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"))
-    ));
+    assert!(
+        !filter.matches(
+            &ip_out,
+            &"1.1.1.1"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv4: {e}"))
+        )
+    );
 }
 
 #[test]
@@ -219,14 +229,16 @@ fn test_combined_filter_allow() {
 
     assert!(filter.should_process(&ip_in, &ip_out, 12345, 443));
     assert!(!filter.should_process(&ip_in, &ip_out, 12345, 80));
-    assert!(!filter.should_process(
-        &ip_out,
-        &"10.0.0.1"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv4: {e}")),
-        12345,
-        443
-    ));
+    assert!(
+        !filter.should_process(
+            &ip_out,
+            &"10.0.0.1"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv4: {e}")),
+            12345,
+            443
+        )
+    );
 }
 
 #[test]
@@ -296,14 +308,16 @@ fn test_ip_only_filter() {
 
     assert!(filter.should_process(&ip_match, &ip_other, 12345, 443));
     assert!(filter.should_process(&ip_other, &ip_match, 12345, 443));
-    assert!(!filter.should_process(
-        &ip_other,
-        &"1.1.1.1"
-            .parse()
-            .unwrap_or_else(|e| panic!("Invalid IPv4: {e}")),
-        12345,
-        443
-    ));
+    assert!(
+        !filter.should_process(
+            &ip_other,
+            &"1.1.1.1"
+                .parse()
+                .unwrap_or_else(|e| panic!("Invalid IPv4: {e}")),
+            12345,
+            443
+        )
+    );
 }
 
 #[test]

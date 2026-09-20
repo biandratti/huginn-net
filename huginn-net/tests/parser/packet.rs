@@ -1,4 +1,4 @@
-use huginn_net::packet_parser::{detect_datalink_format, parse_packet, DatalinkFormat, IpPacket};
+use huginn_net::packet_parser::{DatalinkFormat, IpPacket, detect_datalink_format, parse_packet};
 
 #[test]
 fn test_detect_null_datalink() {

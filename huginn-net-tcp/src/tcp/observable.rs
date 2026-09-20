@@ -1,4 +1,4 @@
-use super::window_size::{detect_win_multi, WindowMultiplier};
+use super::window_size::{WindowMultiplier, detect_win_multi};
 use super::{IpVersion, PayloadSize, Quirk, QuirkSet, TcpOption, Ttl};
 use core::fmt;
 use std::fmt::Formatter;

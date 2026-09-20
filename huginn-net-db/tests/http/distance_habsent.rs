@@ -1,4 +1,4 @@
-use huginn_net_db::http::{absent_headers_match, Header};
+use huginn_net_db::http::{Header, absent_headers_match};
 
 #[test]
 fn empty_absent_list_always_matches() {

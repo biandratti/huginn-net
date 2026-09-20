@@ -14,5 +14,5 @@ pub use extensions::{
 pub use grease::TLS_GREASE_VALUES;
 pub use ja4::{Ja4Fingerprint, Ja4Payload, Ja4RawFingerprint};
 pub use observable::{ObservableTlsClient, ObservableTlsPackage};
-pub use signature::{first_last_alpn, hash12, Signature};
+pub use signature::{Signature, first_last_alpn, hash12};
 pub use version::TlsVersion;

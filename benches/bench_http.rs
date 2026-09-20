@@ -1,7 +1,7 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use huginn_net_db::{Database, HttpSignatureMatcher, SharedHttpSignatureMatcher};
 use huginn_net_http::matcher_api::HttpMatcher;
-use huginn_net_http::{process_ipv4_packet, process_ipv6_packet, FlowKey, HttpProcessors, TcpFlow};
+use huginn_net_http::{FlowKey, HttpProcessors, TcpFlow, process_ipv4_packet, process_ipv6_packet};
 use pcap_file::pcap::PcapReader;
 use std::error::Error;
 use std::fs::File;

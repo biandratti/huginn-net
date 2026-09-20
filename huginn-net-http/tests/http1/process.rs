@@ -3,7 +3,7 @@ use huginn_net_http::http::Header;
 use huginn_net_http::http1_process::{
     has_complete_headers, parse_http1_request, parse_http1_response,
 };
-use huginn_net_http::{http1_parser, http_common};
+use huginn_net_http::{http_common, http1_parser};
 
 #[test]
 fn test_parse_http1_request() {
@@ -45,7 +45,10 @@ fn test_parse_http1_request() {
             ];
             assert_eq!(request.matching.habsent, expected_habsent);
 
-            assert_eq!(request.matching.expsw, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+            assert_eq!(
+                request.matching.expsw,
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            );
         }
         Ok(None) => panic!("Incomplete HTTP request"),
         Err(e) => panic!("Failed to parse HTTP request: {e}"),

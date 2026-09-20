@@ -1,5 +1,5 @@
 use huginn_net_db::db_matching_trait::{FingerprintDb, MatchRank};
-use huginn_net_db::{http, HttpDatabase, Type};
+use huginn_net_db::{HttpDatabase, Type, http};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::observable::{HttpRequestObservation, HttpResponseObservation};
 

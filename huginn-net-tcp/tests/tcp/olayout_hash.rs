@@ -1,4 +1,4 @@
-use huginn_net_tcp::tcp::{hash_olayout, TcpOption};
+use huginn_net_tcp::tcp::{TcpOption, hash_olayout};
 
 #[test]
 fn same_layout_hashes_equal() {

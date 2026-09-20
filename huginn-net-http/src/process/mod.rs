@@ -10,9 +10,9 @@ use self::flow as http_process;
 use crate::error::HuginnNetHttpError;
 use crate::http::ObservedOsSource;
 #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
-use crate::http::{build_params, MatchedSignatureNotes};
+use crate::http::{MatchedSignatureNotes, build_params};
 #[cfg(feature = "p0f-request")]
-use crate::http::{check_ua_os_agreement, ObservedOsInput};
+use crate::http::{ObservedOsInput, check_ua_os_agreement};
 use crate::matcher_api::HttpMatcher;
 #[cfg(feature = "p0f-request")]
 use crate::output::{BrowserQualityMatched, HttpRequestOutput};
@@ -21,10 +21,10 @@ use crate::output::{HttpAnalysisResult, IpPort};
 use crate::output::{HttpResponseOutput, WebServerQualityMatched};
 #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 use crate::output::{MatchQuality, OsKind};
+use pnet::packet::Packet;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
-use pnet::packet::Packet;
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 

@@ -1,8 +1,8 @@
 use clap::{Subcommand, ValueEnum};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing_subscriber::EnvFilter;
 
 #[derive(ValueEnum, Debug, Clone, Default)]
 pub enum OutputFormat {

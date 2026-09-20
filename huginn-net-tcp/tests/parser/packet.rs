@@ -1,5 +1,5 @@
 use huginn_net_tcp::packet_parser::{
-    detect_datalink_format, parse_packet, DatalinkFormat, IpPacket,
+    DatalinkFormat, IpPacket, detect_datalink_format, parse_packet,
 };
 use pnet::packet::Packet;
 

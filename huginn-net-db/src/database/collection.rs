@@ -122,12 +122,14 @@ where
                         }
                     }
                 }
-            } else if let (None, Some(reason)) = (&fmatch, fit.fuzzy) {
-                debug!(
-                    "fit: Fuzzy (remembered), label: {}, flavor: {:?}, sig: {db_sig}",
-                    label.name, label.flavor
-                );
-                fmatch = Some((label, db_sig, reason));
+            } else if fmatch.is_none() {
+                if let Some(reason) = fit.fuzzy {
+                    debug!(
+                        "fit: Fuzzy (remembered), label: {}, flavor: {:?}, sig: {db_sig}",
+                        label.name, label.flavor
+                    );
+                    fmatch = Some((label, db_sig, reason));
+                }
             }
         }
 

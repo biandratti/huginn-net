@@ -1,12 +1,13 @@
-use crate::error::HuginnNetError;
-use crate::parser::packet::{parse_packet, IpPacket};
 use crate::AnalysisConfig;
+use crate::error::HuginnNetError;
+use crate::parser::packet::{IpPacket, parse_packet};
 use huginn_net_http::error::HuginnNetHttpError;
 use huginn_net_http::http_process::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]
 use huginn_net_http::observable::ObservableHttpResponse;
+use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tcp::error::HuginnNetTcpError;
 #[cfg(feature = "tcp-mtu")]
 use huginn_net_tcp::observable::ObservableMtu;
@@ -15,11 +16,10 @@ use huginn_net_tcp::observable::ObservableTcp;
 #[cfg(feature = "tcp-uptime")]
 use huginn_net_tcp::observable::ObservableUptime;
 use huginn_net_tcp::tcp_process::ObservableTCPPackage;
-use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tls::error::HuginnNetTlsError;
 use huginn_net_tls::{ObservableTlsClient, ObservableTlsPackage};
 use pnet::packet::ip::IpNextHeaderProtocols;
-use pnet::packet::{ipv4::Ipv4Packet, ipv6::Ipv6Packet, tcp::TcpPacket, Packet};
+use pnet::packet::{Packet, ipv4::Ipv4Packet, ipv6::Ipv6Packet, tcp::TcpPacket};
 use std::net::IpAddr;
 use ttl_cache::TtlCache;
 

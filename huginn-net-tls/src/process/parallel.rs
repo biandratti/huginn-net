@@ -1,11 +1,11 @@
 use crate::error::HuginnNetTlsError;
-use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
+use crate::filter::raw as raw_filter;
 use crate::output::TlsClientOutput;
-use crate::parser::hash as packet_hash;
-use crate::parser::packet::{parse_packet, IpPacket};
 use crate::parser::TlsClientHelloReader;
-use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, Sender, TryRecvError};
+use crate::parser::hash as packet_hash;
+use crate::parser::packet::{IpPacket, parse_packet};
+use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, TryRecvError, bounded};
 use std::fmt;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -15,7 +15,7 @@ use std::time::Duration;
 use tracing::debug;
 use ttl_cache::TtlCache;
 
-use super::{process_ipv4_packet, process_ipv6_packet, FlowKey};
+use super::{FlowKey, process_ipv4_packet, process_ipv6_packet};
 
 /// Worker configuration parameters
 struct WorkerConfig {

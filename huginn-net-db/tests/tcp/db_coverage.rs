@@ -3,8 +3,8 @@
 //! Selection is first-match-wins within a tier, so these pairs are decided only
 //! by `.fp` order. Adding a new pair must fail this test so it gets a look.
 
-use huginn_net_db::tcp::{ambiguous_exact_pairs, AmbiguousExactPair};
 use huginn_net_db::TcpDatabase;
+use huginn_net_db::tcp::{AmbiguousExactPair, ambiguous_exact_pairs};
 
 fn pair(section: &'static str, winner: &str, shadowed: &str) -> AmbiguousExactPair {
     AmbiguousExactPair {

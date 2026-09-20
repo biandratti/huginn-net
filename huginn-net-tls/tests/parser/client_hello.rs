@@ -727,7 +727,7 @@ fn create_tls_server_hello_record() -> Vec<u8> {
     record.push(0x02);
     // Handshake length (3 bytes)
     record.extend_from_slice(&[0x00, 0x00, 0x4C]); // 76 bytes
-                                                   // Version: TLS 1.2
+    // Version: TLS 1.2
     record.push(0x03);
     record.push(0x03);
     // Random (32 bytes)

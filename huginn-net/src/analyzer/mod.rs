@@ -2,11 +2,11 @@ mod matchers;
 #[cfg(all(feature = "db", feature = "tcp-syn", feature = "http-p0f-request"))]
 #[doc(hidden)]
 pub mod observed_os;
-use matchers::cache_sizes;
 #[cfg(feature = "http-p0f-request")]
 use matchers::HttpRequestMatchResult;
 #[cfg(feature = "http-p0f-response")]
 use matchers::HttpResponseMatchResult;
+use matchers::cache_sizes;
 
 use crate::error::HuginnNetError;
 use crate::output::FingerprintResult;
@@ -16,6 +16,7 @@ use huginn_net_http::http_process::{FlowKey, HttpProcessors, TcpFlow};
 use huginn_net_http::output::HttpRequestOutput;
 #[cfg(feature = "http-p0f-response")]
 use huginn_net_http::output::HttpResponseOutput;
+use huginn_net_tcp::ConnectionTracker;
 #[cfg(feature = "tcp-mtu")]
 use huginn_net_tcp::output::MTUOutput;
 #[cfg(feature = "tcp-syn-ack")]
@@ -24,14 +25,13 @@ use huginn_net_tcp::output::SynAckTCPOutput;
 use huginn_net_tcp::output::SynTCPOutput;
 #[cfg(feature = "tcp-uptime")]
 use huginn_net_tcp::output::{UptimeOutput, UptimeRole};
-use huginn_net_tcp::ConnectionTracker;
 use huginn_net_tls::output::TlsClientOutput;
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::Arc;
 use tracing::{debug, error};
 use ttl_cache::TtlCache;
 
@@ -42,8 +42,8 @@ use huginn_net_db::Database;
 pub use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]
 pub use huginn_net_http::observable::ObservableHttpResponse;
-pub use huginn_net_tcp::observable::ObservableTcp;
 use huginn_net_tcp::FilterConfig;
+pub use huginn_net_tcp::observable::ObservableTcp;
 pub use huginn_net_tls::ObservableTlsClient;
 
 /// Configuration for protocol analysis
@@ -309,12 +309,14 @@ impl<'a> HuginnNet<'a> {
         let (_tx, mut rx) = match datalink::channel(&interface, config) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => {
-                return Err(HuginnNetError::MissConfiguration("Unhandled channel type".to_string()))
+                return Err(HuginnNetError::MissConfiguration(
+                    "Unhandled channel type".to_string(),
+                ));
             }
             Err(e) => {
                 return Err(HuginnNetError::MissConfiguration(format!(
                     "Unable to create channel: {e}"
-                )))
+                )));
             }
         };
 

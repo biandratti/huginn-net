@@ -1,11 +1,11 @@
 use super::parser as http1_parser;
 use crate::error::HuginnNetHttpError;
 use crate::http;
+use crate::http::Header;
 use crate::http::common as http_common;
 use crate::http::common::HttpProcessor;
 use crate::http::languages as http_languages;
 use crate::http::observable::{ObservableHttpRequest, ObservableHttpResponse};
-use crate::http::Header;
 use crate::http2::parser as http2_parser;
 use crate::http2::process as http2_process;
 use tracing::debug;

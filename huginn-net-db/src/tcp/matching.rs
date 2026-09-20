@@ -4,8 +4,8 @@
 use crate::database::TcpIndexKey;
 use crate::db_matching_trait::{DatabaseSignature, ObservedFingerprint, SignatureFit};
 use crate::tcp::{
-    self, ip_version_matches, payload_size_matches, ttl_fit, window_size_matches, IpVersion,
-    PayloadSize, QuirkSet,
+    self, IpVersion, PayloadSize, QuirkSet, ip_version_matches, payload_size_matches, ttl_fit,
+    window_size_matches,
 };
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::FuzzyReason;

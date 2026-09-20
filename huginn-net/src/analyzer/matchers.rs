@@ -5,9 +5,9 @@ use super::HuginnNet;
 ))]
 use huginn_net_http::http::MatchedSignatureNotes;
 #[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
-use huginn_net_http::http::{build_params, HttpParams};
+use huginn_net_http::http::{HttpParams, build_params};
 #[cfg(feature = "http-p0f-request")]
-use huginn_net_http::http::{check_ua_os_agreement, ObservedOsInput, UaOsAgreement};
+use huginn_net_http::http::{ObservedOsInput, UaOsAgreement, check_ua_os_agreement};
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::observable::ObservableHttpRequest;
 #[cfg(feature = "http-p0f-response")]

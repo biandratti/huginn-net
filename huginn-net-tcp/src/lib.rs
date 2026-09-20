@@ -69,13 +69,13 @@ pub use filter::*;
 #[cfg(feature = "mtu")]
 pub use mtu::ObservableMtu;
 pub use output::*;
-pub use process::{process_ipv4_packet, process_ipv6_packet, ConnectionTracker};
+pub use process::{ConnectionTracker, process_ipv4_packet, process_ipv6_packet};
 pub use process::{DispatchResult, PoolStats, WorkerPool, WorkerStats};
 pub use tcp::observable::{ObservableTcp, TcpObservation};
 #[cfg(feature = "uptime")]
 pub use uptime::{
-    calculate_uptime_improved, Connection, ConnectionKey, FrequencyState, TcpTimestamp,
-    UptimeTracker,
+    Connection, ConnectionKey, FrequencyState, TcpTimestamp, UptimeTracker,
+    calculate_uptime_improved,
 };
 
 // ---------------------------------------------------------------------------

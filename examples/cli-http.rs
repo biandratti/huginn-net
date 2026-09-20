@@ -1,14 +1,14 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{initialize_logging, Commands, FilterOptions, LiveMode, OutputFormat};
+use support::{Commands, FilterOptions, LiveMode, OutputFormat, initialize_logging};
 
 use clap::Parser;
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::matcher_api::HttpMatcher;
 use huginn_net_http::{FilterConfig, HttpAnalysisResult, HuginnNetHttp, IpFilter, PortFilter};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 use tracing::{debug, error, info};
 

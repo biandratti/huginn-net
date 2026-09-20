@@ -1,18 +1,18 @@
 use crate::error::HuginnNetTcpError;
-use crate::filter::raw as raw_filter;
 use crate::filter::FilterConfig;
+use crate::filter::raw as raw_filter;
 use crate::matcher_api::TcpMatcher;
 use crate::output::TcpAnalysisResult;
-use crate::parser::packet::{parse_packet, IpPacket};
+use crate::parser::packet::{IpPacket, parse_packet};
 use crate::process::{
-    process_ipv4_packet, process_ipv6_packet, ConnectionTracker, PoolStats, WorkerPool,
+    ConnectionTracker, PoolStats, WorkerPool, process_ipv4_packet, process_ipv6_packet,
 };
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::Arc;
 use tracing::{debug, error};
 
 #[derive(Debug, Clone, Copy)]
@@ -309,7 +309,7 @@ impl HuginnNetTcp {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => return Err(HuginnNetTcpError::Parse("Unhandled channel type".to_string())),
             Err(e) => {
-                return Err(HuginnNetTcpError::Parse(format!("Unable to create channel: {e}")))
+                return Err(HuginnNetTcpError::Parse(format!("Unable to create channel: {e}")));
             }
         };
 

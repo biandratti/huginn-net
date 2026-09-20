@@ -1,9 +1,9 @@
 use huginn_net_db::database::Label;
 use huginn_net_db::tcp::{IpVersion, PayloadSize, Signature, Ttl, WindowSize};
 use huginn_net_db::{TcpDatabase, TcpSignatureMatcher};
+use huginn_net_tcp::ObservableTcp;
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
-use huginn_net_tcp::ObservableTcp;
 
 /// What a packet would carry when its MSS is not what the signature pins down.
 const TYPICAL_MSS: u16 = 1460;
