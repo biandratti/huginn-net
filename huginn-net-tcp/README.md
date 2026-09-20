@@ -10,6 +10,7 @@
   [![CI](https://github.com/biandratti/huginn-net/actions/workflows/ci.yml/badge.svg?branch=master)](#ci)
   [![Security](https://github.com/biandratti/huginn-net/actions/workflows/audit.yml/badge.svg?branch=master)](#security)
   [![Pure Rust](https://img.shields.io/badge/pure-Rust-brightgreen.svg)](https://deps.rs/repo/github/biandratti/huginn-net)
+  [![MSRV](https://img.shields.io/crates/msrv/huginn-net-tcp.svg)](https://crates.io/crates/huginn-net-tcp)
 
   **TCP fingerprinting and OS detection for Huginn Net.**
 </div>

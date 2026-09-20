@@ -1,23 +1,24 @@
 ---
-name: Feature Request
-about: Suggest a new feature or enhancement
+name: Feature request
+about: Suggest a fingerprint, API, or matcher change
 labels: enhancement
 ---
 
-**Problem / motivation**
+**Checklist**
+- [ ] I've searched the issue tracker for similar requests.
 
-What problem does this solve? What use case drives this request?
+**Is this related to a problem?**
+What is missing or awkward today? Which crate / protocol (TCP, HTTP, TLS, db)?
 
-**Proposed solution**
-
-Describe the feature. Include an API sketch if helpful.
+**Describe the solution you'd like**
+What you want. An API sketch helps if the change is public.
 
 ```rust
-// proposed API
+// proposed API, if useful
 ```
 
 **Alternatives considered**
+Other APIs, extra `p0f.fp` signatures, or a custom matcher.
 
-**References**
-
-<!-- Links to relevant specs, RFCs, or other implementations (e.g. p0f format, JA4 spec) -->
+**Additional context**
+Specs or prior art (p0f v3, JA4, Akamai HTTP/2, another implementation).

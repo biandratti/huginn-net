@@ -1,27 +1,31 @@
 ---
-name: Bug Report
-about: Report a bug or unexpected behavior
+name: Bug report
+about: Report a bug or unexpected fingerprint / parse result
 labels: bug
 ---
 
-> For security vulnerabilities, do **not** use this form — see [SECURITY.md](https://github.com/biandratti/huginn-net/blob/master/SECURITY.md).
+> Security issues: do **not** use this form — see [SECURITY.md](https://github.com/biandratti/huginn-net/blob/master/SECURITY.md).
 
-**Description**
+**Checklist**
+- [ ] I've searched the issue tracker for similar bugs.
 
-A clear description of what the bug is.
+**Describe the bug**
+A clear description of what went wrong (wrong OS/browser label, parse failure, match tier, etc.).
 
 **To reproduce**
-
-Steps to reproduce the behavior. Include a minimal Rust snippet that triggers it.
+What you ran and on what input (example CLI, `analyze_pcap`, a few lines of code). Attach or name the pcap if you have one.
 
 ```rust
-// minimal example
+// minimal example, if useful
 ```
 
 **Expected behavior**
+What you expected (label, signature string, `Params`, `UA/OS`, …).
 
 **Environment**
-
-- Crate and version:
+- Crate and version (from `Cargo.toml`):
 - Rust version (`rustc --version`):
 - OS:
+
+**Additional context**
+Signature line (`Sig:`), `Params`, or a short pcap if you can share one.
