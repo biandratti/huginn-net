@@ -27,7 +27,7 @@ Passive fingerprinting infers information about remote hosts without sending any
 - **Network Infrastructure** - Detecting intermediary devices, proxies, and load balancers
 - **Client Capabilities** - TLS versions, cipher suites, and supported extensions
 
-### Network Stack analysis supported by Huginn Net (OSI Model)
+### Network Stack analysis supported by Huginn-Net
 
 | Layer | Protocol / Feature        | Huginn Net Analysis                         |
 |-------|---------------------------|---------------------------------------------|
@@ -41,7 +41,7 @@ Passive fingerprinting infers information about remote hosts without sending any
 - [huginn-net](huginn-net/README.md): TCP, HTTP, and TLS together
 - [huginn-net-tcp](huginn-net-tcp/README.md): TCP SYN and SYN+ACK fingerprints, MTU, uptime
 - [huginn-net-http](huginn-net-http/README.md): HTTP/1 and HTTP/2 signatures, plus a standalone Akamai HTTP/2 parser
-- [huginn-net-tls](huginn-net-tls/README.md): JA4
+- [huginn-net-tls](huginn-net-tls/README.md): JA4 and stable JA4_s1 / JA4_s1r signatures
 - [huginn-net-db](huginn-net-db/README.md): match TCP and HTTP fingerprints against p0f signatures
 
 ## 🚀 Quick Start
