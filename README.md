@@ -36,23 +36,13 @@ Passive fingerprinting infers information about remote hosts without sending any
 | 4     | TCP                       | OS Fingerprinting (p0f-style)               |
 
 
-## 📚 Huginn Net Crates
+## Crates
 
-| Crate | Description | Documentation |
-|-------|-------------|---------------|
-| **[huginn-net](huginn-net/README.md)** | **TCP-HTTP-TLS Analysis** - Complete multi-protocol network fingerprinting | [📖 Usage Guide](huginn-net/README.md) |
-| **[huginn-net-tcp](huginn-net-tcp/README.md)** | **TCP Analysis** - OS fingerprinting, MTU detection, uptime estimation | [📖 TCP Guide](huginn-net-tcp/README.md) |
-| **[huginn-net-http](huginn-net-http/README.md)** | **HTTP Analysis** - Browser detection, HTTP/1.x & HTTP/2 fingerprinting | [📖 HTTP Guide](huginn-net-http/README.md) |
-| **[huginn-net-tls](huginn-net-tls/README.md)** | **TLS Client Analysis** - JA4 fingerprinting, TLS version detection | [📖 TLS Guide](huginn-net-tls/README.md) |
-
-
-### **Which library should I use?**
-
-- **Multi protocol scanning**: Use **[huginn-net](huginn-net/README.md)** for complete network analysis
-- **TCP only**: Use **[huginn-net-tcp](huginn-net-tcp/README.md)** for OS detection and TCP analysis  
-- **HTTP only**: Use **[huginn-net-http](huginn-net-http/README.md)** for browser and web server detection
-- **TLS only**: Use **[huginn-net-tls](huginn-net-tls/README.md)** for JA4 fingerprinting and TLS analysis
-- **Advanced**: Use `huginn-net-db` directly for custom signature parsing
+- [huginn-net](huginn-net/README.md): TCP, HTTP, and TLS together
+- [huginn-net-tcp](huginn-net-tcp/README.md): TCP SYN and SYN+ACK fingerprints, MTU, uptime
+- [huginn-net-http](huginn-net-http/README.md): HTTP/1 and HTTP/2 signatures, plus a standalone Akamai HTTP/2 parser
+- [huginn-net-tls](huginn-net-tls/README.md): JA4
+- [huginn-net-db](huginn-net-db/README.md): match TCP and HTTP fingerprints against p0f signatures
 
 ## 🚀 Quick Start
 
@@ -126,11 +116,11 @@ Database matching follows p0f-style **tier selection**, not a continuous distanc
 
 A match reports its tier as `MatchQuality::Matched(MatchRank)` (ordering matters; the scores from `as_quality()` may be recalibrated):
 
-- **`Specific`** (1.0) — exact fit on a **specified** signature (concrete product/OS)
-- **`Generic`** (0.8) — exact fit on a **generic** catch-all signature
-- **`Fuzzy(FuzzyReason)`** (0.5) — **fuzzy** fit (TCP only): the signature holds only after documented tolerances (e.g. missing `df`/`id+`, extra `id-`/`ecn`, implausible TTL hop distance), and the variant carries which ones
+- **`Specific`** (1.0): exact fit on a **specified** signature (concrete product/OS)
+- **`Generic`** (0.8): exact fit on a **generic** catch-all signature
+- **`Fuzzy(FuzzyReason)`** (0.5): **fuzzy** fit (TCP only). The signature holds only after documented tolerances (e.g. missing `df`/`id+`, extra `id-`/`ecn`, implausible TTL hop distance), and the variant carries which ones
 
-Other outcomes: **NotMatched** (matcher active, nothing fit) and **Disabled** (no matcher attached). On TCP, fuzzy matches also surface in `Params:` (`fuzzy (…)`, `generic`, `random_ttl`, `excess_dist`, `tos:0xNN`). HTTP signatures must fit exactly — there is no fuzzy tier.
+Other outcomes: **NotMatched** (matcher active, nothing fit) and **Disabled** (no matcher attached). On TCP, fuzzy matches also surface in `Params:` (`fuzzy (…)`, `generic`, `random_ttl`, `excess_dist`, `tos:0xNN`). HTTP signatures must fit exactly. There is no fuzzy tier.
 
 A richer database improves **coverage** (more traffic gets a label), not a higher score on the same observation.
 
