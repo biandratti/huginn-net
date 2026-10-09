@@ -1,13 +1,13 @@
 //! Load-time check for TCP signatures that cover each other.
 //!
-//! `warn!` when two signatures in a bucket both fit exactly at the same tier.
-//! Tests freeze the known list so a new pair in `p0f.fp` fails CI.
+//! One `info!` when two signatures in a bucket both fit exactly at the same
+//! tier; each pair is `debug!`.
 
 use crate::database::{FingerprintCollection, TcpIndexKey};
 use crate::db_matching_trait::DatabaseSignature;
 use crate::tcp::{IpVersion, PayloadSize, Signature, Ttl, WindowSize};
 use huginn_net_tcp::observable::TcpObservation;
-use tracing::warn;
+use tracing::{debug, info};
 
 type TcpCollection = FingerprintCollection<TcpObservation, Signature, TcpIndexKey>;
 
@@ -131,12 +131,21 @@ pub fn ambiguous_exact_pairs(
     pairs
 }
 
-/// Emit one `warn!` per ambiguous pair found in the section.
+/// Log same-tier exact overlaps. One `info!` with the count; each pair at `debug!`.
 pub fn warn_ambiguous_coverage(section_hint: &'static str, collection: &TcpCollection) {
-    for pair in ambiguous_exact_pairs(section_hint, collection) {
-        warn!(
+    let pairs = ambiguous_exact_pairs(section_hint, collection);
+    if pairs.is_empty() {
+        return;
+    }
+    info!(
+        target: "huginn_net_db::coverage",
+        "[{section_hint}] {} same-tier overlaps; the earlier signature wins",
+        pairs.len()
+    );
+    for pair in pairs {
+        debug!(
             target: "huginn_net_db::coverage",
-            "[{}] ambiguous exact signatures (first wins): {}  shadows  {}",
+            "[{}] {}  wins over  {}",
             pair.section_hint, pair.winner, pair.shadowed
         );
     }
