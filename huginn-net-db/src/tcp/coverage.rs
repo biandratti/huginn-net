@@ -131,7 +131,6 @@ pub fn ambiguous_exact_pairs(
     pairs
 }
 
-/// Log same-tier exact overlaps. One `info!` with the count; each pair at `debug!`.
 pub fn warn_ambiguous_coverage(section_hint: &'static str, collection: &TcpCollection) {
     let pairs = ambiguous_exact_pairs(section_hint, collection);
     if pairs.is_empty() {
