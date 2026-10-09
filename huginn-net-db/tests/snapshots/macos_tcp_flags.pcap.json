@@ -14,11 +14,11 @@
       },
       "tcp_analysis": {
         "syn": {
-          "os_name": "Mac OS X",
+          "os_name": "iOS/macOS",
           "os_family": "unix",
-          "os_variant": "10.x",
-          "quality": "Matched(0.5)",
-          "fuzzy": "missing id+, extra ecn",
+          "os_variant": null,
+          "quality": "Matched(1.0)",
+          "fuzzy": "none",
           "raw_signature": "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0"
         },
         "syn_ack": null,

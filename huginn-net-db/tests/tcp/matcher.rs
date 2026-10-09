@@ -83,11 +83,9 @@ fn matching_linux_by_tcp_request() {
     if let Some(found) = db.tcp_request.find_best_match(&linux_signature) {
         assert_eq!(found.label.name, "Linux");
         assert_eq!(found.label.class, Some("unix".to_string()));
-        assert_eq!(found.label.flavor, Some("2.2.x-3.x".to_string()));
-        assert_eq!(found.label.ty, Type::Generic);
-        // A catch-all signature fits every field, so the match is real but
-        // ranks below what a signature naming a concrete release would have.
-        assert_eq!(found.rank, MatchRank::Generic);
+        assert_eq!(found.label.flavor, None);
+        assert_eq!(found.label.ty, Type::Specified);
+        assert_eq!(found.rank, MatchRank::Specific);
     } else {
         panic!("No match found");
     }
