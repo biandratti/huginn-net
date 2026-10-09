@@ -1,12 +1,9 @@
 ;
-; p0f - fingerprint database
-; --------------------------
-;
-; See section 5 in the README for a detailed discussion of the format used here.
+; 2026-10-09  TCP SYN: observed iOS/macOS, Windows, Android, Linux and Other signatures.
+; 2025-06-01  Windows 10, Android, Mac OS X and browser label updates.
+; 2012        Upstream p0f database.
 ;
 ; Copyright (C) 2012 by Michal Zalewski <lcamtuf@coredump.cx>
-;
-; Distributed under the terms and conditions of GNU LGPL.
 ;
 
 classes = win,unix,other
@@ -154,6 +151,27 @@ sig   = *:64:0:*:mss*44,3:mss,sok,ts,nop,ws:df,id+:0
 sig   = *:64:0:*:65535,6:mss,sok,ts,nop,ws:df,id+:0
 sig   = *:64:0:*:65535,8:mss,sok,ts,nop,ws:df,id+:0
 
+label = s:unix:Android:
+sig   = 4:64:0:*:65535,10:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,10:mss,sok,ts,nop,ws:df,id+,ecn:0
+sig   = 4:64:0:*:65535,9:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,9:mss,sok,ts,nop,ws:df,id+,ecn:0
+sig   = 4:64:0:*:65535,7:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,12:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,8:mss,sok,ts,nop,ws::0
+sig   = 4:64:0:*:65535,10:mss,sok,ts,nop,ws:df:0
+sig   = 4:64:0:*:65535,10:mss,sok,ts,nop,ws::0
+sig   = 4:64:0:*:mss*29,8:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:62727,10:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,9:mss,sok,ts,nop,ws::0
+sig   = 4:64:0:*:65535,4:mss,nop,ws,sok,ts:df,id+:0
+
+label = s:unix:Linux:
+sig   = 4:64:0:*:mss*44,7:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:mss*44,10:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:mss*44,9:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:mss*46,7:mss,sok,ts,nop,ws:df,id+:0
+
 ; Catch-all rules:
 
 label = g:unix:Linux:3.x
@@ -199,6 +217,49 @@ label = s:win:Windows:7 (Websense crawler)
 sig   = *:64:0:1380:mss*4,6:mss,nop,nop,ts,nop,ws:df,id+:0
 sig   = *:64:0:1380:mss*4,7:mss,nop,nop,ts,nop,ws:df,id+:0
 
+label = s:win:Windows:
+sig   = 4:64:0:*:65535,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:mss*44,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:mss*44,8:mss,nop,ws,nop,nop,sok:df,id+,ecn:0
+sig   = 4:128:0:*:mss*47,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:mss*20,7:mss,nop,nop,sok,nop,ws:df,id+:0
+sig   = 4:128:0:*:mss*44,0:mss,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:65535,8:mss,nop,ws,sok,ts:df,id+:0
+sig   = 4:128:0:*:65535,8:mss,nop,ws,nop,nop,sok::0
+sig   = 4:64:0:*:mss*45,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:63443,6:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:65535,8:mss,nop,ws,sok,ts:df,id+:0
+sig   = 4:128:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+,ecn:0
+sig   = 4:64:0:*:8192,2:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:65535,6:mss,sok,ts,nop,ws:id-:0
+sig   = 4:64:0:*:mss*44,8:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:128:0:*:mss*45,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:59220,7:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:128:0:*:65535,8:mss,nop,ws,nop,nop,sok:df,id+,ecn:0
+sig   = 4:64:0:*:mss*44,7:mss,nop,nop,sok,nop,ws:df,id+:0
+sig   = 4:128:0:*:mss*52,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:64416,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:65535,8:mss,sok,ts,nop,ws:id-:0
+sig   = 4:128:0:*:mss*44,8:mss,nop,ws,nop,nop,sok::0
+sig   = 4:64:0:*:mss*47,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:mss*12,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:mss*29,12:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:128:0:*:mss*48,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:mss*46,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:mss*44,0:mss,nop,nop,sok:df,id+,ecn:0
+sig   = 4:64:0:*:mss*30,12:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:mss*29,11:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,12:mss,nop,ws,sok,ts:df:0
+sig   = 4:128:0:*:64860,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:32768,0:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:65518,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:mss*29,9:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:128:0:*:mss*6,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:255:0:*:65535,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:128:0:*:64952,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = 4:64:0:*:mss*32,12:mss,sok,ts,nop,ws:df,id+:0
+
 ; Catch-all:
 
 label = g:win:Windows:NT kernel 5.x
@@ -214,6 +275,9 @@ sig   = *:128:0:*:8192,*:mss,nop,ws,nop,nop,sok:df,id+:0
 label = g:win:Windows:NT kernel
 sig   = *:128:0:*:*,*:mss,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:*,*:mss,nop,ws,nop,nop,sok:df,id+:0
+
+label = g:win:Windows:
+sig   = 4:64:0:*:mss*45,7:mss,sok,ts,nop,ws:df,id+:0
 
 ; ------
 ; Mac OS
@@ -231,6 +295,27 @@ sig   = *:64:0:*:65535,4:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 
 label = s:unix:Mac OS X:iPhone or iPad
 sig   = *:64:0:*:65535,2:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
+
+label = s:unix:iOS/macOS:
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df:0
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+,ecn:0
+sig   = 4:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:df:0
+sig   = 4:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0
+sig   = 4:64:0:*:65535,13:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:id-,ecn:0
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:id-:0
+sig   = 4:64:0:*:mss*29,10:mss,sok,ts,nop,ws:df,id+:0
+sig   = 4:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+,ecn:0
+sig   = 4:255:0:*:65535,9:mss,nop,ws,sok,ts:df,id+:0
+sig   = 4:64:0:*:65535,12:mss,nop,ws,sok,ts:df,ecn:0
+sig   = 4:64:0:*:65535,7:mss,nop,ws,nop,nop,ts,sok,eol+1:df:0
+sig   = 4:64:0:*:65535,7:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:ecn:0
+sig   = 4:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:id-:0
+sig   = 4:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:id-,ecn:0
+sig   = 4:255:0:*:65535,7:mss,nop,ws,sok,ts:df,id+:0
+sig   = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1::0
 
 ; Catch-all rules:
 
@@ -352,6 +437,9 @@ sig   = 4:64:0:1460:32768,0:mss,nop,nop,sok:df,id+:0
 label = s:unix:BaiduSpider:
 sig   = *:64:0:1460:mss*4,7:mss,sok,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,ws:df,id+:0
 sig   = *:64:0:1460:mss*4,2:mss,sok,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,ws:df,id+:0
+
+label = s:other:Other:
+sig   = 4:64:0:*:62727,7:mss,sok,ts,nop,ws:df,id+:0
 
 ; ======================
 ; TCP SYN+ACK signatures

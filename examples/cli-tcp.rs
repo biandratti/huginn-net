@@ -6,7 +6,6 @@ use clap::Parser;
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::{FilterConfig, HuginnNetTcp, IpFilter, PortFilter, TcpAnalysisResult};
-use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -76,17 +75,10 @@ fn main() {
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
 
-    // let db = match TcpDatabase::load_default() {
-    //     Ok(db) => Arc::new(db),
-    //     Err(e) => {
-    //         error!("Failed to load default TCP database: {e}");
-    //         return;
-    //     }
-    // };
-    let db = match TcpDatabase::from_str(include_str!("../huginn-net-db/config/tcp_syn.fp")) {
+    let db = match TcpDatabase::load_default() {
         Ok(db) => Arc::new(db),
         Err(e) => {
-            error!("Failed to load tcp_syn.fp: {e}");
+            error!("Failed to load default TCP database: {e}");
             return;
         }
     };
