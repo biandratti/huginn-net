@@ -82,7 +82,7 @@ fn main() {
             return;
         }
     };
-    debug!("Loaded TCP database successfully");
+    debug!("Loaded p0f TCP database successfully");
     let matcher: Arc<dyn TcpMatcher + Send + Sync> = Arc::new(SharedTcpSignatureMatcher::new(db));
 
     let filter_config = build_filter(&args.filter);

@@ -83,8 +83,6 @@ fn matching_linux_by_tcp_request() {
     if let Some(found) = db.tcp_request.find_best_match(&linux_signature) {
         assert_eq!(found.label.name, "Linux");
         assert_eq!(found.label.class, Some("unix".to_string()));
-        // `4:64:0:*:mss*44,7:mss,sok,ts,nop,ws:df,id+:0` (observed Linux) is
-        // an exact specific hit and outranks the generic `2.2.x-3.x` catch-all.
         assert_eq!(found.label.flavor, None);
         assert_eq!(found.label.ty, Type::Specified);
         assert_eq!(found.rank, MatchRank::Specific);
