@@ -15,6 +15,8 @@
   [![huginn-net-tcp](https://img.shields.io/crates/d/huginn-net-tcp.svg?label=huginn-net-tcp)](https://crates.io/crates/huginn-net-tcp)
   [![huginn-net-http](https://img.shields.io/crates/d/huginn-net-http.svg?label=huginn-net-http)](https://crates.io/crates/huginn-net-http)
   [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
+
+  <h2><a href="https://huginn-proxy.duckdns.org/">Live demo</a></h2>
 </div>
 
 **Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f v3 for TCP, FoxIO's JA4 for TLS, and the Akamai HTTP/2 fingerprinting spec. All signature databases are open source and community-driven.
@@ -53,16 +55,16 @@ Passive fingerprinting infers information about remote hosts without sending any
 **For multi-protocol analysis:**
 ```toml
 [dependencies]
-huginn-net = "2.2.0"  # Complete analysis suite
+huginn-net = "2.2.1"  # Complete analysis suite
 ```
 
 **For specific protocols:**
 ```toml
 [dependencies]
-huginn-net-tcp = "2.2.0"   # TCP/OS fingerprinting only
-huginn-net-http = "2.2.0"  # HTTP analysis only
-huginn-net-tls = "2.2.0"   # TLS/JA4 analysis only
-huginn-net-db = { version = "2.2.0", features = ["tcp", "http"] }  # signature matching for TCP/HTTP (not needed for TLS)
+huginn-net-tcp = "2.2.1"   # TCP/OS fingerprinting only
+huginn-net-http = "2.2.1"  # HTTP analysis only
+huginn-net-tls = "2.2.1"   # TLS/JA4 analysis only
+huginn-net-db = { version = "2.2.1", features = ["tcp", "http"] }  # signature matching for TCP/HTTP (not needed for TLS)
 ```
 
 ### Usage & Examples
@@ -136,7 +138,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## Next Milestones
 -  **JA4 over QUIC and DTLS** - ClientHello on UDP (`q` prefix) and DTLS. TCP (`t`) is what ships today.
--  **Enhanced Database** - Continuous signature updates and community contributions (`p0f.fp` is still 2012)
+-  **Database quality** - Keep improving `p0f.fp`: coverage, signature quality, and community contributions.
 -  **SSH / DNS / DHCP** - Planned as a separate crate, not part of this TCP/HTTP/TLS library. Same idea (passive fingerprints), different protocols.
 
 ## 📄 License
