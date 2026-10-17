@@ -4,9 +4,9 @@
 # Optionally exercise live capture on a network interface.
 #
 # Usage:
-#   scripts/smoke-examples.sh              # PCAP smoke only
-#   scripts/smoke-examples.sh -i eth0      # PCAP + short live capture on eth0
-#   scripts/smoke-examples.sh --interface lo
+#   scripts/smoke-examples.sh                     # PCAP smoke only
+#   sudo scripts/smoke-examples.sh -i eth0        # PCAP + short live capture on eth0
+#   sudo scripts/smoke-examples.sh --interface lo
 #
 # Live mode starts each CLI for a few seconds and sends SIGINT. Needs an
 # interface the process can open (often root / CAP_NET_RAW). Exit 0 or the

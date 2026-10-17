@@ -34,13 +34,13 @@ This is the main orchestrator crate that combines all protocol analyzers into a 
 
 ### Installation
 
-Add to your `Cargo.toml`. Every feature is **opt-in** in v2.2.0; the
+Add to your `Cargo.toml`. Every feature is **opt-in** in v2.2.1; the
 fastest path is `features = ["full"]`, which pulls in every analysis this
 version offers (and any added in future 2.x releases):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.2.0", features = ["full"] }
+huginn-net = { version = "2.2.1", features = ["full"] }
 ```
 
 `huginn-net-db` doesn't need to be added separately: it's an optional
@@ -79,14 +79,14 @@ in `full` automatically):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.2.0", features = ["full"] }
+huginn-net = { version = "2.2.1", features = ["full"] }
 ```
 
 Opt into only what you need (example: SYN-only, no MTU / uptime / SYN+ACK, both HTTP sides):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.2.0", features = [
+huginn-net = { version = "2.2.1", features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
 ```
@@ -95,7 +95,7 @@ Drop one of the HTTP sides (example: full TCP + request-only HTTP):
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.2.0", features = [
+huginn-net = { version = "2.2.1", features = [
     "db", "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime", "http-p0f-request",
 ] }
 ```
@@ -104,7 +104,7 @@ Observation-only build (no database, no p0f matching; useful for TLS terminators
 
 ```toml
 [dependencies]
-huginn-net = { version = "2.2.0", features = [
+huginn-net = { version = "2.2.1", features = [
     "tcp-syn", "tcp-syn-ack", "tcp-mtu", "tcp-uptime",
     "http-p0f-request", "http-p0f-response",
 ] }
@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Basic Usage, observation only (no database)
 
-If you build without the `db` feature (the v2.2.0 default omits it), the
+If you build without the `db` feature (the v2.2.1 default omits it), the
 `HuginnNet::new(...)` constructor is **not compiled**. Use
 `HuginnNet::new_observable` instead to get raw TCP/HTTP signatures + JA4
 with all `*QualityMatched` fields set to `Disabled`:
