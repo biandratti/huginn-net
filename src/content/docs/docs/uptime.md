@@ -25,14 +25,14 @@ Estimates uptime for the server (connection responder) based on TCP timestamps f
 
 ```bash
 [TCP Uptime - Server] 4.3.2.1:80 → 1.2.3.4:1524
-  Uptime: 12 days, 5 hrs, 32 min (modulo 198 days)
+  Uptime: 12 days, 5 hrs, 32 min (modulo 497 days)
   Freq:   100.00 Hz
 ```
 
 ## Uptime Key Fields
 
-- **Uptime**: Estimated time the system has been running since last reboot, shown in days, hours, and minutes. The "modulo" value indicates the maximum time range before the counter would wrap around.
-- **Freq**: Frequency of the system's TCP timestamp clock in Hz, typically derived from the kernel timer (common values: 100 Hz, 250 Hz, 1000 Hz).
+- **Uptime**: Estimated time since boot, in days, hours, and minutes. `modulo` is `u32::MAX / (freq × 86400)` days, the wrap of the timestamp counter. 250 Hz wraps near 198 days. 100 Hz wraps near 497 days.
+- **Freq**: TCP timestamp clock in Hz. Common kernel values are 100, 250, and 1000.
 
 ## Known Limitations
 

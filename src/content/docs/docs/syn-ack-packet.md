@@ -3,8 +3,7 @@ title: TCP SYN and SYN+ACK Packets
 description: TCP SYN and SYN+ACK packet analysis and signatures.
 ---
 
-TCP packets are the backbone of network communication, and two of the most significant types are SYN and SYN+ACK.  
-**Huginn Net** analyzes the behavior and characteristics of these packets to infer the operating system (OS) of the client or server, and the geographic or logical distance (network hop count).
+SYN (client) and SYN+ACK (server) share one p0f signature layout. A match names the OS. `Dist` is the hop count guessed from TTL. It is not a location.
 
 ## TCP Signature
 
@@ -101,7 +100,7 @@ Initiate a TCP connection. Sent by the client to a server.
 
 ```bash
 [TCP SYN] 1.2.3.4:1524 → 4.3.2.1:80
-  OS:     Windows XP
+  OS:     Windows/win/XP
   Dist:   8
   Params: none
   Sig:    4:120+8:0:1452:65535,0:mss,nop,nop,sok:df,id+:0
@@ -109,10 +108,10 @@ Initiate a TCP connection. Sent by the client to a server.
 
 ### SYN Key Fields
 
-- **OS**: The identified operating system, when a matcher is attached.
-- **Dist**: Hop count inferred from TTL. Not a match score.
+- **OS**: `name/family/variant` from the label (`s:win:Windows:XP` prints `Windows/win/XP`). Empty flavor is `??`. No match, or no matcher, prints `???`.
+- **Dist**: Hop count inferred from TTL. Not a match score. The sample SYN is TTL 120 against an initial 128, so `Dist` is 8 and `ittl` prints `120+8`.
 - **Params**: Match annotations (`none`, `generic`, `fuzzy (…)`, `random_ttl`, …). See [Matching](../matching/).
-- **Sig**: The TCP signature showing packet structure (ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass).
+- **Sig**: Observed signature (`ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass`). The `65535,0:mss,nop,nop,sok:df,id+` tail is the Windows XP signature in `p0f.fp`.
 
 ## SYN+ACK Packet
 
@@ -122,7 +121,7 @@ Sent by the server in response to a SYN, signaling acknowledgment and readiness 
 
 ```bash
 [TCP SYN+ACK] 4.3.2.1:80 → 1.2.3.4:1524
-  OS:     Linux 3.x
+  OS:     Linux/unix/3.x
   Dist:   0
   Params: none
   Sig:    4:64+0:0:1460:mss*10,0:mss,nop,nop,sok:df:0
@@ -130,7 +129,7 @@ Sent by the server in response to a SYN, signaling acknowledgment and readiness 
 
 ### SYN+ACK Key Fields
 
-- **OS**: The identified operating system, when a matcher is attached.
-- **Dist**: Hop count inferred from TTL. Not a match score. `0` when the capture sits on the responder.
+- **OS**: Same `name/family/variant` form. This sample is `s:unix:Linux:3.x` (`*:64:0:*:mss*10,0:mss,nop,nop,sok:df:0`).
+- **Dist**: Hop count inferred from TTL. Not a match score. `0` when the capture sits on the responder (`64+0`).
 - **Params**: Match annotations (`none`, `generic`, `fuzzy (…)`, `random_ttl`, …). See [Matching](../matching/).
 - **Sig**: The TCP signature showing packet structure (ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass).
