@@ -54,7 +54,7 @@ huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }  # HT
 huginn-net-tls  = { version = "{{huginn-net-tls}}", features = ["full"] }   # TLS/JA4 analysis only
 ```
 
-The version strings above are resolved when the documentation site is built (each crate’s current `max_version` on [crates.io](https://crates.io/)).
+The version in each snippet is that crate’s current release on [crates.io](https://crates.io/).
 
 ### Why choose Huginn Net?
 

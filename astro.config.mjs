@@ -2,7 +2,6 @@
 import { defineConfig } from 'astro/config';
 import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
-import remarkCrateVersions from './scripts/remark-crate-versions.mjs';
 
 const site = 'https://biandratti.github.io';
 const base = '/huginn-net';
@@ -13,9 +12,8 @@ export default defineConfig({
   trailingSlash: 'always',
   markdown: {
     // Astro's default `satteri()` processor doesn't run `remarkPlugins`.
-    // Switch to `unified()` so our crate-version substitution plugin (and
-    // Starlight's own remark plugins, which it appends automatically) run.
-    processor: unified({ remarkPlugins: [remarkCrateVersions] }),
+    // `unified()` lets Starlight append its own remark plugins.
+    processor: unified(),
   },
   vite: {
     server: {
@@ -32,7 +30,6 @@ export default defineConfig({
       description:
         'Multi-Protocol Passive Network Fingerprinting for Rust: TCP, HTTP, and TLS.',
       titleDelimiter: '·',
-      tagline: 'TCP · HTTP · TLS',
       logo: {
         src: './src/assets/huginn-net.png',
         alt: 'Huginn Net',
@@ -68,6 +65,10 @@ export default defineConfig({
             rel: 'stylesheet',
             href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&display=swap',
           },
+        },
+        {
+          tag: 'script',
+          attrs: { src: `${base}/live-crate-versions.js`, defer: true },
         },
       ],
       favicon: '/favicon.ico',
