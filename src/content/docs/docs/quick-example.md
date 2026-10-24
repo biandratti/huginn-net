@@ -3,35 +3,31 @@ title: Quick Example
 description: Quick examples for using Huginn Net ecosystem crates.
 ---
 
-This page shows quick examples for using **Huginn Net** ecosystem crates for passive fingerprinting and analysis.
+Short programs for each crate. The version tokens are filled from crates.io.
 
-Choose the approach that best fits your needs:
+- `huginn-net`: TCP, HTTP, and TLS. The `db` feature pulls `huginn-net-db`.
+- `huginn-net-tcp` plus `huginn-net-db`: OS labels.
+- `huginn-net-http` plus `huginn-net-db`: browser and server labels.
+- `huginn-net-tls`: JA4. No database.
 
-- **Complete Analysis** - Use `huginn-net` for multi-protocol analysis
-- **TCP Only** - Use `huginn-net-tcp` for OS detection and TCP analysis
-- **HTTP Only** - Use `huginn-net-http` for browser and server detection
-- **TLS Only** - Use `huginn-net-tls` for JA4 fingerprinting
+Live capture needs `libpcap`. `analyze_pcap` does not.
 
-## Complete Multi-Protocol Analysis
+## TCP, HTTP, and TLS
 
-Use `huginn-net` when you need comprehensive analysis across all protocols.
-
-**Cargo.toml** — every feature is opt-in; `full` is the convenience alias for everything this version offers:
+`full` is every analysis this version ships, including `db`.
 
 ```toml
 [dependencies]
 huginn-net = { version = "{{huginn-net}}", features = ["full"] }
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
-Pick only what you need (example: SYN fingerprinting + both HTTP sides, no MTU/uptime/TLS-stable):
+SYN plus both HTTP sides, without MTU, uptime, SYN+ACK, or `JA4_s1`:
 
 ```toml
 [dependencies]
 huginn-net = { version = "{{huginn-net}}", features = [
     "db", "tcp-syn", "http-p0f-request", "http-p0f-response",
 ] }
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
 Add `json` to serialize results with `serde_json` (independent of `full`):
@@ -91,7 +87,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Observation-only mode (no database)
 
-Build without the `db` feature to get raw TCP/HTTP signatures + JA4 with no p0f matching. Use `HuginnNet::new_observable` instead of `HuginnNet::new`:
+Leave `db` out of the feature list. `HuginnNet::new` is not compiled. `HuginnNet::new_observable` returns raw TCP and HTTP signatures and JA4. Label fields stay disabled.
+
+```toml
+[dependencies]
+huginn-net = { version = "{{huginn-net}}", features = ["tcp-syn", "tls-stable-v1"] }
+```
 
 ```rust
 use huginn_net::{FingerprintResult, HuginnNet};
@@ -119,23 +120,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## TCP-Only Analysis (huginn-net-tcp)
+## TCP (`huginn-net-tcp`)
 
-Use `huginn-net-tcp` for OS detection, MTU calculation, and uptime estimation.
-
-**Cargo.toml:**
+OS labels need `huginn-net-db`. Omit the matcher if you only want the signature string.
 
 ```toml
 [dependencies]
 huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["full"] }
-# Only needed for OS fingerprint matching against the p0f database
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
+huginn-net-db  = { version = "{{huginn-net-db}}", features = ["tcp"] }
 ```
 
 Common opt-in patterns:
 
 ```toml
-# Fingerprint only connecting clients — no MTU, no uptime, no ttl_cache
+# Connecting clients only. No MTU, no uptime, no ttl_cache.
 huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["syn"] }
 
 # Fingerprint servers you connect to, with MTU detection
@@ -182,17 +180,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## HTTP-Only Analysis (huginn-net-http)
+## HTTP (`huginn-net-http`)
 
-Use `huginn-net-http` for browser detection and web server identification.
-
-**Cargo.toml:**
+Browser and server labels need `huginn-net-db`. Omit the matcher if you only want the signature string.
 
 ```toml
 [dependencies]
 huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }
-# Only needed for browser/server fingerprint matching
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
+huginn-net-db   = { version = "{{huginn-net-db}}", features = ["http"] }
 ```
 
 Common opt-in patterns:
@@ -201,7 +196,7 @@ Common opt-in patterns:
 # Client-side only (request fingerprinting), no Akamai, no response parsing
 huginn-net-http = { version = "{{huginn-net-http}}", features = ["p0f-request"] }
 
-# Akamai HTTP/2 fingerprinting only — no p0f path compiled in
+# Akamai HTTP/2 only. The p0f path is not compiled in.
 huginn-net-http = { version = "{{huginn-net-http}}", features = ["akamai"] }
 ```
 
@@ -242,11 +237,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## TLS-Only Analysis (huginn-net-tls)
+## TLS (`huginn-net-tls`)
 
-Use `huginn-net-tls` for JA4 fingerprinting and TLS client identification.
-
-**Cargo.toml** — no database needed; JA4 is computed algorithmically:
+JA4 is computed from the ClientHello. There is no database.
 
 ```toml
 # Core JA4 fingerprinting
@@ -306,28 +299,30 @@ All crates share the same filter types and AND-logic combination:
 
 | Filter | Description |
 |--------|-------------|
-| `PortFilter` | TCP source/destination ports — single ports, lists, and ranges |
-| `IpFilter` | Specific IPv4/IPv6 addresses — source-only, destination-only, or both |
-| `SubnetFilter` | CIDR subnets — IPv4 and IPv6 |
+| `PortFilter` | TCP source and destination ports: one port, a list, or a range |
+| `IpFilter` | IPv4 or IPv6 addresses. Source, destination, or both. |
+| `SubnetFilter` | CIDR subnets, IPv4 and IPv6 |
 
 All filters support **Allow** (allowlist) and **Deny** (denylist) modes.
 
 ```rust
-use huginn_net_tcp::{FilterConfig, IpFilter, PortFilter, SubnetFilter};
+use huginn_net_tcp::{FilterConfig, FilterMode, IpFilter, PortFilter, SubnetFilter};
 
 // Allow only traffic to port 443 from a specific subnet
 let filter = FilterConfig::new()
     .with_port_filter(PortFilter::new().destination(443))
     .with_subnet_filter(SubnetFilter::new().allow("10.0.0.0/8")?);
 
-// Deny traffic from a specific IP
+// Drop traffic whose source is 1.2.3.4. Deny is a mode on FilterConfig.
+// IpFilter lists the addresses; source_only() ignores the destination.
 let filter = FilterConfig::new()
-    .with_ip_filter(IpFilter::new().deny_source("1.2.3.4")?);
+    .mode(FilterMode::Deny)
+    .with_ip_filter(IpFilter::new().allow("1.2.3.4")?.source_only());
 ```
 
 ## Key Differences
 
-- **huginn-net-tcp** and **huginn-net-http** use `.with_matcher(matcher)` to enable database OS/browser matching; without it they run in observation-only mode (raw signatures, no labels)
-- **huginn-net-tls** never needs a database — JA4 is computed from the ClientHello structure alone
-- **huginn-net** combines all protocols; use `HuginnNet::new_observable(...)` when omitting the `db` feature
-- Protocol-specific crates offer better performance for targeted analysis and support parallel mode for high-throughput live capture
+- `huginn-net-tcp` and `huginn-net-http` take a matcher with `.with_matcher(...)`. Without one, the signature is still produced and the OS or browser field stays empty.
+- `huginn-net-tls` has no matcher. JA4 comes from the ClientHello.
+- `huginn-net` with `db` uses `HuginnNet::new`. Without `db`, use `HuginnNet::new_observable`.
+- A protocol crate does not parse the other protocols. `huginn-net-tcp`, `huginn-net-http`, and `huginn-net-tls` take `with_parallel(num_workers, queue_size, batch_size, timeout_ms)` before `analyze_network` or `analyze_pcap`. `huginn-net` has no worker pool.

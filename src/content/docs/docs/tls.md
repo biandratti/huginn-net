@@ -7,7 +7,7 @@ Huginn Net fingerprints TLS **ClientHello on TCP** (JA4 prefix `t`) using the [J
 
 ## TLS Signature (JA4)
 
-Huginn Net is based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the structure of the ClientHello message into a compact signature. This allows for identification of client software and detection of anomalies or evasion techniques.
+JA4 packs the ClientHello into three segments: a readable prefix and two 12-character SHA-256 truncations.
 
 ### JA4 ClientHello layout
 
@@ -15,7 +15,7 @@ Huginn Net is based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the s
 
 <p style="margin:0 0 0.45rem 0; opacity:0.92;"><strong>JA4</strong> (FoxIO-LLC) fingerprints the TLS <strong>ClientHello</strong>.</p>
 
-<div class="tcp-sig-formula"><strong>Format:</strong> three segments separated by underscores—first a readable <strong>prefix</strong>, then two <strong>12-character</strong> hex hashes (truncated SHA-256: sorted cipher suites, then sorted extensions plus signature algorithms).<span style="display:block;margin-top:0.35rem;opacity:0.88;font-size:0.88em;line-height:1.35;">The prefix bundles transport, TLS version, SNI mode, GREASE-free cipher and extension counts, and ALPN; the colored boxes below expand each piece.</span></div>
+<div class="tcp-sig-formula"><strong>Format:</strong> three segments separated by underscores. First a readable <strong>prefix</strong>, then two <strong>12-character</strong> hex hashes (truncated SHA-256: sorted cipher suites, then sorted extensions plus signature algorithms).<span style="display:block;margin-top:0.35rem;opacity:0.88;font-size:0.88em;line-height:1.35;">The prefix bundles transport, TLS version, SNI mode, GREASE-free cipher and extension counts, and ALPN; the colored boxes below expand each piece.</span></div>
 
 <div class="tcp-sig-example ja4-sig-hl">
 <div class="tcp-sig-part c1"><code>t</code><span class="tcp-sig-k">transport</span></div>
@@ -36,12 +36,12 @@ Huginn Net is based on JA4 (FoxIO-style) TLS fingerprinting, which encodes the s
 
 | Part | Role (JA4 client) |
 | ---- | ----------------- |
-| `t` / `q` / `d` | Transport: TLS over TCP (`t`, implemented), QUIC (`q`), or DTLS (`d`)—only `t` is parsed today. |
-| `13` | TLS version from ClientHello (GREASE stripped)—here TLS 1.3. |
+| `t` / `q` / `d` | Transport: TLS over TCP (`t`, implemented), QUIC (`q`), or DTLS (`d`). Only `t` is parsed today. |
+| `13` | TLS version from ClientHello (GREASE stripped). In this example, TLS 1.3. |
 | `d` / `i` | SNI style: hostname vs IP / no SNI. |
 | `15` · `16` | Counts of cipher suites and extensions (GREASE excluded). |
-| `h2` | ALPN signal (e.g. HTTP/2)—extra context JA3 did not encode. |
-| 12-char hashes | Truncated SHA-256 over **sorted** cipher list and over sorted extensions + signature algorithms—stable when order shuffles. |
+| `h2` | ALPN signal (for example HTTP/2). JA3 did not encode this. |
+| 12-char hashes | Truncated SHA-256 over the **sorted** cipher list, and over sorted extensions plus signature algorithms. The hash stays put when the order changes. |
 
 ## TLS Client
 
@@ -61,7 +61,7 @@ JA4_rs1: t13d1514h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,
 
 ### Stable fingerprints (`stable-v1`)
 
-Standard **JA4** hashes every non-GREASE extension in the ClientHello. Types that appear only on resumed or 0-RTT handshakes (notably **pre-shared key**) can split the key for the same browser—see [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) and [FoxIO-LLC/ja4#303](https://github.com/FoxIO-LLC/ja4/issues/303).
+Standard **JA4** hashes every non-GREASE extension in the ClientHello. Types that appear only on resumed or 0-RTT handshakes (notably **pre-shared key**) can split the key for the same browser. See [Is JA4 Now Obsolete?](https://www.ntop.org/is-ja4-now-obsolete/) and [FoxIO-LLC/ja4#303](https://github.com/FoxIO-LLC/ja4/issues/303).
 
 **JA4_s1** / **JA4_rs1** are **huginn-only** (`stable-v1`): same algorithm as JA4, but extension types in `S1_SESSION_EXTENSIONS` are removed before the `JA4_a` count and `JA4_c` hash. Official `JA4` / `JA4_r` / `JA4_o` / `JA4_ro` are unchanged. Full rationale, invariants, and curation rule: [JA4S1.md](https://github.com/biandratti/huginn-net/blob/master/huginn-net-tls/JA4S1.md).
 

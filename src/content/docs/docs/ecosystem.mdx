@@ -3,14 +3,14 @@ title: Ecosystem
 description: Huginn Net ecosystem of specialized crates for network protocol analysis.
 ---
 
-The **Huginn Net ecosystem** consists of **5 specialized Rust crates** designed for maximum flexibility and performance in network protocol analysis. Each crate can be used independently or combined to create comprehensive network monitoring solutions.
+Five crates. `huginn-net` calls the protocol crates. TCP and HTTP call `huginn-net-db` when you want a label from `p0f.fp`. TLS does not.
 
 ## Modular Architecture
 
 <div class="mod-arch">
   <div class="mod-arch__suite">
     <span class="mod-arch__name">huginn-net</span>
-    <span class="mod-arch__sub">Complete Suite</span>
+    <span class="mod-arch__sub">TCP, HTTP, TLS</span>
   </div>
   <div class="mod-arch__arrow">↓ Uses ↓</div>
   <div class="mod-arch__row not-content">
@@ -30,24 +30,21 @@ The **Huginn Net ecosystem** consists of **5 specialized Rust crates** designed 
   <div class="mod-arch__arrow">↓ TCP & HTTP use ↓</div>
   <div class="mod-arch__db">
     <span class="mod-arch__name">huginn-net-db</span>
-    <span class="mod-arch__sub">Database Engine</span>
+    <span class="mod-arch__sub">p0f signatures</span>
   </div>
 </div>
 
 ## Crates Overview
 
-### huginn-net - Complete Analysis Suite
+### huginn-net
 
-**Purpose:** Multi-protocol orchestrator that combines TCP, HTTP, and TLS analysis into a unified interface.
+Runs TCP, HTTP, and TLS in one `FingerprintResult`. Use it when you want more than one protocol.
 
-**Use when:** You need comprehensive network analysis across multiple protocols.
-
-All features are **opt-in**; use `full` for everything this version offers, or pick only what you consume:
+`full` enables `db` and every analysis this version ships. `db` already depends on `huginn-net-db`. Add that crate yourself only with `huginn-net-tcp` or `huginn-net-http`.
 
 ```toml
 [dependencies]
 huginn-net = { version = "{{huginn-net}}", features = ["full"] }
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
 Add `json` to serialize all output types with `serde_json`:
@@ -56,27 +53,20 @@ Add `json` to serialize all output types with `serde_json`:
 huginn-net = { version = "{{huginn-net}}", features = ["full", "json"] }
 ```
 
-**Key Features:**
+Each `tcp-*` / `http-*` feature adds a field on `FingerprintResult` and skips that parser when the feature is off. `tls-stable-v1` adds `JA4_s1` / `JA4_rs1`. `full` does not enable `huginn-net-http`'s `akamai` feature. That fingerprint is `Http2FingerprintExtractor`, called by you, not a field on `FingerprintResult`.
 
-- Unified API for all protocols
-- Automatic protocol detection
-- Comprehensive result aggregation
-- Live capture and PCAP analysis
-- End-to-end TLS parsing and JA4, plus HTTP/2 and Akamai-style fingerprints where applicable
-- Typed observable data access for custom fingerprinting (`ObservableTcp`, `ObservableHttpRequest/Response`, `ObservableTlsClient`)
-- Observation-only mode via `HuginnNet::new_observable` (no database required)
+Live capture and PCAP both go through the same analyzer. With `db` off, construct it with `HuginnNet::new_observable`. The raw signatures and JA4 are still there. OS, browser, and server labels are not.
 
-### huginn-net-tcp - TCP Analysis & OS Detection
+`ObservableTcp`, `ObservableHttpRequest`, `ObservableHttpResponse`, and `ObservableTlsClient` are the parsed fields if you match them yourself.
 
-**Purpose:** TCP fingerprinting and OS detection using p0f-style signatures.
+### huginn-net-tcp
 
-**Use when:** You only need TCP analysis, OS detection, MTU calculation, or uptime estimation.
+SYN, SYN+ACK, MTU, and uptime. OS labels need `huginn-net-db` with the `tcp` feature, passed in with `.with_matcher(...)`. Without a matcher you get the signature string and no OS name.
 
 ```toml
 [dependencies]
 huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["full"] }
-# Optional: only needed for OS fingerprint matching
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
+huginn-net-db  = { version = "{{huginn-net-db}}", features = ["tcp"] }
 ```
 
 | Feature | Description |
@@ -88,25 +78,16 @@ huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
 | `uptime` | Uptime estimation from TCP timestamps |
 | `json` | `serde::Serialize` on all output types |
 
-**Key Features:**
+Match tiers are `Specific`, `Generic`, and `Fuzzy`. See [Matching](../matching/). Parsed fields you can match yourself: `ObservableTcp`, `ObservableMtu`, `ObservableUptime`.
 
-- OS fingerprinting (Windows, Linux, macOS, etc.)
-- MTU detection and link type identification
-- System uptime calculation from TCP timestamps
-- Match tiers (`Specific` / `Generic` / `Fuzzy`) instead of a continuous score
-- Typed observable data (`ObservableTcp`, `ObservableMtu`, `ObservableUptime`) for custom fingerprints
+### huginn-net-http
 
-### huginn-net-http - HTTP Analysis & Browser Detection
-
-**Purpose:** HTTP request/response analysis for browser and web server identification.
-
-**Use when:** You only need HTTP analysis, browser detection, or web server identification.
+HTTP requests, HTTP responses, and Akamai HTTP/2. Browser and server labels need `huginn-net-db` with the `http` feature. Without a matcher you get the signature and no name.
 
 ```toml
 [dependencies]
 huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }
-# Optional: only needed for browser/server fingerprint matching
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
+huginn-net-db   = { version = "{{huginn-net-db}}", features = ["http"] }
 ```
 
 | Feature | Description |
@@ -117,24 +98,15 @@ huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
 | `akamai` | Standalone Akamai HTTP/2 fingerprint extractor (`Http2FingerprintExtractor`) |
 | `json` | `serde::Serialize` on all output types |
 
-**Key Features:**
+`akamai` builds the HTTP/2 fingerprint from SETTINGS, WINDOW_UPDATE, PRIORITY, and HEADERS. `Http2FingerprintExtractor` keeps pseudo-header order when TLS is terminated elsewhere. Parsed fields: `ObservableHttpRequest`, `ObservableHttpResponse`.
 
-- Browser detection (Chrome, Firefox, Safari, etc.)
-- Web server identification (nginx, Apache, IIS)
-- Language preference extraction
-- HTTP/1.x and HTTP/2 frame parsing
-- **Akamai HTTP/2 fingerprinting:** extract fingerprints from SETTINGS, WINDOW_UPDATE, PRIORITY, and HEADERS (Blackhat EU 2017 spec); the standalone `Http2FingerprintExtractor` preserves pseudo-header order for TLS-termination scenarios
-- Typed observable data (`ObservableHttpRequest`, `ObservableHttpResponse`) for custom fingerprints
+### huginn-net-tls
 
-### huginn-net-tls - JA4 TLS Client Fingerprinting
-
-**Purpose:** TLS ClientHello fingerprinting on **TCP** using the official JA4 specification (`t` prefix). QUIC and DTLS are on the roadmap.
-
-**Use when:** You only need TLS analysis, JA4 fingerprinting, or client identification.
+JA4 from a TLS ClientHello on TCP (`t` prefix). QUIC (`q`) and DTLS are not parsed. No database.
 
 ```toml
 [dependencies]
-# Core JA4 (no database needed — computed algorithmically)
+# Core JA4. Computed from the ClientHello, no database.
 huginn-net-tls = "{{huginn-net-tls}}"
 
 # With stable fingerprints (JA4_s1 / JA4_rs1) and everything this version offers
@@ -147,23 +119,13 @@ huginn-net-tls = { version = "{{huginn-net-tls}}", features = ["full"] }
 | `stable-v1` | Adds `JA4_s1` / `JA4_rs1` (huginn-only): JA4 minus `S1_SESSION_EXTENSIONS` so resumption does not split the key |
 | `json` | `serde::Serialize` on all output types |
 
-**Key Features:**
+Output is `JA4`, `JA4_r`, `JA4_o`, and `JA4_ro`, built with `tls-parser`. `stable-v1` adds `JA4_s1` / `JA4_rs1` ([JA4S1.md](https://github.com/biandratti/huginn-net/blob/master/huginn-net-tls/JA4S1.md)).
 
-- **TLS parsers:** ClientHello and record-level parsing (via `tls-parser`) for reliable JA4 inputs
-- JA4 fingerprinting (FoxIO specification, TCP) — `JA4`, `JA4_r`, `JA4_o`, `JA4_ro`
-- **JA4_s1 / JA4_rs1** — huginn stable variants; drop padding, session ticket, pre-shared key, and early data before hashing ([JA4S1.md](https://github.com/biandratti/huginn-net/blob/master/huginn-net-tls/JA4S1.md))
-- TLS 1.0-1.3 and SSL 2.0/3.0 support
-- GREASE filtering per RFC 8701
-- SNI and ALPN extraction
-- Typed observable data (`ObservableTlsClient`) for custom fingerprints
+Versions that are actually parsed: TLS 1.0–1.3 and SSL 3.0. The JA4 version token has an SSL 2.0 code (`s2`). Those handshakes are not parsed. GREASE values are dropped (RFC 8701). SNI and ALPN go into the prefix. The parsed ClientHello is `ObservableTlsClient`.
 
-### huginn-net-db - Database Parser & Matching Engine
+### huginn-net-db
 
-**Purpose:** P0f database parsing and signature matching engine.
-
-**Use when:** You use `huginn-net-tcp` or `huginn-net-http` standalone and want database-backed OS/browser matching.
-
-**Note:** When using the umbrella `huginn-net` crate, this is pulled in automatically through its `db` feature. You only need to depend on `huginn-net-db` directly for protocol-specific crate builds.
+Parses `p0f.fp` and implements the TCP and HTTP matchers. Depend on it when you use `huginn-net-tcp` or `huginn-net-http` on their own. `huginn-net` already pulls it in through `db`.
 
 ```toml
 # Both protocols
@@ -176,12 +138,7 @@ huginn-net-db = { version = "{{huginn-net-db}}", features = ["tcp"] }
 huginn-net-db = { version = "{{huginn-net-db}}", features = ["http"] }
 ```
 
-**Key Features:**
-
-- P0f signature database parsing
-- Gate-based matching: a field that does not fit rejects the signature
-- Match tiers: `Specific` / `Generic` / `Fuzzy` (TCP only); HTTP has no error budget
-- `SharedTcpSignatureMatcher` / `SharedHttpSignatureMatcher` for use with `.with_matcher(...)`
+A field that does not fit rejects the signature. Tiers are `Specific`, `Generic`, and `Fuzzy` (TCP only). HTTP hits are exact. Plug the matcher in with `SharedTcpSignatureMatcher` or `SharedHttpSignatureMatcher` and `.with_matcher(...)`. `Database` (both protocols in one type) exists only when `tcp` and `http` are both enabled.
 
 How labels and `Params` are produced is documented under [Matching](../matching/).
 
@@ -194,9 +151,9 @@ The version in each snippet is that crate’s current release on [crates.io](htt
 #### Decision Guide
 
 - **Need everything?** → Use `huginn-net`
-- **Only OS detection?** → Use `huginn-net-tcp`
-- **Only browser detection?** → Use `huginn-net-http`
+- **Only OS detection?** → Use `huginn-net-tcp` and `huginn-net-db`
+- **Only browser detection?** → Use `huginn-net-http` and `huginn-net-db`
 - **Only TLS analysis?** → Use `huginn-net-tls`
-- **Custom signatures?** → Use `huginn-net-db` directly
+- **Custom signatures?** → Use `huginn-net-db` together with `huginn-net-tcp` or `huginn-net-http`
 
 </div>

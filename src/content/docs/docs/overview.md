@@ -1,94 +1,87 @@
 ---
 title: Overview
-description: Introduction to passive fingerprinting with Huginn Net.
+description: Passive TCP, HTTP, and TLS fingerprinting in Rust.
 ---
 
-**Huginn Net** is a **modular ecosystem of Rust libraries** for **passive fingerprinting and analysis of multiple network protocols**, including **TCP**, **HTTP**, and **TLS**.  
-Inspired by p0f, JA4, and the Akamai HTTP/2 fingerprinting spec, Huginn Net extends passive OS fingerprinting, TLS fingerprinting, and HTTP/2 analysis to support modern detection standards and multi-protocol analysis.  
-The ecosystem consists of **5 specialized crates** that can be used independently or together, providing maximum flexibility for your network analysis needs.  
-It leverages [pnet](https://crates.io/crates/pnet), [pcap-file](https://crates.io/crates/pcap-file), and [tls-parser](https://crates.io/crates/tls-parser) to analyze raw packets and extract protocol-specific features for robust, non-intrusive network monitoring.  
-This ecosystem is under active development. Feedback and contributions welcome.
+Huginn Net fingerprints traffic you already have. It does not send probes.
 
-### Network Stack (OSI Model)
+## Live demo
 
-| Layer | Name              | Protocol / Feature | Example in Huginn Net                                      |
-| ----- | ----------------- | -------------------- | ---------------------------------------------------------- |
-| 7     | Application Layer | TLS (TCP)            | JA4 (FoxIO-style)                                          |
-| 7     | Application Layer | HTTP                 | HTTP/1.1 & HTTP/2, Headers, Cookies, Referer, User-Agent, Lang |
-| 4     | Transport Layer   | TCP                  | OS Fingerprinting (p0f-style)                              |
+[huginn-proxy.duckdns.org](https://huginn-proxy.duckdns.org/) shows the fingerprints of the browser that opens it. [huginn-proxy](https://github.com/biandratti/huginn-proxy) terminates TLS, collecting and parsing that visit with huginn-net.
 
-## Passive Fingerprinting Introduction
+TCP and HTTP follow the p0f v3 signature format (Michal Zalewski). TLS ClientHello on TCP follows [JA4](https://github.com/FoxIO-LLC/ja4) (FoxIO). The Akamai HTTP/2 string ([Black Hat EU 2017](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf)) is a separate call in `huginn-net-http` (`akamai` / `Http2FingerprintExtractor`). It is not a field of `FingerprintResult`, and `huginn-net` `full` does not turn that feature on.
 
-Passive fingerprinting is a technique that allows you to infer information about a remote host's operating system, network stack, and browser without sending any probes. By analyzing characteristics of incoming TCP packets (such as window size, TTL, and TCP options), HTTP requests and responses, and TLS handshake packets.
+There are five crates. `huginn-net` runs TCP, HTTP, and TLS in one analyzer. The other four each do one job: TCP, HTTP, TLS, or the p0f database. Every feature is opt-in (`default = []`). The `full` feature turns on everything that release ships.
 
-## Huginn Net Ecosystem
+Live capture needs `libpcap`. Reading a PCAP file does not.
 
-The Huginn Net ecosystem consists of 5 specialized crates:
+Parsing uses [pnet](https://crates.io/crates/pnet), [pcap-file](https://crates.io/crates/pcap-file), and [tls-parser](https://crates.io/crates/tls-parser).
 
-- **[huginn-net](https://crates.io/crates/huginn-net)** - Complete multi-protocol analysis suite
-- **[huginn-net-tcp](https://crates.io/crates/huginn-net-tcp)** - TCP fingerprinting & OS detection
-- **[huginn-net-http](https://crates.io/crates/huginn-net-http)** - HTTP analysis & browser detection
-- **[huginn-net-tls](https://crates.io/crates/huginn-net-tls)** - JA4 TLS client fingerprinting (TCP; optional `JA4_s1` / `JA4_rs1`)
-- **[huginn-net-db](https://crates.io/crates/huginn-net-db)** - P0f database parser & matching engine ([Matching](../matching/))
+## What you get from a packet
 
-For detailed information about each crate, see the [Ecosystem](../ecosystem/) documentation.
+| Layer | Protocol | Output |
+| ----- | -------- | ------ |
+| 4 | TCP SYN / SYN+ACK | OS label from `p0f.fp`, plus MTU and uptime when those features are on |
+| 7 | HTTP/1 and HTTP/2 | Browser or server label from `p0f.fp`. The Akamai string is computed separately (see [HTTP](../http/)) |
+| 7 | TLS ClientHello on TCP | JA4 (`t` prefix). QUIC and DTLS are not parsed |
 
-To get started with cargo, choose your approach:
+A label exists only when a signature in the bundled database fits. The file header records an upstream p0f database from 2012, label edits on 2025-06-01, and extra TCP SYN signatures on 2026-10-09. See [Matching](../matching/).
 
-#### Multi-Protocol Analysis
+The printed OS line is `name/family/variant` (`Windows/win/XP`). An empty flavor is `??`. No match prints `???`. The browser and server lines print `label.name` (`Firefox`, `nginx`). The flavor (`10.x or newer`, `1.x`) stays on the struct.
 
-All features are **opt-in**. Use `full` for everything, or pick only the analyses you consume:
+## Crates
+
+- **[huginn-net](https://crates.io/crates/huginn-net)**: TCP, HTTP, and TLS together. `Database` is re-exported when the `db` feature is on.
+- **[huginn-net-tcp](https://crates.io/crates/huginn-net-tcp)**: SYN, SYN+ACK, MTU, uptime. OS labels need `huginn-net-db`.
+- **[huginn-net-http](https://crates.io/crates/huginn-net-http)**: HTTP request and response, plus Akamai HTTP/2. Browser and server labels need `huginn-net-db`.
+- **[huginn-net-tls](https://crates.io/crates/huginn-net-tls)**: JA4 from the ClientHello. No database.
+- **[huginn-net-db](https://crates.io/crates/huginn-net-db)**: parses `p0f.fp` and matches TCP and HTTP signatures.
+
+Crate roles and feature flags are on the [Ecosystem](../ecosystem/) page. Short programs are on [Quick example](../quick-example/).
+
+## Cargo
+
+`huginn-net` with `full` already depends on `huginn-net-db` (the `db` feature is part of `full`). Add `huginn-net-db` yourself only when you use `huginn-net-tcp` or `huginn-net-http` on their own.
 
 ```toml
 [dependencies]
 huginn-net = { version = "{{huginn-net}}", features = ["full"] }
-huginn-net-db = { version = "{{huginn-net-db}}", features = ["full"] }
 ```
 
-#### Protocol-Specific Analysis
+TCP or HTTP alone, with labels:
 
 ```toml
 [dependencies]
-huginn-net-tcp  = { version = "{{huginn-net-tcp}}", features = ["full"] }   # TCP/OS fingerprinting only
-huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }  # HTTP analysis only
-huginn-net-tls  = { version = "{{huginn-net-tls}}", features = ["full"] }   # TLS/JA4 analysis only
+huginn-net-tcp = { version = "{{huginn-net-tcp}}", features = ["full"] }
+huginn-net-db  = { version = "{{huginn-net-db}}", features = ["tcp"] }
+```
+
+```toml
+[dependencies]
+huginn-net-http = { version = "{{huginn-net-http}}", features = ["full"] }
+huginn-net-db   = { version = "{{huginn-net-db}}", features = ["http"] }
+```
+
+TLS does not use the database:
+
+```toml
+[dependencies]
+huginn-net-tls = { version = "{{huginn-net-tls}}", features = ["full"] }
 ```
 
 The version in each snippet is that crate’s current release on [crates.io](https://crates.io/).
 
-### Why choose Huginn Net?
+Without `db`, `HuginnNet::new` is not compiled. Use `HuginnNet::new_observable`. You still get raw TCP and HTTP signatures and JA4. OS, browser, and server fields stay disabled.
 
-- No tshark or Wireshark - Fingerprints come from packets in-process. Live capture uses libpcap; nothing else sits in the pipeline.
-- Ahead of p0f - Each protocol is parsed on its own (TCP, HTTP, TLS), the figures are better, and capture can be parallelized
-- High performance - Disabled features cost zero at runtime
-- Type-safe architecture - Prevents entire classes of bugs at compile time
-- Comprehensive testing - Full unit and integration test coverage
-- Simple integration - A library you call from your own process
-- Multi-protocol support - TCP, HTTP/1.x, HTTP/2, and TLS analysis in one unified interface
-- Opt-in feature system - Enable only the analyses you consume
-- Optional packet filtering - Filter by port, IP address, or CIDR subnet to reduce processing overhead
-- Parallel processing - A simple interface to parallelize network processing
-- Extensible fingerprinting - Typed signatures, so you can build your own database and matching instead of p0f's
-- Active development - Continuously improved and maintained
+## What you can do with it
 
-### Use Cases
+You already have the packets. The library names what is in them. It does not scan hosts, and a label is not a verdict that the client is malicious.
 
-- Network Security Analysis - Identify devices, applications, and TLS clients without active scanning
-- Asset Discovery - Map network infrastructure and application stack passively and safely
-- Threat Detection - Detect hidden systems, suspicious TLS clients, and malicious applications
-- Application Monitoring - Track browser types, versions, and TLS capabilities across networks
-- Reverse proxy - [huginn-proxy](https://github.com/biandratti/huginn-proxy) terminates TLS and forwards JA4, HTTP/2 (Akamai), and TCP SYN fingerprints to backends as headers
-- Research & Forensics - Analyze traffic patterns, TLS usage, and improve security posture
-- Compliance Monitoring - Track device types, OS versions, and TLS configurations
-
-## Inspiration
-
-Library is heavily inspired by ideas from p0f, JA4 and Akamai.
-
-- **[p0f](https://github.com/p0f/p0f):** Passive OS fingerprinting tool that analyzes TCP/IP stack behavior to identify operating systems without sending any probes, follows the p0f v3 specification by Michal Zalewski.
-- **[JA4](https://github.com/FoxIO-LLC/ja4):** Modern TLS fingerprinting standard that provides a structured way to identify client software and detect anomalies in TLS handshakes, specification by FoxIO, LLC.
-- **[Akamai HTTP/2](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf):** HTTP/2 fingerprinting follows the Blackhat EU 2017 specification.
+- **A capture or a live interface.** `analyze_pcap`, or `analyze_network` on an interface you can read. Each SYN can get an OS label, each HTTP message a browser or server label, each ClientHello a JA4.
+- **One connection, two OS claims.** With `db` and `tcp-syn`, `UA/OS` compares the User-Agent to the SYN on that connection. `divergent` means they disagree, which is what you see when a proxy or NAT sits in the middle.
+- **Ethernet, DSL, or a tunnel.** The MTU label comes from the MSS. `1492` is `DSL` in the bundled file. Other sizes map to Ethernet, IPsec, or a VPN when the file has that value.
+- **An app that only sees HTTP.** A TLS terminator watches the client handshake and passes the fingerprints to the backend as headers. [huginn-proxy](https://github.com/biandratti/huginn-proxy) does this for the TCP SYN signature, JA4, and the Akamai HTTP/2 string. The library computes the values. The proxy writes the headers. The [live demo](https://huginn-proxy.duckdns.org/) is that proxy.
 
 ## License
 
-Licensed under the [MIT License](https://github.com/biandratti/huginn-net/blob/master/LICENSE-MIT) and [Apache 2.0 License](https://github.com/biandratti/huginn-net/blob/master/LICENSE-APACHE) for best adaptability to different use cases.
+[MIT](https://github.com/biandratti/huginn-net/blob/master/LICENSE-MIT) or [Apache 2.0](https://github.com/biandratti/huginn-net/blob/master/LICENSE-APACHE).

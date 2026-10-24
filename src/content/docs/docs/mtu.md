@@ -3,9 +3,7 @@ title: TCP MTU
 description: MTU analysis for TCP traffic and link type identification.
 ---
 
-**Huginn Net** supports MTU analysis for TCP traffic.  
-The Maximum Transmission Unit is the largest size of a packet (including headers) that can be sent over a network interface without requiring fragmentation.  
-Understanding the MTU can provide insights into the type of network link being used and its configuration.
+The MTU signature is the link-layer size implied by the TCP MSS option. PPPoE, IPsec, and some VPN stacks show up as a different MSS than Ethernet.
 
 ## MTU Signature
 
@@ -23,5 +21,5 @@ The format of the signatures in the [mtu] section is exceedingly simple, consist
 
 ## MTU Key Fields
 
-- **Link**: The networking technology type (DSL, Ethernet, PPPoE, etc.) matched from the database signature.
-- **MTU**: The Maximum Transmission Unit value detected from the TCP packet.
+- **Link**: The `[mtu]` label whose signature equals the calculated MTU. `1492` is `DSL` in the bundled file (with `1452` and `1454`). No match prints `???`.
+- **MTU**: The value taken from the TCP MSS option, in bytes.

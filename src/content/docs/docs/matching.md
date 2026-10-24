@@ -15,7 +15,13 @@ Matching follows p0f: **a field that does not fit rejects the signature**. There
 | No match | - | No signature passed the gates |
 | Disabled | - | No matcher was attached |
 
-The matcher only names what the signature file contains. The bundled `p0f.fp` last saw a real update in 2012, so modern stacks often land on a generic, a fuzzy TCP hit, or no label at all. For better labels, load a newer `p0f.fp` (`Database::from_str`, same format) instead of `load_default()`. Improving the algorithm cannot invent products that are not in the file.
+The matcher only names what the signature file contains. The bundled `p0f.fp` header is:
+
+- 2012: upstream p0f database. The HTTP sections are still that set, with later label edits.
+- 2025-06-01: Windows 10, Android, Mac OS X, and browser label updates.
+- 2026-10-09: extra TCP SYN signatures (iOS/macOS, Windows, Android, Linux, and Other).
+
+A stack with no fitting signature still lands on a generic, a fuzzy TCP hit, or no label. Load another file in the same format with `Database::from_str` (needs `huginn-net-db` features `tcp` and `http`) or `TcpDatabase::from_str` / `HttpDatabase::from_str`. Improving the algorithm cannot invent products that are not in the file.
 
 ## TCP
 
@@ -39,7 +45,7 @@ Only SYN and SYN+ACK emit a TCP OS label (not every ACK).
 
 HTTP has **no fuzzy tier**. A hit is always exact (`Specific` or `Generic`). `Params` may add `dishonest`, `anonymous`, or `generic`.
 
-`UA/OS` on requests compares the User-Agent to the OS seen on this connection's TCP SYN (`NotChecked` / `Consistent` / `Divergent`). That needs the umbrella crate (`huginn-net` with `db` and `tcp-syn`); without the SYN it stays `NotChecked`. `Divergent` is a NAT/proxy hint, not the same as `dishonest`.
+`UA/OS` on requests compares the User-Agent to the OS seen on this connection's TCP SYN. The enum is `NotChecked` / `Consistent` / `Divergent`. The printed line is `not checked (…)`, `consistent (os)`, or `divergent (ua=…, net=…)`. Reasons inside `not checked` are `no match`, `not userland app`, `no user-agent`, `dishonest`, `ua not in table`, `no source`, and `no observed os`. That comparison needs the umbrella crate (`huginn-net` with `db` and `tcp-syn`); without the SYN it stays `not checked`. `Divergent` is a NAT/proxy hint, not the same as `dishonest`.
 
 ## Without a matcher
 
