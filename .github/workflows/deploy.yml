@@ -24,7 +24,7 @@ jobs:
         uses: withastro/action@v3
         with:
           path: .
-          node-version: 22
+          node-version: 22.23.4
 
   deploy:
     needs: build
