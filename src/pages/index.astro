@@ -6,6 +6,34 @@ const docsOverview = `${base}docs/overview/`;
 const github = 'https://github.com/biandratti/huginn-net';
 const licenseMit = `${github}/blob/master/LICENSE-MIT`;
 const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
+const demo = 'https://huginn-proxy.duckdns.org/';
+const canonical = 'https://biandratti.github.io/huginn-net/';
+const description =
+  'Passive fingerprinting in Rust for TCP (p0f), HTTP, and TLS (JA4). Read a PCAP or capture live traffic. No probes.';
+const fullSnippet = `[dependencies]
+huginn-net = { version = "<span class="huginn_net_version">…</span>", features = ["full"] }`;
+const tcpSnippet = `[dependencies]
+huginn-net-tcp = { version = "<span class="huginn_net_tcp_version">…</span>", features = ["full"] }
+huginn-net-db = { version = "<span class="huginn_net_db_version">…</span>", features = ["tcp"] }`;
+const httpSnippet = `[dependencies]
+huginn-net-http = { version = "<span class="huginn_net_http_version">…</span>", features = ["full"] }
+huginn-net-db = { version = "<span class="huginn_net_db_version">…</span>", features = ["http"] }`;
+const tlsSnippet = `[dependencies]
+huginn-net-tls = { version = "<span class="huginn_net_tls_version">…</span>", features = ["full"] }`;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareSourceCode',
+  name: 'Huginn Net',
+  description,
+  url: canonical,
+  codeRepository: github,
+  programmingLanguage: 'Rust',
+  license: licenseMit,
+  author: {
+    '@type': 'Person',
+    name: 'Maximiliano Biandratti',
+  },
+};
 ---
 
 <!DOCTYPE html>
@@ -13,14 +41,23 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Huginn Net: Multi-Protocol Passive Fingerprinting · A Rust library for passive network analysis</title>
-    <meta
-      name="description"
-      content="A Rust library for passive fingerprinting of TCP, HTTP, and TLS traffic"
-    />
+    <title>Huginn Net · Passive TCP, HTTP, and TLS fingerprinting</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Huginn Net" />
+    <meta property="og:title" content="Huginn Net · Passive TCP, HTTP, and TLS fingerprinting" />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content="https://raw.githubusercontent.com/biandratti/huginn-net/master/huginn-net.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Huginn Net · Passive TCP, HTTP, and TLS fingerprinting" />
+    <meta name="twitter:description" content={description} />
     <link rel="icon" href={`${base}favicon.ico`} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <script is:inline>
-      const crates = ['huginn-net', 'huginn-net-tcp', 'huginn-net-http', 'huginn-net-tls'];
+      const crates = ['huginn-net', 'huginn-net-tcp', 'huginn-net-http', 'huginn-net-tls', 'huginn-net-db'];
       crates.forEach((crateName) => {
         fetch(`https://crates.io/api/v1/crates/${crateName}`)
           .then((r) => r.json())
@@ -59,6 +96,7 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
             </p>
             <div class="hp-actions">
               <a class="hp-btn hp-btn--primary" href={docsOverview}>Documentation</a>
+              <a class="hp-btn hp-btn--ghost" href={demo}>Live demo</a>
               <a class="hp-btn hp-btn--ghost" href={github}>View on GitHub</a>
             </div>
           </div>
@@ -183,14 +221,12 @@ const licenseApache = `${github}/blob/master/LICENSE-APACHE`;
         <p><strong>Choose your approach:</strong> Use the complete suite or individual protocol crates.</p>
         <h3>Multi-Protocol Analysis</h3>
         <p>For complete network analysis (TCP + HTTP + TLS):</p>
-        <pre class="hp-code"><code>[dependencies]
-huginn-net = "<span class="huginn_net_version">…</span>"</code></pre>
+        <pre class="hp-code"><code set:html={fullSnippet} /></pre>
         <h3>Protocol-Specific Analysis</h3>
-        <p>For targeted analysis with better performance:</p>
-        <pre class="hp-code"><code>[dependencies]
-huginn-net-tcp = "<span class="huginn_net_tcp_version">…</span>"   # TCP/OS fingerprinting only
-huginn-net-http = "<span class="huginn_net_http_version">…</span>"  # HTTP analysis only
-huginn-net-tls = "<span class="huginn_net_tls_version">…</span>"   # TLS/JA4 analysis only</code></pre>
+        <p>Pick one. OS and browser labels need <code>huginn-net-db</code>. JA4 does not.</p>
+        <pre class="hp-code"><code set:html={tcpSnippet} /></pre>
+        <pre class="hp-code"><code set:html={httpSnippet} /></pre>
+        <pre class="hp-code"><code set:html={tlsSnippet} /></pre>
         <p>For changes, refer to the <a href="https://github.com/biandratti/huginn-net/releases">release notes</a>.</p>
       </section>
 

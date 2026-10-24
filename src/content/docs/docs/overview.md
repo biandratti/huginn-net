@@ -1,13 +1,13 @@
 ---
-title: Overview
-description: Passive TCP, HTTP, and TLS fingerprinting in Rust.
+title: Passive TCP, HTTP, and TLS fingerprinting
+description: Rust library for passive fingerprinting. TCP OS labels (p0f), HTTP browser and server labels, and JA4. PCAP or live capture, no probes.
 ---
 
 Huginn Net fingerprints traffic you already have. It does not send probes.
 
 ## Live demo
 
-[huginn-proxy.duckdns.org](https://huginn-proxy.duckdns.org/) shows the fingerprints of the browser that opens it. [huginn-proxy](https://github.com/biandratti/huginn-proxy) terminates TLS, collecting and parsing that visit with huginn-net.
+The [live demo](https://huginn-proxy.duckdns.org/) shows the fingerprints of the browser that opens it. [huginn-proxy](https://github.com/biandratti/huginn-proxy) terminates TLS, collecting and parsing that visit with huginn-net.
 
 TCP and HTTP follow the p0f v3 signature format (Michal Zalewski). TLS ClientHello on TCP follows [JA4](https://github.com/FoxIO-LLC/ja4) (FoxIO). The Akamai HTTP/2 string ([Black Hat EU 2017](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf)) is a separate call in `huginn-net-http` (`akamai` / `Http2FingerprintExtractor`). It is not a field of `FingerprintResult`, and `huginn-net` `full` does not turn that feature on.
 

@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import { unified } from '@astrojs/markdown-remark';
+import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 
 const site = 'https://biandratti.github.io';
@@ -25,6 +26,7 @@ export default defineConfig({
     },
   },
   integrations: [
+    sitemap(),
     starlight({
       title: 'Huginn Net',
       description:
