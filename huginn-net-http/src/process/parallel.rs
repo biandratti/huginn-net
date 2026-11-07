@@ -30,6 +30,48 @@ pub type SharedHttpMatcher = Arc<dyn HttpMatcher + Send + Sync>;
 /// [`crate::HuginnNetHttp`]. Mirrors [`SharedHttpMatcher`].
 pub type SharedObservedOsSource = Arc<dyn ObservedOsSource + Send + Sync>;
 
+/// Optional per-worker state beyond p0f HTTP (e.g. the key log tracker).
+#[derive(Default)]
+pub(crate) struct WorkerExtras {
+    #[cfg(feature = "akamai-keylog")]
+    pub(crate) keylog: Option<crate::tls_keylog::KeylogTracker>,
+}
+
+impl WorkerExtras {
+    /// State for one worker: shares the key log store and counters, own connection table.
+    fn for_worker(&self) -> Self {
+        Self {
+            #[cfg(feature = "akamai-keylog")]
+            keylog: self
+                .keylog
+                .as_ref()
+                .map(crate::tls_keylog::KeylogTracker::for_worker),
+        }
+    }
+
+    /// Results of connections that completed while waiting (late key log secrets).
+    fn sweep(&mut self, force: bool) -> Vec<HttpAnalysisResult> {
+        #[cfg(feature = "akamai-keylog")]
+        if let Some(keylog) = self.keylog.as_mut() {
+            let outputs = if force {
+                keylog.sweep(true)
+            } else {
+                keylog.sweep_due()
+            };
+            return outputs
+                .into_iter()
+                .map(|out| {
+                    let mut result = HttpAnalysisResult::empty();
+                    result.http_akamai = Some(out);
+                    result
+                })
+                .collect();
+        }
+        let _ = force;
+        Vec::new()
+    }
+}
+
 /// Worker configuration parameters
 struct WorkerConfig {
     batch_size: usize,
@@ -103,6 +145,34 @@ impl WorkerPool {
         max_connections: usize,
         filter_config: Option<FilterConfig>,
     ) -> Result<Arc<Self>, HuginnNetHttpError> {
+        Self::new_with_extras(
+            num_workers,
+            queue_size,
+            batch_size,
+            timeout_ms,
+            result_sender,
+            matcher,
+            os_source,
+            max_connections,
+            filter_config,
+            WorkerExtras::default(),
+        )
+    }
+
+    /// Like [`Self::new`], with optional extra per-worker state.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new_with_extras(
+        num_workers: usize,
+        queue_size: usize,
+        batch_size: usize,
+        timeout_ms: u64,
+        result_sender: std::sync::mpsc::Sender<HttpAnalysisResult>,
+        matcher: Option<SharedHttpMatcher>,
+        os_source: Option<SharedObservedOsSource>,
+        max_connections: usize,
+        filter_config: Option<FilterConfig>,
+        extras: WorkerExtras,
+    ) -> Result<Arc<Self>, HuginnNetHttpError> {
         let num_workers_nz = std::num::NonZeroUsize::new(num_workers).ok_or_else(|| {
             HuginnNetHttpError::Misconfiguration("Worker count must be at least 1".to_string())
         })?;
@@ -123,6 +193,7 @@ impl WorkerPool {
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
             let worker_filter = filter_config.clone();
             let dropped_clone = Arc::clone(dropped_slot);
+            let worker_extras = extras.for_worker();
 
             thread::Builder::new()
                 .name(format!("http-worker-{worker_id}"))
@@ -137,6 +208,7 @@ impl WorkerPool {
                         shutdown_flag_clone,
                         WorkerConfig { batch_size, timeout_ms, max_connections },
                         worker_filter,
+                        worker_extras,
                     )
                 })
                 .map_err(|e| {
@@ -171,6 +243,7 @@ impl WorkerPool {
         shutdown_flag: Arc<AtomicBool>,
         config: WorkerConfig,
         filter_config: Option<FilterConfig>,
+        mut extras: WorkerExtras,
     ) {
         use crossbeam_channel::RecvTimeoutError;
         use std::time::Duration;
@@ -182,62 +255,74 @@ impl WorkerPool {
         let timeout = Duration::from_millis(config.timeout_ms);
         let mut batch = Vec::with_capacity(config.batch_size);
 
+        let send = |result: HttpAnalysisResult| result_sender.send(result).is_ok();
+
         loop {
-            if shutdown_flag.load(Ordering::Relaxed) {
-                debug!("HTTP worker {} received shutdown signal", worker_id);
-                break;
-            }
-
-            match rx.recv_timeout(timeout) {
-                Ok(packet) => {
-                    batch.push(packet);
-
-                    while batch.len() < config.batch_size {
-                        match rx.try_recv() {
-                            Ok(packet) => batch.push(packet),
-                            Err(_) => break,
-                        }
-                    }
-
-                    let matcher_ref: Option<&dyn HttpMatcher> =
-                        matcher.as_deref().map(|m| m as &dyn HttpMatcher);
-                    let os_source_ref: Option<&dyn ObservedOsSource> =
-                        os_source.as_deref().map(|s| s as &dyn ObservedOsSource);
-                    for packet in batch.drain(..) {
-                        match Self::process_packet(
-                            &packet,
-                            &mut http_flows,
-                            &http_processors,
-                            matcher_ref,
-                            os_source_ref,
-                            filter_config.as_ref(),
-                        ) {
-                            Ok(result) => {
-                                if result_sender.send(result).is_err() {
-                                    debug!("HTTP worker {} result channel closed", worker_id);
-                                    return;
-                                }
-                            }
-                            Err(_) => {
-                                // Packet processing error inside this worker. Feed it into the
-                                // per-worker drop counter so it is visible via `PoolStats`.
-                                // (See also `dispatch()` for queue-overflow drops.)
-                                dropped.fetch_add(1, Ordering::Relaxed);
-                            }
-                        }
-                    }
-                }
-                Err(RecvTimeoutError::Timeout) => {
-                    if shutdown_flag.load(Ordering::Relaxed) {
-                        debug!("HTTP worker {} received shutdown signal", worker_id);
-                        break;
-                    }
-                    continue;
-                }
+            let packet = match rx.recv_timeout(timeout) {
+                Ok(packet) => Some(packet),
+                Err(RecvTimeoutError::Timeout) => None,
                 Err(RecvTimeoutError::Disconnected) => {
                     debug!("HTTP worker {} channel disconnected", worker_id);
                     break;
                 }
+            };
+
+            if let Some(packet) = packet {
+                batch.push(packet);
+                while batch.len() < config.batch_size {
+                    match rx.try_recv() {
+                        Ok(packet) => batch.push(packet),
+                        Err(_) => break,
+                    }
+                }
+
+                let matcher_ref: Option<&dyn HttpMatcher> =
+                    matcher.as_deref().map(|m| m as &dyn HttpMatcher);
+                let os_source_ref: Option<&dyn ObservedOsSource> =
+                    os_source.as_deref().map(|s| s as &dyn ObservedOsSource);
+                for packet in batch.drain(..) {
+                    match Self::process_packet(
+                        &packet,
+                        &mut http_flows,
+                        &http_processors,
+                        matcher_ref,
+                        os_source_ref,
+                        filter_config.as_ref(),
+                        &mut extras,
+                    ) {
+                        Ok(result) => {
+                            if !send(result) {
+                                debug!("HTTP worker {} result channel closed", worker_id);
+                                return;
+                            }
+                        }
+                        Err(_) => {
+                            // Packet processing error inside this worker. Feed it into the
+                            // per-worker drop counter so it is visible via `PoolStats`.
+                            // (See also `dispatch()` for queue-overflow drops.)
+                            dropped.fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                }
+            }
+
+            for result in extras.sweep(false) {
+                if !send(result) {
+                    return;
+                }
+            }
+
+            // Stop once shutdown was requested and every queued packet was processed.
+            if shutdown_flag.load(Ordering::Relaxed) && rx.is_empty() {
+                debug!("HTTP worker {} received shutdown signal", worker_id);
+                break;
+            }
+        }
+
+        // Connections still waiting for a key log secret can't complete any more.
+        for result in extras.sweep(true) {
+            if !send(result) {
+                break;
             }
         }
 
@@ -251,7 +336,10 @@ impl WorkerPool {
         matcher: Option<&dyn HttpMatcher>,
         os_source: Option<&dyn ObservedOsSource>,
         filter: Option<&FilterConfig>,
+        extras: &mut WorkerExtras,
     ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
+        #[cfg(not(feature = "akamai-keylog"))]
+        let _ = &extras;
         if let Some(filter_cfg) = filter {
             if !raw_filter::apply(packet, filter_cfg) {
                 debug!("Filtered out packet before parsing");
@@ -264,10 +352,32 @@ impl WorkerPool {
 
         match parse_packet(packet) {
             IpPacket::Ipv4(ipv4) => {
-                process::process_ipv4_packet(&ipv4, http_flows, http_processors, matcher, os_source)
+                #[cfg(feature = "akamai-keylog")]
+                let akamai = extras.keylog.as_mut().and_then(|k| k.process_ipv4(&ipv4));
+                let result = process::process_ipv4_packet(
+                    &ipv4,
+                    http_flows,
+                    http_processors,
+                    matcher,
+                    os_source,
+                );
+                #[cfg(feature = "akamai-keylog")]
+                let result = process::merge_keylog_akamai(result, akamai);
+                result
             }
             IpPacket::Ipv6(ipv6) => {
-                process::process_ipv6_packet(&ipv6, http_flows, http_processors, matcher, os_source)
+                #[cfg(feature = "akamai-keylog")]
+                let akamai = extras.keylog.as_mut().and_then(|k| k.process_ipv6(&ipv6));
+                let result = process::process_ipv6_packet(
+                    &ipv6,
+                    http_flows,
+                    http_processors,
+                    matcher,
+                    os_source,
+                );
+                #[cfg(feature = "akamai-keylog")]
+                let result = process::merge_keylog_akamai(result, akamai);
+                result
             }
             IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }

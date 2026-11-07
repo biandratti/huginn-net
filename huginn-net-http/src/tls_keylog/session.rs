@@ -1,5 +1,5 @@
-//! Per-connection state machine: reassemble → read handshake → wait for secret → decrypt the
-//! start of the client stream → Akamai fingerprint.
+//! Per-connection state machine: reassemble -> read handshake -> wait for secret -> decrypt the
+//! start of the client stream -> Akamai fingerprint.
 
 use super::handshake::{ServerHelloInfo, ServerHelloScan, parse_client_hello, parse_server_hello};
 use super::reassembly::StreamReassembler;

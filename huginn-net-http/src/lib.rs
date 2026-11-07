@@ -156,6 +156,29 @@ pub mod http1_process {
     pub use crate::http1::process::*;
 }
 
+/// Internals of the key log pipeline, exposed only for the integration tests and fuzz
+/// targets. Not part of the public API and may change in any release.
+#[cfg(feature = "akamai-keylog")]
+#[doc(hidden)]
+pub mod keylog_internals {
+    pub use crate::akamai::pipeline::{AccumulatorError, AkamaiAccumulator};
+    pub use crate::tls_keylog::follow::{FollowHandle, LineSplitter, load_file};
+    pub use crate::tls_keylog::handshake::{
+        HRR_RANDOM, HS_CLIENT_HELLO, HS_SERVER_HELLO, HandshakeError, ServerHelloInfo,
+        ServerHelloScan, parse_client_hello, parse_server_hello,
+    };
+    pub use crate::tls_keylog::reassembly::{OverLimit, StreamReassembler};
+    pub use crate::tls_keylog::record::{
+        AeadAlg, CT_ALERT, CT_APPLICATION_DATA, CT_CHANGE_CIPHER_SPEC, CT_HANDSHAKE, CipherSuite,
+        MAX_RECORD_PAYLOAD, RawRecord, RecordDecryptor, RecordError, split_records,
+    };
+    pub use crate::tls_keylog::schedule::{
+        HashAlg, KeyScheduleError, TrafficKeys, hkdf_expand_label, tls12_client_keys, tls12_prf,
+        tls13_traffic_keys,
+    };
+    pub use crate::tls_keylog::store::{MAX_LINE_LEN, SecretKinds};
+}
+
 pub mod http2_parser {
     pub use crate::http2::frames::*;
     pub use crate::http2::parser::*;

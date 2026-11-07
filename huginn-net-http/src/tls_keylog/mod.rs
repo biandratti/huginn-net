@@ -5,7 +5,7 @@
 //! decrypts the start of each client stream, and emits one [`crate::AkamaiOutput`] per
 //! connection. Decrypted bytes are only fed to the Akamai fingerprint and are never exposed.
 
-mod follow;
+pub(crate) mod follow;
 pub(crate) mod handshake;
 pub(crate) mod reassembly;
 pub(crate) mod record;
@@ -68,21 +68,21 @@ impl KeylogConfig {
         self
     }
 
-    /// Client bytes buffered per connection. Must be ≥ 16 KiB.
+    /// Client bytes buffered per connection. Must be >= 16 KiB.
     #[must_use]
     pub fn max_client_buffer(mut self, bytes: usize) -> Self {
         self.max_client_buffer = bytes;
         self
     }
 
-    /// Server bytes buffered per connection (only the ServerHello is needed). Must be ≥ 4 KiB.
+    /// Server bytes buffered per connection (only the ServerHello is needed). Must be >= 4 KiB.
     #[must_use]
     pub fn max_server_buffer(mut self, bytes: usize) -> Self {
         self.max_server_buffer = bytes;
         self
     }
 
-    /// Maximum connections kept in the key log store (oldest evicted first). Must be ≥ 1.
+    /// Maximum connections kept in the key log store (oldest evicted first). Must be >= 1.
     #[must_use]
     pub fn max_entries(mut self, entries: usize) -> Self {
         self.max_entries = entries;

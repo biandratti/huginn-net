@@ -75,6 +75,29 @@ pub struct FingerprintResult {
 }
 
 impl FingerprintResult {
+    /// A result with every field empty.
+    #[cfg(feature = "http-akamai-keylog")]
+    pub(crate) fn empty() -> Self {
+        Self {
+            #[cfg(feature = "tcp-syn")]
+            tcp_syn: None,
+            #[cfg(feature = "tcp-syn-ack")]
+            tcp_syn_ack: None,
+            #[cfg(feature = "tcp-mtu")]
+            tcp_mtu: None,
+            #[cfg(feature = "tcp-uptime")]
+            tcp_client_uptime: None,
+            #[cfg(feature = "tcp-uptime")]
+            tcp_server_uptime: None,
+            #[cfg(feature = "http-p0f-request")]
+            http_request: None,
+            #[cfg(feature = "http-p0f-response")]
+            http_response: None,
+            http_akamai: None,
+            tls_client: None,
+        }
+    }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         #[cfg(feature = "tcp-syn")]

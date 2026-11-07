@@ -102,6 +102,8 @@ pub use huginn_net_http::{
 
 #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
 pub use huginn_net_http::{AkamaiOutput, AkamaiTransport};
+#[cfg(feature = "http-akamai-keylog")]
+pub use huginn_net_http::{KeyLogStore, KeylogConfig, KeylogSource, KeylogStats};
 
 pub use huginn_net_tls::ObservableTlsClient;
 pub use huginn_net_tls::output::TlsClientOutput;

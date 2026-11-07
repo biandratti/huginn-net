@@ -1,77 +1,17 @@
-//! End-to-end: captured HTTP/2-over-TLS + key log → one Akamai result per connection.
+//! End-to-end: captured HTTP/2-over-TLS + key log -> one Akamai result per connection.
 //!
 //! Fixtures come from `scripts/gen-akamai-fixtures.py` (real OpenSSL handshakes, synthetic
 //! client profiles); the expected fingerprints are computed by the generator from the frames
 //! it sent, independently of huginn's decryption code.
 
+use super::pcap_util::{Snapshot, keys_config, pcap_dir, run, scratch_dir, snapshot};
 use huginn_net_http::{
     AkamaiOutput, AkamaiTransport, HttpAnalysisResult, HuginnNetHttp, KeylogConfig, KeylogSource,
-    KeylogStats, TlsVersion,
+    TlsVersion,
 };
-use serde::Deserialize;
-use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
-#[derive(Deserialize)]
-struct Snapshot {
-    pcap: String,
-    keys: Option<String>,
-    connections: Vec<Expected>,
-    not_http2: u64,
-}
-
-#[derive(Deserialize)]
-struct Expected {
-    source: Endpoint,
-    destination: Endpoint,
-    tls_version: Option<String>,
-    cipher_suite: Option<u16>,
-    fingerprint: String,
-    hash: String,
-}
-
-#[derive(Deserialize)]
-struct Endpoint {
-    ip: String,
-    port: u16,
-}
-
-fn snapshot(name: &str) -> Snapshot {
-    let path = format!("tests/snapshots/{name}.pcap.json");
-    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
-    serde_json::from_str(&text).unwrap_or_else(|e| panic!("parse {path}: {e}"))
-}
-
-fn pcap_dir() -> PathBuf {
-    Path::new("..").join("pcap")
-}
-
-fn run(pcap: &str, keylog: Option<KeylogConfig>) -> (Vec<AkamaiOutput>, KeylogStats) {
-    let mut analyzer = HuginnNetHttp::new(1000);
-    if let Some(config) = keylog {
-        analyzer = analyzer
-            .with_keylog(config)
-            .unwrap_or_else(|e| panic!("with_keylog: {e}"));
-    }
-    let (tx, rx) = mpsc::channel::<HttpAnalysisResult>();
-    let path = pcap_dir().join(pcap);
-    let path = path.to_str().unwrap_or_else(|| panic!("non-UTF-8 path"));
-    analyzer
-        .analyze_pcap(path, tx, None)
-        .unwrap_or_else(|e| panic!("analyze_pcap: {e}"));
-    let outputs = rx.try_iter().filter_map(|r| r.http_akamai).collect();
-    (outputs, analyzer.keylog_stats())
-}
-
-fn keys_config(snap: &Snapshot) -> KeylogConfig {
-    let keys = snap
-        .keys
-        .as_deref()
-        .unwrap_or_else(|| panic!("fixture has no key log"));
-    KeylogConfig::new(KeylogSource::File(pcap_dir().join(keys)))
-}
-
-fn assert_matches(outputs: &[AkamaiOutput], snap: &Snapshot) {
+pub fn assert_matches(outputs: &[AkamaiOutput], snap: &Snapshot) {
     assert_eq!(
         outputs.len(),
         snap.connections.len(),
@@ -104,7 +44,7 @@ fn assert_matches(outputs: &[AkamaiOutput], snap: &Snapshot) {
     }
 }
 
-const HTTP2_FIXTURES: &[&str] = &[
+pub const HTTP2_FIXTURES: &[&str] = &[
     "akamai-tls13-aes128-chrome",
     "akamai-tls13-aes256-firefox",
     "akamai-tls13-chacha-curl",
@@ -119,7 +59,7 @@ const HTTP2_FIXTURES: &[&str] = &[
 fn every_suite_and_version_matches_the_snapshot() {
     for name in HTTP2_FIXTURES {
         let snap = snapshot(name);
-        let (outputs, stats) = run(&snap.pcap, Some(keys_config(&snap)));
+        let (outputs, stats) = run(&pcap_dir().join(&snap.pcap), Some(keys_config(&snap)));
         assert_matches(&outputs, &snap);
         assert_eq!(stats.decrypted, u64::try_from(snap.connections.len()).unwrap_or(0), "{name}");
         assert_eq!(stats.auth_failed + stats.malformed + stats.reassembly, 0, "{name}: {stats:?}");
@@ -129,7 +69,7 @@ fn every_suite_and_version_matches_the_snapshot() {
 #[test]
 fn without_a_key_log_there_are_no_akamai_results() {
     let snap = snapshot("akamai-tls13-aes128-chrome");
-    let (outputs, _) = run(&snap.pcap, None);
+    let (outputs, _) = run(&pcap_dir().join(&snap.pcap), None);
     assert!(outputs.is_empty());
 }
 
@@ -149,12 +89,12 @@ fn connections_missing_from_the_key_log_count_as_no_secret() {
         .filter(|l| l.contains(&first_random))
         .map(|l| format!("{l}\n"))
         .collect();
-    let dir = std::env::temp_dir().join(format!("huginn-partial-keys-{}", std::process::id()));
-    let _ = std::fs::create_dir_all(&dir);
+    let dir = scratch_dir("partial-keys");
     let path = dir.join("partial.keys");
     std::fs::write(&path, partial).unwrap_or_else(|e| panic!("write: {e}"));
 
-    let (outputs, stats) = run(&snap.pcap, Some(KeylogConfig::new(KeylogSource::File(path))));
+    let (outputs, stats) =
+        run(&pcap_dir().join(&snap.pcap), Some(KeylogConfig::new(KeylogSource::File(path))));
     assert_eq!(outputs.len(), 1, "only the keyed connection is fingerprinted");
     assert_eq!(stats.decrypted, 1);
     assert_eq!(stats.no_secret, 1);
@@ -171,11 +111,11 @@ fn tls13_without_handshake_secret_uses_trial_alignment() {
         .filter(|l| l.starts_with("CLIENT_TRAFFIC_SECRET_0"))
         .map(|l| format!("{l}\n"))
         .collect();
-    let dir = std::env::temp_dir().join(format!("huginn-app-only-{}", std::process::id()));
-    let _ = std::fs::create_dir_all(&dir);
+    let dir = scratch_dir("app-only");
     let path = dir.join("app.keys");
     std::fs::write(&path, app_only).unwrap_or_else(|e| panic!("write: {e}"));
-    let (outputs, _) = run(&snap.pcap, Some(KeylogConfig::new(KeylogSource::File(path))));
+    let (outputs, _) =
+        run(&pcap_dir().join(&snap.pcap), Some(KeylogConfig::new(KeylogSource::File(path))));
     assert_matches(&outputs, &snap);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -183,7 +123,34 @@ fn tls13_without_handshake_secret_uses_trial_alignment() {
 #[test]
 fn http11_over_tls_is_not_http2() {
     let snap = snapshot("akamai-tls13-http11");
-    let (outputs, stats) = run(&snap.pcap, Some(keys_config(&snap)));
+    let (outputs, stats) = run(&pcap_dir().join(&snap.pcap), Some(keys_config(&snap)));
     assert!(outputs.is_empty());
     assert_eq!(stats.not_http2, snap.not_http2);
+}
+
+#[test]
+fn parallel_mode_matches_the_snapshot() {
+    for name in ["akamai-tls13-resume", "akamai-tls12-aes256-prio"] {
+        let snap = snapshot(name);
+        let mut analyzer = HuginnNetHttp::new(1000)
+            .with_keylog(keys_config(&snap))
+            .unwrap_or_else(|e| panic!("with_keylog: {e}"))
+            .with_parallel(2, 100, 16, 10);
+        let (tx, rx) = mpsc::channel::<HttpAnalysisResult>();
+        analyzer
+            .init_pool(tx.clone())
+            .unwrap_or_else(|e| panic!("init_pool: {e}"));
+        let path = pcap_dir().join(&snap.pcap);
+        let path = path.to_str().unwrap_or_else(|| panic!("non UTF-8 path"));
+        analyzer
+            .analyze_pcap(path, tx, None)
+            .unwrap_or_else(|e| panic!("analyze_pcap: {e}"));
+        // The channel closes once every worker has drained its queue and exited.
+        let outputs: Vec<AkamaiOutput> = rx.iter().filter_map(|r| r.http_akamai).collect();
+        assert_matches(&outputs, &snap);
+        assert_eq!(
+            analyzer.keylog_stats().decrypted,
+            u64::try_from(snap.connections.len()).unwrap_or(0)
+        );
+    }
 }

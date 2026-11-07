@@ -213,7 +213,11 @@ impl HuginnNetHttp {
         result_tx: Sender<HttpAnalysisResult>,
     ) -> Result<(), HuginnNetHttpError> {
         if let Some(config) = &self.parallel_config {
-            let pool = WorkerPool::new(
+            let extras = crate::process::parallel::WorkerExtras {
+                #[cfg(feature = "akamai-keylog")]
+                keylog: self.keylog.as_ref().map(KeylogTracker::for_worker),
+            };
+            let pool = WorkerPool::new_with_extras(
                 config.num_workers,
                 config.queue_size,
                 config.batch_size,
@@ -223,6 +227,7 @@ impl HuginnNetHttp {
                 self.os_source.clone(),
                 self.max_connections,
                 self.filter_config.clone(),
+                extras,
             )?;
             self.worker_pool = Some(pool);
             Ok(())

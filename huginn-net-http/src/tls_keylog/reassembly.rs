@@ -9,9 +9,9 @@ use std::collections::BTreeMap;
 
 /// The direction buffered more than its limit, or a segment lies too far ahead.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct OverLimit;
+pub struct OverLimit;
 
-pub(crate) struct StreamReassembler {
+pub struct StreamReassembler {
     /// Sequence number of the first payload byte.
     base: Option<u32>,
     /// Relative offset just past the last contiguous byte (end of `ready`).
@@ -25,7 +25,7 @@ pub(crate) struct StreamReassembler {
 }
 
 impl StreamReassembler {
-    pub(crate) fn new(limit: usize) -> Self {
+    pub fn new(limit: usize) -> Self {
         Self {
             base: None,
             next: 0,
@@ -37,15 +37,14 @@ impl StreamReassembler {
     }
 
     /// Fixes the stream start from the SYN: the first payload byte is `isn + 1`.
-    #[cfg(test)]
-    pub(crate) fn set_isn(&mut self, isn: u32) {
+    pub fn set_isn(&mut self, isn: u32) {
         if self.base.is_none() {
             self.base = Some(isn.wrapping_add(1));
         }
     }
 
     /// Adds a segment. Duplicate and already-delivered bytes are dropped.
-    pub(crate) fn push(&mut self, seq: u32, data: &[u8]) -> Result<(), OverLimit> {
+    pub fn push(&mut self, seq: u32, data: &[u8]) -> Result<(), OverLimit> {
         if data.is_empty() {
             return Ok(());
         }
@@ -125,109 +124,22 @@ impl StreamReassembler {
     }
 
     /// Contiguous bytes available to the caller.
-    pub(crate) fn ready_bytes(&self) -> &[u8] {
+    pub fn ready_bytes(&self) -> &[u8] {
         &self.ready
     }
 
     /// Drops the first `n` ready bytes after the caller has parsed them.
-    pub(crate) fn consume(&mut self, n: usize) {
+    pub fn consume(&mut self, n: usize) {
         let n = n.min(self.ready.len());
         self.ready.drain(..n);
     }
 
     /// `true` while out-of-order data is waiting for a missing segment.
-    pub(crate) fn has_gap(&self) -> bool {
+    pub fn has_gap(&self) -> bool {
         !self.pending.is_empty()
     }
 
     fn buffered(&self) -> usize {
         self.ready.len().saturating_add(self.pending_bytes)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn ready(r: &StreamReassembler) -> Vec<u8> {
-        r.ready_bytes().to_vec()
-    }
-
-    #[test]
-    fn in_order_segments() {
-        let mut r = StreamReassembler::new(1024);
-        r.set_isn(99);
-        assert_eq!(r.push(100, b"hello "), Ok(()));
-        assert_eq!(r.push(106, b"world"), Ok(()));
-        assert_eq!(ready(&r), b"hello world");
-        assert!(!r.has_gap());
-    }
-
-    #[test]
-    fn out_of_order_and_duplicates() {
-        let mut r = StreamReassembler::new(1024);
-        r.set_isn(0);
-        assert_eq!(r.push(7, b"world"), Ok(()));
-        assert!(r.has_gap());
-        assert_eq!(r.push(1, b"hello "), Ok(()));
-        assert_eq!(r.push(1, b"hello "), Ok(()));
-        assert_eq!(r.push(7, b"world"), Ok(()));
-        assert_eq!(ready(&r), b"hello world");
-        assert!(!r.has_gap());
-    }
-
-    #[test]
-    fn partial_overlaps_are_trimmed() {
-        let mut r = StreamReassembler::new(1024);
-        r.set_isn(0);
-        assert_eq!(r.push(1, b"abcdef"), Ok(()));
-        assert_eq!(r.push(4, b"defghi"), Ok(()));
-        assert_eq!(r.push(9, b"ijk"), Ok(()));
-        assert_eq!(ready(&r), b"abcdefghijk");
-    }
-
-    #[test]
-    fn consume_then_continue() {
-        let mut r = StreamReassembler::new(1024);
-        assert_eq!(r.push(500, b"abc"), Ok(()));
-        r.consume(2);
-        assert_eq!(r.push(503, b"de"), Ok(()));
-        assert_eq!(ready(&r), b"cde");
-        // A retransmission of consumed bytes is ignored.
-        assert_eq!(r.push(500, b"abc"), Ok(()));
-        assert_eq!(ready(&r), b"cde");
-    }
-
-    #[test]
-    fn sequence_wraparound() {
-        let mut r = StreamReassembler::new(1024);
-        r.set_isn(u32::MAX - 10);
-        let first = u32::MAX - 9;
-        assert_eq!(r.push(first, &[1u8; 8]), Ok(()));
-        assert_eq!(r.push(first.wrapping_add(8), &[2u8; 8]), Ok(()));
-        assert_eq!(r.push(first.wrapping_add(16), &[3u8; 4]), Ok(()));
-        let mut expected = vec![1u8; 8];
-        expected.extend([2u8; 8]);
-        expected.extend([3u8; 4]);
-        assert_eq!(ready(&r), expected);
-    }
-
-    #[test]
-    fn segment_before_base_is_trimmed() {
-        let mut r = StreamReassembler::new(1024);
-        r.set_isn(99);
-        assert_eq!(r.push(98, b"xxabc"), Ok(()));
-        assert_eq!(ready(&r), b"abc");
-    }
-
-    #[test]
-    fn over_limit() {
-        let mut r = StreamReassembler::new(8);
-        r.set_isn(0);
-        assert_eq!(r.push(1, b"12345678"), Ok(()));
-        assert_eq!(r.push(9, b"9"), Err(OverLimit));
-        let mut far = StreamReassembler::new(8);
-        far.set_isn(0);
-        assert_eq!(far.push(1_000, b"x"), Err(OverLimit));
     }
 }
