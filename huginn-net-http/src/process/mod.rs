@@ -219,3 +219,18 @@ fn build_http_result(
 
     http_result
 }
+
+/// Adds a key log Akamai result to the packet's HTTP result. A packet that completes a
+/// decrypted connection yields a result even if the cleartext HTTP path rejected it.
+#[cfg(feature = "akamai-keylog")]
+pub(crate) fn merge_keylog_akamai(
+    result: Result<HttpAnalysisResult, HuginnNetHttpError>,
+    akamai: Option<crate::output::AkamaiOutput>,
+) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
+    let Some(akamai) = akamai else {
+        return result;
+    };
+    let mut result = result.unwrap_or_else(|_| HttpAnalysisResult::empty());
+    result.http_akamai = Some(akamai);
+    Ok(result)
+}

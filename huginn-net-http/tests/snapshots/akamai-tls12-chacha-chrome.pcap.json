@@ -1,0 +1,22 @@
+{
+  "generator": "scripts/gen-akamai-fixtures.py",
+  "pcap": "akamai-tls12-chacha-chrome.pcap",
+  "keys": "akamai-tls12-chacha-chrome.keys",
+  "connections": [
+    {
+      "source": {
+        "ip": "10.0.0.2",
+        "port": 50000
+      },
+      "destination": {
+        "ip": "10.0.0.1",
+        "port": 8443
+      },
+      "tls_version": "tls1.2",
+      "cipher_suite": 52392,
+      "fingerprint": "1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p",
+      "hash": "b95b8e312a5ef15db8fae48013d3616c"
+    }
+  ],
+  "not_http2": 0
+}

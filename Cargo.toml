@@ -18,10 +18,14 @@ repository = "https://github.com/biandratti/huginn-net"
 homepage = "https://github.com/biandratti/huginn-net"
 
 [workspace.dependencies]
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc", "zeroize"] }
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc", "zeroize"] }
 clap = { version = "4.6.7", features = ["derive"] }
 criterion = { version = "0.8.2", features = ["html_reports"] }
 crossbeam-channel = "0.5.17"
 ctrlc = "3.5.2"
+hkdf = "0.13.0"
+hmac = "0.13.0"
 hpack-patched = "0.3.0"
 huginn-net-db = { path = "huginn-net-db", version = "2.2.1" }
 huginn-net-http = { path = "huginn-net-http", version = "2.2.1" }
@@ -41,3 +45,4 @@ tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 ttl_cache = "0.5.1"
+zeroize = "1.9"

@@ -36,6 +36,11 @@
     { "crate": "huginn-net-http", "features": "p0f-response,akamai" },
     { "crate": "huginn-net-http", "features": "full", "with_tests": true, "with_bench": true },
     { "crate": "huginn-net-http", "features": "json" },
+    { "crate": "huginn-net-http", "features": "akamai-cleartext" },
+    { "crate": "huginn-net-http", "features": "akamai-keylog" },
+    { "crate": "huginn-net-http", "features": "akamai-cleartext,akamai-keylog" },
+    { "crate": "huginn-net-http", "features": "p0f-request,akamai-keylog" },
+    { "crate": "huginn-net-http", "features": "akamai-keylog,json" },
 
     { "crate": "huginn-net",      "features": "" },
     { "crate": "huginn-net",      "features": "db" },
@@ -52,5 +57,8 @@
     { "crate": "huginn-net",      "features": "db,tcp-syn,tcp-syn-ack,tcp-mtu,tcp-uptime,http-p0f-request,http-p0f-response" },
     { "crate": "huginn-net",      "features": "tls-stable-v1" },
     { "crate": "huginn-net",      "features": "full", "with_tests": true },
-    { "crate": "huginn-net",      "features": "json" }
+    { "crate": "huginn-net",      "features": "json" },
+    { "crate": "huginn-net",      "features": "http-akamai-cleartext" },
+    { "crate": "huginn-net",      "features": "http-akamai-keylog" },
+    { "crate": "huginn-net",      "features": "http-akamai-keylog,json" }
 ]

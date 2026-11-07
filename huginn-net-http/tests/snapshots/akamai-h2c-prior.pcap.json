@@ -1,0 +1,22 @@
+{
+  "generator": "scripts/gen-akamai-fixtures.py",
+  "pcap": "akamai-h2c-prior.pcap",
+  "keys": null,
+  "connections": [
+    {
+      "source": {
+        "ip": "10.0.0.2",
+        "port": 50000
+      },
+      "destination": {
+        "ip": "10.0.0.1",
+        "port": 8443
+      },
+      "tls_version": null,
+      "cipher_suite": null,
+      "fingerprint": "3:100;4:10485760;2:0|1048510465|0|m,p,s,a",
+      "hash": "f5a2c12000e265a692b94e4cacbbd837"
+    }
+  ],
+  "not_http2": 0
+}

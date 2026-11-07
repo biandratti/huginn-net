@@ -15,14 +15,27 @@ categories = ["network-programming", "web-programming"]
 
 [features]
 default = []
-full = ["p0f-request", "p0f-response", "akamai"]
+full = ["p0f-request", "p0f-response", "akamai", "akamai-cleartext", "akamai-keylog"]
 json = ["dep:serde"]
 p0f-request = []
 p0f-response = []
 akamai = []
+akamai-cleartext = ["akamai"]
+akamai-keylog = [
+    "akamai",
+    "dep:aes-gcm",
+    "dep:chacha20poly1305",
+    "dep:hkdf",
+    "dep:hmac",
+    "dep:zeroize",
+]
 
 [dependencies]
+aes-gcm = { workspace = true, optional = true }
+chacha20poly1305 = { workspace = true, optional = true }
 crossbeam-channel = { workspace = true }
+hkdf = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
 hpack-patched = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
@@ -32,6 +45,7 @@ sha2 = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true }
+zeroize = { workspace = true, optional = true }
 
 [dev-dependencies]
 clap = { workspace = true }

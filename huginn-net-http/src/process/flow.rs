@@ -212,6 +212,9 @@ pub struct ObservableHttpPackage {
     pub http_request: Option<ObservableHttpRequest>,
     #[cfg(feature = "p0f-response")]
     pub http_response: Option<ObservableHttpResponse>,
+    /// Akamai fingerprint of a cleartext HTTP/2 (h2c) connection, emitted once per connection.
+    #[cfg(feature = "akamai-cleartext")]
+    pub http_akamai: Option<crate::output::AkamaiOutput>,
 }
 
 impl ObservableHttpPackage {
@@ -222,6 +225,8 @@ impl ObservableHttpPackage {
             http_request: None,
             #[cfg(feature = "p0f-response")]
             http_response: None,
+            #[cfg(feature = "akamai-cleartext")]
+            http_akamai: None,
         }
     }
 }

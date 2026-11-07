@@ -1,5 +1,7 @@
 [advisories]
 # cargo-audit has no exclude-dev; it scans the whole lockfile. deny.toml
 # uses [graph] exclude-dev = true. time is only via tracing-appender (dev).
-ignore = ["RUSTSEC-2026-0009"]
+# RUSTSEC-2026-0385 (ctutils < 0.4.4): see the reason in deny.toml; the fix
+# needs MSRV 1.87, and the timing channel is not reachable in passive decryption.
+ignore = ["RUSTSEC-2026-0009", "RUSTSEC-2026-0385"]
 

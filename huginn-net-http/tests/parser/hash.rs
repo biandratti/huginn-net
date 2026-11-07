@@ -160,3 +160,64 @@ fn test_hash_consistency_across_workers() {
     assert!(worker_4 < 4);
     assert!(worker_8 < 8);
 }
+
+fn ipv4_tcp_frame(src: [u8; 4], dst: [u8; 4], sport: u16, dport: u16) -> Vec<u8> {
+    let mut packet = vec![0u8; 54];
+    packet[12] = 0x08;
+    packet[13] = 0x00;
+    packet[14] = 0x45;
+    packet[23] = 6;
+    packet[26..30].copy_from_slice(&src);
+    packet[30..34].copy_from_slice(&dst);
+    packet[34..36].copy_from_slice(&sport.to_be_bytes());
+    packet[36..38].copy_from_slice(&dport.to_be_bytes());
+    packet
+}
+
+fn ipv6_tcp_frame(src: [u8; 16], dst: [u8; 16], sport: u16, dport: u16) -> Vec<u8> {
+    let mut packet = vec![0u8; 74];
+    packet[12] = 0x86;
+    packet[13] = 0xDD;
+    packet[14] = 0x60;
+    packet[20] = 6;
+    packet[22..38].copy_from_slice(&src);
+    packet[38..54].copy_from_slice(&dst);
+    packet[54..56].copy_from_slice(&sport.to_be_bytes());
+    packet[56..58].copy_from_slice(&dport.to_be_bytes());
+    packet
+}
+
+#[test]
+fn test_hash_is_direction_independent_ipv4() {
+    let pairs = [
+        (([192, 168, 1, 10], 52344u16), ([10, 0, 0, 1], 443u16)),
+        (([10, 0, 0, 1], 8080), ([10, 0, 0, 1], 49152)),
+        (([127, 0, 0, 1], 40000), ([127, 0, 0, 1], 8443)),
+    ];
+    for ((a_ip, a_port), (b_ip, b_port)) in pairs {
+        let forward = ipv4_tcp_frame(a_ip, b_ip, a_port, b_port);
+        let reverse = ipv4_tcp_frame(b_ip, a_ip, b_port, a_port);
+        for workers in [2usize, 3, 8, 16] {
+            assert_eq!(
+                hash_flow(&forward, workers),
+                hash_flow(&reverse, workers),
+                "both directions must map to the same worker (workers={workers})"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_hash_is_direction_independent_ipv6() {
+    let mut client = [0u8; 16];
+    client[15] = 1;
+    let mut server = [0u8; 16];
+    server[0] = 0x20;
+    server[1] = 0x01;
+    server[15] = 2;
+    let forward = ipv6_tcp_frame(client, server, 52344, 443);
+    let reverse = ipv6_tcp_frame(server, client, 443, 52344);
+    for workers in [2usize, 3, 8, 16] {
+        assert_eq!(hash_flow(&forward, workers), hash_flow(&reverse, workers));
+    }
+}

@@ -7,3 +7,4 @@ cobertura.xml
 !Cargo.lock
 /data
 /benches/reports/
+__pycache__/

@@ -22,19 +22,22 @@
 //!
 //! | Feature        | Default | Description                                                                                                                                                  |
 //! |----------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-//! | `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai`). Stable across version upgrades.                |
+//! | `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai` + `akamai-cleartext` + `akamai-keylog`). Stable across version upgrades. |
 //! | `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates [`HttpRequestOutput`]. |
 //! | `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates [`HttpResponseOutput`].                           |
-//! | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface ([`Http2FingerprintExtractor`], [`AkamaiFingerprint`], `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+//! | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface ([`Http2FingerprintExtractor`], [`AkamaiFingerprint`], `extract_akamai_fingerprint*`); on its own, never invoked by the packet pipeline. |
+//! | `akamai-cleartext` | No  | Implies `akamai`. The packet pipeline emits one [`AkamaiOutput`] per cleartext HTTP/2 (h2c) connection in [`HttpAnalysisResult::http_akamai`]. No cryptographic dependencies. |
+//! | `akamai-keylog` | No     | Implies `akamai`. The packet pipeline decrypts the start of HTTP/2-over-TLS client streams with secrets from a TLS key log (`SSLKEYLOGFILE` format, see `HuginnNetHttp::with_keylog`) and emits one [`AkamaiOutput`] per connection. Decrypted bytes feed only the Akamai fingerprint. Pulls in pure-Rust RustCrypto AEAD/HKDF crates. |
 //! | `json`         | No      | Enables [`serde::Serialize`] on [`HttpAnalysisResult`] and HTTP output types for JSON/NDJSON consumers. Not included in `full`. |
 //!
 //! When a build disables every feature that would consume a packet's side
 //! (request or response), `process_tcp_packet` short-circuits at the top:
 //! no flow-cache lookup, no SYN insertion, no payload reassembly. The
-//! `akamai` feature is orthogonal to that pipeline: it only exposes the
+//! `akamai` feature on its own is orthogonal to that pipeline: it only exposes the
 //! standalone [`Http2FingerprintExtractor`] / `extract_akamai_fingerprint*`
-//! API for callers that parse HTTP/2 frames themselves, and is never
-//! invoked from `process_tcp_packet` regardless of the other features.
+//! API for callers that parse HTTP/2 frames themselves. The pipeline only
+//! computes Akamai fingerprints when `akamai-cleartext` and/or `akamai-keylog`
+//! are enabled.
 //!
 //! The always-on raw parsers (`parse_http1_request`, `parse_http2_request`,
 //! `Http1Processor`, `Http2Processor`, the `HttpParser`/`HttpProcessor`
@@ -69,6 +72,8 @@ pub mod matcher_api;
 pub mod output;
 pub mod parser;
 pub mod process;
+#[cfg(feature = "akamai-keylog")]
+mod tls_keylog;
 
 // ---------------------------------------------------------------------------
 // Top-level re-exports
@@ -100,6 +105,10 @@ pub use process::{
 };
 pub use process::{FlowKey, HttpProcessors, TcpFlow};
 pub use process::{process_ipv4_packet, process_ipv6_packet};
+#[cfg(feature = "akamai-keylog")]
+pub use tls_keylog::{
+    KeyLogStore, KeylogConfig, KeylogLineError, KeylogSource, KeylogStats, KeylogTracker,
+};
 pub use ua_os::{
     NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource, UaOsAgreement,
     check_ua_os_agreement,

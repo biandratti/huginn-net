@@ -46,6 +46,8 @@ pub struct ObservablePackage {
     pub http_request: Option<ObservableHttpRequest>,
     #[cfg(feature = "http-p0f-response")]
     pub http_response: Option<ObservableHttpResponse>,
+    #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+    pub http_akamai: Option<huginn_net_http::AkamaiOutput>,
     pub tls_client: Option<ObservableTlsClient>,
 }
 
@@ -128,6 +130,7 @@ impl IpPacketProcessor for Ipv4Packet<'_> {
                         HuginnNetError::Parse("No SETTINGS frame found".to_string())
                     }
                     HuginnNetHttpError::MalformedPseudoHeaders(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetHttpError::Keylog(msg) => HuginnNetError::Parse(msg),
                 })
         } else {
             Err(HuginnNetError::UnexpectedPackage("Invalid IPv4 packet data".to_string()))
@@ -210,6 +213,7 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
                         HuginnNetError::Parse("No SETTINGS frame found".to_string())
                     }
                     HuginnNetHttpError::MalformedPseudoHeaders(msg) => HuginnNetError::Parse(msg),
+                    HuginnNetHttpError::Keylog(msg) => HuginnNetError::Parse(msg),
                 })
         } else {
             Err(HuginnNetError::UnexpectedPackage("Invalid IPv6 packet data".to_string()))
@@ -360,7 +364,8 @@ fn handle_http_tcp_tlc(
                 feature = "tcp-mtu",
                 feature = "tcp-uptime",
                 feature = "http-p0f-request",
-                feature = "http-p0f-response"
+                feature = "http-p0f-response",
+                feature = "http-akamai-cleartext"
             )),
             allow(unused_variables)
         )]
@@ -372,7 +377,11 @@ fn handle_http_tcp_tlc(
                 feature = "tcp-uptime"
             )))]
             let _ = &tcp_package;
-            #[cfg(not(any(feature = "http-p0f-request", feature = "http-p0f-response")))]
+            #[cfg(not(any(
+                feature = "http-p0f-request",
+                feature = "http-p0f-response",
+                feature = "http-akamai-cleartext"
+            )))]
             let _ = &http_package;
             Ok(ObservablePackage {
                 source,
@@ -391,6 +400,13 @@ fn handle_http_tcp_tlc(
                 http_request: http_package.http_request,
                 #[cfg(feature = "http-p0f-response")]
                 http_response: http_package.http_response,
+                #[cfg(feature = "http-akamai-cleartext")]
+                http_akamai: http_package.http_akamai,
+                #[cfg(all(
+                    feature = "http-akamai-keylog",
+                    not(feature = "http-akamai-cleartext")
+                ))]
+                http_akamai: None,
                 tls_client: tls_package.tls_client,
             })
         }

@@ -1,0 +1,22 @@
+{
+  "generator": "scripts/gen-akamai-fixtures.py",
+  "pcap": "akamai-tls13-aes256-firefox.pcap",
+  "keys": "akamai-tls13-aes256-firefox.keys",
+  "connections": [
+    {
+      "source": {
+        "ip": "10.0.0.2",
+        "port": 50000
+      },
+      "destination": {
+        "ip": "10.0.0.1",
+        "port": 8443
+      },
+      "tls_version": "tls1.3",
+      "cipher_suite": 4866,
+      "fingerprint": "1:65536;2:0;4:131072;5:16384|12517377|0|m,p,a,s",
+      "hash": "45c23677170ee797a9aca643a88f61f5"
+    }
+  ],
+  "not_http2": 0
+}

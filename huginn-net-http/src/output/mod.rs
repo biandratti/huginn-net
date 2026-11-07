@@ -1,3 +1,5 @@
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+pub mod akamai;
 pub mod common;
 #[cfg(feature = "p0f-request")]
 pub mod request;
@@ -16,6 +18,8 @@ pub(crate) fn serialize_display<T: std::fmt::Display, S: serde::Serializer>(
     s.serialize_str(&val.to_string())
 }
 
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+pub use akamai::{AkamaiOutput, AkamaiTransport, TlsVersion};
 pub use common::*;
 #[cfg(feature = "p0f-request")]
 pub use request::*;
@@ -28,6 +32,7 @@ pub use response::*;
 /// Field availability depends on the enabled HTTP features:
 /// - [`Self::http_request`] requires the `p0f-request` feature.
 /// - [`Self::http_response`] requires the `p0f-response` feature.
+/// - [`Self::http_akamai`] requires the `akamai-cleartext` or `akamai-keylog` feature.
 ///
 /// Use [`Self::empty`] to construct a fallback value that is valid under any
 /// feature combination.
@@ -40,6 +45,9 @@ pub struct HttpAnalysisResult {
     /// Information derived from HTTP response packets.
     #[cfg(feature = "p0f-response")]
     pub http_response: Option<HttpResponseOutput>,
+    /// Akamai HTTP/2 fingerprint of the connection's client, emitted at most once per connection.
+    #[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+    pub http_akamai: Option<AkamaiOutput>,
 }
 
 impl HttpAnalysisResult {
@@ -50,6 +58,8 @@ impl HttpAnalysisResult {
             http_request: None,
             #[cfg(feature = "p0f-response")]
             http_response: None,
+            #[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+            http_akamai: None,
         }
     }
 
@@ -61,6 +71,10 @@ impl HttpAnalysisResult {
         }
         #[cfg(feature = "p0f-response")]
         if self.http_response.is_some() {
+            return false;
+        }
+        #[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+        if self.http_akamai.is_some() {
             return false;
         }
         true

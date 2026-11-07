@@ -9,6 +9,8 @@ use crate::process::{
     FlowKey, HttpProcessors, PoolStats, SharedHttpMatcher, SharedObservedOsSource, TcpFlow,
     WorkerPool,
 };
+#[cfg(feature = "akamai-keylog")]
+use crate::tls_keylog::{KeylogConfig, KeylogStats, KeylogTracker};
 use pcap_file::pcap::PcapReader;
 use pnet::datalink::{self, Channel, Config};
 use std::fs::File;
@@ -83,6 +85,8 @@ pub struct HuginnNetHttp {
     os_source: Option<SharedObservedOsSource>,
     max_connections: usize,
     filter_config: Option<FilterConfig>,
+    #[cfg(feature = "akamai-keylog")]
+    keylog: Option<KeylogTracker>,
 }
 
 impl HuginnNetHttp {
@@ -100,6 +104,8 @@ impl HuginnNetHttp {
             os_source: None,
             max_connections,
             filter_config: None,
+            #[cfg(feature = "akamai-keylog")]
+            keylog: None,
         }
     }
 
@@ -140,6 +146,57 @@ impl HuginnNetHttp {
     pub fn with_observed_os(mut self, os_source: SharedObservedOsSource) -> Self {
         self.os_source = Some(os_source);
         self
+    }
+
+    /// Enables Akamai HTTP/2 fingerprinting of HTTP/2-over-TLS connections decrypted with a
+    /// TLS key log (NSS `SSLKEYLOGFILE` format).
+    ///
+    /// With [`crate::KeylogSource::File`] the file is read here, so an unreadable file is
+    /// reported now rather than on the packet path. With [`crate::KeylogSource::Follow`] a
+    /// background thread keeps reading appended lines until the analyzer is dropped.
+    /// Decrypted bytes only feed the Akamai fingerprint; the p0f HTTP outputs are unaffected.
+    /// Results arrive in [`HttpAnalysisResult::http_akamai`].
+    ///
+    /// # Errors
+    /// [`HuginnNetHttpError::Misconfiguration`] for out-of-range settings,
+    /// [`HuginnNetHttpError::Keylog`] when the key log cannot be read or followed.
+    #[cfg(feature = "akamai-keylog")]
+    pub fn with_keylog(mut self, config: KeylogConfig) -> Result<Self, HuginnNetHttpError> {
+        self.keylog = Some(KeylogTracker::new(config, self.max_connections)?);
+        Ok(self)
+    }
+
+    /// Key log decryption counters (all zero when [`Self::with_keylog`] was not called).
+    /// In parallel mode the counters are shared by all workers.
+    #[cfg(feature = "akamai-keylog")]
+    #[must_use]
+    pub fn keylog_stats(&self) -> KeylogStats {
+        self.keylog
+            .as_ref()
+            .map(KeylogTracker::stats)
+            .unwrap_or_default()
+    }
+
+    /// Runs one link-layer frame (Ethernet or raw IP) through the sequential pipeline.
+    /// Test hook for the key log pipeline; not part of the stable API.
+    #[cfg(feature = "akamai-keylog")]
+    #[doc(hidden)]
+    pub fn analyze_frame(&mut self, frame: &[u8]) -> Option<HttpAnalysisResult> {
+        self.process_packet(frame).ok().filter(|r| !r.is_empty())
+    }
+
+    /// Re-checks connections waiting for a late key log secret and returns those that
+    /// completed. Test hook; the analyze loops call this automatically.
+    #[cfg(feature = "akamai-keylog")]
+    #[doc(hidden)]
+    pub fn sweep_keylog_pending(&mut self) -> Vec<HttpAnalysisResult> {
+        self.keylog
+            .as_mut()
+            .map(|k| k.sweep(false))
+            .unwrap_or_default()
+            .into_iter()
+            .map(akamai_result)
+            .collect()
     }
 
     /// Configure packet filtering (builder pattern)
@@ -234,6 +291,25 @@ impl HuginnNetHttp {
                 },
                 Err(e) => {
                     error!("Failed to read packet: {}", e);
+                }
+            }
+
+            #[cfg(feature = "akamai-keylog")]
+            if let Some(keylog) = self.keylog.as_mut() {
+                for out in keylog.sweep_due() {
+                    if sender.send(akamai_result(out)).is_err() {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
+        // End of input (or cancelled): connections still waiting for a secret can't complete.
+        #[cfg(feature = "akamai-keylog")]
+        if let Some(keylog) = self.keylog.as_mut() {
+            for out in keylog.sweep(true) {
+                if sender.send(akamai_result(out)).is_err() {
+                    break;
                 }
             }
         }
@@ -357,21 +433,43 @@ impl HuginnNetHttp {
             .map(|s| s as &dyn ObservedOsSource);
 
         match parse_packet(packet) {
-            IpPacket::Ipv4(ipv4) => crate::process::process_ipv4_packet(
-                &ipv4,
-                &mut self.http_flows,
-                &self.http_processors,
-                matcher,
-                os_source,
-            ),
-            IpPacket::Ipv6(ipv6) => crate::process::process_ipv6_packet(
-                &ipv6,
-                &mut self.http_flows,
-                &self.http_processors,
-                matcher,
-                os_source,
-            ),
+            IpPacket::Ipv4(ipv4) => {
+                #[cfg(feature = "akamai-keylog")]
+                let akamai = self.keylog.as_mut().and_then(|k| k.process_ipv4(&ipv4));
+                let result = crate::process::process_ipv4_packet(
+                    &ipv4,
+                    &mut self.http_flows,
+                    &self.http_processors,
+                    matcher,
+                    os_source,
+                );
+                #[cfg(feature = "akamai-keylog")]
+                let result = crate::process::merge_keylog_akamai(result, akamai);
+                result
+            }
+            IpPacket::Ipv6(ipv6) => {
+                #[cfg(feature = "akamai-keylog")]
+                let akamai = self.keylog.as_mut().and_then(|k| k.process_ipv6(&ipv6));
+                let result = crate::process::process_ipv6_packet(
+                    &ipv6,
+                    &mut self.http_flows,
+                    &self.http_processors,
+                    matcher,
+                    os_source,
+                );
+                #[cfg(feature = "akamai-keylog")]
+                let result = crate::process::merge_keylog_akamai(result, akamai);
+                result
+            }
             IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }
     }
+}
+
+/// Wraps a key log Akamai result in an otherwise empty analysis result.
+#[cfg(feature = "akamai-keylog")]
+fn akamai_result(out: crate::output::AkamaiOutput) -> HttpAnalysisResult {
+    let mut result = HttpAnalysisResult::empty();
+    result.http_akamai = Some(out);
+    result
 }

@@ -1,4 +1,7 @@
 pub mod extractor;
+// US2 (T039) widens this to `akamai-cleartext` when the h2c path starts using it.
+#[cfg(feature = "akamai-keylog")]
+pub(crate) mod pipeline;
 pub use extractor::{
     calculate_frames_bytes_consumed, extract_akamai_fingerprint,
     extract_akamai_fingerprint_from_bytes,
@@ -11,6 +14,7 @@ use std::fmt::Write;
 /// HTTP/2 Setting parameter ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum SettingId {
     HeaderTableSize = 1,
     EnablePush = 2,
@@ -71,6 +75,7 @@ impl SettingId {
 
 /// HTTP/2 Setting parameter (ID and value)
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct SettingParameter {
     pub id: SettingId,
     pub value: u32,
@@ -86,6 +91,7 @@ impl fmt::Display for SettingParameter {
 ///
 /// Weight in HTTP/2 spec is 0-255, but represents 1-256 (add 1 to value)
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct Http2Priority {
     pub stream_id: u32,
     pub exclusive: bool,
@@ -113,6 +119,7 @@ impl fmt::Display for Http2Priority {
 /// - Firefox:     `:method`, `:path`, `:authority`, `:scheme`  → `m,p,a,s`
 /// - curl (no FLAG_PRIORITY): `:method`, `:scheme`, `:authority`, `:path` → `m,s,a,p`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum PseudoHeader {
     Method,
     Path,
@@ -160,6 +167,7 @@ impl fmt::Display for PseudoHeader {
 ///
 /// Example: `1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|15663105|0|m,p,a,s`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct AkamaiFingerprint {
     /// SETTINGS frame parameters (order matters)
     pub settings: Vec<SettingParameter>,

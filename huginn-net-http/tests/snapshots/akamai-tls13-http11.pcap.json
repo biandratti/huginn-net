@@ -1,0 +1,7 @@
+{
+  "generator": "scripts/gen-akamai-fixtures.py",
+  "pcap": "akamai-tls13-http11.pcap",
+  "keys": "akamai-tls13-http11.keys",
+  "connections": [],
+  "not_http2": 1
+}

@@ -553,6 +553,10 @@ impl<'a> HuginnNet<'a> {
                         }
                     });
 
+                #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+                let http_akamai: Option<huginn_net_http::AkamaiOutput> =
+                    observable_package.http_akamai;
+
                 let tls_client: Option<TlsClientOutput> =
                     observable_package
                         .tls_client
@@ -583,6 +587,8 @@ impl<'a> HuginnNet<'a> {
                     http_request,
                     #[cfg(feature = "http-p0f-response")]
                     http_response,
+                    #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+                    http_akamai,
                     tls_client,
                 }
             }
@@ -603,6 +609,8 @@ impl<'a> HuginnNet<'a> {
                     http_request: None,
                     #[cfg(feature = "http-p0f-response")]
                     http_response: None,
+                    #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+                    http_akamai: None,
                     tls_client: None,
                 }
             }
