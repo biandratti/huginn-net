@@ -1,5 +1,4 @@
-//! Malformed or hostile input never panics, never produces a result and is counted
-//! (FR-019, SC-002).
+//! Malformed or hostile input never panics, never produces a result and is counted.
 
 use super::pcap_util::{
     client_data_indices, keys_config, keys_path, payload, pcap_dir, read_frames, run, scratch_dir,

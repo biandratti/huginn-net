@@ -15,7 +15,7 @@ use std::time::Duration;
 const MAX_READ_PER_POLL: u64 = 1024 * 1024;
 
 /// Splits a byte stream into key log lines, enforcing the 512-byte line limit even when a
-/// line never ends (FR-019).
+/// line never ends.
 #[derive(Default)]
 pub struct LineSplitter {
     partial: Vec<u8>,

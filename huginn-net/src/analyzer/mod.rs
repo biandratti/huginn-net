@@ -300,8 +300,7 @@ impl<'a> HuginnNet<'a> {
             tracker.sweep_due()
         };
         for out in outputs {
-            let mut result = FingerprintResult::empty();
-            result.http_akamai = Some(out);
+            let result = FingerprintResult { http_akamai: Some(out), ..FingerprintResult::empty() };
             if sender.send(result).is_err() {
                 return false;
             }
@@ -689,25 +688,7 @@ impl<'a> HuginnNet<'a> {
             }
             Err(error) => {
                 debug!("Fail to process signature: {}", error);
-                FingerprintResult {
-                    #[cfg(feature = "tcp-syn")]
-                    tcp_syn: None,
-                    #[cfg(feature = "tcp-syn-ack")]
-                    tcp_syn_ack: None,
-                    #[cfg(feature = "tcp-mtu")]
-                    tcp_mtu: None,
-                    #[cfg(feature = "tcp-uptime")]
-                    tcp_client_uptime: None,
-                    #[cfg(feature = "tcp-uptime")]
-                    tcp_server_uptime: None,
-                    #[cfg(feature = "http-p0f-request")]
-                    http_request: None,
-                    #[cfg(feature = "http-p0f-response")]
-                    http_response: None,
-                    #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
-                    http_akamai: None,
-                    tls_client: None,
-                }
+                FingerprintResult::empty()
             }
         }
     }

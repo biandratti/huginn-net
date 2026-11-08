@@ -195,7 +195,7 @@ impl HuginnNetHttp {
             .map(|k| k.sweep(false))
             .unwrap_or_default()
             .into_iter()
-            .map(akamai_result)
+            .map(crate::process::akamai_only)
             .collect()
     }
 
@@ -302,7 +302,7 @@ impl HuginnNetHttp {
             #[cfg(feature = "akamai-keylog")]
             if let Some(keylog) = self.keylog.as_mut() {
                 for out in keylog.sweep_due() {
-                    if sender.send(akamai_result(out)).is_err() {
+                    if sender.send(crate::process::akamai_only(out)).is_err() {
                         return Ok(());
                     }
                 }
@@ -313,7 +313,7 @@ impl HuginnNetHttp {
         #[cfg(feature = "akamai-keylog")]
         if let Some(keylog) = self.keylog.as_mut() {
             for out in keylog.sweep(true) {
-                if sender.send(akamai_result(out)).is_err() {
+                if sender.send(crate::process::akamai_only(out)).is_err() {
                     break;
                 }
             }
@@ -469,12 +469,4 @@ impl HuginnNetHttp {
             IpPacket::None => Ok(HttpAnalysisResult::empty()),
         }
     }
-}
-
-/// Wraps a key log Akamai result in an otherwise empty analysis result.
-#[cfg(feature = "akamai-keylog")]
-fn akamai_result(out: crate::output::AkamaiOutput) -> HttpAnalysisResult {
-    let mut result = HttpAnalysisResult::empty();
-    result.http_akamai = Some(out);
-    result
 }

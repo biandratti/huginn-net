@@ -2,10 +2,7 @@
 //! supported AEAD. Decryption is expected to fail; it must never panic.
 #![no_main]
 
-use huginn_net_http::TlsVersion;
-use huginn_net_http::keylog_internals::{
-    AeadAlg, CipherSuite, RecordDecryptor, TrafficKeys, split_records,
-};
+use huginn_net_http::keylog_internals::{CipherSuite, RecordDecryptor, TrafficKeys, split_records};
 use libfuzzer_sys::fuzz_target;
 use zeroize::Zeroizing;
 
@@ -22,14 +19,9 @@ fuzz_target!(|data: &[u8]| {
     let Some(suite) = CipherSuite::from_id(SUITES[usize::from(selector) % SUITES.len()]) else {
         return;
     };
-    // TLS 1.2 GCM uses a 4 byte implicit IV, everything else a 12 byte IV.
-    let iv_len = match (suite.version, suite.aead) {
-        (TlsVersion::Tls12, AeadAlg::Aes128Gcm | AeadAlg::Aes256Gcm) => 4,
-        _ => 12,
-    };
     let keys = TrafficKeys {
         key: Zeroizing::new(vec![0x42; suite.aead.key_len()]),
-        iv: Zeroizing::new(vec![0x24; iv_len]),
+        iv: Zeroizing::new(vec![0x24; suite.iv_len()]),
     };
     let Ok(decryptor) = RecordDecryptor::new(suite, &keys) else {
         panic!("dummy keys have the right length");

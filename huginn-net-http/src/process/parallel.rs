@@ -58,14 +58,7 @@ impl WorkerExtras {
             } else {
                 keylog.sweep_due()
             };
-            return outputs
-                .into_iter()
-                .map(|out| {
-                    let mut result = HttpAnalysisResult::empty();
-                    result.http_akamai = Some(out);
-                    result
-                })
-                .collect();
+            return outputs.into_iter().map(super::akamai_only).collect();
         }
         let _ = force;
         Vec::new()

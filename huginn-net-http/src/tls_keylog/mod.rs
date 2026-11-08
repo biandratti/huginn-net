@@ -7,7 +7,6 @@
 
 pub(crate) mod follow;
 pub(crate) mod handshake;
-pub(crate) mod reassembly;
 pub(crate) mod record;
 pub(crate) mod schedule;
 pub(crate) mod session;

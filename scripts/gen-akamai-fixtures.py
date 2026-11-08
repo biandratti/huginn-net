@@ -11,7 +11,7 @@ pcap. The client writes a standard NSS key log (`SSLKEYLOGFILE` format) via Open
 The HTTP/2 client frames are built here from fixed "profiles", so the expected Akamai
 fingerprint is computed from what was sent, independently of huginn's decryption code.
 The profiles are synthetic: they mimic the shape of common clients but are not captures of
-real browsers. Real-browser fixtures must be recorded separately (see quickstart.md).
+real browsers.
 
 Usage (from the repository root):
     python3 scripts/gen-akamai-fixtures.py            # regenerate every fixture

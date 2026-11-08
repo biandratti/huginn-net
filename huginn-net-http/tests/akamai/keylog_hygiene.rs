@@ -1,5 +1,4 @@
-//! Secrets and decrypted bytes never show up in results, Debug output or logs
-//! (FR-008, SC-007).
+//! Secrets and decrypted bytes never show up in results, Debug output or logs.
 
 use super::pcap_util::{keys_config, keys_path, pcap_dir, run_all, secrets_in, snapshot};
 use huginn_net_http::{KeyLogStore, KeylogConfig, KeylogSource};

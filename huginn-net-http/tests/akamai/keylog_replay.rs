@@ -1,5 +1,5 @@
 //! Reordered, duplicated and split client segments give the same result as the original
-//! capture (SC-003).
+//! capture.
 //!
 //! Sessions start at the ClientHello segment, so the reordering keeps the ClientHello first
 //! and shuffles the client segments after it.

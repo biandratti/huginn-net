@@ -35,7 +35,7 @@ impl AeadAlg {
     }
 }
 
-/// A cipher suite huginn can decrypt (research R3).
+/// A cipher suite huginn can decrypt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CipherSuite {
     pub id: u16,
@@ -61,6 +61,15 @@ impl CipherSuite {
             _ => return None,
         };
         Some(Self { id, version, aead, hash })
+    }
+
+    /// Length of the IV from the key schedule: the 4 byte implicit part for TLS 1.2 AES-GCM
+    /// (RFC 5288), the full 12 byte nonce mask otherwise.
+    pub fn iv_len(self) -> usize {
+        match (self.version, self.aead) {
+            (TlsVersion::Tls12, AeadAlg::Aes128Gcm | AeadAlg::Aes256Gcm) => 4,
+            _ => 12,
+        }
     }
 }
 
@@ -144,11 +153,7 @@ impl RecordDecryptor {
                 ChaCha20Poly1305::new_from_slice(&keys.key).map_err(|_| RecordError::Malformed)?,
             )),
         };
-        let iv_ok = match (suite.version, suite.aead) {
-            (TlsVersion::Tls12, AeadAlg::Aes128Gcm | AeadAlg::Aes256Gcm) => keys.iv.len() == 4,
-            _ => keys.iv.len() == 12,
-        };
-        if !iv_ok {
+        if keys.iv.len() != suite.iv_len() {
             return Err(RecordError::Malformed);
         }
         Ok(Self { version: suite.version, cipher, iv: keys.iv.clone(), seq: 0 })

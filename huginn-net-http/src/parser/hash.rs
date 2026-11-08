@@ -106,7 +106,7 @@ fn hash_ipv6_flow(ip_packet: &[u8], num_workers: usize) -> usize {
 }
 
 /// Hashes a TCP connection's two endpoints in a canonical order, so both directions of a
-/// connection (client→server and server→client) map to the same worker.
+/// connection map to the same worker.
 fn hash_endpoints(
     src_ip: &[u8],
     src_port: u16,

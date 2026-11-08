@@ -162,12 +162,12 @@ pub mod http1_process {
 #[doc(hidden)]
 pub mod keylog_internals {
     pub use crate::akamai::pipeline::{AccumulatorError, AkamaiAccumulator};
+    pub use crate::process::reassembly::{OverLimit, StreamReassembler};
     pub use crate::tls_keylog::follow::{FollowHandle, LineSplitter, load_file};
     pub use crate::tls_keylog::handshake::{
         HRR_RANDOM, HS_CLIENT_HELLO, HS_SERVER_HELLO, HandshakeError, ServerHelloInfo,
         ServerHelloScan, parse_client_hello, parse_server_hello,
     };
-    pub use crate::tls_keylog::reassembly::{OverLimit, StreamReassembler};
     pub use crate::tls_keylog::record::{
         AeadAlg, CT_ALERT, CT_APPLICATION_DATA, CT_CHANGE_CIPHER_SPEC, CT_HANDSHAKE, CipherSuite,
         MAX_RECORD_PAYLOAD, RawRecord, RecordDecryptor, RecordError, split_records,

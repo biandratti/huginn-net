@@ -1,5 +1,7 @@
 pub mod flow;
 pub mod parallel;
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+pub(crate) mod reassembly;
 
 pub use flow::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 pub use parallel::{
@@ -242,4 +244,12 @@ pub(crate) fn merge_keylog_akamai(
     let mut result = result.unwrap_or_else(|_| HttpAnalysisResult::empty());
     result.http_akamai = Some(akamai);
     Ok(result)
+}
+
+/// An analysis result carrying only a key log Akamai result (late secrets, end of input).
+#[cfg(feature = "akamai-keylog")]
+pub(crate) fn akamai_only(akamai: crate::output::AkamaiOutput) -> HttpAnalysisResult {
+    let mut result = HttpAnalysisResult::empty();
+    result.http_akamai = Some(akamai);
+    result
 }

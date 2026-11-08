@@ -2,7 +2,6 @@
 //! start of the client stream -> Akamai fingerprint.
 
 use super::handshake::{ServerHelloInfo, ServerHelloScan, parse_client_hello, parse_server_hello};
-use super::reassembly::StreamReassembler;
 use super::record::{
     CT_ALERT, CT_APPLICATION_DATA, CT_CHANGE_CIPHER_SPEC, CT_HANDSHAKE, CipherSuite, RawRecord,
     RecordDecryptor, RecordError, split_records,
@@ -12,11 +11,12 @@ use super::store::{KeyEntry, KeyLogStore};
 use crate::akamai::AkamaiFingerprint;
 use crate::akamai::pipeline::{AccumulatorError, AkamaiAccumulator};
 use crate::output::TlsVersion;
+use crate::process::reassembly::StreamReassembler;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 /// TLS 1.3 records tried at application-key sequence number 0 when the handshake secret is
-/// not in the key log (research R5).
+/// not in the key log (the encrypted handshake records come first and fail to open).
 const TLS13_TRIAL_RECORDS: usize = 4;
 /// TLS 1.3 handshake message type of Finished.
 const HS_FINISHED: u8 = 20;

@@ -76,7 +76,6 @@ pub struct FingerprintResult {
 
 impl FingerprintResult {
     /// A result with every field empty.
-    #[cfg(feature = "http-akamai-keylog")]
     pub(crate) fn empty() -> Self {
         Self {
             #[cfg(feature = "tcp-syn")]
@@ -93,6 +92,7 @@ impl FingerprintResult {
             http_request: None,
             #[cfg(feature = "http-p0f-response")]
             http_response: None,
+            #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
             http_akamai: None,
             tls_client: None,
         }

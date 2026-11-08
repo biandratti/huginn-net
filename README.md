@@ -103,7 +103,7 @@ See [benches/README.md](benches/README.md) for detailed throughput numbers, 10 G
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
 - **HTTP Request/Response** analysis for application identification
 - **HTTP/2 Akamai fingerprinting** extracts SETTINGS, WINDOW_UPDATE, PRIORITY, and pseudo-header order; used by huginn-proxy to inject fingerprints as HTTP headers
-- **Akamai HTTP/2 in the packet pipeline**: one fingerprint per connection for cleartext h2c, and for HTTP/2 over TLS when a TLS key log (`SSLKEYLOGFILE` format) is available, so a passive observer next to a TLS terminator can fingerprint clients without terminating TLS. JA4H is intentionally not supported: it is part of JA4+, licensed under the FoxIO License 1.1.
+- **Akamai HTTP/2 in the packet pipeline**: one fingerprint per connection for cleartext h2c, and for HTTP/2 over TLS when a TLS key log (`SSLKEYLOGFILE` format) is available, so a passive observer next to a TLS terminator can fingerprint clients without terminating TLS.
 - **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant [`JA4_s1` / `JA4_rs1`](huginn-net-tls/JA4S1.md)
 - **MTU Discovery** for link type detection
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)

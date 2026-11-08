@@ -1,9 +1,9 @@
 //! Bounded, in-order TCP stream reassembly for one direction of a connection.
 //!
-//! AEAD decryption needs exact, byte-exact record boundaries, so duplicated, overlapping or
-//! out-of-order segments must be resolved before records are parsed. Offsets are relative to
-//! the first payload byte and computed with wrapping arithmetic, so sequence-number
-//! wraparound is handled.
+//! Used by the h2c tracker and the key log sessions: both need the exact client byte stream,
+//! so duplicated, overlapping or out-of-order segments are resolved before parsing. Offsets
+//! are relative to the first payload byte and computed with wrapping arithmetic, so
+//! sequence-number wraparound is handled.
 
 use std::collections::BTreeMap;
 
@@ -135,6 +135,7 @@ impl StreamReassembler {
     }
 
     /// `true` while out-of-order data is waiting for a missing segment.
+    #[cfg(feature = "akamai-keylog")]
     pub fn has_gap(&self) -> bool {
         !self.pending.is_empty()
     }

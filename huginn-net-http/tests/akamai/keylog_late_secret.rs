@@ -1,5 +1,5 @@
 //! A secret written to the key log after the connection was captured still completes it
-//! within the pending window, and not after it (US1-AS3, SC-004).
+//! within the pending window, and not after it.
 
 use super::pcap_util::{keys_path, pcap_dir, read_frames, snapshot};
 use huginn_net_http::{HuginnNetHttp, KeyLogStore, KeylogConfig, KeylogSource};

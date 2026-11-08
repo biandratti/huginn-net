@@ -1270,8 +1270,8 @@ fn keylog_analyzer(lines: &[String]) -> huginn_net_http::HuginnNetHttp {
     }
 }
 
-/// Akamai scenarios: cleartext h2c replay, key log decryption of TLS 1.3, and the SC-005
-/// baseline (the same TLS traffic with `akamai-keylog` compiled in but no key log).
+/// Akamai scenarios: cleartext h2c replay, key log decryption of TLS 1.3, and its baseline
+/// (the same TLS traffic with `akamai-keylog` compiled in but no key log).
 #[allow(unused_variables)]
 fn bench_akamai(c: &mut Criterion) {
     #[cfg(feature = "akamai-cleartext")]

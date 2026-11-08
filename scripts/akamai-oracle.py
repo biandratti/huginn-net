@@ -2,8 +2,7 @@
 """Reference Akamai HTTP/2 fingerprints for a real capture, via tshark (dev-only).
 
 Never used at runtime or in CI. Use it to produce the expected snapshot for captures of
-real clients (browsers, curl) recorded as described in
-specs/001-akamai-http2-processing/quickstart.md. CI only compares against the committed JSON.
+real clients (browsers, curl). CI only compares against the committed JSON.
 
 tshark does the TCP reassembly and TLS decryption (with the key log); this script only reads
 the decrypted client byte stream (`-z follow,tls,raw`, or `follow,tcp,raw` for h2c) and

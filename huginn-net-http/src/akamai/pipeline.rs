@@ -92,8 +92,7 @@ impl AkamaiAccumulator {
 #[cfg(feature = "akamai-keylog")]
 impl Drop for AkamaiAccumulator {
     fn drop(&mut self) {
-        // May hold decrypted application data (FR-008). Only the filled part was ever
-        // written; wiping the whole capacity would cost a byte-wise volatile write per slot.
+        // May hold decrypted application data. Only the filled part was ever written.
         zeroize::Zeroize::zeroize(self.buf.as_mut_slice());
     }
 }

@@ -1,5 +1,5 @@
 //! The unified analyzer reports the decrypted Akamai fingerprint next to the TLS result of
-//! the same connection (FR-015).
+//! the same connection.
 
 use huginn_net::{AnalysisConfig, FingerprintResult, HuginnNet, KeylogConfig, KeylogSource};
 use std::path::Path;

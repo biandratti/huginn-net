@@ -5,7 +5,7 @@
 //! - TLS 1.2: the PRF `P_hash` (RFC 5246 section 5) expands the master secret into the key block,
 //!   from which the client write key and IV are sliced (section 6.3).
 
-use super::record::{AeadAlg, CipherSuite};
+use super::record::CipherSuite;
 use hkdf::Hkdf;
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::{Sha256, Sha384};
@@ -145,10 +145,7 @@ pub fn tls12_client_keys(
     suite: CipherSuite,
 ) -> Result<TrafficKeys, KeyScheduleError> {
     let key_len = suite.aead.key_len();
-    let iv_len: usize = match suite.aead {
-        AeadAlg::Aes128Gcm | AeadAlg::Aes256Gcm => 4,
-        AeadAlg::ChaCha20Poly1305 => 12,
-    };
+    let iv_len = suite.iv_len();
     let mut seed = [0u8; 64];
     seed[..32].copy_from_slice(server_random);
     seed[32..].copy_from_slice(client_random);
