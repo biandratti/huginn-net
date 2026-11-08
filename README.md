@@ -37,12 +37,23 @@ Passive fingerprinting infers information about remote hosts without sending any
 | 7     | HTTP                      | HTTP/1 & HTTP/2 - Headers, User-Agent, Lang |
 | 4     | TCP                       | OS Fingerprinting (p0f-style)               |
 
+### What works on HTTPS
+
+| Traffic | TCP (p0f) | HTTP (p0f) | Akamai HTTP/2 | TLS (JA4) |
+|---------|-----------|------------|---------------|-----------|
+| Plain HTTP | yes | yes | only for cleartext HTTP/2 | - |
+| HTTPS | yes | no | needs the TLS keys | yes |
+
+p0f HTTP signatures are for plain HTTP/1: p0f is older than HTTP/2 and never read encrypted
+traffic. For HTTPS clients use JA4, plus Akamai when you have the TLS keys (a key log, or
+inside a proxy that terminates TLS). TCP signatures work either way, they only look at the SYN.
+
 
 ## Crates
 
 - [huginn-net](huginn-net/README.md): TCP, HTTP, and TLS together
 - [huginn-net-tcp](huginn-net-tcp/README.md): TCP SYN and SYN+ACK fingerprints, MTU, uptime
-- [huginn-net-http](huginn-net-http/README.md): HTTP/1 and HTTP/2 signatures, plus a standalone Akamai HTTP/2 parser
+- [huginn-net-http](huginn-net-http/README.md): HTTP/1 and HTTP/2 signatures, plus Akamai HTTP/2 fingerprints
 - [huginn-net-tls](huginn-net-tls/README.md): JA4 and stable JA4_s1 / JA4_s1r signatures
 - [huginn-net-db](huginn-net-db/README.md): match TCP and HTTP fingerprints against p0f signatures
 
@@ -103,6 +114,7 @@ See [benches/README.md](benches/README.md) for detailed throughput numbers, 10 G
 - **TCP SYN/SYN+ACK** fingerprinting for OS detection
 - **HTTP Request/Response** analysis for application identification
 - **HTTP/2 Akamai fingerprinting** extracts SETTINGS, WINDOW_UPDATE, PRIORITY, and pseudo-header order; used by huginn-proxy to inject fingerprints as HTTP headers
+- **Akamai HTTP/2 from captured traffic**: for HTTPS, give it the TLS key log (`SSLKEYLOGFILE`) your proxy writes and it decrypts the start of each connection; no TLS termination needed.
 - **TLS ClientHello** analysis with JA4 fingerprinting for client identification, including the stable variant [`JA4_s1` / `JA4_rs1`](huginn-net-tls/JA4S1.md)
 - **MTU Discovery** for link type detection
 - **Uptime Estimation** from TCP timestamps (limited accuracy on modern systems)

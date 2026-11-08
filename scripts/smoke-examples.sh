@@ -62,9 +62,10 @@ record() {
 }
 
 # Run a CLI on a PCAP; require exit 0 and stdout matching EXPECT_REGEX.
-# Args: name package example features pcap expect_regex
+# Args: name package example features pcap expect_regex [extra global CLI args...]
 smoke_pcap() {
     local name="$1" package="$2" example="$3" features="$4" pcap="$5" expect="$6"
+    shift 6
     local out="$TMPDIR_SMOKE/${name}.json"
     local err="$TMPDIR_SMOKE/${name}.err"
     local log="$TMPDIR_SMOKE/${name}.log"
@@ -72,7 +73,7 @@ smoke_pcap() {
     group_open "pcap $name"
     set +e
     cargo run -q -p "$package" --example "$example" --features "$features" -- \
-        --format json -l "$log" \
+        --format json -l "$log" "$@" \
         pcap -f "$pcap" \
         >"$out" 2>"$err"
     local rc=$?
@@ -144,6 +145,13 @@ smoke_pcap cli-tcp  huginn-net-tcp  cli-tcp  "full,json" pcap/macos_tcp_flags.pc
 smoke_pcap cli-http huginn-net-http cli-http "full,json" pcap/http-simple-get.pcap             'Matched|"http_request"'
 smoke_pcap cli-tls  huginn-net-tls  cli-tls  "full,json" pcap/tls12.pcap                       'ja4'
 smoke_pcap cli      huginn-net      cli      "full,json" pcap/http-simple-get.pcap             'tcp_syn|http_request|Matched'
+
+# Akamai HTTP/2: cleartext h2c, and HTTP/2 over TLS with the key log recorded with the capture.
+smoke_pcap cli-http-h2c    huginn-net-http cli-http "full,json" pcap/akamai-h2c-prior.pcap  '"http_akamai".*"cleartext"'
+smoke_pcap cli-http-keylog huginn-net-http cli-http "full,json" pcap/akamai-tls13-chacha-curl.pcap \
+    '"http_akamai".*"tls_decrypted"' --keylog pcap/akamai-tls13-chacha-curl.keys
+smoke_pcap cli-keylog      huginn-net      cli      "full,json" pcap/akamai-tls12-aes128-curl.pcap \
+    '"http_akamai".*"tls_decrypted"' --keylog pcap/akamai-tls12-aes128-curl.keys
 
 if [[ -n "$INTERFACE" ]]; then
     echo

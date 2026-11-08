@@ -65,6 +65,8 @@ consume, or use `full` to opt into everything this version offers:
 | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, `HttpRequestOutput`, `Browser`, `BrowserQualityMatched`, `UaOsAgreement`). With `db` + `tcp-syn`, the umbrella feeds that connection's SYN OS into `ua_os`. |
 | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, `HttpResponseOutput`, `WebServer`, `WebServerQualityMatched`). |
+| `http-akamai-cleartext` | No | Pass-through for `huginn-net-http/akamai-cleartext`: one Akamai HTTP/2 fingerprint per cleartext (h2c) connection in `FingerprintResult::http_akamai` (`AkamaiOutput`). |
+| `http-akamai-keylog` | No | Pass-through for `huginn-net-http/akamai-keylog`: `HuginnNet::with_keylog` decrypts HTTP/2 over TLS with a TLS key log and reports the Akamai fingerprint in `FingerprintResult::http_akamai`, next to the `tls_client` (JA4) result of the same connection. See the [key log security notes](../huginn-net-http/README.md#key-log-security). |
 | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1`: official JA4 minus the session / resumption extension types. |
 | `json` | No | Derives `serde::Serialize` on all output types (`FingerprintResult` and its fields). Enables JSON serialization via `serde_json`. Independent of `full` — opt in explicitly: `features = ["full", "json"]`. |
 

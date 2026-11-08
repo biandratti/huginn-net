@@ -1,6 +1,7 @@
 #[cfg(feature = "akamai")]
 pub mod fingerprint;
 pub mod frames;
+pub(crate) mod hpack;
 pub mod parser;
 pub mod process;
 

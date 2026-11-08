@@ -11,7 +11,8 @@ use std::hash::{Hash, Hasher};
 ///
 /// Hashes the complete flow (src_ip, dst_ip, src_port, dst_port) to ensure
 /// all packets from the same connection go to the same worker for proper
-/// request/response tracking.
+/// request/response tracking. The endpoints are hashed in a canonical order, so
+/// both directions of a connection land on the same worker.
 #[inline]
 pub fn hash_flow(packet: &[u8], num_workers: usize) -> usize {
     // Skip Ethernet header (14 bytes) if present
@@ -71,15 +72,7 @@ fn hash_ipv4_flow(ip_packet: &[u8], num_workers: usize) -> usize {
     let src_port = u16::from_be_bytes([tcp_header[0], tcp_header[1]]);
     let dst_port = u16::from_be_bytes([tcp_header[2], tcp_header[3]]);
 
-    let mut hasher = DefaultHasher::new();
-    src_ip.hash(&mut hasher);
-    dst_ip.hash(&mut hasher);
-    src_port.hash(&mut hasher);
-    dst_port.hash(&mut hasher);
-
-    (hasher.finish() as usize)
-        .checked_rem(num_workers)
-        .unwrap_or(0)
+    hash_endpoints(src_ip, src_port, dst_ip, dst_port, num_workers)
 }
 
 /// Hashes IPv6 flow (src_ip, dst_ip, src_port, dst_port).
@@ -109,11 +102,27 @@ fn hash_ipv6_flow(ip_packet: &[u8], num_workers: usize) -> usize {
     let src_port = u16::from_be_bytes([tcp_header[0], tcp_header[1]]);
     let dst_port = u16::from_be_bytes([tcp_header[2], tcp_header[3]]);
 
+    hash_endpoints(src_ip, src_port, dst_ip, dst_port, num_workers)
+}
+
+/// Hashes a TCP connection's two endpoints in a canonical order, so both directions of a
+/// connection map to the same worker.
+fn hash_endpoints(
+    src_ip: &[u8],
+    src_port: u16,
+    dst_ip: &[u8],
+    dst_port: u16,
+    num_workers: usize,
+) -> usize {
+    let (first, second) = if (src_ip, src_port) <= (dst_ip, dst_port) {
+        ((src_ip, src_port), (dst_ip, dst_port))
+    } else {
+        ((dst_ip, dst_port), (src_ip, src_port))
+    };
+
     let mut hasher = DefaultHasher::new();
-    src_ip.hash(&mut hasher);
-    dst_ip.hash(&mut hasher);
-    src_port.hash(&mut hasher);
-    dst_port.hash(&mut hasher);
+    first.hash(&mut hasher);
+    second.hash(&mut hasher);
 
     (hasher.finish() as usize)
         .checked_rem(num_workers)

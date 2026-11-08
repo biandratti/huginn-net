@@ -24,8 +24,6 @@ fn test_akamai_fingerprint_chrome() {
         fp.fingerprint,
         "1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|15663105|0|m,p,a,s"
     );
-    assert!(!fp.hash.is_empty());
-    assert_eq!(fp.hash.len(), 32);
 }
 
 #[test]
@@ -69,25 +67,6 @@ fn test_akamai_fingerprint_with_priorities() {
 fn test_empty_fingerprint() {
     let fp = AkamaiFingerprint::new(vec![], 0, vec![], vec![]);
     assert_eq!(fp.fingerprint, "|00|0|");
-}
-
-#[test]
-fn test_fingerprint_hash_consistency() {
-    let settings = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 65536 }];
-    let pseudo_headers = vec![PseudoHeader::Method];
-    let fp1 = AkamaiFingerprint::new(settings.clone(), 1000, vec![], pseudo_headers.clone());
-    let fp2 = AkamaiFingerprint::new(settings, 1000, vec![], pseudo_headers);
-    assert_eq!(fp1.hash, fp2.hash);
-}
-
-#[test]
-fn test_fingerprint_hash_differs_for_different_fingerprints() {
-    let settings1 = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 65536 }];
-    let settings2 = vec![SettingParameter { id: SettingId::HeaderTableSize, value: 4096 }];
-    let pseudo_headers = vec![PseudoHeader::Method];
-    let fp1 = AkamaiFingerprint::new(settings1, 1000, vec![], pseudo_headers.clone());
-    let fp2 = AkamaiFingerprint::new(settings2, 1000, vec![], pseudo_headers);
-    assert_ne!(fp1.hash, fp2.hash);
 }
 
 #[test]

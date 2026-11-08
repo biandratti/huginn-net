@@ -1,3 +1,5 @@
+#[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+use huginn_net_http::output::AkamaiOutput;
 #[cfg(feature = "http-p0f-request")]
 use huginn_net_http::output::HttpRequestOutput;
 #[cfg(feature = "http-p0f-response")]
@@ -61,12 +63,41 @@ pub struct FingerprintResult {
     #[cfg(feature = "http-p0f-response")]
     pub http_response: Option<HttpResponseOutput>,
 
+    /// Akamai HTTP/2 client fingerprint of the connection, emitted at most once per connection.
+    ///
+    /// Present only when the `http-akamai-cleartext` or `http-akamai-keylog` feature is enabled.
+    #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+    pub http_akamai: Option<AkamaiOutput>,
+
     /// Information derived from TLS ClientHello analysis using JA4 fingerprinting.
     /// JA4 methodology by FoxIO, LLC - implementation from scratch for Huginn Net.
     pub tls_client: Option<TlsClientOutput>,
 }
 
 impl FingerprintResult {
+    /// A result with every field empty.
+    pub(crate) fn empty() -> Self {
+        Self {
+            #[cfg(feature = "tcp-syn")]
+            tcp_syn: None,
+            #[cfg(feature = "tcp-syn-ack")]
+            tcp_syn_ack: None,
+            #[cfg(feature = "tcp-mtu")]
+            tcp_mtu: None,
+            #[cfg(feature = "tcp-uptime")]
+            tcp_client_uptime: None,
+            #[cfg(feature = "tcp-uptime")]
+            tcp_server_uptime: None,
+            #[cfg(feature = "http-p0f-request")]
+            http_request: None,
+            #[cfg(feature = "http-p0f-response")]
+            http_response: None,
+            #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+            http_akamai: None,
+            tls_client: None,
+        }
+    }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         #[cfg(feature = "tcp-syn")]
@@ -95,6 +126,10 @@ impl FingerprintResult {
         }
         #[cfg(feature = "http-p0f-response")]
         if self.http_response.is_some() {
+            return false;
+        }
+        #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+        if self.http_akamai.is_some() {
             return false;
         }
         if self.tls_client.is_some() {

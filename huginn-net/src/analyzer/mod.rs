@@ -123,6 +123,8 @@ pub struct HuginnNet<'a> {
     observed_os: observed_os::ObservedOsCache,
     pub(crate) config: AnalysisConfig,
     filter_config: Option<FilterConfig>,
+    #[cfg(feature = "http-akamai-keylog")]
+    keylog: Option<huginn_net_http::KeylogTracker>,
     #[cfg(not(feature = "db"))]
     _lifetime: std::marker::PhantomData<&'a ()>,
 }
@@ -188,6 +190,8 @@ impl<'a> HuginnNet<'a> {
             observed_os: observed_os::ObservedOsCache::new(connection_tracker_size),
             config,
             filter_config: None,
+            #[cfg(feature = "http-akamai-keylog")]
+            keylog: None,
         })
     }
 
@@ -216,6 +220,8 @@ impl<'a> HuginnNet<'a> {
             http_processors: HttpProcessors::new(),
             config,
             filter_config: None,
+            #[cfg(feature = "http-akamai-keylog")]
+            keylog: None,
             _lifetime: std::marker::PhantomData,
         })
     }
@@ -233,6 +239,73 @@ impl<'a> HuginnNet<'a> {
     pub fn with_filter(mut self, filter: FilterConfig) -> Self {
         self.filter_config = Some(filter);
         self
+    }
+
+    /// Enables Akamai HTTP/2 fingerprints for HTTP/2-over-TLS connections decrypted with a
+    /// TLS key log (NSS `SSLKEYLOGFILE` format). Results arrive in
+    /// [`FingerprintResult::http_akamai`], next to the TLS and TCP results of the same
+    /// connection. Decrypted bytes only feed the Akamai fingerprint.
+    ///
+    /// # Errors
+    /// `HuginnNetError::MissConfiguration` when the settings are out of range or the key log
+    /// cannot be read or followed.
+    #[cfg(feature = "http-akamai-keylog")]
+    pub fn with_keylog(
+        mut self,
+        config: huginn_net_http::KeylogConfig,
+    ) -> Result<Self, HuginnNetError> {
+        let capacity = self.http_flows.capacity().max(1);
+        let tracker = huginn_net_http::KeylogTracker::new(config, capacity)
+            .map_err(|e| HuginnNetError::MissConfiguration(e.to_string()))?;
+        self.keylog = Some(tracker);
+        Ok(self)
+    }
+
+    /// Key log decryption counters (all zero when [`Self::with_keylog`] was not called).
+    #[cfg(feature = "http-akamai-keylog")]
+    #[must_use]
+    pub fn keylog_stats(&self) -> huginn_net_http::KeylogStats {
+        self.keylog
+            .as_ref()
+            .map(huginn_net_http::KeylogTracker::stats)
+            .unwrap_or_default()
+    }
+
+    /// Feeds one frame to the key log tracker, if configured.
+    #[cfg(feature = "http-akamai-keylog")]
+    fn keylog_packet(&mut self, packet: &[u8]) -> Option<huginn_net_http::AkamaiOutput> {
+        use crate::parser::packet::{IpPacket, parse_packet};
+        let tracker = self.keylog.as_mut()?;
+        match parse_packet(packet) {
+            IpPacket::Ipv4(data) => {
+                pnet::packet::ipv4::Ipv4Packet::new(data).and_then(|p| tracker.process_ipv4(&p))
+            }
+            IpPacket::Ipv6(data) => {
+                pnet::packet::ipv6::Ipv6Packet::new(data).and_then(|p| tracker.process_ipv6(&p))
+            }
+            IpPacket::None => None,
+        }
+    }
+
+    /// Sends results of connections that completed while waiting for a late secret.
+    /// Returns `false` when the receiver is gone.
+    #[cfg(feature = "http-akamai-keylog")]
+    fn send_keylog_sweep(&mut self, sender: &Sender<FingerprintResult>, force: bool) -> bool {
+        let Some(tracker) = self.keylog.as_mut() else {
+            return true;
+        };
+        let outputs = if force {
+            tracker.sweep(true)
+        } else {
+            tracker.sweep_due()
+        };
+        for out in outputs {
+            let result = FingerprintResult { http_akamai: Some(out), ..FingerprintResult::empty() };
+            if sender.send(result).is_err() {
+                return false;
+            }
+        }
+        true
     }
 
     fn process_with<F>(
@@ -271,7 +344,16 @@ impl<'a> HuginnNet<'a> {
                     error!("Failed to read packet: {}", e);
                 }
             }
+
+            #[cfg(feature = "http-akamai-keylog")]
+            if !self.send_keylog_sweep(&sender, false) {
+                return Ok(());
+            }
         }
+
+        // End of input (or cancelled): connections still waiting for a secret can't complete.
+        #[cfg(feature = "http-akamai-keylog")]
+        self.send_keylog_sweep(&sender, true);
         Ok(())
     }
 
@@ -375,6 +457,18 @@ impl<'a> HuginnNet<'a> {
     /// # Returns
     /// A `FingerprintResult` object containing the analysis results.
     pub fn analyze_tcp(&mut self, packet: &[u8]) -> FingerprintResult {
+        #[cfg(feature = "http-akamai-keylog")]
+        let akamai = self.keylog_packet(packet);
+        #[cfg_attr(not(feature = "http-akamai-keylog"), allow(unused_mut))]
+        let mut result = self.analyze_observable(packet);
+        #[cfg(feature = "http-akamai-keylog")]
+        if akamai.is_some() {
+            result.http_akamai = akamai;
+        }
+        result
+    }
+
+    fn analyze_observable(&mut self, packet: &[u8]) -> FingerprintResult {
         match ObservablePackage::extract(
             packet,
             &mut self.connection_tracker,
@@ -553,6 +647,10 @@ impl<'a> HuginnNet<'a> {
                         }
                     });
 
+                #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+                let http_akamai: Option<huginn_net_http::AkamaiOutput> =
+                    observable_package.http_akamai;
+
                 let tls_client: Option<TlsClientOutput> =
                     observable_package
                         .tls_client
@@ -583,28 +681,14 @@ impl<'a> HuginnNet<'a> {
                     http_request,
                     #[cfg(feature = "http-p0f-response")]
                     http_response,
+                    #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+                    http_akamai,
                     tls_client,
                 }
             }
             Err(error) => {
                 debug!("Fail to process signature: {}", error);
-                FingerprintResult {
-                    #[cfg(feature = "tcp-syn")]
-                    tcp_syn: None,
-                    #[cfg(feature = "tcp-syn-ack")]
-                    tcp_syn_ack: None,
-                    #[cfg(feature = "tcp-mtu")]
-                    tcp_mtu: None,
-                    #[cfg(feature = "tcp-uptime")]
-                    tcp_client_uptime: None,
-                    #[cfg(feature = "tcp-uptime")]
-                    tcp_server_uptime: None,
-                    #[cfg(feature = "http-p0f-request")]
-                    http_request: None,
-                    #[cfg(feature = "http-p0f-response")]
-                    http_response: None,
-                    tls_client: None,
-                }
+                FingerprintResult::empty()
             }
         }
     }

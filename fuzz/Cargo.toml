@@ -1,0 +1,60 @@
+[package]
+name = "huginn-net-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+# Standalone crate: kept out of the root workspace.
+[workspace]
+
+[[bin]]
+name = "keylog_line"
+path = "fuzz_targets/keylog_line.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "record_layer"
+path = "fuzz_targets/record_layer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "reassembler"
+path = "fuzz_targets/reassembler.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "akamai_accumulator"
+path = "fuzz_targets/akamai_accumulator.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hpack_pseudo_order"
+path = "fuzz_targets/hpack_pseudo_order.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hpack_decode"
+path = "fuzz_targets/hpack_decode.rs"
+test = false
+doc = false
+bench = false
+
+[dependencies]
+hpack-patched = "0.3.0"
+huginn-net-http = { path = "../huginn-net-http", features = ["akamai-cleartext", "akamai-keylog"] }
+libfuzzer-sys = "0.4"
+zeroize = "1.9"
+

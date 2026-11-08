@@ -1,5 +1,7 @@
 pub mod flow;
 pub mod parallel;
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+pub(crate) mod reassembly;
 
 pub use flow::{FlowKey, HttpProcessors, ObservableHttpPackage, TcpFlow};
 pub use parallel::{
@@ -107,7 +109,11 @@ fn create_observable_package_ipv6(
 }
 
 #[cfg_attr(
-    not(any(feature = "p0f-request", feature = "p0f-response")),
+    not(any(
+        feature = "p0f-request",
+        feature = "p0f-response",
+        feature = "akamai-cleartext"
+    )),
     allow(unused_mut)
 )]
 fn build_http_result(
@@ -217,5 +223,33 @@ fn build_http_result(
         http_result.http_response = Some(response_output);
     }
 
+    #[cfg(feature = "akamai-cleartext")]
+    {
+        http_result.http_akamai = http_package.http_akamai;
+    }
+
     http_result
+}
+
+/// Adds a key log Akamai result to the packet's HTTP result. A packet that completes a
+/// decrypted connection yields a result even if the cleartext HTTP path rejected it.
+#[cfg(feature = "akamai-keylog")]
+pub(crate) fn merge_keylog_akamai(
+    result: Result<HttpAnalysisResult, HuginnNetHttpError>,
+    akamai: Option<crate::output::AkamaiOutput>,
+) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
+    let Some(akamai) = akamai else {
+        return result;
+    };
+    let mut result = result.unwrap_or_else(|_| HttpAnalysisResult::empty());
+    result.http_akamai = Some(akamai);
+    Ok(result)
+}
+
+/// An analysis result carrying only a key log Akamai result (late secrets, end of input).
+#[cfg(feature = "akamai-keylog")]
+pub(crate) fn akamai_only(akamai: crate::output::AkamaiOutput) -> HttpAnalysisResult {
+    let mut result = HttpAnalysisResult::empty();
+    result.http_akamai = Some(akamai);
+    result
 }

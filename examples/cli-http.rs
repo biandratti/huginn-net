@@ -26,6 +26,46 @@ struct Args {
 
     #[arg(long, value_enum, default_value = "human")]
     format: OutputFormat,
+
+    /// TLS key log file (SSLKEYLOGFILE format) used to decrypt HTTP/2 over TLS for Akamai
+    /// fingerprints. Read once for `pcap`, followed for `live`. Needs `akamai-keylog`.
+    #[arg(long = "keylog")]
+    keylog: Option<String>,
+
+    /// How long a connection waits for its key log secret, in milliseconds.
+    #[arg(long = "keylog-wait", default_value = "2000")]
+    keylog_wait: u64,
+}
+
+/// Adds key log decryption to the analyzer when `--keylog` was given.
+#[cfg(feature = "akamai-keylog")]
+fn with_keylog(
+    analyzer: HuginnNetHttp,
+    keylog: Option<&str>,
+    wait_ms: u64,
+    live: bool,
+) -> Option<HuginnNetHttp> {
+    use huginn_net_http::{KeylogConfig, KeylogSource};
+    let Some(path) = keylog else {
+        return Some(analyzer);
+    };
+    let source = if live {
+        KeylogSource::Follow(path.into())
+    } else {
+        KeylogSource::File(path.into())
+    };
+    let config =
+        KeylogConfig::new(source).pending_timeout(std::time::Duration::from_millis(wait_ms.max(1)));
+    match analyzer.with_keylog(config) {
+        Ok(analyzer) => {
+            info!("Key log decryption enabled ({path})");
+            Some(analyzer)
+        }
+        Err(e) => {
+            error!("Cannot use key log: {e}");
+            None
+        }
+    }
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
@@ -57,6 +97,28 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
     }
 
     Some(filter)
+}
+
+#[cfg(not(feature = "akamai-keylog"))]
+fn with_keylog(
+    analyzer: HuginnNetHttp,
+    keylog: Option<&str>,
+    _wait_ms: u64,
+    _live: bool,
+) -> Option<HuginnNetHttp> {
+    if keylog.is_some() {
+        error!("--keylog needs the akamai-keylog feature");
+        return None;
+    }
+    Some(analyzer)
+}
+
+/// Prints the key log counters when the analysis ends.
+fn log_keylog_stats(analyzer: &HuginnNetHttp) {
+    #[cfg(feature = "akamai-keylog")]
+    info!("Key log stats: {:?}", analyzer.keylog_stats());
+    #[cfg(not(feature = "akamai-keylog"))]
+    let _ = analyzer;
 }
 
 fn main() {
@@ -98,8 +160,10 @@ fn main() {
         return;
     }
 
-    thread::spawn(move || {
+    let analysis = thread::spawn(move || {
         let filter_config = build_filter(&args.filter);
+        let keylog = args.keylog.clone();
+        let keylog_wait = args.keylog_wait;
 
         match args.command {
             Commands::Live { mode: LiveMode::Single { interface } } => {
@@ -110,12 +174,18 @@ fn main() {
                     info!("Packet filtering enabled");
                 }
 
+                let Some(mut analyzer) =
+                    with_keylog(analyzer, keylog.as_deref(), keylog_wait, true)
+                else {
+                    return;
+                };
                 info!("Starting HTTP live capture on interface: {interface}");
                 if let Err(e) =
                     analyzer.analyze_network(&interface, sender, Some(thread_cancel_signal))
                 {
                     error!("HTTP analysis failed: {e}");
                 }
+                log_keylog_stats(&analyzer);
             }
             Commands::Live { mode: LiveMode::Parallel { interface, workers, queue_size } } => {
                 info!(
@@ -129,6 +199,11 @@ fn main() {
                     info!("Packet filtering enabled");
                 }
 
+                let Some(mut analyzer) =
+                    with_keylog(analyzer, keylog.as_deref(), keylog_wait, true)
+                else {
+                    return;
+                };
                 if let Err(e) = analyzer.init_pool(sender.clone()) {
                     error!("Failed to initialize worker pool: {e}");
                     return;
@@ -140,6 +215,7 @@ fn main() {
                 {
                     error!("HTTP analysis failed: {e}");
                 }
+                log_keylog_stats(&analyzer);
             }
             Commands::Pcap { file } => {
                 info!("Initializing HTTP analyzer in sequential mode for PCAP analysis");
@@ -149,10 +225,16 @@ fn main() {
                     info!("Packet filtering enabled");
                 }
 
+                let Some(mut analyzer) =
+                    with_keylog(analyzer, keylog.as_deref(), keylog_wait, false)
+                else {
+                    return;
+                };
                 info!("Analyzing PCAP file: {file}");
                 if let Err(e) = analyzer.analyze_pcap(&file, sender, Some(thread_cancel_signal)) {
                     error!("HTTP analysis failed: {e}");
                 }
+                log_keylog_stats(&analyzer);
             }
         }
     });
@@ -171,6 +253,10 @@ fn main() {
                 if let Some(http_response) = output.http_response {
                     info!("{http_response}");
                 }
+                #[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+                if let Some(http_akamai) = output.http_akamai {
+                    info!("{http_akamai}");
+                }
             }
             OutputFormat::Json =>
             {
@@ -185,5 +271,7 @@ fn main() {
         }
     }
 
+    // Wait for the analysis thread so its final messages (key log stats) are printed.
+    let _ = analysis.join();
     info!("Analysis shutdown completed");
 }

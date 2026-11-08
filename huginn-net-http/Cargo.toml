@@ -15,28 +15,45 @@ categories = ["network-programming", "web-programming"]
 
 [features]
 default = []
-full = ["p0f-request", "p0f-response", "akamai"]
+full = ["p0f-request", "p0f-response", "akamai", "akamai-cleartext", "akamai-keylog"]
 json = ["dep:serde"]
 p0f-request = []
 p0f-response = []
 akamai = []
+akamai-cleartext = ["akamai"]
+akamai-keylog = [
+    "akamai",
+    "dep:aes-gcm",
+    "dep:chacha20poly1305",
+    "dep:hkdf",
+    "dep:hmac",
+    "dep:sha2",
+    "dep:tls-parser",
+    "dep:zeroize",
+]
 
 [dependencies]
+aes-gcm = { workspace = true, optional = true }
+chacha20poly1305 = { workspace = true, optional = true }
 crossbeam-channel = { workspace = true }
-hpack-patched = { workspace = true }
+hkdf = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
 serde = { workspace = true, optional = true }
-sha2 = { workspace = true }
+sha2 = { workspace = true, optional = true }
 thiserror = { workspace = true }
+tls-parser = { workspace = true, optional = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true }
+zeroize = { workspace = true, optional = true }
 
 [dev-dependencies]
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
+hpack-patched = { workspace = true }
 huginn-net-db = { path = "../huginn-net-db", features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

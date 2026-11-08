@@ -7,3 +7,7 @@ cobertura.xml
 !Cargo.lock
 /data
 /benches/reports/
+__pycache__/
+/fuzz/artifacts/
+/fuzz/coverage/
+/fuzz/corpus/

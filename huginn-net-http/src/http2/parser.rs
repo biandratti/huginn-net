@@ -1,9 +1,11 @@
-use super::frames::{HTTP2_CONNECTION_PREFACE, Http2Frame, Http2FrameType};
+use super::frames::{
+    FLAG_END_HEADERS, HTTP2_CONNECTION_PREFACE, Http2Frame, Http2FrameType, headers_fragment,
+};
+use super::hpack::Decoder;
 use crate::http;
 use crate::http::common::{HeaderSource, HttpCookie, HttpHeader, ParsingMetadata};
-use hpack_patched::Decoder;
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Default)]
@@ -113,13 +115,13 @@ impl std::error::Error for Http2ParseError {}
 /// Provides parsing capabilities for HTTP/2 requests and responses according to RFC 7540.
 /// Supports HPACK header compression and handles various frame types.
 ///
-/// # Thread Safety
-///
-/// **This parser is NOT thread-safe.** Each thread should create its own instance.
-/// The internal HPACK decoder maintains state and uses `RefCell` for interior mutability.
+/// Each `parse_request` / `parse_response` call takes the client (or server) bytes from the
+/// start of the connection and decodes them with a fresh HPACK state, so the parser keeps no
+/// state between calls.
 pub struct Http2Parser<'a> {
     config: Http2Config,
-    hpack_decoder: RefCell<Decoder<'a>>,
+    /// Kept so the public type keeps its lifetime parameter.
+    _lifetime: PhantomData<&'a ()>,
 }
 
 impl<'a> Default for Http2Parser<'a> {
@@ -130,11 +132,11 @@ impl<'a> Default for Http2Parser<'a> {
 
 impl<'a> Http2Parser<'a> {
     pub fn new() -> Self {
-        Self { config: Http2Config::default(), hpack_decoder: RefCell::new(Decoder::new()) }
+        Self::with_config(Http2Config::default())
     }
 
     pub fn with_config(config: Http2Config) -> Self {
-        Self { config, hpack_decoder: RefCell::new(Decoder::new()) }
+        Self { config, _lifetime: PhantomData }
     }
 
     /// Parse HTTP/2 request from binary data
@@ -455,40 +457,51 @@ impl<'a> Http2Parser<'a> {
         let mut scheme = None;
         let mut status = None;
 
-        let stream_frames: Vec<&Http2Frame> =
-            frames.iter().filter(|f| f.stream_id == stream_id).collect();
-
-        for frame in stream_frames {
+        // One HPACK state for the connection; a header block is a HEADERS fragment plus any
+        // CONTINUATION fragments, complete at END_HEADERS (RFC 7540 section 4.3).
+        let mut decoder = Decoder::default();
+        let mut blocks: Vec<Vec<u8>> = Vec::new();
+        let mut open = false;
+        for frame in frames.iter().filter(|f| f.stream_id == stream_id) {
             match frame.frame_type {
-                Http2FrameType::Headers | Http2FrameType::Continuation => {
-                    let frame_headers = self.parse_headers_payload(&frame.payload)?;
-                    for header in frame_headers {
-                        match header.name.as_str() {
-                            ":method" => method = Some(header.value.clone().unwrap_or_default()),
-                            ":path" => path = Some(header.value.clone().unwrap_or_default()),
-                            ":authority" => {
-                                authority = Some(header.value.clone().unwrap_or_default())
-                            }
-                            ":scheme" => scheme = Some(header.value.clone().unwrap_or_default()),
-                            ":status" => {
-                                status = header.value.as_ref().and_then(|v| v.parse().ok())
-                            }
-                            _ => headers.push(header),
-                        }
+                Http2FrameType::Headers => {
+                    let fragment = headers_fragment(frame.flags, &frame.payload)
+                        .map_err(|_| Http2ParseError::HpackDecodingFailed)?;
+                    blocks.push(fragment.to_vec());
+                }
+                Http2FrameType::Continuation if open => {
+                    if let Some(block) = blocks.last_mut() {
+                        block.extend_from_slice(&frame.payload);
                     }
                 }
-                _ => {}
+                _ => continue,
+            }
+            open = frame.flags & FLAG_END_HEADERS == 0;
+        }
+        // A block still open at the end is decoded as is: if it is really incomplete the
+        // decode fails and the caller waits for more data.
+        for block in &blocks {
+            for header in Self::decode_block(&mut decoder, block)? {
+                match header.name.as_str() {
+                    ":method" => method = Some(header.value.clone().unwrap_or_default()),
+                    ":path" => path = Some(header.value.clone().unwrap_or_default()),
+                    ":authority" => authority = Some(header.value.clone().unwrap_or_default()),
+                    ":scheme" => scheme = Some(header.value.clone().unwrap_or_default()),
+                    ":status" => status = header.value.as_ref().and_then(|v| v.parse().ok()),
+                    _ => headers.push(header),
+                }
             }
         }
 
         Ok(Http2Stream { stream_id, headers, method, path, authority, scheme, status })
     }
 
-    fn parse_headers_payload(&self, payload: &[u8]) -> Result<Vec<HttpHeader>, Http2ParseError> {
-        let headers = self
-            .hpack_decoder
-            .borrow_mut()
-            .decode(payload)
+    fn decode_block(
+        decoder: &mut Decoder,
+        block: &[u8],
+    ) -> Result<Vec<HttpHeader>, Http2ParseError> {
+        let headers = decoder
+            .decode(block)
             .map_err(|_| Http2ParseError::HpackDecodingFailed)?;
 
         let mut http_headers = Vec::new();

@@ -158,11 +158,12 @@ fn convert_http2_headers_to_http_format(
         http::response_skip_value_headers()
     };
 
+    // HTTP/2 header names are lowercase; the lists use HTTP/1 spelling.
     for header in headers {
-        let header_name_lower = header.name.to_lowercase();
-        if optional_list.contains(&header_name_lower.as_str()) {
+        let in_list = |list: &[&str]| list.iter().any(|n| n.eq_ignore_ascii_case(&header.name));
+        if in_list(&optional_list) {
             headers_in_order.push(http::Header::new(&header.name).optional());
-        } else if skip_value_list.contains(&header_name_lower.as_str()) {
+        } else if in_list(&skip_value_list) {
             headers_in_order.push(http::Header::new(&header.name));
         } else {
             headers_in_order

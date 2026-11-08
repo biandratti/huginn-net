@@ -5,6 +5,15 @@ exclude-dev = true
 [advisories]
 version = 2
 unmaintained = "all"
+ignore = [
+    # ctutils < 0.4.4: non-constant-time mask generation (timing side channel).
+    # Pulled in by aes-gcm/universal-hash/digest for the optional `akamai-keylog`
+    # feature only. The patched release needs Rust 1.87 (MSRV is 1.85).
+    # Not exploitable here: huginn decrypts traffic already captured, with keys
+    # the operator supplies; no attacker can time operations on those secrets.
+    # Remove when the MSRV is raised to >= 1.87 and ctutils is updated.
+    { id = "RUSTSEC-2026-0385", reason = "timing channel not reachable in passive decryption; fix needs MSRV 1.87" },
+]
 
 [licenses]
 version = 2

@@ -27,6 +27,17 @@ struct Args {
 
     #[arg(long, value_enum, default_value = "human")]
     format: OutputFormat,
+
+    /// TLS key log file (SSLKEYLOGFILE format) used to decrypt HTTP/2 over TLS for Akamai
+    /// fingerprints. Read once for `pcap`, followed for `live`.
+    #[cfg(feature = "http-akamai-keylog")]
+    #[arg(long = "keylog")]
+    keylog: Option<String>,
+
+    /// How long a connection waits for its key log secret, in milliseconds.
+    #[cfg(feature = "http-akamai-keylog")]
+    #[arg(long = "keylog-wait", default_value = "2000")]
+    keylog_wait: u64,
 }
 
 #[derive(Subcommand, Debug)]
@@ -110,7 +121,7 @@ fn main() {
     };
     debug!("Loaded p0f TCP+HTTP database successfully");
 
-    thread::spawn(move || {
+    let analysis = thread::spawn(move || {
         let filter_config = build_filter(&args.filter);
 
         let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
@@ -123,6 +134,27 @@ fn main() {
 
         if let Some(ref filter_cfg) = filter_config {
             analyzer = analyzer.with_filter(filter_cfg.clone());
+        }
+
+        #[cfg(feature = "http-akamai-keylog")]
+        if let Some(path) = args.keylog.as_deref() {
+            use huginn_net::{KeylogConfig, KeylogSource};
+            let source = match args.command {
+                Commands::Live { .. } => KeylogSource::Follow(path.into()),
+                Commands::Pcap { .. } => KeylogSource::File(path.into()),
+            };
+            let config = KeylogConfig::new(source)
+                .pending_timeout(std::time::Duration::from_millis(args.keylog_wait.max(1)));
+            analyzer = match analyzer.with_keylog(config) {
+                Ok(analyzer) => {
+                    info!("Key log decryption enabled ({path})");
+                    analyzer
+                }
+                Err(e) => {
+                    error!("Cannot use key log: {e}");
+                    return;
+                }
+            };
         }
 
         let result = match args.command {
@@ -139,6 +171,8 @@ fn main() {
         if let Err(e) = result {
             error!("Analysis failed: {e}");
         }
+        #[cfg(feature = "http-akamai-keylog")]
+        info!("Key log stats: {:?}", analyzer.keylog_stats());
     });
 
     for output in receiver {
@@ -173,6 +207,10 @@ fn main() {
                 if let Some(tls_client) = output.tls_client {
                     info!("{tls_client}");
                 }
+                #[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+                if let Some(http_akamai) = output.http_akamai {
+                    info!("{http_akamai}");
+                }
             }
             OutputFormat::Json =>
             {
@@ -187,5 +225,7 @@ fn main() {
         }
     }
 
+    // Wait for the analysis thread so its final messages (key log stats) are printed.
+    let _ = analysis.join();
     info!("Analysis shutdown completed");
 }

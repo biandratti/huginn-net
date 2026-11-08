@@ -38,6 +38,7 @@ criterion_group!(
     bench_http_protocol_analysis,
     bench_http_processing_overhead,
     bench_http_parallel_processing,
+    bench_akamai,
     generate_final_report
 );
 criterion_main!(http_benches);
@@ -1160,5 +1161,205 @@ fn bench_http_parallel_processing(c: &mut Criterion) {
                 .timings
                 .push(("parallel_8_workers".to_string(), parallel_8_workers_time));
         }
+    }
+}
+
+// ------------------------------------------------------------------------------------------
+// Akamai HTTP/2 pipeline (akamai-cleartext / akamai-keylog)
+// ------------------------------------------------------------------------------------------
+
+/// Number of distinct connections generated for the Akamai scenarios.
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+const AKAMAI_CONNECTIONS: u16 = 1000;
+
+/// Ethernet + IPv4 (20) + TCP (20): the generated fixtures always use these header sizes.
+#[cfg(feature = "akamai-keylog")]
+const FIXTURE_PAYLOAD_OFFSET: usize = 54;
+
+/// Copies a single-connection fixture `copies` times, giving copy `i` the client port
+/// `10000 + i` so every copy is a distinct connection. `rewrite` may change each copy's
+/// client payloads (called with the copy index and the frame).
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+fn replicate_connection(
+    frames: &[Vec<u8>],
+    copies: u16,
+    mut rewrite: impl FnMut(u16, &mut Vec<u8>),
+) -> Vec<Vec<u8>> {
+    const CLIENT_IP: [u8; 4] = [10, 0, 0, 2];
+    let mut out = Vec::with_capacity(frames.len().saturating_mul(usize::from(copies)));
+    for i in 0..copies {
+        let port = 10000u16.saturating_add(i).to_be_bytes();
+        for frame in frames {
+            let mut frame = frame.clone();
+            if frame.get(26..30) == Some(&CLIENT_IP[..]) {
+                frame[34..36].copy_from_slice(&port);
+                rewrite(i, &mut frame);
+            } else {
+                frame[36..38].copy_from_slice(&port);
+            }
+            out.push(frame);
+        }
+    }
+    out
+}
+
+/// Replicated packets plus the key log lines that match them.
+#[cfg(feature = "akamai-keylog")]
+type KeylogDataset = (Vec<Vec<u8>>, Vec<String>);
+
+/// Replicates the TLS 1.3 golden capture with a distinct client random per copy and builds
+/// the matching key log lines (the secrets are reused; only the lookup key changes).
+#[cfg(feature = "akamai-keylog")]
+fn replicate_tls_with_keys(
+    pcap: &str,
+    keys: &str,
+    copies: u16,
+) -> Result<KeylogDataset, Box<dyn Error>> {
+    // ClientHello random: record header (5) + handshake header (4) + legacy version (2).
+    const RANDOM_AT: usize = FIXTURE_PAYLOAD_OFFSET + 11;
+    let frames = load_packets_from_pcap(pcap)?;
+    let key_lines: Vec<String> = std::fs::read_to_string(keys)?
+        .lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(str::to_string)
+        .collect();
+
+    let random_for = |i: u16| {
+        let mut random = [0u8; 32];
+        random[..2].copy_from_slice(&i.to_be_bytes());
+        random[2] = 0xA5;
+        random
+    };
+    let packets = replicate_connection(&frames, copies, |i, frame| {
+        let is_client_hello = frame.get(FIXTURE_PAYLOAD_OFFSET) == Some(&0x16)
+            && frame.get(FIXTURE_PAYLOAD_OFFSET + 5) == Some(&0x01);
+        if is_client_hello {
+            if let Some(slot) = frame.get_mut(RANDOM_AT..RANDOM_AT + 32) {
+                slot.copy_from_slice(&random_for(i));
+            }
+        }
+    });
+
+    let mut lines = Vec::with_capacity(key_lines.len().saturating_mul(usize::from(copies)));
+    for i in 0..copies {
+        let random_hex: String = random_for(i).iter().map(|b| format!("{b:02x}")).collect();
+        for line in &key_lines {
+            let mut fields = line.split_whitespace();
+            if let (Some(label), Some(_), Some(secret)) =
+                (fields.next(), fields.next(), fields.next())
+            {
+                lines.push(format!("{label} {random_hex} {secret}"));
+            }
+        }
+    }
+    Ok((packets, lines))
+}
+
+#[cfg(feature = "akamai-keylog")]
+fn keylog_analyzer(lines: &[String]) -> huginn_net_http::HuginnNetHttp {
+    use huginn_net_http::{HuginnNetHttp, KeyLogStore, KeylogConfig, KeylogSource};
+    let store = Arc::new(KeyLogStore::new(lines.len().saturating_add(16)));
+    for line in lines {
+        let _ = store.insert_line(line);
+    }
+    let config =
+        KeylogConfig::new(KeylogSource::Store(store)).max_entries(lines.len().saturating_add(16));
+    match HuginnNetHttp::new(usize::from(AKAMAI_CONNECTIONS)).with_keylog(config) {
+        Ok(analyzer) => analyzer,
+        Err(e) => panic!("with_keylog: {e}"),
+    }
+}
+
+/// Akamai scenarios: cleartext h2c replay, key log decryption of TLS 1.3, and its baseline
+/// (the same TLS traffic with `akamai-keylog` compiled in but no key log).
+#[allow(unused_variables)]
+fn bench_akamai(c: &mut Criterion) {
+    #[cfg(feature = "akamai-cleartext")]
+    {
+        let frames = match load_packets_from_pcap("../pcap/akamai-h2c-prior.pcap") {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Failed to load h2c PCAP: {e}");
+                return;
+            }
+        };
+        let packets = replicate_connection(&frames, AKAMAI_CONNECTIONS, |_, _| {});
+        let count_outputs = || {
+            let processors = HttpProcessors::new();
+            let mut flows = TtlCache::new(usize::from(AKAMAI_CONNECTIONS));
+            packets
+                .iter()
+                .filter_map(|p| process_http_packet(p, &mut flows, &processors, None))
+                .filter(|r| r.http_akamai.is_some())
+                .count()
+        };
+        println!("Akamai h2c: {} packets, {} fingerprints", packets.len(), count_outputs());
+
+        let mut group = c.benchmark_group("HTTP_Akamai");
+        group.bench_function("h2c_cleartext", |b| b.iter(count_outputs));
+        group.finish();
+    }
+
+    #[cfg(feature = "akamai-keylog")]
+    {
+        let (packets, lines) = match replicate_tls_with_keys(
+            "../pcap/akamai-tls13-aes128-chrome.pcap",
+            "../pcap/akamai-tls13-aes128-chrome.keys",
+            AKAMAI_CONNECTIONS,
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to build key log dataset: {e}");
+                return;
+            }
+        };
+        let run_keylog = |mut analyzer: huginn_net_http::HuginnNetHttp| {
+            packets
+                .iter()
+                .filter_map(|p| analyzer.analyze_frame(p))
+                .filter(|r| r.http_akamai.is_some())
+                .count()
+        };
+        println!(
+            "Akamai key log: {} packets, {} fingerprints with the key log",
+            packets.len(),
+            run_keylog(keylog_analyzer(&lines))
+        );
+
+        let mut group = c.benchmark_group("HTTP_Akamai");
+        // Secrets are dropped once a connection is done, so every iteration gets a fresh
+        // store and analyzer (built outside the timed section).
+        group.bench_function("tls13_keylog_decrypt", |b| {
+            b.iter_batched(|| keylog_analyzer(&lines), run_keylog, criterion::BatchSize::LargeInput)
+        });
+        group.bench_function("tls13_no_keylog_baseline", |b| {
+            b.iter_batched(
+                || huginn_net_http::HuginnNetHttp::new(usize::from(AKAMAI_CONNECTIONS)),
+                run_keylog,
+                criterion::BatchSize::LargeInput,
+            )
+        });
+        group.finish();
+
+        // Quick summary over 10 runs, analyzers built outside the timed part like above.
+        let timed = |make: &dyn Fn() -> huginn_net_http::HuginnNetHttp| {
+            let mut total = Duration::ZERO;
+            for _ in 0..10 {
+                let analyzer = make();
+                let start = std::time::Instant::now();
+                run_keylog(analyzer);
+                total = total.saturating_add(start.elapsed());
+            }
+            total.checked_div(10).unwrap_or_default()
+        };
+        let with_keylog = timed(&|| keylog_analyzer(&lines));
+        let baseline =
+            timed(&|| huginn_net_http::HuginnNetHttp::new(usize::from(AKAMAI_CONNECTIONS)));
+        println!(
+            "Akamai key log: {} with key log vs {} baseline ({:.1}% of baseline throughput)",
+            format_throughput(calculate_throughput(with_keylog, packets.len())),
+            format_throughput(calculate_throughput(baseline, packets.len())),
+            baseline.as_secs_f64() / with_keylog.as_secs_f64().max(f64::MIN_POSITIVE) * 100.0
+        );
     }
 }

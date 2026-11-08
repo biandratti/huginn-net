@@ -76,6 +76,56 @@ PCAP dataset: `http-simple-get.pcap` repeated 1000x for statistical stability.
 
 **1 Gbps and 10 Gbps project comfortably across sequential and parallel configurations** on this hardware.
 
+### Akamai HTTP/2 pipeline
+
+`HTTP_Akamai` group, built with `--features full`. Each dataset is one fixture connection
+replicated 1,000 times with distinct client ports (and, for TLS, distinct client randoms with
+matching key log entries), generated in memory. Single Criterion run, median.
+
+| Scenario | Dataset | Time / iteration | Per connection | Throughput |
+|----------|---------|------------------|----------------|------------|
+| `h2c_cleartext` | `akamai-h2c-prior.pcap` x1000 (9,000 packets) | ~13.3 ms | ~13.3 µs | ~677k pps |
+| `tls13_keylog_decrypt` | `akamai-tls13-aes128-chrome.pcap` x1000 (13,000 packets) | ~17.6 ms | ~17.6 µs | ~739k pps |
+| `tls13_no_keylog_baseline` | same TLS traffic, `akamai-keylog` compiled in, no `with_keylog` | ~9.4 ms | ~9.4 µs | ~1.38M pps |
+
+**SC-005, key log throughput >= 50% of the baseline: met (~53-54%, two runs).** These
+connections are as short as a TLS connection gets (13 packets), so this is the worst case:
+the per-connection work is not amortized over later packets.
+
+What brought it from ~35% to ~53%:
+
+- **Akamai extraction** (`extract_akamai_fingerprint`, also used by the standalone API):
+  pseudo-header names are read from the HPACK block without decoding header values
+  (`akamai/hpack_names.rs`), and the fingerprint string and hash are built in one buffer.
+  ~3.5 µs -> ~0.9 µs on this fixture. On real browser traffic the gain is much larger:
+  `hpack_patched` rebuilds its Huffman tables for every Huffman-coded string (~35 µs per
+  string), and browsers Huffman-code nearly every header value.
+- **TLS 1.3 alignment**: the application key is tried first; the handshake key is derived
+  only when that fails (e.g. a large client certificate).
+- One HKDF PRK for key and IV, TLS records read in place (only queued records are copied),
+  key log secrets read under the lock instead of copied, one flow table lookup per
+  direction, and the accumulator only wipes the bytes it filled.
+
+**SC-005, pipeline with the new features disabled within +-3% of `master`:** both trees
+built with `--features p0f-request,p0f-response`, one Criterion run each:
+
+| Benchmark | master | this branch | Delta |
+|-----------|--------|-------------|-------|
+| `http_with_browser_matching` | 14.38 ms | 13.62 ms | -5.3% |
+| `http_without_browser_matching` | 12.82 ms | 12.72 ms | -0.8% |
+| `server_with_matching` | 14.75 ms | 15.41 ms | +4.5% |
+| `server_without_matching` | 13.74 ms | 13.47 ms | -2.0% |
+| `protocol_detection` | 13.29 ms | 12.51 ms | -5.9% |
+| `header_analysis` | 13.55 ms | 12.87 ms | -5.0% |
+| `small_flow_cache` | 12.27 ms | 12.50 ms | +1.9% |
+| `large_flow_cache` | 12.35 ms | 12.41 ms | +0.4% |
+| `full_http_analysis` | 15.00 ms | 14.36 ms | -4.2% |
+| `full_analysis_with_collection` | 15.86 ms | 16.09 ms | +1.5% |
+
+The deltas go both ways (mean -1.8%), which is run-to-run noise rather than a regression:
+with these features the new code is compiled out. A single run is too noisy to resolve +-3%;
+use `./benches/run_bench.sh http` on both trees for a median over 5 runs.
+
 ## Key Findings
 
 ### Performance Characteristics

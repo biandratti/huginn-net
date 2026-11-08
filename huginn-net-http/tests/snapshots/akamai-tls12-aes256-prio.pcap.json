@@ -1,0 +1,21 @@
+{
+  "generator": "scripts/gen-akamai-fixtures.py",
+  "pcap": "akamai-tls12-aes256-prio.pcap",
+  "keys": "akamai-tls12-aes256-prio.keys",
+  "connections": [
+    {
+      "source": {
+        "ip": "10.0.0.2",
+        "port": 50000
+      },
+      "destination": {
+        "ip": "10.0.0.1",
+        "port": 8443
+      },
+      "tls_version": "tls1.2",
+      "cipher_suite": 49200,
+      "fingerprint": "1:65536;4:131072;5:16384|12517377|3:0:0:201,5:0:0:101,7:0:0:1,9:0:7:1|m,p,a,s"
+    }
+  ],
+  "not_http2": 0
+}

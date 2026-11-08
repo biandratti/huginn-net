@@ -2,6 +2,40 @@
 
 ---
 
+## v2.2.1 → v2.3.0
+
+**Crate:** [`huginn-net-http`](huginn-net-http). Same types if you consume HTTP through
+`huginn-net`. One field removed (`AkamaiFingerprint::hash`), nothing renamed.
+
+### `Http2FingerprintExtractor::add_bytes`
+
+Now returns the fingerprint once the first request HEADERS has arrived, using every frame
+seen so far. Before, it returned on the first SETTINGS frame and only used the frames of
+that call, so a split read lost the pseudo-header order (`...|0|` with nothing after).
+
+| | v2.2 | v2.3 |
+|--|------|------|
+| Returns `Some` | first call with SETTINGS | first call with HEADERS |
+| Frames used | that call only | all since the start |
+
+Feeding everything up to the first HEADERS in one call gives the same result as before.
+
+### `AkamaiFingerprint::hash` removed
+
+The field and `AkamaiFingerprint::hash_fingerprint` are gone. The Akamai paper defines only
+the fingerprint string; the hash was a truncated SHA-256 of it, which matches no other tool.
+Use `fingerprint` (the string) as the key. With `json`, the `hash` key is no longer
+serialized.
+
+### HTTP/2 p0f output
+
+Browser requests over HTTP/2 used to fail to parse (HEADERS with the PRIORITY flag), so they
+had no `http_request`. They have one now. In HTTP/2 signatures the User-Agent value is no
+longer included, and `cache-control`, `origin` and the other optional headers are marked `?`,
+as in HTTP/1. HTTP/2 signatures stored from 2.2 will not match the 2.3 ones.
+
+---
+
 ## v2.1.0 → v2.2.0
 
 **Crate:** [`huginn-net-tls`](huginn-net-tls). Same types if you consume TLS through

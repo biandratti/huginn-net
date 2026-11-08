@@ -178,6 +178,44 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-http -l http-c
 RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-http -l http-capture.log -p 80 pcap -f <PCAP_FILE>
 ```
 
+#### Akamai HTTP/2 fingerprints over TLS (key log)
+
+Browsers only use HTTP/2 over TLS, so the Akamai fingerprint needs the session secrets. Pass a
+TLS key log (`SSLKEYLOGFILE` format) written by your TLS terminator or by the clients. With
+`pcap` the file is read once; with `live` it is followed, so lines appended while the capture
+runs are picked up. The decrypted bytes only feed the Akamai fingerprint.
+
+Both `cli-http` and `cli` accept the same flags when built with `--features full`:
+
+- `--keylog <PATH>`: TLS key log file.
+- `--keylog-wait <MS>`: how long a connection waits for its secret (default `2000`).
+
+```
+# PCAP plus the key log recorded with it
+RUST_LOG=info ./target/release/examples/cli-http -l http-capture.log --keylog keys.log pcap -f <PCAP_FILE>
+
+# Live: follow the key log the proxy appends to
+sudo RUST_LOG=info ./target/release/examples/cli-http -l http-capture.log --keylog /var/log/proxy/keys.log live single -i <INTERFACE>
+
+# Unified analyzer: the Akamai result arrives next to the JA4 and TCP results
+RUST_LOG=info ./target/release/examples/cli -l capture.log --keylog keys.log pcap -f <PCAP_FILE>
+```
+
+The key log contains live session secrets: keep it readable only by the proxy and the
+observer, and rotate it. The key log counters are printed when the analysis ends.
+
+#### Akamai HTTP/2 fingerprints over cleartext (h2c)
+
+Cleartext HTTP/2 needs no key log and no flag. With `--features full` (`akamai-cleartext` /
+`http-akamai-cleartext`), every h2c connection prints one `[HTTP Akamai Request]` block with
+`Transport: cleartext`. Prior knowledge (`curl --http2-prior-knowledge`) and `Upgrade: h2c`
+(`curl --http2 http://...`) are both detected.
+
+```
+RUST_LOG=info ./target/release/examples/cli-http -l http-capture.log pcap -f pcap/akamai-h2c-prior.pcap
+RUST_LOG=info ./target/release/examples/cli -l capture.log pcap -f pcap/akamai-h2c-upgrade.pcap
+```
+
 #### Differences between examples:
 - **`capture`**: Full analysis (TCP fingerprinting, HTTP analysis, TLS JA4, database matching)
 - **`cli-tls`**: TLS-only analysis (JA4 fingerprinting, supports sequential and parallel modes with hash-based worker assignment)

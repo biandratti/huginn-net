@@ -91,3 +91,30 @@ impl Http2Frame {
         9_usize.saturating_add(self.length as usize)
     }
 }
+
+/// HEADERS flag: the header block is complete in this frame (no CONTINUATION follows).
+pub(crate) const FLAG_END_HEADERS: u8 = 0x04;
+const FLAG_PADDED: u8 = 0x08;
+const FLAG_PRIORITY: u8 = 0x20;
+
+/// The header block fragment of a HEADERS frame payload, without the optional Pad Length,
+/// priority fields and padding (RFC 7540 section 6.2).
+pub(crate) fn headers_fragment(flags: u8, payload: &[u8]) -> Result<&[u8], String> {
+    let mut fragment = payload;
+    if flags & FLAG_PADDED != 0 {
+        let Some((&pad_len, rest)) = fragment.split_first() else {
+            return Err("PADDED flag set but payload is empty".into());
+        };
+        let pad = usize::from(pad_len);
+        let end = rest.len().checked_sub(pad).ok_or_else(|| {
+            format!("pad length {pad} exceeds remaining payload of {} bytes", rest.len())
+        })?;
+        fragment = &rest[..end];
+    }
+    if flags & FLAG_PRIORITY != 0 {
+        fragment = fragment.get(5..).ok_or_else(|| {
+            format!("PRIORITY flag set but only {} bytes remain (need 5)", fragment.len())
+        })?;
+    }
+    Ok(fragment)
+}

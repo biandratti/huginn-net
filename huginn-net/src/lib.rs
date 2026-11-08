@@ -20,6 +20,8 @@
 //! | `tcp-uptime` | No | Pass-through for `huginn-net-tcp/uptime`: uptime estimation for both client and server (`FingerprintResult::tcp_client_uptime` / `tcp_server_uptime`). |
 //! | `http-p0f-request` | No | Pass-through for `huginn-net-http/p0f-request`: HTTP request fingerprinting (`FingerprintResult::http_request`, [`HttpRequestOutput`], [`Browser`], [`BrowserQualityMatched`], [`UaOsAgreement`]). |
 //! | `http-p0f-response` | No | Pass-through for `huginn-net-http/p0f-response`: HTTP response fingerprinting (`FingerprintResult::http_response`, [`HttpResponseOutput`], [`WebServer`], [`WebServerQualityMatched`]). |
+//! | `http-akamai-cleartext` | No | Pass-through for `huginn-net-http/akamai-cleartext`: Akamai HTTP/2 fingerprints for cleartext (h2c) connections (`FingerprintResult::http_akamai`, [`AkamaiOutput`]). |
+//! | `http-akamai-keylog` | No | Pass-through for `huginn-net-http/akamai-keylog`: Akamai HTTP/2 fingerprints for HTTP/2-over-TLS connections decrypted with a TLS key log (`HuginnNet::with_keylog`). Decrypted bytes feed only the Akamai fingerprint. |
 //! | `tls-stable-v1` | No | Adds `JA4_s1` / `JA4_rs1` via [`huginn_net_tls`]: JA4 minus the session / resumption extension types. Widen the list with `Signature::generate_ja4_stable_v1_excluding` or `HuginnNetTls::with_s1_excluded_extensions`. |
 //! | `json` | No | Enables [`serde::Serialize`] on [`FingerprintResult`] and analysis output types (pass-through to `huginn-net-tcp/json`, `huginn-net-http/json`, `huginn-net-tls/json`). Not included in `full`. |
 //!
@@ -97,6 +99,11 @@ pub use huginn_net_http::output::{HttpResponseOutput, WebServerQualityMatched};
 pub use huginn_net_http::{
     NotCheckedReason, ObservedOs, ObservedOsInput, ObservedOsSource, UaOsAgreement,
 };
+
+#[cfg(any(feature = "http-akamai-cleartext", feature = "http-akamai-keylog"))]
+pub use huginn_net_http::{AkamaiOutput, AkamaiTransport};
+#[cfg(feature = "http-akamai-keylog")]
+pub use huginn_net_http::{KeyLogStore, KeylogConfig, KeylogSource, KeylogStats};
 
 pub use huginn_net_tls::ObservableTlsClient;
 pub use huginn_net_tls::output::TlsClientOutput;

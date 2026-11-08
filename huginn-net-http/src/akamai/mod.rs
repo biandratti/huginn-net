@@ -1,16 +1,21 @@
 pub mod extractor;
+#[cfg(feature = "akamai-cleartext")]
+pub(crate) mod h2c;
+mod hpack_names;
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
+pub(crate) mod pipeline;
 pub use extractor::{
     calculate_frames_bytes_consumed, extract_akamai_fingerprint,
     extract_akamai_fingerprint_from_bytes,
 };
 
-use sha2::{Digest, Sha256};
 use std::fmt;
 use std::fmt::Write;
 
 /// HTTP/2 Setting parameter ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum SettingId {
     HeaderTableSize = 1,
     EnablePush = 2,
@@ -71,6 +76,7 @@ impl SettingId {
 
 /// HTTP/2 Setting parameter (ID and value)
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct SettingParameter {
     pub id: SettingId,
     pub value: u32,
@@ -86,6 +92,7 @@ impl fmt::Display for SettingParameter {
 ///
 /// Weight in HTTP/2 spec is 0-255, but represents 1-256 (add 1 to value)
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct Http2Priority {
     pub stream_id: u32,
     pub exclusive: bool,
@@ -113,6 +120,7 @@ impl fmt::Display for Http2Priority {
 /// - Firefox:     `:method`, `:path`, `:authority`, `:scheme`  → `m,p,a,s`
 /// - curl (no FLAG_PRIORITY): `:method`, `:scheme`, `:authority`, `:path` → `m,s,a,p`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub enum PseudoHeader {
     Method,
     Path,
@@ -160,6 +168,7 @@ impl fmt::Display for PseudoHeader {
 ///
 /// Example: `1:65536;2:0;3:1000;4:6291456;5:16384;6:262144|15663105|0|m,p,a,s`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize))]
 pub struct AkamaiFingerprint {
     /// SETTINGS frame parameters (order matters)
     pub settings: Vec<SettingParameter>,
@@ -171,8 +180,6 @@ pub struct AkamaiFingerprint {
     pub pseudo_header_order: Vec<PseudoHeader>,
     /// Fingerprint string representation
     pub fingerprint: String,
-    /// Hash of the fingerprint (for database lookup)
-    pub hash: String,
 }
 
 impl AkamaiFingerprint {
@@ -186,51 +193,50 @@ impl AkamaiFingerprint {
         priority_frames: &[Http2Priority],
         pseudo_header_order: &[PseudoHeader],
     ) -> String {
+        // One buffer, no intermediate strings. Writing to a String cannot fail.
+        let mut out = String::with_capacity(96);
         // Settings: id:value;id:value;...
-        let settings_str = if settings.is_empty() {
-            String::new()
-        } else {
-            settings
-                .iter()
-                .map(|s| format!("{}:{}", s.id.as_u16(), s.value))
-                .collect::<Vec<_>>()
-                .join(";")
-        };
-
+        for (i, s) in settings.iter().enumerate() {
+            if i > 0 {
+                out.push(';');
+            }
+            let _ = write!(out, "{}:{}", s.id.as_u16(), s.value);
+        }
         // Window Update: value or "00" if not present
-        let window_str = if window_update == 0 {
-            "00".to_string()
+        out.push('|');
+        if window_update == 0 {
+            out.push_str("00");
         } else {
-            window_update.to_string()
-        };
-
-        // Priority: stream:exclusive:depends_on:weight,...
-        let priority_str = if priority_frames.is_empty() {
-            "0".to_string()
-        } else {
-            priority_frames
-                .iter()
-                .map(|p| {
-                    format!(
-                        "{}:{}:{}:{}",
-                        p.stream_id,
-                        u8::from(p.exclusive),
-                        p.depends_on,
-                        u16::from(p.weight).saturating_add(1) // Weight is 1-256, RFC 7540 says byte+1
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",")
-        };
-
+            let _ = write!(out, "{window_update}");
+        }
+        // Priority: stream:exclusive:depends_on:weight,... or "0"
+        out.push('|');
+        if priority_frames.is_empty() {
+            out.push('0');
+        }
+        for (i, p) in priority_frames.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            // Weight is 1-256 on the wire as byte + 1 (RFC 7540 section 6.3).
+            let _ = write!(
+                out,
+                "{}:{}:{}:{}",
+                p.stream_id,
+                u8::from(p.exclusive),
+                p.depends_on,
+                u16::from(p.weight).saturating_add(1)
+            );
+        }
         // Pseudo-headers: m,p,a,s
-        let pseudo_str = pseudo_header_order
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(",");
-
-        format!("{settings_str}|{window_str}|{priority_str}|{pseudo_str}")
+        out.push('|');
+        for (i, h) in pseudo_header_order.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            let _ = write!(out, "{h}");
+        }
+        out
     }
 
     /// Create a new Akamai fingerprint directly from its components.
@@ -259,24 +265,7 @@ impl AkamaiFingerprint {
             &pseudo_header_order,
         );
 
-        let hash = Self::hash_fingerprint(&fingerprint);
-
-        Self { settings, window_update, priority_frames, pseudo_header_order, fingerprint, hash }
-    }
-
-    /// Hash the fingerprint for database lookup (SHA-256 truncated)
-    #[must_use]
-    pub fn hash_fingerprint(fingerprint: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(fingerprint.as_bytes());
-        let result = hasher.finalize();
-        // Take only the first 16 bytes (= 32 hex chars)
-        result[..16]
-            .iter()
-            .fold(String::with_capacity(32), |mut acc, b| {
-                let _ = write!(acc, "{b:02x}");
-                acc
-            })
+        Self { settings, window_update, priority_frames, pseudo_header_order, fingerprint }
     }
 }
 
@@ -284,7 +273,6 @@ impl fmt::Display for AkamaiFingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Akamai HTTP/2 Fingerprint:")?;
         writeln!(f, "  Fingerprint: {}", self.fingerprint)?;
-        writeln!(f, "  Hash:        {}", self.hash)?;
         writeln!(f)?;
         writeln!(f, "  SETTINGS:")?;
         for setting in &self.settings {

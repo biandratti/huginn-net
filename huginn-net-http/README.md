@@ -17,64 +17,31 @@
 
 ## Overview
 
-This crate provides HTTP-based passive fingerprinting capabilities. It analyzes HTTP/1.x and HTTP/2 headers to identify browsers, web servers, and detect preferred languages.
+This crate fingerprints HTTP traffic passively in two ways:
+
+- **p0f-style signatures** from HTTP/1.x and HTTP/2 headers: browser, web server and
+  preferred language. They only apply to plain HTTP: p0f signatures are HTTP/1, and
+  encrypted traffic can't be read.
+- **Akamai HTTP/2 fingerprints** from the client's connection frames (SETTINGS,
+  WINDOW_UPDATE, PRIORITY and pseudo-header order), following the
+  [Blackhat EU 2017 paper](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf).
+  For HTTPS this needs the TLS keys, from a key log or inside a proxy.
 
 ### Why choose huginn-net-http?
 
 - **No third-party tools** - No tshark, wireshark, or external tools required
-- **Comprehensive analysis** - Browser, server, and language detection
 - **Pure Rust implementation** - No system libraries required
 - **High performance** - 562.1K pps for full analysis, 200M pps detection (fewer features enabled means higher throughput)
-- **HTTP/1.x & HTTP/2** - Support for both major protocol versions
-- **Type-safe architecture** - Prevents entire classes of bugs at compile time
-- **Typed observable data access** - Access to typed HTTP headers, header ordering, language preferences, and other observable signals for custom fingerprinting and analysis
-- **Extensible fingerprinting** - Build custom fingerprints using typed observable data (`ObservableHttpRequest`, `ObservableHttpResponse`) without being limited to predefined p0f signatures
+- **Typed observable data** - Headers, header order and languages (`ObservableHttpRequest`, `ObservableHttpResponse`) for your own fingerprints
 
 ## Features
 
-- **Browser Detection** - Identify browsers from HTTP request headers
-- **Web Server Detection** - Identify servers from HTTP response headers
-- **Language Detection** - Extract preferred languages from Accept-Language headers
-- **UA vs observed OS** - HTTP only compares if you plug an `ObservedOsSource` (`with_observed_os`). It does not see TCP. The [umbrella](../huginn-net/README.md) (`db` + `tcp-syn`) feeds this connection's SYN into `HttpRequestOutput.ua_os`.
-- **HTTP/1.x & HTTP/2** - Support for both major HTTP versions
-- **Quality Scoring** - Confidence metrics for all matches
-- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
-- **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
-- **Akamai HTTP/2 Fingerprinting** - Extract Akamai fingerprints from HTTP/2 ClientHello frames (see [Akamai Fingerprinting](#akamai-http2-fingerprinting) section)
-
-### Akamai HTTP/2 Fingerprinting
-
-This crate includes an **Akamai HTTP/2 fingerprint parser** that extracts fingerprints from HTTP/2 connection frames (SETTINGS, WINDOW_UPDATE, PRIORITY, HEADERS) following the [Blackhat EU 2017 specification](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf).
-
-**Important Design Consideration:**
-
-Unlike p0f HTTP fingerprinting (which normalizes header order), **Akamai fingerprinting requires preserving the original header order** from the HTTP/2 frames. This is because:
-
-1. The pseudo-header order (`:method`, `:path`, `:authority`, `:scheme`) is a critical component of the Akamai fingerprint
-2. The order of SETTINGS parameters matters for fingerprint accuracy
-3. This original ordering is essential when using Akamai fingerprints in **TLS termination scenarios** where headers must be reconstructed exactly as they appeared in the original connection
-
-**Why it's not integrated into the main processing pipeline:**
-
-Due to this requirement for preserving original header order, the Akamai fingerprint extractor is provided as a **standalone utility** (`Http2FingerprintExtractor`) rather than being integrated into the main HTTP processing pipeline. The main pipeline normalizes and processes headers for p0f-style fingerprinting, which would corrupt the original ordering needed for Akamai fingerprints.
-
-**Usage:**
-
-```rust
-use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
-
-let mut extractor = Http2FingerprintExtractor::new();
-
-// Add HTTP/2 data incrementally (handles connection preface automatically)
-extractor.add_bytes(&http2_data)?;
-
-if let Some(fingerprint) = extractor.get_fingerprint() {
-    println!("Akamai fingerprint: {}", fingerprint.fingerprint);
-    println!("Fingerprint hash: {}", fingerprint.hash);
-}
-```
-
-This design allows you to extract Akamai fingerprints **before TLS termination** or in scenarios where you need to preserve the exact original frame structure, while still using the main pipeline for standard HTTP/1.x and HTTP/2 analysis with p0f-style fingerprinting.
+- **Browser and web server detection** - p0f signatures on request and response headers
+- **Language detection** - From `Accept-Language`
+- **UA vs observed OS** - Compares the User-Agent OS with an `ObservedOsSource` you plug in (`with_observed_os`). The [umbrella crate](../huginn-net/README.md) with `db` + `tcp-syn` feeds it the connection's SYN.
+- **Akamai HTTP/2** - Standalone extractor, cleartext h2c, and HTTP/2 over TLS with a key log
+- **Parallel processing** - Worker pool for live capture; both directions of a connection go to the same worker
+- **Sequential mode** - For PCAP files and low-resource environments
 
 ## Quick Start
 
@@ -82,179 +49,135 @@ This design allows you to extract Akamai fingerprints **before TLS termination**
 
 ### Installation
 
-Add this to your `Cargo.toml`:
-
 ```toml
 [dependencies]
-# Pick the analyses you want via `features` (see "Cargo Features" below).
-# `full` is the convenience alias for "everything this version offers".
 huginn-net-http = { version = "2.2.1", features = ["full"] }
-# Optional: only needed if you want browser/server fingerprint matching.
-# Skip it for an observation-only build (raw HTTP signatures, Akamai
-# HTTP/2 fingerprints, etc.). With `features = ["http"]` you only pull in
-# the HTTP half of the p0f database (no TCP parser, no TCP signatures
-# embedded).
+# Optional: browser/server matching with the bundled p0f database (HTTP half only).
 huginn-net-db = { version = "2.2.1", features = ["http"] }
 ```
 
 ### Cargo Features
 
-All features are **opt-in** (default = `[]`). Pick the analyses you actually
-consume, or use `full` to opt into everything this version offers:
+All features are opt-in (default = `[]`). A disabled feature removes its code and its field
+on `HttpAnalysisResult`.
 
-| Feature        | Default | Description |
-|----------------|---------|-------------|
-| `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai`). Stable across version upgrades. |
-| `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
-| `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
-| `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
-| `json`          | No      | Derives `serde::Serialize` on all output types (`HttpAnalysisResult`, `HttpRequestOutput`, `HttpResponseOutput`). Opt in explicitly: `features = ["full", "json"]`. |
-
-Common opt-in patterns:
+| Feature            | Description |
+|--------------------|-------------|
+| `full`             | Everything this version offers. New features are added here. |
+| `p0f-request`      | Request signatures and browser matching (`http_request`). |
+| `p0f-response`     | Response signatures and web server matching (`http_response`). |
+| `akamai`           | Standalone Akamai API (`Http2FingerprintExtractor`, `extract_akamai_fingerprint*`) for callers that already have the HTTP/2 bytes, e.g. a TLS-terminating proxy. |
+| `akamai-cleartext` | Akamai fingerprint for each cleartext HTTP/2 (h2c) connection in the packet pipeline (`http_akamai`). |
+| `akamai-keylog`    | Akamai fingerprint for HTTP/2 over TLS, decrypted with a TLS key log (`with_keylog`). Adds `aes-gcm`, `chacha20poly1305`, `hkdf`, `hmac`, `zeroize`. |
+| `json`             | `serde::Serialize` on all output types. |
 
 ```toml
-# Everything this version offers (forward-compatible with future axes).
-huginn-net-http = { version = "2.2.1", features = ["full"] }
-
-# Client-side only (request fingerprinting), no akamai, no response parsing.
+# Only client-side p0f signatures
 huginn-net-http = { version = "2.2.1", features = ["p0f-request"] }
 
-# Akamai HTTP/2 fingerprinting only, no p0f path compiled in at all.
+# Only the standalone Akamai extractor, no packet pipeline cost
 huginn-net-http = { version = "2.2.1", features = ["akamai"] }
-
-# Both p0f sides, no akamai.
-huginn-net-http = { version = "2.2.1", features = ["p0f-request", "p0f-response"] }
 ```
 
-When neither p0f side is enabled, `process_tcp_packet` short-circuits
-before touching the flow cache or reassembling payloads, so the per-packet
-pipeline cost drops to zero. The `akamai` feature is orthogonal to that
-pipeline: it only exposes the standalone `Http2FingerprintExtractor` /
-`extract_akamai_fingerprint*` API for callers that parse HTTP/2 frames
-themselves, and is never invoked from `process_tcp_packet` regardless of
-the other features. The always-on raw parsers (`parse_http1_request`,
-`parse_http2_request`, `Http1Processor`, `Http2Processor`) and the
-`HttpMatcher` trait surface stay compiled in every feature combination
-so external consumers can keep using them.
-
-Database support is opt-in at the dependency level by adding
-`huginn-net-db` and calling
-[`HuginnNetHttp::with_matcher`](https://docs.rs/huginn-net-http/latest/huginn_net_http/struct.HuginnNetHttp.html#method.with_matcher).
-To compare the User-Agent OS against a network-observed OS, plug an
-[`ObservedOsSource`](https://docs.rs/huginn-net-http/latest/huginn_net_http/trait.ObservedOsSource.html)
-via `with_observed_os`. HTTP does not read SYN itself. Use
-[`huginn-net`](../huginn-net/README.md) with `db` + `tcp-syn` if you want
-that wiring done for you. Without a source, `ua_os` is `NotChecked`.
-
-### Basic Usage, with database (browser/server fingerprinting)
+### Basic Usage
 
 ```rust
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::{
-    FilterConfig, HttpAnalysisResult, HuginnNetHttp, PortFilter, SharedHttpMatcher, SubnetFilter,
+    FilterConfig, HttpAnalysisResult, HuginnNetHttp, PortFilter, SharedHttpMatcher,
 };
 use std::sync::{mpsc, Arc};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load only the HTTP half of the p0f database and build a shared matcher
     let http_db = Arc::new(HttpDatabase::load_default()?);
     let matcher: SharedHttpMatcher = Arc::new(SharedHttpSignatureMatcher::new(http_db));
 
-    // Create analyzer with matching enabled
-    let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher);
-
-    // Optional: Configure filters (can be combined)
-    if let Ok(subnet_filter) = SubnetFilter::new().allow("192.168.1.0/24") {
-        let filter = FilterConfig::new()
-            .with_port_filter(PortFilter::new().destination(80))
-            .with_subnet_filter(subnet_filter);
-        analyzer = analyzer.with_filter(filter);
-    }
-
     let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
-
-    // Live capture (use parallel mode for high throughput)
     std::thread::spawn(move || {
+        // Without `with_matcher` you still get the signatures; match quality is `Disabled`.
+        let mut analyzer = HuginnNetHttp::new(1000)
+            .with_matcher(matcher)
+            .with_filter(FilterConfig::new().with_port_filter(PortFilter::new().destination(80)));
+        // Or analyzer.analyze_pcap("capture.pcap", sender, None)
         if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
             eprintln!("Analysis error: {e}");
         }
     });
 
-    // Or PCAP analysis (always use sequential mode)
-    // std::thread::spawn(move || {
-    //     if let Err(e) = analyzer.analyze_pcap("capture.pcap", sender, None) {
-    //         eprintln!("Analysis error: {e}");
-    //     }
-    // });
-
     for result in receiver {
-        if let Some(http_request) = result.http_request { println!("{http_request}"); }
-        if let Some(http_response) = result.http_response { println!("{http_response}"); }
+        if let Some(request) = result.http_request { println!("{request}"); }
+        if let Some(response) = result.http_response { println!("{response}"); }
+        if let Some(akamai) = result.http_akamai { println!("{akamai}"); }
     }
-
     Ok(())
 }
 ```
 
-### Basic Usage, observation only (no database)
+A complete example with signal handling and CLI options: [`examples/cli-http.rs`](../examples/cli-http.rs).
 
-If you don't need browser/server matching (e.g. you only consume the raw
-HTTP signature, Akamai HTTP/2 fingerprint, etc.) you can skip
-`huginn-net-db` entirely. Match-quality fields will report `Disabled`,
-but the observable signatures are still produced.
+### Akamai HTTP/2
+
+If you already have the decrypted HTTP/2 bytes (for example in a proxy), feed them to the
+extractor as they arrive. It returns the fingerprint once the first request HEADERS is in:
 
 ```rust
-use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp, HuginnNetHttpError};
-use std::sync::mpsc;
+use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
 
-fn main() -> Result<(), HuginnNetHttpError> {
-    // No matcher → observation-only mode
-    let mut analyzer = HuginnNetHttp::new(1000);
-
-    let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
-
-    std::thread::spawn(move || {
-        if let Err(e) = analyzer.analyze_network("eth0", sender, None) {
-            eprintln!("Analysis error: {e}");
-        }
-    });
-
-    for result in receiver {
-        if let Some(http_request) = result.http_request { println!("{http_request}"); }
-        if let Some(http_response) = result.http_response { println!("{http_response}"); }
-    }
-
-    Ok(())
+let mut extractor = Http2FingerprintExtractor::new();
+if let Some(fp) = extractor.add_bytes(&bytes)? {
+    println!("{}", fp.fingerprint);
 }
 ```
 
-For a complete working example with signal handling, error management, and CLI options, see [`examples/cli-http.rs`](../examples/cli-http.rs).
+From captured traffic, enable `akamai-cleartext` for h2c, and for HTTPS give the analyzer a
+TLS key log (`SSLKEYLOGFILE` format, [RFC 9850](https://www.rfc-editor.org/rfc/rfc9850.html)):
+
+```rust
+use huginn_net_http::{HuginnNetHttp, KeylogConfig, KeylogSource};
+
+// File: read once (PCAP). Follow: keep reading new lines (live capture).
+let config = KeylogConfig::new(KeylogSource::Follow("/var/run/proxy/keys.log".into()));
+let mut analyzer = HuginnNetHttp::new(1000).with_keylog(config)?;
+// ... results arrive in `http_akamai`; counters in `analyzer.keylog_stats()`.
+```
+
+Many reverse proxies can write a key log (Envoy, HAProxy, Caddy, Apache; nginx only with a
+patch), so huginn can run next to the proxy as a sidecar: it captures the same traffic and
+reads the key log the proxy writes. If you would rather not deal with a key log,
+[huginn-proxy](https://github.com/biandratti/huginn-proxy) computes the Akamai fingerprint
+itself, since it terminates TLS.
+
+Supported: TLS 1.2 and 1.3 with AES-GCM or ChaCha20-Poly1305. Decrypted bytes only feed the
+Akamai fingerprint, never the p0f signatures.
+
+**The key log holds live session secrets.** Anyone who can read it can decrypt that traffic:
+keep it readable only by the proxy and huginn (`0600`), rotate it, and never share it with
+captures. huginn wipes secrets from memory when done and never prints them.
 
 ### Filtering
 
-The library supports packet filtering to reduce processing overhead and focus on specific traffic. Filters can be combined using AND logic (all conditions must match):
-
-**Filter Types:**
-- **Port Filter**: Filter by TCP source/destination ports (supports single ports, lists, and ranges)
-- **IP Filter**: Filter by specific IPv4/IPv6 addresses (supports source-only, destination-only, or both)
-- **Subnet Filter**: Filter by CIDR subnets (supports IPv4 and IPv6)
-
-All filters support both Allow (allowlist) and Deny (denylist) modes. See the [filter documentation](https://docs.rs/huginn-net-http/latest/huginn_net_http/filter/index.html) for complete details.
+Filters run before full parsing and can be combined (all must match): ports, IP addresses
+and CIDR subnets, each as allow or deny list. See the
+[filter documentation](https://docs.rs/huginn-net-http/latest/huginn_net_http/filter/index.html).
 
 ### Example Output
 
 ```text
 [HTTP Request] 1.2.3.4:1524 → 4.3.2.1:80
-  Browser: Firefox:10.x or newer
-  Lang:    English
-  Params:  none
-  UA/OS:   not checked (no source)
-  Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
+Browser: Firefox:10.x or newer
+Lang:    English
+Params:  none
+UA/OS:   not checked (no source)
+Sig:     1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
 
 [HTTP Response] 192.168.1.22:58494 → 91.189.91.21:80
-  Server:  nginx/1.14.0 (Ubuntu)
-  Params:  anonymous
-  Sig:     server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
+Server:  nginx/1.14.0 (Ubuntu)
+Params:  anonymous
+Sig:     server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-cache-status=[from content-cache-1ss/0],connection=[close]:Server,Date,X-Cache-Status,Connection:
+
+[HTTP Akamai Request] 10.0.0.2:50000 → 10.0.0.1:8443
+Transport: tls1.3 decrypted (0x1301)
+Sig:       1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p
 ```
 
 ## Huginn Net Ecosystem

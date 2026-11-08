@@ -28,9 +28,13 @@ full = [
     "tcp-uptime",
     "http-p0f-request",
     "http-p0f-response",
+    "http-akamai-cleartext",
+    "http-akamai-keylog",
     "tls-stable-v1",
 ]
 db = ["dep:huginn-net-db", "huginn-net-db/tcp", "huginn-net-db/http"]
+http-akamai-cleartext = ["huginn-net-http/akamai-cleartext"]
+http-akamai-keylog = ["huginn-net-http/akamai-keylog"]
 http-p0f-request = ["huginn-net-http/p0f-request"]
 http-p0f-response = ["huginn-net-http/p0f-response"]
 json = [
