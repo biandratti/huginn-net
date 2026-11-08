@@ -2,25 +2,30 @@
 
 ---
 
-## Unreleased
+## v2.2.1 → v2.3.0
 
-**Crate:** [`huginn-net-http`](huginn-net-http). Other crates are unchanged.
+**Crate:** [`huginn-net-http`](huginn-net-http). Same types if you consume HTTP through
+`huginn-net`. No API removed or renamed.
 
-### `Http2FingerprintExtractor::add_bytes` waits for HEADERS
+### `Http2FingerprintExtractor::add_bytes`
 
-The Akamai fingerprint includes the pseudo-header order, which comes in the first request
-HEADERS frame. `add_bytes` used to return as soon as it saw SETTINGS, and only looked at the
-frames of the current call. When a client's SETTINGS and HEADERS arrived in separate reads
-(common: browsers write them as two TLS records), the result had no pseudo-header order,
-and sometimes no WINDOW_UPDATE.
+Now returns the fingerprint once the first request HEADERS has arrived, using every frame
+seen so far. Before, it returned on the first SETTINGS frame and only used the frames of
+that call, so a split read lost the pseudo-header order (`...|0|` with nothing after).
 
-| | before | now |
-|--|--------|-----|
-| Returns `Some` | first call with a SETTINGS frame | first call where HEADERS has arrived |
-| Frames used | only those parsed in that call | every frame since the start |
+| | v2.2 | v2.3 |
+|--|------|------|
+| Returns `Some` | first call with SETTINGS | first call with HEADERS |
+| Frames used | that call only | all since the start |
 
-If you call `add_bytes` with everything up to the first HEADERS at once, nothing changes.
-If you relied on a fingerprint without HEADERS, there is none now; keep feeding bytes.
+Feeding everything up to the first HEADERS in one call gives the same result as before.
+
+### HTTP/2 p0f output
+
+Browser requests over HTTP/2 used to fail to parse (HEADERS with the PRIORITY flag), so they
+had no `http_request`. They have one now. In HTTP/2 signatures the User-Agent value is no
+longer included, and `cache-control`, `origin` and the other optional headers are marked `?`,
+as in HTTP/1. HTTP/2 signatures stored from 2.2 will not match the 2.3 ones.
 
 ---
 
