@@ -8,9 +8,17 @@ use huginn_net_http::http2_parser::Http2Frame;
 use huginn_net_http::{HuginnNetHttpError, PseudoHeader};
 use libfuzzer_sys::fuzz_target;
 
-fn reference(block: &[u8]) -> Option<Vec<PseudoHeader>> {
-    let headers = hpack_patched::Decoder::new().decode(block).ok()?;
-    Some(
+/// The reference result (`None` = rejected), or `Err(())` when there is no reliable
+/// reference: hpack_patched names static entry 15 `accept-` (RFC: `accept-charset`), which
+/// also changes its dynamic table sizes.
+fn reference(block: &[u8]) -> Result<Option<Vec<PseudoHeader>>, ()> {
+    let Ok(headers) = hpack_patched::Decoder::new().decode(block) else {
+        return Ok(None);
+    };
+    if headers.iter().any(|(name, _)| name == b"accept-") {
+        return Err(());
+    }
+    Ok(Some(
         headers
             .into_iter()
             .filter_map(|(name, value)| {
@@ -19,10 +27,13 @@ fn reference(block: &[u8]) -> Option<Vec<PseudoHeader>> {
                 name.starts_with(':').then(|| PseudoHeader::from(name.as_str()))
             })
             .collect(),
-    )
+    ))
 }
 
 fuzz_target!(|block: &[u8]| {
+    let Ok(expected) = reference(block) else {
+        return;
+    };
     let settings = Http2Frame::new(0x4, 0, 0, vec![0, 1, 0, 0, 0x10, 0]);
     let headers = Http2Frame::new(0x1, 0x05, 1, block.to_vec());
     let extracted = match extract_akamai_fingerprint(&[settings, headers]) {
@@ -30,5 +41,5 @@ fuzz_target!(|block: &[u8]| {
         Err(HuginnNetHttpError::MalformedPseudoHeaders(_)) => None,
         Err(e) => panic!("unexpected error: {e}"),
     };
-    assert_eq!(extracted, reference(block));
+    assert_eq!(extracted, expected);
 });

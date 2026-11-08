@@ -80,6 +80,13 @@ fn extracted(block: &[u8]) -> Option<Vec<PseudoHeader>> {
 }
 
 fn assert_same(label: &str, block: &[u8]) {
+    // `hpack_patched` names static entry 15 `accept-` (the RFC says `accept-charset`), which
+    // also changes its dynamic table sizes: no reference for those blocks.
+    if let Ok(headers) = hpack_patched::Decoder::new().decode(block) {
+        if headers.iter().any(|(name, _)| name == b"accept-") {
+            return;
+        }
+    }
     assert_eq!(extracted(block), reference(block), "{label}: {block:02x?}");
 }
 

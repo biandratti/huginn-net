@@ -81,6 +81,9 @@ impl Default for ParsingMetadata {
 use super::observable::{ObservableHttpRequest, ObservableHttpResponse};
 
 /// Common trait for all HTTP parsers across different versions
+///
+/// TODO: add `Send + Sync` so `HuginnNetHttp` can move to another thread like the TCP and TLS
+/// analyzers (changes a public trait bound).
 pub trait HttpParser {
     /// Get the HTTP version this parser supports
     fn supported_version(&self) -> Version;

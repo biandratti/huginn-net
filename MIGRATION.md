@@ -5,7 +5,7 @@
 ## v2.2.1 → v2.3.0
 
 **Crate:** [`huginn-net-http`](huginn-net-http). Same types if you consume HTTP through
-`huginn-net`. No API removed or renamed.
+`huginn-net`. One field removed (`AkamaiFingerprint::hash`), nothing renamed.
 
 ### `Http2FingerprintExtractor::add_bytes`
 
@@ -19,6 +19,13 @@ that call, so a split read lost the pseudo-header order (`...|0|` with nothing a
 | Frames used | that call only | all since the start |
 
 Feeding everything up to the first HEADERS in one call gives the same result as before.
+
+### `AkamaiFingerprint::hash` removed
+
+The field and `AkamaiFingerprint::hash_fingerprint` are gone. The Akamai paper defines only
+the fingerprint string; the hash was a truncated SHA-256 of it, which matches no other tool.
+Use `fingerprint` (the string) as the key. With `json`, the `hash` key is no longer
+serialized.
 
 ### HTTP/2 p0f output
 

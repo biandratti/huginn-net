@@ -13,6 +13,11 @@ fuzz_target!(|data: &[u8]| {
     let mut ours = Decoder::default();
     let mut reference = hpack_patched::Decoder::new();
     for block in [&rest[..at], &rest[at..]] {
-        assert_eq!(ours.decode(block).ok(), reference.decode(block).ok());
+        let want = reference.decode(block).ok();
+        // hpack_patched names static entry 15 `accept-` (RFC: `accept-charset`).
+        if want.as_ref().is_some_and(|h| h.iter().any(|(name, _)| name == b"accept-")) {
+            return;
+        }
+        assert_eq!(ours.decode(block).ok(), want);
     }
 });

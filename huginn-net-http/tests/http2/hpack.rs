@@ -51,6 +51,11 @@ fn rfc_sequences() -> Vec<(&'static str, Vec<Vec<u8>>)> {
     ]
 }
 
+/// `hpack_patched` names static entry 15 `accept-` instead of `accept-charset`.
+fn uses_wrong_reference_entry(headers: &[Header]) -> bool {
+    headers.iter().any(|(name, _)| name == b"accept-")
+}
+
 /// Decodes `blocks` in order with one decoder of each implementation and compares every step.
 fn assert_same(label: &str, blocks: &[Vec<u8>]) {
     let mut ours = Decoder::default();
@@ -58,6 +63,10 @@ fn assert_same(label: &str, blocks: &[Vec<u8>]) {
     for (i, block) in blocks.iter().enumerate() {
         let got: Option<Vec<Header>> = ours.decode(block).ok();
         let want: Option<Vec<Header>> = reference.decode(block).ok();
+        if want.as_deref().is_some_and(uses_wrong_reference_entry) {
+            // From here on the reference differs from the RFC (and so may its table).
+            return;
+        }
         assert_eq!(got, want, "{label}, block {i}: {block:02x?}");
     }
 }
@@ -119,4 +128,18 @@ fn every_single_bit_flip_matches_hpack_patched() {
             }
         }
     }
+}
+
+#[test]
+fn static_entry_15_is_accept_charset() {
+    // Indexed header field 15 (0x8f), and a literal with indexed name 15.
+    let headers =
+        Decoder::default().decode(&[0x8f, 0x0f, 0x00, 0x05, b'u', b't', b'f', b'-', b'8']);
+    assert_eq!(
+        headers.ok(),
+        Some(vec![
+            (b"accept-charset".to_vec(), Vec::new()),
+            (b"accept-charset".to_vec(), b"utf-8".to_vec()),
+        ])
+    );
 }

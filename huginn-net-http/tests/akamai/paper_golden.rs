@@ -29,7 +29,6 @@ struct FrameSnapshot {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ExpectedFingerprint {
     signature: String,
-    hash: String,
     settings_count: usize,
     window_update: u32,
     priority_frames_count: usize,
@@ -56,7 +55,6 @@ fn load_paper_test_cases() -> Vec<PaperTestCase> {
 
 struct ActualFingerprint<'a> {
     signature: &'a str,
-    hash: &'a str,
     settings_count: usize,
     window_update: u32,
     priority_count: usize,
@@ -88,11 +86,6 @@ fn assert_paper_fingerprint_matches(
         actual.pseudo_headers_count, expected.pseudo_headers_count,
         "[{test_name}] Pseudo-headers count mismatch"
     );
-
-    // Hash validation is optional here since paper doesn't provide hashes
-    if !expected.hash.starts_with("PAPER_") {
-        assert_eq!(actual.hash, expected.hash, "[{test_name}] Hash mismatch");
-    }
 }
 
 /// Main test: Validates against Blackhat EU 2017 paper examples
@@ -113,7 +106,6 @@ fn test_paper_golden_snapshots() {
             (Ok(actual_fp), Some(expected)) => {
                 let actual = ActualFingerprint {
                     signature: &actual_fp.fingerprint,
-                    hash: &actual_fp.hash,
                     settings_count: actual_fp.settings.len(),
                     window_update: actual_fp.window_update,
                     priority_count: actual_fp.priority_frames.len(),

@@ -24,7 +24,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:100;4:6291456|15662849|3:0:0:201|",
-      "hash": "615d5e7e5f5dec88cdda5886e78b5964",
       "settings_count": 2,
       "window_update": 15662849,
       "priority_frames_count": 1,
@@ -50,7 +49,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:4096;4:100;1:0|12517121|0|",
-      "hash": "642695b88c2e83c7c1bf82408c040641",
       "settings_count": 3,
       "window_update": 12517121,
       "priority_frames_count": 0,
@@ -88,7 +86,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:100;4:65535;2:1|16711681|3:1:0:256,5:1:3:256|",
-      "hash": "0e0a2b0b7e83c46b825fab0157498da5",
       "settings_count": 3,
       "window_update": 16711681,
       "priority_frames_count": 2,
@@ -120,7 +117,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:100;4:6291456|15662849|3:0:0:201|",
-      "hash": "615d5e7e5f5dec88cdda5886e78b5964",
       "settings_count": 2,
       "window_update": 15662849,
       "priority_frames_count": 1,
@@ -146,7 +142,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:4096;4:65536|983040|0|",
-      "hash": "a4c74a86c4145ef5208b7d3c191ef84e",
       "settings_count": 2,
       "window_update": 983040,
       "priority_frames_count": 0,

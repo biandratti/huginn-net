@@ -27,6 +27,7 @@ akamai-keylog = [
     "dep:chacha20poly1305",
     "dep:hkdf",
     "dep:hmac",
+    "dep:sha2",
     "dep:tls-parser",
     "dep:zeroize",
 ]
@@ -41,7 +42,7 @@ lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
 serde = { workspace = true, optional = true }
-sha2 = { workspace = true }
+sha2 = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tls-parser = { workspace = true, optional = true }
 tracing = { workspace = true }

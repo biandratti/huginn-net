@@ -9,7 +9,6 @@ pub use extractor::{
     extract_akamai_fingerprint_from_bytes,
 };
 
-use sha2::{Digest, Sha256};
 use std::fmt;
 use std::fmt::Write;
 
@@ -181,8 +180,6 @@ pub struct AkamaiFingerprint {
     pub pseudo_header_order: Vec<PseudoHeader>,
     /// Fingerprint string representation
     pub fingerprint: String,
-    /// Hash of the fingerprint (for database lookup)
-    pub hash: String,
 }
 
 impl AkamaiFingerprint {
@@ -268,25 +265,7 @@ impl AkamaiFingerprint {
             &pseudo_header_order,
         );
 
-        let hash = Self::hash_fingerprint(&fingerprint);
-
-        Self { settings, window_update, priority_frames, pseudo_header_order, fingerprint, hash }
-    }
-
-    /// Hash the fingerprint for database lookup (SHA-256 truncated)
-    #[must_use]
-    pub fn hash_fingerprint(fingerprint: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(fingerprint.as_bytes());
-        let result = hasher.finalize();
-        // Take only the first 16 bytes (= 32 hex chars)
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-        let mut hex = String::with_capacity(32);
-        for b in result.iter().take(16) {
-            hex.push(char::from(HEX[usize::from(b >> 4)]));
-            hex.push(char::from(HEX[usize::from(b & 0x0f)]));
-        }
-        hex
+        Self { settings, window_update, priority_frames, pseudo_header_order, fingerprint }
     }
 }
 
@@ -294,7 +273,6 @@ impl fmt::Display for AkamaiFingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Akamai HTTP/2 Fingerprint:")?;
         writeln!(f, "  Fingerprint: {}", self.fingerprint)?;
-        writeln!(f, "  Hash:        {}", self.hash)?;
         writeln!(f)?;
         writeln!(f, "  SETTINGS:")?;
         for setting in &self.settings {

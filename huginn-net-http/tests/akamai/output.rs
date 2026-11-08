@@ -22,7 +22,7 @@ fn chrome_61_output(transport: AkamaiTransport) -> AkamaiOutput {
 }
 
 #[test]
-fn display_prints_the_fingerprint_without_hash() {
+fn display_prints_the_fingerprint() {
     let out = chrome_61_output(AkamaiTransport::TlsDecrypted {
         version: TlsVersion::Tls13,
         cipher_suite: 0x1301,
@@ -31,7 +31,6 @@ fn display_prints_the_fingerprint_without_hash() {
     assert!(text.starts_with("[HTTP Akamai Request] 192.168.1.10:52344 → "), "{text}");
     assert!(text.contains("\nTransport: tls1.3 decrypted (0x1301)\n"), "{text}");
     assert!(text.contains(&format!("\nSig:       {}\n", out.fingerprint.fingerprint)));
-    assert!(!text.contains(&out.fingerprint.hash), "the hash is not part of the output");
 }
 
 #[test]
@@ -52,7 +51,7 @@ fn json_transport_kind() {
     assert_eq!(value["transport"]["kind"], "tls_decrypted");
     assert_eq!(value["transport"]["version"], "tls1.2");
     assert_eq!(value["transport"]["cipher_suite"], 0xC02F);
-    assert_eq!(value["fingerprint"]["hash"], decrypted.fingerprint.hash.as_str());
+    assert!(value["fingerprint"].get("hash").is_none());
 
     let clear = serde_json::to_value(chrome_61_output(AkamaiTransport::Cleartext))
         .unwrap_or_else(|e| panic!("AkamaiOutput must serialize: {e}"));

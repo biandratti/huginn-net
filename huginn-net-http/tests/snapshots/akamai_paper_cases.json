@@ -55,7 +55,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:100;4:6291456;2:0|15662849|3:0:0:201,5:0:0:101,7:0:0:1,9:0:7:1,11:0:3:1,13:0:0:241|",
-      "hash": "a8b22d705ba864c48b64a14e417e8c60",
       "settings_count": 3,
       "window_update": 15662849,
       "priority_frames_count": 6,
@@ -82,7 +81,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:4096;4:131072;1:65536|12517121|0|",
-      "hash": "b7c4ee54c310bc2fd639d6d37ed0c5f6",
       "settings_count": 3,
       "window_update": 12517121,
       "priority_frames_count": 0,
@@ -121,7 +119,6 @@
     ],
     "expected_fingerprint": {
       "signature": "3:100;4:65535;2:1|16711681|3:1:0:256,5:1:3:256|",
-      "hash": "PAPER_SAFARI11",
       "settings_count": 3,
       "window_update": 16711681,
       "priority_frames_count": 2,

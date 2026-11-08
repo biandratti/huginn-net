@@ -31,7 +31,6 @@ pub struct Expected {
     pub tls_version: Option<String>,
     pub cipher_suite: Option<u16>,
     pub fingerprint: String,
-    pub hash: String,
 }
 
 #[derive(Deserialize)]

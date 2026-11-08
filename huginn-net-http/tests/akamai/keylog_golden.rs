@@ -26,7 +26,6 @@ pub fn assert_matches(outputs: &[AkamaiOutput], snap: &Snapshot) {
         assert_eq!(got.destination.ip.to_string(), want.destination.ip);
         assert_eq!(got.destination.port, want.destination.port);
         assert_eq!(got.fingerprint.fingerprint, want.fingerprint, "{}", snap.pcap);
-        assert_eq!(got.fingerprint.hash, want.hash, "{}", snap.pcap);
         let want_version = match want.tls_version.as_deref() {
             Some("tls1.3") => TlsVersion::Tls13,
             Some("tls1.2") => TlsVersion::Tls12,

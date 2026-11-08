@@ -29,7 +29,6 @@ fn assert_cleartext_matches(outputs: &[AkamaiOutput], snap: &Snapshot) {
         assert_eq!(got.destination.port, want.destination.port);
         assert_eq!(got.transport, AkamaiTransport::Cleartext);
         assert_eq!(got.fingerprint.fingerprint, want.fingerprint, "{}", snap.pcap);
-        assert_eq!(got.fingerprint.hash, want.hash, "{}", snap.pcap);
     }
 }
 

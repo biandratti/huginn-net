@@ -260,7 +260,6 @@ fn test_get_fingerprint_after_extraction() {
     if let Some(fp) = fingerprint {
         assert_eq!(fp.settings.len(), 2);
         assert!(!fp.fingerprint.is_empty());
-        assert!(!fp.hash.is_empty());
     }
 }
 

@@ -4,6 +4,9 @@ Standalone [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) crate for the p
 read untrusted input in the Akamai key log pipeline. It is not part of the root workspace
 and is not built by CI.
 
+TODO: run it in CI, e.g. a nightly job (10 min per target, like `audit.yml`) and a short
+smoke run on PRs that touch `huginn-net-http/src` or `fuzz/`.
+
 | Target | What it feeds |
 |--------|---------------|
 | `keylog_line` | `KeyLogStore::insert_line_bytes` and the line splitter used to follow a key log file |

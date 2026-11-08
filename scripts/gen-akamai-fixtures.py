@@ -19,7 +19,6 @@ Usage (from the repository root):
 """
 
 import argparse
-import hashlib
 import json
 import os
 import socket
@@ -135,7 +134,7 @@ def expected_fingerprint(profile):
     )
     pseudo = ",".join(profile["pseudo"])
     text = f"{settings}|{wu}|{prio}|{pseudo}"
-    return text, hashlib.sha256(text.encode()).digest()[:16].hex()
+    return text
 
 
 # --------------------------------------------------------------------------- TLS in memory
@@ -346,7 +345,7 @@ def generate(name):
 
     if profile_name is not None:
         profile = PROFILES[profile_name]
-        fp_text, fp_hash = expected_fingerprint(profile)
+        fp_text = expected_fingerprint(profile)
         first, headers = client_frames(profile)
     if version is None:
         # Cleartext HTTP/2.
@@ -365,7 +364,7 @@ def generate(name):
         else:
             segments = [("c", first), ("c", headers), ("s", SERVER_H2)]
         writer.connection(50000, isn_c, 0x10000000, segments)
-        expected.append(conn_entry(50000, None, None, fp_text, fp_hash))
+        expected.append(conn_entry(50000, None, None, fp_text))
     else:
         if os.path.exists(keys_path):
             os.remove(keys_path)
@@ -393,7 +392,7 @@ def generate(name):
                 writer.connection(port, isn_c + i * 100000, 0x20000000 + i * 100000, result["segments"])
                 if profile_name:
                     expected.append(
-                        conn_entry(port, f"tls{version}", SUITE_IDS[cipher], fp_text, fp_hash)
+                        conn_entry(port, f"tls{version}", SUITE_IDS[cipher], fp_text)
                     )
                 else:
                     not_http2 += 1
@@ -412,14 +411,13 @@ def generate(name):
     print(f"wrote {pcap_path} ({len(writer.records)} frames)")
 
 
-def conn_entry(port, tls_version, cipher_suite, fp_text, fp_hash):
+def conn_entry(port, tls_version, cipher_suite, fp_text):
     return {
         "source": {"ip": CLIENT_IP, "port": port},
         "destination": {"ip": SERVER_IP, "port": SERVER_PORT},
         "tls_version": tls_version,
         "cipher_suite": cipher_suite,
         "fingerprint": fp_text,
-        "hash": fp_hash,
     }
 
 

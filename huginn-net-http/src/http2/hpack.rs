@@ -2,9 +2,25 @@
 //!
 //! Behaves like `hpack_patched` (same integer limits, dynamic table rules and Huffman
 //! validation), but Huffman strings are decoded with a canonical decoder built from the
-//! RFC 7541 Appendix B code lengths instead of a table rebuilt for every string.
+//! RFC 7541 Appendix B code lengths instead of a table rebuilt for every string. One
+//! difference: static entry 15 is `accept-charset` as in the RFC (`hpack_patched` has
+//! `accept-`).
 //! `tests/http2/hpack.rs` and the `hpack_pseudo_order` fuzz target check it against
 //! `hpack_patched`.
+//!
+//! TODO: replace this module with a maintained crate once one is both correct and fast.
+//! Checked in 2026: `hpack_patched` has a wrong static entry (15) and rebuilds its Huffman
+//! table for every string; `loona-hpack` / `fluke-hpack` are correct but just as slow; the
+//! decoder in `h2` is fast but not public API (not even with its `unstable` feature).
+//! TODO: re-check `zerodds-hpack` after 1.0. Tried 1.0.0-rc.7: same headers as this
+//! decoder on real browser captures, but it panics in debug builds on malformed Huffman
+//! input (shift overflow), rejects non UTF-8 values (names and values are `String`), needs
+//! Rust 1.88, and its linear Huffman search is about 12x slower on a Chrome request.
+//! TODO: until then, write the Huffman table as RFC 7541 Appendix B prints it (one
+//! `(code, length)` per symbol) and build `HUFFMAN_COUNT` / `HUFFMAN_SYMBOLS` from it at
+//! startup, so the table can be checked line by line against the RFC.
+//! TODO: add an optional test that compares the decoded headers with tshark (`rtshark`, dev
+//! dependency, skipped when tshark is not installed) as an independent reference.
 
 use std::collections::VecDeque;
 
@@ -223,6 +239,7 @@ pub(crate) fn huffman_decode(data: &[u8], mut out: Option<&mut Vec<u8>>) -> Opti
 }
 
 /// Number of Huffman codes of each length (index = length in bits), RFC 7541 Appendix B.
+/// TODO: derived by a script from the RFC table; see the module docs.
 const HUFFMAN_COUNT: [u16; 31] = [
     0, 0, 0, 0, 0, 10, 26, 32, 6, 0, 5, 3, 2, 6, 2, 3, 0, 0, 0, 3, 8, 13, 26, 29, 12, 4, 15, 19,
     29, 0, 4,
@@ -245,7 +262,8 @@ const HUFFMAN_SYMBOLS: [u16; 257] = [
     29, 30, 31, 127, 220, 249, 10, 13, 22, 256,
 ];
 
-/// RFC 7541 Appendix A.
+/// RFC 7541 Appendix A. (`hpack_patched` has `accept-` at index 15; the RFC says
+/// `accept-charset`.)
 const STATIC_TABLE: [(&[u8], &[u8]); 61] = [
     (b":authority", b""),
     (b":method", b"GET"),
@@ -261,7 +279,7 @@ const STATIC_TABLE: [(&[u8], &[u8]); 61] = [
     (b":status", b"400"),
     (b":status", b"404"),
     (b":status", b"500"),
-    (b"accept-", b""),
+    (b"accept-charset", b""),
     (b"accept-encoding", b"gzip, deflate"),
     (b"accept-language", b""),
     (b"accept-ranges", b""),

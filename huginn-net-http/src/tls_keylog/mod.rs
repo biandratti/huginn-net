@@ -25,6 +25,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 /// Where the key log comes from.
+///
+/// TODO: accept several files (one per proxy). Today use `Store` and feed it from each file.
 #[derive(Debug, Clone)]
 pub enum KeylogSource {
     /// Read the file once when the analyzer is configured (capture-file analysis).

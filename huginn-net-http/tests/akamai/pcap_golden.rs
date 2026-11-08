@@ -23,7 +23,6 @@ struct FrameSnapshot {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ExpectedFingerprint {
     signature: String,
-    hash: String,
     settings_count: usize,
     window_update: u32,
     priority_frames_count: usize,
@@ -50,7 +49,6 @@ fn load_test_cases() -> Vec<AkamaiTestCase> {
 
 struct ActualFingerprint<'a> {
     signature: &'a str,
-    hash: &'a str,
     settings_count: usize,
     window_update: u32,
     priority_count: usize,
@@ -63,7 +61,6 @@ fn assert_fingerprint_matches(
     test_name: &str,
 ) {
     assert_eq!(actual.signature, expected.signature, "[{test_name}] Signature mismatch");
-    assert_eq!(actual.hash, expected.hash, "[{test_name}] Hash mismatch");
     assert_eq!(
         actual.settings_count, expected.settings_count,
         "[{test_name}] Settings count mismatch"
@@ -98,7 +95,6 @@ fn test_akamai_golden_snapshots() {
             (Ok(actual_fp), Some(expected)) => {
                 let actual = ActualFingerprint {
                     signature: &actual_fp.fingerprint,
-                    hash: &actual_fp.hash,
                     settings_count: actual_fp.settings.len(),
                     window_update: actual_fp.window_update,
                     priority_count: actual_fp.priority_frames.len(),
@@ -158,8 +154,6 @@ fn test_chrome_fingerprint() {
 
     // Verify signature format
     assert!(fingerprint.fingerprint.contains('|'));
-    assert!(!fingerprint.hash.is_empty());
-    assert_eq!(fingerprint.hash.len(), 32); // SHA-256 truncated to 32 hex chars (like JA3)
 }
 
 #[test]
@@ -192,8 +186,6 @@ fn test_firefox_fingerprint() {
 
     // Verify signature format
     assert!(fingerprint.fingerprint.contains('|'));
-    assert!(!fingerprint.hash.is_empty());
-    assert_eq!(fingerprint.hash.len(), 32); // SHA-256 truncated to 32 hex chars
 }
 
 #[test]
@@ -209,7 +201,6 @@ fn test_fingerprint_deterministic() {
         .unwrap_or_else(|e| panic!("Second fingerprint extraction failed: {e}"));
 
     assert_eq!(fp1.fingerprint, fp2.fingerprint, "Signatures must be deterministic");
-    assert_eq!(fp1.hash, fp2.hash, "Hashes must be deterministic");
 }
 
 #[test]
@@ -232,10 +223,6 @@ fn test_different_browsers_different_fingerprints() {
     assert_ne!(
         chrome_fp.fingerprint, firefox_fp.fingerprint,
         "Different browsers must produce different signatures"
-    );
-    assert_ne!(
-        chrome_fp.hash, firefox_fp.hash,
-        "Different browsers must produce different hashes"
     );
 }
 
