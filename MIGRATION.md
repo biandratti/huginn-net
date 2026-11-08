@@ -2,6 +2,28 @@
 
 ---
 
+## Unreleased
+
+**Crate:** [`huginn-net-http`](huginn-net-http). Other crates are unchanged.
+
+### `Http2FingerprintExtractor::add_bytes` waits for HEADERS
+
+The Akamai fingerprint includes the pseudo-header order, which comes in the first request
+HEADERS frame. `add_bytes` used to return as soon as it saw SETTINGS, and only looked at the
+frames of the current call. When a client's SETTINGS and HEADERS arrived in separate reads
+(common: browsers write them as two TLS records), the result had no pseudo-header order,
+and sometimes no WINDOW_UPDATE.
+
+| | before | now |
+|--|--------|-----|
+| Returns `Some` | first call with a SETTINGS frame | first call where HEADERS has arrived |
+| Frames used | only those parsed in that call | every frame since the start |
+
+If you call `add_bytes` with everything up to the first HEADERS at once, nothing changes.
+If you relied on a fingerprint without HEADERS, there is none now; keep feeding bytes.
+
+---
+
 ## v2.1.0 → v2.2.0
 
 **Crate:** [`huginn-net-tls`](huginn-net-tls). Same types if you consume TLS through

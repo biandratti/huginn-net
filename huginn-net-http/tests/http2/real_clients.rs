@@ -146,3 +146,60 @@ fn signature_drops_user_agent_value_and_marks_optional_headers() {
     assert!(cache_control.optional, "cache-control must be optional");
     assert_eq!(cache_control.value, None);
 }
+
+/// Offsets where each frame ends, after the connection preface.
+#[cfg(feature = "akamai")]
+fn frame_ends(bytes: &[u8]) -> Vec<usize> {
+    let mut ends = Vec::new();
+    let mut pos = 24usize; // connection preface
+    while let Some(header) = bytes.get(pos..pos.saturating_add(9)) {
+        let len =
+            usize::from(header[0]) << 16 | usize::from(header[1]) << 8 | usize::from(header[2]);
+        pos = pos.saturating_add(9).saturating_add(len);
+        ends.push(pos.min(bytes.len()));
+    }
+    ends
+}
+
+/// Feeds `bytes` to the incremental extractor in pieces ending at `cuts`.
+#[cfg(feature = "akamai")]
+fn incremental(bytes: &[u8], cuts: &[usize]) -> Option<String> {
+    use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
+    let mut extractor = Http2FingerprintExtractor::new();
+    let mut start = 0usize;
+    for &end in cuts.iter().chain(std::iter::once(&bytes.len())) {
+        if end <= start {
+            continue;
+        }
+        if let Err(e) = extractor.add_bytes(&bytes[start..end]) {
+            panic!("add_bytes failed after {end} bytes: {e}");
+        }
+        start = end;
+    }
+    extractor.get_fingerprint().map(|fp| fp.fingerprint.clone())
+}
+
+#[cfg(feature = "akamai")]
+#[test]
+fn incremental_extractor_gives_the_same_result_when_frames_arrive_separately() {
+    for client in CLIENTS {
+        let bytes = stream(client.file);
+        let ends = frame_ends(&bytes);
+        // Everything up to the frame before HEADERS, then HEADERS: one TLS record each, as
+        // browsers write them.
+        let before_headers = ends.len().checked_sub(2).map(|i| ends[i]).unwrap_or(0);
+        let cases: [(&str, Vec<usize>); 3] = [
+            ("one piece per frame", ends.clone()),
+            ("settings first, then headers", vec![before_headers]),
+            ("byte by byte", (1..bytes.len()).collect()),
+        ];
+        for (how, cuts) in cases {
+            assert_eq!(
+                incremental(&bytes, &cuts).as_deref(),
+                Some(client.akamai),
+                "{}: {how}",
+                client.file
+            );
+        }
+    }
+}

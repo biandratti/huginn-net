@@ -41,6 +41,17 @@ fn create_settings_payload(settings: &[(u16, u32)]) -> Vec<u8> {
     payload
 }
 
+/// A request HEADERS frame on stream 1 (`:method GET`, `:path /`, `:scheme https`). The
+/// fingerprint is complete only once this frame has arrived.
+fn request_headers() -> Vec<u8> {
+    create_http2_frame(0x01, 1, &[0x82, 0x84, 0x87])
+}
+
+/// `frame` followed by a request HEADERS frame.
+fn with_headers(frame: Vec<u8>) -> Vec<u8> {
+    [frame, request_headers()].concat()
+}
+
 /// Create a WINDOW_UPDATE frame payload
 fn create_window_update_payload(increment: u32) -> Vec<u8> {
     // WINDOW_UPDATE payload is 4 bytes: [increment:32]
@@ -91,7 +102,7 @@ fn test_add_bytes_with_preface() {
 
     // Create a SETTINGS frame (required for fingerprint)
     let settings_payload = create_settings_payload(&[(1, 65536), (2, 0)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     // Add preface + frame
     let mut data = Vec::from(HTTP2_CONNECTION_PREFACE);
@@ -99,7 +110,7 @@ fn test_add_bytes_with_preface() {
 
     let result = extractor.add_bytes(&data);
     assert!(result.is_ok());
-    // Should extract fingerprint since we have SETTINGS frame
+    // Should extract fingerprint since we have SETTINGS and HEADERS
     if let Ok(fingerprint_result) = &result {
         assert!(fingerprint_result.is_some());
     }
@@ -113,11 +124,11 @@ fn test_add_bytes_without_preface() {
 
     // Create a SETTINGS frame without preface
     let settings_payload = create_settings_payload(&[(1, 65536), (2, 0)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     let result = extractor.add_bytes(&settings_frame);
     assert!(result.is_ok());
-    // Should extract fingerprint since we have SETTINGS frame
+    // Should extract fingerprint since we have SETTINGS and HEADERS
     if let Ok(fingerprint_result) = &result {
         assert!(fingerprint_result.is_some());
     }
@@ -180,7 +191,7 @@ fn test_add_bytes_after_fingerprint_extracted() {
 
     // First extract a fingerprint
     let settings_payload = create_settings_payload(&[(1, 65536)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
     let result1 = extractor.add_bytes(&settings_frame);
     assert!(result1.is_ok());
     if let Ok(value) = &result1 {
@@ -240,7 +251,7 @@ fn test_get_fingerprint_after_extraction() {
     let mut extractor = Http2FingerprintExtractor::new();
 
     let settings_payload = create_settings_payload(&[(1, 65536), (2, 0)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     let _ = extractor.add_bytes(&settings_frame);
 
@@ -259,7 +270,7 @@ fn test_fingerprint_extracted() {
     assert!(!extractor.fingerprint_extracted());
 
     let settings_payload = create_settings_payload(&[(1, 65536)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     let _ = extractor.add_bytes(&settings_frame);
     assert!(extractor.fingerprint_extracted());
@@ -271,7 +282,7 @@ fn test_reset() {
 
     // Extract a fingerprint first
     let settings_payload = create_settings_payload(&[(1, 65536)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
     let _ = extractor.add_bytes(&settings_frame);
     assert!(extractor.fingerprint_extracted());
 
@@ -297,7 +308,7 @@ fn test_complete_fingerprint_with_all_components() {
         (2, 0),     // ENABLE_PUSH
         (3, 1000),  // MAX_CONCURRENT_STREAMS
     ]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     // Create WINDOW_UPDATE frame
     let window_update_payload = create_window_update_payload(15663105);
@@ -315,6 +326,7 @@ fn test_complete_fingerprint_with_all_components() {
     data.extend_from_slice(&settings_frame);
     data.extend_from_slice(&window_update_frame);
     data.extend_from_slice(&priority_frame);
+    data.extend_from_slice(&request_headers());
 
     let result = extractor.add_bytes(&data);
     assert!(result.is_ok());
@@ -335,7 +347,7 @@ fn test_multiple_add_bytes_calls() {
 
     // Split data across multiple calls
     let settings_payload = create_settings_payload(&[(1, 65536), (2, 0), (3, 1000)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     // Split the frame into parts
     let mid_point = settings_frame.len() / 2;
@@ -365,7 +377,7 @@ fn test_parsed_offset_tracking() {
 
     // Add a SETTINGS frame
     let settings_payload = create_settings_payload(&[(1, 65536)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
     let _ = extractor.add_bytes(&settings_frame);
 
     // Add another frame after fingerprint is extracted
@@ -384,7 +396,7 @@ fn test_preface_detection_only_on_first_call() {
 
     // Add data without preface first
     let settings_payload = create_settings_payload(&[(1, 65536)]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
     let _ = extractor.add_bytes(&settings_frame);
 
     // Reset and add preface + frame
@@ -446,7 +458,7 @@ fn test_chrome_like_fingerprint() {
         (5, 16384),   // MAX_FRAME_SIZE: 16384
         (6, 262144),  // MAX_HEADER_LIST_SIZE: 262144
     ]);
-    let settings_frame = create_http2_frame(0x04, 0, &settings_payload);
+    let settings_frame = with_headers(create_http2_frame(0x04, 0, &settings_payload));
 
     let mut data = Vec::from(HTTP2_CONNECTION_PREFACE);
     data.extend_from_slice(&settings_frame);
@@ -460,4 +472,30 @@ fn test_chrome_like_fingerprint() {
         assert!(fingerprint.fingerprint.contains("2:0"));
         assert!(fingerprint.fingerprint.contains("3:1000"));
     }
+}
+
+#[test]
+fn test_waits_for_headers_and_keeps_earlier_frames() {
+    let mut extractor = Http2FingerprintExtractor::new();
+
+    // Preface, SETTINGS and WINDOW_UPDATE in one read (one TLS record from a browser)
+    let mut first = Vec::from(HTTP2_CONNECTION_PREFACE);
+    first.extend_from_slice(&create_http2_frame(
+        0x04,
+        0,
+        &create_settings_payload(&[(1, 65536), (2, 0)]),
+    ));
+    first.extend_from_slice(&create_http2_frame(0x08, 0, &create_window_update_payload(15663105)));
+    match extractor.add_bytes(&first) {
+        Ok(None) => {}
+        other => panic!("no fingerprint before HEADERS, got {other:?}"),
+    }
+    assert!(!extractor.fingerprint_extracted());
+
+    // HEADERS in the next read: the fingerprint includes everything seen so far
+    let fingerprint = match extractor.add_bytes(&request_headers()) {
+        Ok(Some(fp)) => fp,
+        other => panic!("expected a fingerprint, got {other:?}"),
+    };
+    assert_eq!(fingerprint.fingerprint, "1:65536;2:0|15663105|0|m,p,s");
 }
