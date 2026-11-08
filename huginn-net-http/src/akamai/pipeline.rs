@@ -29,15 +29,32 @@ pub struct AkamaiAccumulator {
 
 impl AkamaiAccumulator {
     pub fn new(limit: usize) -> Self {
-        // Reserve up front so the buffer rarely reallocates (decrypted bytes are wiped on drop
-        // with `akamai-keylog`, and a reallocation would leave an unwiped copy behind).
-        Self { buf: Vec::with_capacity(limit.min(16 * 1024)), limit }
+        // A client preface, SETTINGS and the first HEADERS usually fit in 2 KiB.
+        Self { buf: Vec::with_capacity(limit.min(2 * 1024)), limit }
+    }
+
+    /// Appends to the buffer. With `akamai-keylog` the buffer may hold decrypted bytes, so
+    /// growth copies into a new allocation and wipes the old one instead of letting the
+    /// allocator move it (which would leave an unwiped copy behind).
+    fn append(&mut self, data: &[u8]) {
+        #[cfg(feature = "akamai-keylog")]
+        {
+            let needed = self.buf.len().saturating_add(data.len());
+            if needed > self.buf.capacity() {
+                let mut grown =
+                    Vec::with_capacity(needed.max(self.buf.capacity().saturating_mul(2)));
+                grown.extend_from_slice(&self.buf);
+                zeroize::Zeroize::zeroize(self.buf.as_mut_slice());
+                self.buf = grown;
+            }
+        }
+        self.buf.extend_from_slice(data);
     }
 
     /// Appends client bytes (starting at the HTTP/2 preface). Returns the fingerprint once the
     /// first client HEADERS frame is complete.
     pub fn push(&mut self, data: &[u8]) -> Result<Option<AkamaiFingerprint>, AccumulatorError> {
-        self.buf.extend_from_slice(data);
+        self.append(data);
         if self.buf.len() > self.limit {
             return Err(AccumulatorError::TooLarge);
         }
@@ -75,7 +92,8 @@ impl AkamaiAccumulator {
 #[cfg(feature = "akamai-keylog")]
 impl Drop for AkamaiAccumulator {
     fn drop(&mut self) {
-        // May hold decrypted application data (FR-008).
-        zeroize::Zeroize::zeroize(&mut self.buf);
+        // May hold decrypted application data (FR-008). Only the filled part was ever
+        // written; wiping the whole capacity would cost a byte-wise volatile write per slot.
+        zeroize::Zeroize::zeroize(self.buf.as_mut_slice());
     }
 }

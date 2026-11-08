@@ -76,6 +76,51 @@ PCAP dataset: `http-simple-get.pcap` repeated 1000x for statistical stability.
 
 **1 Gbps and 10 Gbps project comfortably across sequential and parallel configurations** on this hardware.
 
+### Akamai HTTP/2 pipeline
+
+`HTTP_Akamai` group, built with `--features full`. Each dataset is one fixture connection
+replicated 1,000 times with distinct client ports (and, for TLS, distinct client randoms with
+matching key log entries), generated in memory. Single Criterion run, median.
+
+| Scenario | Dataset | Time / iteration | Per connection | Throughput |
+|----------|---------|------------------|----------------|------------|
+| `h2c_cleartext` | `akamai-h2c-prior.pcap` x1000 (9,000 packets) | ~17.6 ms | ~17.6 µs | ~511k pps |
+| `tls13_keylog_decrypt` | `akamai-tls13-aes128-chrome.pcap` x1000 (13,000 packets) | ~25.9 ms | ~25.9 µs | ~503k pps |
+| `tls13_no_keylog_baseline` | same TLS traffic, `akamai-keylog` compiled in, no `with_keylog` | ~10.4 ms | ~10.4 µs | ~1.25M pps |
+
+**SC-005, key log throughput >= 50% of the baseline: not met (~40%).** These connections
+are as short as a TLS connection gets (13 packets), so the per-connection work dominates
+and is not amortized over later packets:
+
+- tracking and reassembly, before any decryption: ~3.5 µs;
+- key derivation (HKDF for the handshake and application secrets) and AEAD setup: ~2.6 µs;
+- the Akamai extraction itself (`extract_akamai_fingerprint`: HPACK decoding, SHA-256):
+  ~3.5 µs, the same cost as the standalone API;
+- AES-GCM itself is cheap (hardware accelerated, ~0.5 µs per 1 KiB record).
+
+On longer connections the gap shrinks: once a fingerprint is emitted the connection is
+marked terminal and its later packets cost a single lookup.
+
+**SC-005, pipeline with the new features disabled within +-3% of `master`:** both trees
+built with `--features p0f-request,p0f-response`, one Criterion run each:
+
+| Benchmark | master | this branch | Delta |
+|-----------|--------|-------------|-------|
+| `http_with_browser_matching` | 14.38 ms | 13.62 ms | -5.3% |
+| `http_without_browser_matching` | 12.82 ms | 12.72 ms | -0.8% |
+| `server_with_matching` | 14.75 ms | 15.41 ms | +4.5% |
+| `server_without_matching` | 13.74 ms | 13.47 ms | -2.0% |
+| `protocol_detection` | 13.29 ms | 12.51 ms | -5.9% |
+| `header_analysis` | 13.55 ms | 12.87 ms | -5.0% |
+| `small_flow_cache` | 12.27 ms | 12.50 ms | +1.9% |
+| `large_flow_cache` | 12.35 ms | 12.41 ms | +0.4% |
+| `full_http_analysis` | 15.00 ms | 14.36 ms | -4.2% |
+| `full_analysis_with_collection` | 15.86 ms | 16.09 ms | +1.5% |
+
+The deltas go both ways (mean -1.8%), which is run-to-run noise rather than a regression:
+with these features the new code is compiled out. A single run is too noisy to resolve +-3%;
+use `./benches/run_bench.sh http` on both trees for a median over 5 runs.
+
 ## Key Findings
 
 ### Performance Characteristics

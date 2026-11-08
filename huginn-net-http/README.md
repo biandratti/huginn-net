@@ -38,27 +38,25 @@ This crate provides HTTP-based passive fingerprinting capabilities. It analyzes 
 - **UA vs observed OS** - HTTP only compares if you plug an `ObservedOsSource` (`with_observed_os`). It does not see TCP. The [umbrella](../huginn-net/README.md) (`db` + `tcp-syn`) feeds this connection's SYN into `HttpRequestOutput.ua_os`.
 - **HTTP/1.x & HTTP/2** - Support for both major HTTP versions
 - **Quality Scoring** - Confidence metrics for all matches
-- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios)
+- **Parallel Processing** - Multi-threaded worker pool for live network capture (high-throughput scenarios). Packets are routed by a direction-independent flow hash, so both directions of a connection are processed by the same worker.
 - **Sequential Mode** - Single-threaded processing (for PCAP files and low-resource environments)
-- **Akamai HTTP/2 Fingerprinting** - Extract Akamai fingerprints from HTTP/2 ClientHello frames (see [Akamai Fingerprinting](#akamai-http2-fingerprinting) section)
+- **Akamai HTTP/2 Fingerprinting** - Akamai fingerprints from the client's HTTP/2 connection frames: standalone API, cleartext h2c, and HTTP/2 over TLS with a key log (see [Akamai Fingerprinting](#akamai-http2-fingerprinting))
 
 ### Akamai HTTP/2 Fingerprinting
 
-This crate includes an **Akamai HTTP/2 fingerprint parser** that extracts fingerprints from HTTP/2 connection frames (SETTINGS, WINDOW_UPDATE, PRIORITY, HEADERS) following the [Blackhat EU 2017 specification](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf).
+This crate computes **Akamai HTTP/2 client fingerprints** from the client's connection frames (SETTINGS, WINDOW_UPDATE, PRIORITY and the pseudo-header order of the first HEADERS frame), following the [Blackhat EU 2017 specification](https://www.blackhat.com/docs/eu-17/materials/eu-17-Shuster-Passive-Fingerprinting-Of-HTTP2-Clients-wp.pdf). The fingerprint depends on the original frame and header order, so it is computed from the raw frames, never from the normalized p0f view.
 
-**Important Design Consideration:**
+There are three ways to get it:
 
-Unlike p0f HTTP fingerprinting (which normalizes header order), **Akamai fingerprinting requires preserving the original header order** from the HTTP/2 frames. This is because:
+| Feature | What you get |
+|---------|--------------|
+| `akamai` | Standalone API (`Http2FingerprintExtractor`, `extract_akamai_fingerprint*`) for callers that already have the HTTP/2 bytes, e.g. a TLS-terminating proxy. |
+| `akamai-cleartext` | The packet pipeline emits one `AkamaiOutput` per cleartext HTTP/2 (h2c) connection, prior knowledge or `Upgrade: h2c`, in `HttpAnalysisResult::http_akamai`. No cryptographic dependencies. |
+| `akamai-keylog` | The packet pipeline decrypts HTTP/2 over TLS 1.2 / 1.3 with secrets from a TLS key log (`SSLKEYLOGFILE` format) and emits one `AkamaiOutput` per connection. The observer stays passive: it never terminates TLS or touches the traffic. |
 
-1. The pseudo-header order (`:method`, `:path`, `:authority`, `:scheme`) is a critical component of the Akamai fingerprint
-2. The order of SETTINGS parameters matters for fingerprint accuracy
-3. This original ordering is essential when using Akamai fingerprints in **TLS termination scenarios** where headers must be reconstructed exactly as they appeared in the original connection
+Decrypted bytes only feed the Akamai fingerprint. They never reach the p0f HTTP path, and p0f results are identical with or without a key log.
 
-**Why it's not integrated into the main processing pipeline:**
-
-Due to this requirement for preserving original header order, the Akamai fingerprint extractor is provided as a **standalone utility** (`Http2FingerprintExtractor`) rather than being integrated into the main HTTP processing pipeline. The main pipeline normalizes and processes headers for p0f-style fingerprinting, which would corrupt the original ordering needed for Akamai fingerprints.
-
-**Usage:**
+**Standalone extractor:**
 
 ```rust
 use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
@@ -74,7 +72,42 @@ if let Some(fingerprint) = extractor.get_fingerprint() {
 }
 ```
 
-This design allows you to extract Akamai fingerprints **before TLS termination** or in scenarios where you need to preserve the exact original frame structure, while still using the main pipeline for standard HTTP/1.x and HTTP/2 analysis with p0f-style fingerprinting.
+**Packet pipeline with a key log** (`akamai-keylog`):
+
+```rust
+use huginn_net_http::{HttpAnalysisResult, HuginnNetHttp, KeylogConfig, KeylogSource};
+use std::sync::mpsc;
+use std::time::Duration;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // `File` reads the key log once (capture files). For live capture use
+    // `KeylogSource::Follow`, which also picks up lines appended later.
+    let keylog = KeylogConfig::new(KeylogSource::File("keys.log".into()))
+        .pending_timeout(Duration::from_secs(2));
+    let mut analyzer = HuginnNetHttp::new(1000).with_keylog(keylog)?;
+
+    let (sender, receiver) = mpsc::channel::<HttpAnalysisResult>();
+    analyzer.analyze_pcap("capture.pcap", sender, None)?;
+
+    for result in receiver.try_iter() {
+        if let Some(akamai) = result.http_akamai {
+            println!("{} {}", akamai.transport, akamai.fingerprint.fingerprint);
+        }
+    }
+    println!("{:?}", analyzer.keylog_stats());
+    Ok(())
+}
+```
+
+A connection waits up to `pending_timeout` for its secret to show up in the key log. Connections that can't be decrypted are counted in `KeylogStats` (`no_secret`, `unsupported`, `auth_failed`, ...) and produce no output. Supported suites: TLS 1.3 `AES_128_GCM`, `AES_256_GCM`, `CHACHA20_POLY1305`, and TLS 1.2 ECDHE/RSA AES-GCM and ChaCha20-Poly1305. The accepted key log lines are described in [`keylog-format.md`](../specs/001-akamai-http2-processing/contracts/keylog-format.md).
+
+#### Key log security
+
+The key log contains **live session secrets**: anyone who can read it can decrypt the traffic it covers.
+
+- Restrict the file to the TLS terminator and the observer, e.g. mode `0600` with a shared owner or group.
+- Rotate it and delete old files. Follow mode handles truncation and rotation.
+- Never ship it with captures you share. Secrets in huginn's memory are wiped when they are no longer needed, and secrets and decrypted bytes never appear in outputs, `Debug` or logs.
 
 ## Quick Start
 
@@ -104,10 +137,12 @@ consume, or use `full` to opt into everything this version offers:
 
 | Feature        | Default | Description |
 |----------------|---------|-------------|
-| `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai`). Stable across version upgrades. |
+| `full`         | No      | Convenience alias for "everything this version offers" (currently `p0f-request` + `p0f-response` + `akamai` + `akamai-cleartext` + `akamai-keylog`). Stable across version upgrades. |
 | `p0f-request`  | No      | p0f-style fingerprinting of HTTP request side (client → server): header order, `Accept-Language`, User-Agent, browser matching. Gates `HttpRequestOutput`. |
 | `p0f-response` | No      | p0f-style fingerprinting of HTTP response side (server → client): header order, web-server matching. Gates `HttpResponseOutput`. |
 | `akamai`       | No      | Akamai HTTP/2 client fingerprinting from SETTINGS/WINDOW_UPDATE/PRIORITY frames. Standalone API surface (`Http2FingerprintExtractor`, `AkamaiFingerprint`, `extract_akamai_fingerprint*`); not invoked by the p0f path. |
+| `akamai-cleartext` | No  | Implies `akamai`. The packet pipeline emits one `AkamaiOutput` per cleartext HTTP/2 (h2c) connection in `HttpAnalysisResult::http_akamai`. |
+| `akamai-keylog` | No     | Implies `akamai`. `HuginnNetHttp::with_keylog`: decrypts HTTP/2 over TLS with a TLS key log and emits one `AkamaiOutput` per connection. Adds `aes-gcm`, `chacha20poly1305`, `hkdf`, `hmac`, `zeroize`. |
 | `json`          | No      | Derives `serde::Serialize` on all output types (`HttpAnalysisResult`, `HttpRequestOutput`, `HttpResponseOutput`). Opt in explicitly: `features = ["full", "json"]`. |
 
 Common opt-in patterns:
@@ -126,13 +161,12 @@ huginn-net-http = { version = "2.2.1", features = ["akamai"] }
 huginn-net-http = { version = "2.2.1", features = ["p0f-request", "p0f-response"] }
 ```
 
-When neither p0f side is enabled, `process_tcp_packet` short-circuits
-before touching the flow cache or reassembling payloads, so the per-packet
-pipeline cost drops to zero. The `akamai` feature is orthogonal to that
-pipeline: it only exposes the standalone `Http2FingerprintExtractor` /
-`extract_akamai_fingerprint*` API for callers that parse HTTP/2 frames
-themselves, and is never invoked from `process_tcp_packet` regardless of
-the other features. The always-on raw parsers (`parse_http1_request`,
+When neither p0f side nor `akamai-cleartext` is enabled, `process_tcp_packet`
+short-circuits before touching the flow cache or reassembling payloads, so the
+per-packet pipeline cost drops to zero. Without `with_keylog`, the key log path
+costs nothing either. The plain `akamai` feature only exposes the standalone
+`Http2FingerprintExtractor` / `extract_akamai_fingerprint*` API for callers that
+parse HTTP/2 frames themselves. The always-on raw parsers (`parse_http1_request`,
 `parse_http2_request`, `Http1Processor`, `Http2Processor`) and the
 `HttpMatcher` trait surface stay compiled in every feature combination
 so external consumers can keep using them.

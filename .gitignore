@@ -8,3 +8,6 @@ cobertura.xml
 /data
 /benches/reports/
 __pycache__/
+/fuzz/artifacts/
+/fuzz/coverage/
+/fuzz/corpus/
