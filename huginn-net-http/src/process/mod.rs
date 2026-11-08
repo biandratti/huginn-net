@@ -107,7 +107,11 @@ fn create_observable_package_ipv6(
 }
 
 #[cfg_attr(
-    not(any(feature = "p0f-request", feature = "p0f-response")),
+    not(any(
+        feature = "p0f-request",
+        feature = "p0f-response",
+        feature = "akamai-cleartext"
+    )),
     allow(unused_mut)
 )]
 fn build_http_result(
@@ -215,6 +219,11 @@ fn build_http_result(
             sig: http_response,
         };
         http_result.http_response = Some(response_output);
+    }
+
+    #[cfg(feature = "akamai-cleartext")]
+    {
+        http_result.http_akamai = http_package.http_akamai;
     }
 
     http_result

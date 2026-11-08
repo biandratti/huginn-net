@@ -65,6 +65,7 @@ impl AkamaiAccumulator {
     }
 
     /// Bytes currently buffered.
+    #[cfg(feature = "akamai-keylog")]
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.buf.len()

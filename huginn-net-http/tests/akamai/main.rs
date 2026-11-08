@@ -1,5 +1,7 @@
 #![cfg(feature = "akamai")]
 
+#[cfg(feature = "akamai-cleartext")]
+mod cleartext_golden;
 mod extractor;
 mod fingerprint;
 #[cfg(feature = "akamai-keylog")]
@@ -22,5 +24,5 @@ mod keylog_replay;
 mod output;
 mod paper_golden;
 mod pcap_golden;
-#[cfg(feature = "akamai-keylog")]
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
 mod pcap_util;

@@ -9,9 +9,17 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::tcp::TcpPacket;
 use std::net::IpAddr;
-#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+#[cfg(any(
+    feature = "p0f-request",
+    feature = "p0f-response",
+    feature = "akamai-cleartext"
+))]
 use std::time::Duration;
-#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+#[cfg(any(
+    feature = "p0f-request",
+    feature = "p0f-response",
+    feature = "akamai-cleartext"
+))]
 use tracing::debug;
 use ttl_cache::TtlCache;
 
@@ -231,7 +239,11 @@ impl ObservableHttpPackage {
     }
 }
 
-#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+#[cfg(any(
+    feature = "p0f-request",
+    feature = "p0f-response",
+    feature = "akamai-cleartext"
+))]
 #[derive(Clone)]
 struct TcpData {
     sequence: u32,
@@ -239,7 +251,11 @@ struct TcpData {
 }
 
 #[cfg_attr(
-    not(any(feature = "p0f-request", feature = "p0f-response")),
+    not(any(
+        feature = "p0f-request",
+        feature = "p0f-response",
+        feature = "akamai-cleartext"
+    )),
     allow(dead_code)
 )]
 pub struct TcpFlow {
@@ -255,9 +271,16 @@ pub struct TcpFlow {
     client_http_parsed: bool,
     #[cfg(feature = "p0f-response")]
     server_http_parsed: bool,
+    /// Cleartext HTTP/2 detection and Akamai fingerprint for this connection.
+    #[cfg(feature = "akamai-cleartext")]
+    akamai: crate::akamai::h2c::H2cTracker,
 }
 
-#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+#[cfg(any(
+    feature = "p0f-request",
+    feature = "p0f-response",
+    feature = "akamai-cleartext"
+))]
 impl TcpFlow {
     #[cfg_attr(not(feature = "p0f-request"), allow(unused_variables))]
     fn init(
@@ -267,6 +290,8 @@ impl TcpFlow {
         dst_port: u16,
         tcp_data: TcpData,
     ) -> TcpFlow {
+        #[cfg(feature = "akamai-cleartext")]
+        let syn_seq = tcp_data.sequence;
         TcpFlow {
             client_ip: src_ip,
             server_ip: dst_ip,
@@ -280,22 +305,21 @@ impl TcpFlow {
             client_http_parsed: false,
             #[cfg(feature = "p0f-response")]
             server_http_parsed: false,
+            #[cfg(feature = "akamai-cleartext")]
+            akamai: crate::akamai::h2c::H2cTracker::new(syn_seq),
         }
     }
 
+    /// `true` when every enabled consumer is finished with this connection.
     fn is_fully_parsed(&self) -> bool {
-        #[cfg(all(feature = "p0f-request", feature = "p0f-response"))]
-        {
-            self.client_http_parsed && self.server_http_parsed
-        }
-        #[cfg(all(feature = "p0f-request", not(feature = "p0f-response")))]
-        {
-            self.client_http_parsed
-        }
-        #[cfg(all(not(feature = "p0f-request"), feature = "p0f-response"))]
-        {
-            self.server_http_parsed
-        }
+        let done = true;
+        #[cfg(feature = "p0f-request")]
+        let done = done && self.client_http_parsed;
+        #[cfg(feature = "p0f-response")]
+        let done = done && self.server_http_parsed;
+        #[cfg(feature = "akamai-cleartext")]
+        let done = done && self.akamai.is_done();
+        done
     }
 }
 
@@ -355,7 +379,11 @@ pub fn process_http_ipv6(
 }
 
 #[cfg_attr(
-    not(any(feature = "p0f-request", feature = "p0f-response")),
+    not(any(
+        feature = "p0f-request",
+        feature = "p0f-response",
+        feature = "akamai-cleartext"
+    )),
     allow(unused_variables)
 )]
 fn process_tcp_packet(
@@ -365,12 +393,20 @@ fn process_tcp_packet(
     dst_ip: IpAddr,
     processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
-    #[cfg(not(any(feature = "p0f-request", feature = "p0f-response")))]
+    #[cfg(not(any(
+        feature = "p0f-request",
+        feature = "p0f-response",
+        feature = "akamai-cleartext"
+    )))]
     {
         Ok(ObservableHttpPackage::empty())
     }
 
-    #[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
+    #[cfg(any(
+        feature = "p0f-request",
+        feature = "p0f-response",
+        feature = "akamai-cleartext"
+    ))]
     {
         let src_port: u16 = tcp.get_source();
         let dst_port: u16 = tcp.get_destination();
@@ -396,6 +432,16 @@ fn process_tcp_packet(
                     TcpData { sequence: tcp.get_sequence(), data: Vec::from(tcp.payload()) };
 
                 if is_client && src_ip == flow.client_ip && src_port == flow.client_port {
+                    #[cfg(feature = "akamai-cleartext")]
+                    if let Some(fingerprint) = flow.akamai.push(tcp_data.sequence, &tcp_data.data) {
+                        observable_http_package.http_akamai =
+                            Some(crate::output::AkamaiOutput::new(
+                                crate::output::IpPort::new(flow.client_ip, flow.client_port),
+                                crate::output::IpPort::new(flow.server_ip, flow.server_port),
+                                crate::output::AkamaiTransport::Cleartext,
+                                fingerprint,
+                            ));
+                    }
                     #[cfg(feature = "p0f-request")]
                     {
                         if !flow.client_http_parsed {

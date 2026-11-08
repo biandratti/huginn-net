@@ -204,6 +204,18 @@ RUST_LOG=info ./target/release/examples/cli -l capture.log --keylog keys.log pca
 The key log contains live session secrets: keep it readable only by the proxy and the
 observer, and rotate it. The key log counters are printed when the analysis ends.
 
+#### Akamai HTTP/2 fingerprints over cleartext (h2c)
+
+Cleartext HTTP/2 needs no key log and no flag. With `--features full` (`akamai-cleartext` /
+`http-akamai-cleartext`), every h2c connection prints one `http/2 akamai` block with
+`transport = cleartext`. Prior knowledge (`curl --http2-prior-knowledge`) and `Upgrade: h2c`
+(`curl --http2 http://...`) are both detected.
+
+```
+RUST_LOG=info ./target/release/examples/cli-http -l http-capture.log pcap -f pcap/akamai-h2c-prior.pcap
+RUST_LOG=info ./target/release/examples/cli -l capture.log pcap -f pcap/akamai-h2c-upgrade.pcap
+```
+
 #### Differences between examples:
 - **`capture`**: Full analysis (TCP fingerprinting, HTTP analysis, TLS JA4, database matching)
 - **`cli-tls`**: TLS-only analysis (JA4 fingerprinting, supports sequential and parallel modes with hash-based worker assignment)

@@ -3,9 +3,9 @@
 //! The fixtures use Ethernet + IPv4 (20 byte header) + TCP (20 byte header), so the TCP
 //! payload always starts at byte 54.
 
-use huginn_net_http::{
-    AkamaiOutput, HttpAnalysisResult, HuginnNetHttp, KeylogConfig, KeylogSource, KeylogStats,
-};
+use huginn_net_http::{AkamaiOutput, HttpAnalysisResult, HuginnNetHttp};
+#[cfg(feature = "akamai-keylog")]
+use huginn_net_http::{KeylogConfig, KeylogSource, KeylogStats};
 use pcap_file::pcap::{PcapPacket, PcapReader, PcapWriter};
 use serde::Deserialize;
 use std::fs::File;
@@ -50,6 +50,7 @@ pub fn pcap_dir() -> PathBuf {
     Path::new("..").join("pcap")
 }
 
+#[cfg(feature = "akamai-keylog")]
 pub fn keys_path(snap: &Snapshot) -> PathBuf {
     pcap_dir().join(
         snap.keys
@@ -58,6 +59,7 @@ pub fn keys_path(snap: &Snapshot) -> PathBuf {
     )
 }
 
+#[cfg(feature = "akamai-keylog")]
 pub fn keys_config(snap: &Snapshot) -> KeylogConfig {
     KeylogConfig::new(KeylogSource::File(keys_path(snap)))
 }
@@ -132,12 +134,14 @@ pub fn server_data_indices(frames: &[Vec<u8>]) -> Vec<usize> {
 }
 
 /// Runs a capture through a sequential analyzer and returns the Akamai results and counters.
+#[cfg(feature = "akamai-keylog")]
 pub fn run(pcap: &Path, keylog: Option<KeylogConfig>) -> (Vec<AkamaiOutput>, KeylogStats) {
     let (results, stats) = run_all(pcap, keylog);
     (results.into_iter().filter_map(|r| r.http_akamai).collect(), stats)
 }
 
 /// Like [`run`] but returns every analysis result.
+#[cfg(feature = "akamai-keylog")]
 pub fn run_all(
     pcap: &Path,
     keylog: Option<KeylogConfig>,
@@ -157,11 +161,38 @@ pub fn run_all(
 }
 
 /// All secret values (third field) of a key log file, lowercase hex.
+#[cfg(feature = "akamai-keylog")]
 pub fn secrets_in(keys: &Path) -> Vec<String> {
     let text = std::fs::read_to_string(keys).unwrap_or_else(|e| panic!("read keys: {e}"));
     text.lines()
         .filter(|l| !l.starts_with('#'))
         .filter_map(|l| l.split_whitespace().nth(2))
         .map(str::to_lowercase)
+        .collect()
+}
+
+/// Runs a capture through an analyzer without a key log; returns every result.
+pub fn run_plain(pcap: &Path, parallel: bool) -> Vec<HttpAnalysisResult> {
+    let mut analyzer = HuginnNetHttp::new(1000);
+    let (tx, rx) = mpsc::channel::<HttpAnalysisResult>();
+    if parallel {
+        analyzer = analyzer.with_parallel(2, 100, 16, 10);
+        analyzer
+            .init_pool(tx.clone())
+            .unwrap_or_else(|e| panic!("init_pool: {e}"));
+    }
+    let path = pcap.to_str().unwrap_or_else(|| panic!("non UTF-8 path"));
+    analyzer
+        .analyze_pcap(path, tx, None)
+        .unwrap_or_else(|e| panic!("analyze_pcap: {e}"));
+    // In parallel mode the channel closes once every worker has drained and exited.
+    rx.iter().collect()
+}
+
+/// Akamai results of [`run_plain`].
+pub fn akamai_plain(pcap: &Path, parallel: bool) -> Vec<AkamaiOutput> {
+    run_plain(pcap, parallel)
+        .into_iter()
+        .filter_map(|r| r.http_akamai)
         .collect()
 }

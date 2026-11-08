@@ -1,6 +1,7 @@
 pub mod extractor;
-// US2 (T039) widens this to `akamai-cleartext` when the h2c path starts using it.
-#[cfg(feature = "akamai-keylog")]
+#[cfg(feature = "akamai-cleartext")]
+pub(crate) mod h2c;
+#[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
 pub(crate) mod pipeline;
 pub use extractor::{
     calculate_frames_bytes_consumed, extract_akamai_fingerprint,
