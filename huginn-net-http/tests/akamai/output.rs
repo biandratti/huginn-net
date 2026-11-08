@@ -28,17 +28,16 @@ fn display_prints_fingerprint_and_hash_verbatim() {
         cipher_suite: 0x1301,
     });
     let text = out.to_string();
-    assert!(text.contains("(http/2 akamai)"));
-    assert!(text.contains("| client    = 192.168.1.10/52344"));
-    assert!(text.contains("| transport = tls1.3 decrypted (0x1301)"));
-    assert!(text.contains(&format!("| akamai    = {}", out.fingerprint.fingerprint)));
-    assert!(text.contains(&format!("| hash      = {}", out.fingerprint.hash)));
+    assert!(text.starts_with("[HTTP Akamai Request] 192.168.1.10:52344 → "), "{text}");
+    assert!(text.contains("\nTransport: tls1.3 decrypted (0x1301)\n"), "{text}");
+    assert!(text.contains(&format!("\nAkamai:    {}\n", out.fingerprint.fingerprint)));
+    assert!(text.contains(&format!("\nHash:      {}\n", out.fingerprint.hash)));
 }
 
 #[test]
 fn display_cleartext_transport() {
     let out = chrome_61_output(AkamaiTransport::Cleartext);
-    assert!(out.to_string().contains("| transport = cleartext"));
+    assert!(out.to_string().contains("\nTransport: cleartext\n"));
 }
 
 #[cfg(feature = "json")]

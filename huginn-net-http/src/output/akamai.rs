@@ -87,17 +87,19 @@ impl AkamaiOutput {
 
 impl fmt::Display for AkamaiOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
+        write!(
             f,
-            ".-[ {}/{} -> {}/{} (http/2 akamai) ]-",
-            self.source.ip, self.source.port, self.destination.ip, self.destination.port
-        )?;
-        writeln!(f, "|")?;
-        writeln!(f, "| client    = {}/{}", self.source.ip, self.source.port)?;
-        writeln!(f, "| transport = {}", self.transport)?;
-        writeln!(f, "| akamai    = {}", self.fingerprint.fingerprint)?;
-        writeln!(f, "| hash      = {}", self.fingerprint.hash)?;
-        writeln!(f, "|")?;
-        write!(f, "`----")
+            "[HTTP Akamai Request] {}:{} → {}:{}\n\
+              Transport: {}\n\
+              Akamai:    {}\n\
+              Hash:      {}\n",
+            self.source.ip,
+            self.source.port,
+            self.destination.ip,
+            self.destination.port,
+            self.transport,
+            self.fingerprint.fingerprint,
+            self.fingerprint.hash
+        )
     }
 }

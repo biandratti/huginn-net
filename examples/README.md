@@ -207,8 +207,8 @@ observer, and rotate it. The key log counters are printed when the analysis ends
 #### Akamai HTTP/2 fingerprints over cleartext (h2c)
 
 Cleartext HTTP/2 needs no key log and no flag. With `--features full` (`akamai-cleartext` /
-`http-akamai-cleartext`), every h2c connection prints one `http/2 akamai` block with
-`transport = cleartext`. Prior knowledge (`curl --http2-prior-knowledge`) and `Upgrade: h2c`
+`http-akamai-cleartext`), every h2c connection prints one `[HTTP Akamai Request]` block with
+`Transport: cleartext`. Prior knowledge (`curl --http2-prior-knowledge`) and `Upgrade: h2c`
 (`curl --http2 http://...`) are both detected.
 
 ```
