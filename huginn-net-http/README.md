@@ -54,7 +54,7 @@ There are three ways to get it:
 | `akamai-cleartext` | The packet pipeline emits one `AkamaiOutput` per cleartext HTTP/2 (h2c) connection, prior knowledge or `Upgrade: h2c`, in `HttpAnalysisResult::http_akamai`. No cryptographic dependencies. |
 | `akamai-keylog` | The packet pipeline decrypts HTTP/2 over TLS 1.2 / 1.3 with secrets from a TLS key log (`SSLKEYLOGFILE` format) and emits one `AkamaiOutput` per connection. The observer stays passive: it never terminates TLS or touches the traffic. |
 
-Decrypted bytes only feed the Akamai fingerprint. They never reach the p0f HTTP path, and p0f results are identical with or without a key log.
+Decrypted bytes only feed the Akamai fingerprint. They never reach the p0f HTTP path, and p0f results are identical with or without a key log: p0f browser and server signatures only apply to plain HTTP.
 
 **Standalone extractor:**
 

@@ -105,3 +105,44 @@ fn akamai_fingerprints_match_huginn_proxy() {
         }
     }
 }
+
+#[test]
+fn signature_drops_user_agent_value_and_marks_optional_headers() {
+    use huginn_net_http::http2_process::parse_http2_request;
+
+    // Real Chrome request: user-agent is in the signature without its value.
+    let chrome = match parse_http2_request(&stream("chrome-157.bin"), &Http2Parser::new()) {
+        Ok(Some(req)) => req.matching,
+        other => panic!("{other:?}"),
+    };
+    let Some(ua) = chrome.horder.iter().find(|h| h.name == "user-agent") else {
+        panic!("user-agent missing from the signature");
+    };
+    assert_eq!(ua.value, None);
+
+    // Hand-made request with cache-control, which must be optional like in HTTP/1.
+    let mut block = vec![0x82, 0x84, 0x87, 0x41, 0x09];
+    block.extend_from_slice(b"localhost");
+    block.extend_from_slice(&[0x0f, 0x09, 0x08]); // cache-control (static index 24)
+    block.extend_from_slice(b"no-cache");
+    block.extend_from_slice(&[0x0f, 0x2b, 0x04]); // user-agent (static index 58)
+    block.extend_from_slice(b"test");
+    let mut bytes = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".to_vec();
+    bytes.extend_from_slice(&[0, 0, 0, 0x04, 0, 0, 0, 0, 0]); // empty SETTINGS
+    let len = u8::try_from(block.len()).unwrap_or(u8::MAX);
+    bytes.extend_from_slice(&[0, 0, len, 0x01, 0x05, 0, 0, 0, 1]); // HEADERS, stream 1
+    bytes.extend_from_slice(&block);
+    let observation = match parse_http2_request(&bytes, &Http2Parser::new()) {
+        Ok(Some(req)) => req.matching,
+        other => panic!("{other:?}"),
+    };
+    let Some(cache_control) = observation
+        .horder
+        .iter()
+        .find(|h| h.name == "cache-control")
+    else {
+        panic!("cache-control missing from the signature");
+    };
+    assert!(cache_control.optional, "cache-control must be optional");
+    assert_eq!(cache_control.value, None);
+}
