@@ -125,7 +125,7 @@ use huginn_net_http::http2_fingerprint_extractor::Http2FingerprintExtractor;
 
 let mut extractor = Http2FingerprintExtractor::new();
 if let Some(fp) = extractor.add_bytes(&bytes)? {
-    println!("{} {}", fp.fingerprint, fp.hash);
+    println!("{}", fp.fingerprint);
 }
 ```
 
@@ -177,8 +177,7 @@ Sig:     server=[nginx/1.14.0 (Ubuntu)],date=[Tue, 17 Dec 2024 13:54:16 GMT],x-c
 
 [HTTP Akamai Request] 10.0.0.2:50000 → 10.0.0.1:8443
 Transport: tls1.3 decrypted (0x1301)
-Akamai:    1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p
-Hash:      b95b8e312a5ef15db8fae48013d3616c
+Sig:       1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p
 ```
 
 ## Huginn Net Ecosystem

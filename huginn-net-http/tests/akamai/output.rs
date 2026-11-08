@@ -22,7 +22,7 @@ fn chrome_61_output(transport: AkamaiTransport) -> AkamaiOutput {
 }
 
 #[test]
-fn display_prints_fingerprint_and_hash_verbatim() {
+fn display_prints_the_fingerprint_without_hash() {
     let out = chrome_61_output(AkamaiTransport::TlsDecrypted {
         version: TlsVersion::Tls13,
         cipher_suite: 0x1301,
@@ -30,8 +30,8 @@ fn display_prints_fingerprint_and_hash_verbatim() {
     let text = out.to_string();
     assert!(text.starts_with("[HTTP Akamai Request] 192.168.1.10:52344 → "), "{text}");
     assert!(text.contains("\nTransport: tls1.3 decrypted (0x1301)\n"), "{text}");
-    assert!(text.contains(&format!("\nAkamai:    {}\n", out.fingerprint.fingerprint)));
-    assert!(text.contains(&format!("\nHash:      {}\n", out.fingerprint.hash)));
+    assert!(text.contains(&format!("\nSig:       {}\n", out.fingerprint.fingerprint)));
+    assert!(!text.contains(&out.fingerprint.hash), "the hash is not part of the output");
 }
 
 #[test]

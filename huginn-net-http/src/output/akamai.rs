@@ -91,15 +91,13 @@ impl fmt::Display for AkamaiOutput {
             f,
             "[HTTP Akamai Request] {}:{} → {}:{}\n\
               Transport: {}\n\
-              Akamai:    {}\n\
-              Hash:      {}\n",
+              Sig:       {}\n",
             self.source.ip,
             self.source.port,
             self.destination.ip,
             self.destination.port,
             self.transport,
-            self.fingerprint.fingerprint,
-            self.fingerprint.hash
+            self.fingerprint.fingerprint
         )
     }
 }
