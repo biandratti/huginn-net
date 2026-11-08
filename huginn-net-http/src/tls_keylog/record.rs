@@ -102,27 +102,54 @@ pub struct RawRecord {
 pub fn split_records(buf: &[u8]) -> Result<(Vec<RawRecord>, usize), RecordError> {
     let mut records = Vec::new();
     let mut pos = 0usize;
-    while let Some(header) = buf.get(pos..pos.saturating_add(5)) {
-        let length = usize::from(u16::from_be_bytes([header[3], header[4]]));
-        if length > MAX_RECORD_PAYLOAD {
-            return Err(RecordError::Malformed);
-        }
-        let start = pos.saturating_add(5);
-        let end = start.saturating_add(length);
-        let Some(payload) = buf.get(start..end) else {
-            break;
-        };
-        let mut hdr = [0u8; 5];
-        hdr.copy_from_slice(header);
-        records.push(RawRecord {
-            content_type: header[0],
-            version: u16::from_be_bytes([header[1], header[2]]),
-            header: hdr,
-            payload: payload.to_vec(),
-        });
-        pos = end;
+    while let Some(span) = next_record(buf, pos)? {
+        records.push(span.to_owned());
+        pos = span.end;
     }
     Ok((records, pos))
+}
+
+/// A complete record borrowed from a stream buffer.
+pub(crate) struct RecordSpan<'a> {
+    pub(crate) header: [u8; 5],
+    pub(crate) payload: &'a [u8],
+    /// Offset just past the record in the buffer.
+    pub(crate) end: usize,
+}
+
+impl RecordSpan<'_> {
+    pub(crate) fn content_type(&self) -> u8 {
+        self.header[0]
+    }
+
+    pub(crate) fn to_owned(&self) -> RawRecord {
+        RawRecord {
+            content_type: self.header[0],
+            version: u16::from_be_bytes([self.header[1], self.header[2]]),
+            header: self.header,
+            payload: self.payload.to_vec(),
+        }
+    }
+}
+
+/// The complete record starting at `pos`, without copying it. `Ok(None)` when only a
+/// partial record (or nothing) is left.
+pub(crate) fn next_record(buf: &[u8], pos: usize) -> Result<Option<RecordSpan<'_>>, RecordError> {
+    let Some(header) = buf.get(pos..pos.saturating_add(5)) else {
+        return Ok(None);
+    };
+    let length = usize::from(u16::from_be_bytes([header[3], header[4]]));
+    if length > MAX_RECORD_PAYLOAD {
+        return Err(RecordError::Malformed);
+    }
+    let start = pos.saturating_add(5);
+    let end = start.saturating_add(length);
+    let Some(payload) = buf.get(start..end) else {
+        return Ok(None);
+    };
+    let mut hdr = [0u8; 5];
+    hdr.copy_from_slice(header);
+    Ok(Some(RecordSpan { header: hdr, payload, end }))
 }
 
 enum Cipher {

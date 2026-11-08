@@ -1341,19 +1341,20 @@ fn bench_akamai(c: &mut Criterion) {
         });
         group.finish();
 
-        // Rough summary (includes building the store); Criterion above is authoritative.
-        let with_keylog = measure_average_time(
-            || {
-                run_keylog(keylog_analyzer(&lines));
-            },
-            10,
-        );
-        let baseline = measure_average_time(
-            || {
-                run_keylog(huginn_net_http::HuginnNetHttp::new(usize::from(AKAMAI_CONNECTIONS)));
-            },
-            10,
-        );
+        // Quick summary over 10 runs, analyzers built outside the timed part like above.
+        let timed = |make: &dyn Fn() -> huginn_net_http::HuginnNetHttp| {
+            let mut total = Duration::ZERO;
+            for _ in 0..10 {
+                let analyzer = make();
+                let start = std::time::Instant::now();
+                run_keylog(analyzer);
+                total = total.saturating_add(start.elapsed());
+            }
+            total.checked_div(10).unwrap_or_default()
+        };
+        let with_keylog = timed(&|| keylog_analyzer(&lines));
+        let baseline =
+            timed(&|| huginn_net_http::HuginnNetHttp::new(usize::from(AKAMAI_CONNECTIONS)));
         println!(
             "Akamai key log: {} with key log vs {} baseline ({:.1}% of baseline throughput)",
             format_throughput(calculate_throughput(with_keylog, packets.len())),

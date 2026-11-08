@@ -53,6 +53,7 @@ pub const HTTP2_FIXTURES: &[&str] = &[
     "akamai-tls12-chacha-chrome",
     "akamai-tls13-resume",
     "akamai-tls12-resume",
+    "akamai-tls13-clientauth",
 ];
 
 #[test]
@@ -118,6 +119,35 @@ fn tls13_without_handshake_secret_uses_trial_alignment() {
         run(&pcap_dir().join(&snap.pcap), Some(KeylogConfig::new(KeylogSource::File(path))));
     assert_matches(&outputs, &snap);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The client-auth fixture sends four encrypted handshake records (its certificate is split
+/// over two), which exhausts the application-key trial.
+fn clientauth_without_handshake_secret() -> (Vec<AkamaiOutput>, huginn_net_http::KeylogStats) {
+    let snap = snapshot("akamai-tls13-clientauth");
+    let keys = std::fs::read_to_string(pcap_dir().join(snap.keys.as_deref().unwrap_or_default()))
+        .unwrap_or_else(|e| panic!("read keys: {e}"));
+    let dir = scratch_dir("clientauth-app-only");
+    let path = dir.join("app.keys");
+    let app_only: String = keys
+        .lines()
+        .filter(|l| l.starts_with("CLIENT_TRAFFIC_SECRET_0"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(&path, app_only).unwrap_or_else(|e| panic!("write: {e}"));
+    let result =
+        run(&pcap_dir().join(&snap.pcap), Some(KeylogConfig::new(KeylogSource::File(path))));
+    let _ = std::fs::remove_dir_all(&dir);
+    result
+}
+
+#[test]
+fn long_client_handshake_falls_back_to_the_handshake_secret() {
+    // With the handshake secret (golden test above) the skipped records are replayed with
+    // the handshake key; without it the trial gives up.
+    let (outputs, stats) = clientauth_without_handshake_secret();
+    assert!(outputs.is_empty());
+    assert_eq!(stats.auth_failed, 1, "{stats:?}");
 }
 
 #[test]

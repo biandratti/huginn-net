@@ -1,6 +1,7 @@
 pub mod extractor;
 #[cfg(feature = "akamai-cleartext")]
 pub(crate) mod h2c;
+mod hpack_names;
 #[cfg(any(feature = "akamai-cleartext", feature = "akamai-keylog"))]
 pub(crate) mod pipeline;
 pub use extractor::{
@@ -195,51 +196,50 @@ impl AkamaiFingerprint {
         priority_frames: &[Http2Priority],
         pseudo_header_order: &[PseudoHeader],
     ) -> String {
+        // One buffer, no intermediate strings. Writing to a String cannot fail.
+        let mut out = String::with_capacity(96);
         // Settings: id:value;id:value;...
-        let settings_str = if settings.is_empty() {
-            String::new()
-        } else {
-            settings
-                .iter()
-                .map(|s| format!("{}:{}", s.id.as_u16(), s.value))
-                .collect::<Vec<_>>()
-                .join(";")
-        };
-
+        for (i, s) in settings.iter().enumerate() {
+            if i > 0 {
+                out.push(';');
+            }
+            let _ = write!(out, "{}:{}", s.id.as_u16(), s.value);
+        }
         // Window Update: value or "00" if not present
-        let window_str = if window_update == 0 {
-            "00".to_string()
+        out.push('|');
+        if window_update == 0 {
+            out.push_str("00");
         } else {
-            window_update.to_string()
-        };
-
-        // Priority: stream:exclusive:depends_on:weight,...
-        let priority_str = if priority_frames.is_empty() {
-            "0".to_string()
-        } else {
-            priority_frames
-                .iter()
-                .map(|p| {
-                    format!(
-                        "{}:{}:{}:{}",
-                        p.stream_id,
-                        u8::from(p.exclusive),
-                        p.depends_on,
-                        u16::from(p.weight).saturating_add(1) // Weight is 1-256, RFC 7540 says byte+1
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",")
-        };
-
+            let _ = write!(out, "{window_update}");
+        }
+        // Priority: stream:exclusive:depends_on:weight,... or "0"
+        out.push('|');
+        if priority_frames.is_empty() {
+            out.push('0');
+        }
+        for (i, p) in priority_frames.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            // Weight is 1-256 on the wire as byte + 1 (RFC 7540 section 6.3).
+            let _ = write!(
+                out,
+                "{}:{}:{}:{}",
+                p.stream_id,
+                u8::from(p.exclusive),
+                p.depends_on,
+                u16::from(p.weight).saturating_add(1)
+            );
+        }
         // Pseudo-headers: m,p,a,s
-        let pseudo_str = pseudo_header_order
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(",");
-
-        format!("{settings_str}|{window_str}|{priority_str}|{pseudo_str}")
+        out.push('|');
+        for (i, h) in pseudo_header_order.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            let _ = write!(out, "{h}");
+        }
+        out
     }
 
     /// Create a new Akamai fingerprint directly from its components.
@@ -280,12 +280,13 @@ impl AkamaiFingerprint {
         hasher.update(fingerprint.as_bytes());
         let result = hasher.finalize();
         // Take only the first 16 bytes (= 32 hex chars)
-        result[..16]
-            .iter()
-            .fold(String::with_capacity(32), |mut acc, b| {
-                let _ = write!(acc, "{b:02x}");
-                acc
-            })
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let mut hex = String::with_capacity(32);
+        for b in result.iter().take(16) {
+            hex.push(char::from(HEX[usize::from(b >> 4)]));
+            hex.push(char::from(HEX[usize::from(b & 0x0f)]));
+        }
+        hex
     }
 }
 

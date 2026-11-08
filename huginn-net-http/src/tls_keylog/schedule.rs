@@ -45,6 +45,25 @@ pub fn hkdf_expand_label(
     context: &[u8],
     len: usize,
 ) -> Result<Zeroizing<Vec<u8>>, KeyScheduleError> {
+    match alg {
+        HashAlg::Sha256 => {
+            let prk = Hkdf::<Sha256>::from_prk(secret).map_err(|_| KeyScheduleError)?;
+            expand_label(|info, out| prk.expand(info, out).is_ok(), label, context, len)
+        }
+        HashAlg::Sha384 => {
+            let prk = Hkdf::<Sha384>::from_prk(secret).map_err(|_| KeyScheduleError)?;
+            expand_label(|info, out| prk.expand(info, out).is_ok(), label, context, len)
+        }
+    }
+}
+
+/// Builds the `HkdfLabel` info and runs `expand` (an HKDF-Expand over an existing PRK).
+fn expand_label(
+    expand: impl Fn(&[u8], &mut [u8]) -> bool,
+    label: &[u8],
+    context: &[u8],
+    len: usize,
+) -> Result<Zeroizing<Vec<u8>>, KeyScheduleError> {
     const PREFIX: &[u8] = b"tls13 ";
     let out_len = u16::try_from(len).map_err(|_| KeyScheduleError)?;
     let label_len =
@@ -64,15 +83,9 @@ pub fn hkdf_expand_label(
     info.extend_from_slice(context);
 
     let mut okm = Zeroizing::new(vec![0u8; len]);
-    let expanded = match alg {
-        HashAlg::Sha256 => Hkdf::<Sha256>::from_prk(secret)
-            .map_err(|_| KeyScheduleError)?
-            .expand(&info, okm.as_mut_slice()),
-        HashAlg::Sha384 => Hkdf::<Sha384>::from_prk(secret)
-            .map_err(|_| KeyScheduleError)?
-            .expand(&info, okm.as_mut_slice()),
-    };
-    expanded.map_err(|_| KeyScheduleError)?;
+    if !expand(&info, okm.as_mut_slice()) {
+        return Err(KeyScheduleError);
+    }
     Ok(okm)
 }
 
@@ -84,10 +97,24 @@ pub fn tls13_traffic_keys(
     if secret.len() != suite.hash.output_len() {
         return Err(KeyScheduleError);
     }
-    Ok(TrafficKeys {
-        key: hkdf_expand_label(suite.hash, secret, b"key", b"", suite.aead.key_len())?,
-        iv: hkdf_expand_label(suite.hash, secret, b"iv", b"", 12)?,
-    })
+    let key_len = suite.aead.key_len();
+    // One PRK for both labels: building it is a full HMAC key setup.
+    let keys = |expand: &dyn Fn(&[u8], &mut [u8]) -> bool| {
+        Ok(TrafficKeys {
+            key: expand_label(expand, b"key", b"", key_len)?,
+            iv: expand_label(expand, b"iv", b"", 12)?,
+        })
+    };
+    match suite.hash {
+        HashAlg::Sha256 => {
+            let prk = Hkdf::<Sha256>::from_prk(secret).map_err(|_| KeyScheduleError)?;
+            keys(&|info, out| prk.expand(info, out).is_ok())
+        }
+        HashAlg::Sha384 => {
+            let prk = Hkdf::<Sha384>::from_prk(secret).map_err(|_| KeyScheduleError)?;
+            keys(&|info, out| prk.expand(info, out).is_ok())
+        }
+    }
 }
 
 /// TLS 1.2 `PRF(secret, label, seed)` = `P_<hash>(secret, label || seed)` (RFC 5246 section 5).

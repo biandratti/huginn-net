@@ -177,33 +177,25 @@ impl KeylogTracker {
         let now = Instant::now();
         let seq = tcp.get_sequence();
 
-        let (key, is_client) = if self.sessions.contains_key(&forward) {
-            (forward, true)
-        } else if self.sessions.contains_key(&reverse) {
-            (reverse, false)
+        // One lookup per direction: every lookup hashes the key and reads the clock.
+        let (key, step, random) = if let Some(slot) = self.sessions.get_mut(&forward) {
+            let (step, random) = drive(slot, true, seq, payload, now, &self.store)?;
+            (forward, step, random)
+        } else if let Some(slot) = self.sessions.get_mut(&reverse) {
+            let (step, random) = drive(slot, false, seq, payload, now, &self.store)?;
+            (reverse, step, random)
         } else if is_client_hello_start(payload) {
-            self.sessions.insert(
-                forward,
-                Slot::Active(Box::new(TlsSession::new(self.limits))),
-                self.session_ttl,
-            );
-            (forward, true)
+            let mut session = Box::new(TlsSession::new(self.limits));
+            let step = session.on_client_segment(seq, payload, now, &self.store);
+            if matches!(step, Step::Pending) {
+                self.sessions
+                    .insert(forward, Slot::Active(session), self.session_ttl);
+                return None;
+            }
+            (forward, step, session.client_random().copied())
         } else {
             return None;
         };
-
-        let Some(Slot::Active(session)) = self.sessions.get_mut(&key) else {
-            return None;
-        };
-        let step = if is_client {
-            session.on_client_segment(seq, payload, now, &self.store)
-        } else {
-            session.on_server_segment(seq, payload, now, &self.store)
-        };
-        if matches!(step, Step::Pending) {
-            return None;
-        }
-        let random = session.client_random().copied();
         self.finish(key, step, random)
     }
 
@@ -242,6 +234,29 @@ impl std::fmt::Debug for KeylogTracker {
             .field("store", &self.store)
             .finish_non_exhaustive()
     }
+}
+
+/// Feeds a segment to an active session. `None` while it is pending or already terminal.
+fn drive(
+    slot: &mut Slot,
+    is_client: bool,
+    seq: u32,
+    payload: &[u8],
+    now: Instant,
+    store: &KeyLogStore,
+) -> Option<(Step, Option<[u8; 32]>)> {
+    let Slot::Active(session) = slot else {
+        return None;
+    };
+    let step = if is_client {
+        session.on_client_segment(seq, payload, now, store)
+    } else {
+        session.on_server_segment(seq, payload, now, store)
+    };
+    if matches!(step, Step::Pending) {
+        return None;
+    }
+    Some((step, session.client_random().copied()))
 }
 
 /// A TLS handshake record (`0x16 0x03 ..`) whose first message is a ClientHello (type 1).

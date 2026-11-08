@@ -177,21 +177,25 @@ impl KeyLogStore {
     /// Exposed for tests only.
     #[doc(hidden)]
     pub fn secret_kinds(&self, client_random: &[u8; 32]) -> Option<SecretKinds> {
-        self.get(client_random).map(|e| SecretKinds {
+        self.with_entry(client_random, |e| SecretKinds {
             tls12_master: e.tls12_master.is_some(),
             tls13_client_hs_len: e.tls13_client_hs.as_ref().map(|s| s.len()),
             tls13_client_app0_len: e.tls13_client_app0.as_ref().map(|s| s.len()),
         })
     }
 
-    /// Returns a copy of the secrets for `client_random`, if any.
-    pub(crate) fn get(&self, client_random: &[u8; 32]) -> Option<KeyEntry> {
+    /// Runs `f` on the secrets for `client_random` under the read lock, without copying them.
+    pub(crate) fn with_entry<R>(
+        &self,
+        client_random: &[u8; 32],
+        f: impl FnOnce(&KeyEntry) -> R,
+    ) -> Option<R> {
         self.inner
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .map
             .get(client_random)
-            .cloned()
+            .map(f)
     }
 
     /// Forgets the secrets for `client_random` (the connection reached a terminal state).

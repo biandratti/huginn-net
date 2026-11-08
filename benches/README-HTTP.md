@@ -84,22 +84,27 @@ matching key log entries), generated in memory. Single Criterion run, median.
 
 | Scenario | Dataset | Time / iteration | Per connection | Throughput |
 |----------|---------|------------------|----------------|------------|
-| `h2c_cleartext` | `akamai-h2c-prior.pcap` x1000 (9,000 packets) | ~17.6 ms | ~17.6 µs | ~511k pps |
-| `tls13_keylog_decrypt` | `akamai-tls13-aes128-chrome.pcap` x1000 (13,000 packets) | ~25.9 ms | ~25.9 µs | ~503k pps |
-| `tls13_no_keylog_baseline` | same TLS traffic, `akamai-keylog` compiled in, no `with_keylog` | ~10.4 ms | ~10.4 µs | ~1.25M pps |
+| `h2c_cleartext` | `akamai-h2c-prior.pcap` x1000 (9,000 packets) | ~13.3 ms | ~13.3 µs | ~677k pps |
+| `tls13_keylog_decrypt` | `akamai-tls13-aes128-chrome.pcap` x1000 (13,000 packets) | ~17.6 ms | ~17.6 µs | ~739k pps |
+| `tls13_no_keylog_baseline` | same TLS traffic, `akamai-keylog` compiled in, no `with_keylog` | ~9.4 ms | ~9.4 µs | ~1.38M pps |
 
-**SC-005, key log throughput >= 50% of the baseline: not met (~40%).** These connections
-are as short as a TLS connection gets (13 packets), so the per-connection work dominates
-and is not amortized over later packets:
+**SC-005, key log throughput >= 50% of the baseline: met (~53-54%, two runs).** These
+connections are as short as a TLS connection gets (13 packets), so this is the worst case:
+the per-connection work is not amortized over later packets.
 
-- tracking and reassembly, before any decryption: ~3.5 µs;
-- key derivation (HKDF for the handshake and application secrets) and AEAD setup: ~2.6 µs;
-- the Akamai extraction itself (`extract_akamai_fingerprint`: HPACK decoding, SHA-256):
-  ~3.5 µs, the same cost as the standalone API;
-- AES-GCM itself is cheap (hardware accelerated, ~0.5 µs per 1 KiB record).
+What brought it from ~35% to ~53%:
 
-On longer connections the gap shrinks: once a fingerprint is emitted the connection is
-marked terminal and its later packets cost a single lookup.
+- **Akamai extraction** (`extract_akamai_fingerprint`, also used by the standalone API):
+  pseudo-header names are read from the HPACK block without decoding header values
+  (`akamai/hpack_names.rs`), and the fingerprint string and hash are built in one buffer.
+  ~3.5 µs -> ~0.9 µs on this fixture. On real browser traffic the gain is much larger:
+  `hpack_patched` rebuilds its Huffman tables for every Huffman-coded string (~35 µs per
+  string), and browsers Huffman-code nearly every header value.
+- **TLS 1.3 alignment**: the application key is tried first; the handshake key is derived
+  only when that fails (e.g. a large client certificate).
+- One HKDF PRK for key and IV, TLS records read in place (only queued records are copied),
+  key log secrets read under the lock instead of copied, one flow table lookup per
+  direction, and the accumulator only wipes the bytes it filled.
 
 **SC-005, pipeline with the new features disabled within +-3% of `master`:** both trees
 built with `--features p0f-request,p0f-response`, one Criterion run each:

@@ -288,22 +288,27 @@ FIXTURES = {
     "akamai-tls13-http11": ("1.3", "TLS_AES_128_GCM_SHA256", None, 1, 6000),
     "akamai-tls13-resume": ("1.3", "TLS_AES_128_GCM_SHA256", "chrome", 2, 7000),
     "akamai-tls12-resume": ("1.2", "ECDHE-RSA-AES128-GCM-SHA256", "firefox", 2, 8000),
+    "akamai-tls13-clientauth": ("1.3", "TLS_AES_128_GCM_SHA256", "chrome", 1, 9800),
     "akamai-h2c-prior": (None, None, "curl", 1, 9000),
     "akamai-h2c-upgrade": (None, None, "firefox", 1, 9500),
 }
 
 
-def make_cert(tmp):
-    key, crt = os.path.join(tmp, "k.pem"), os.path.join(tmp, "c.pem")
+# Fixtures where the client authenticates with a certificate.
+CLIENT_AUTH = {"akamai-tls13-clientauth"}
+
+
+def make_cert(tmp, prefix="", extra=()):
+    key, crt = os.path.join(tmp, f"{prefix}k.pem"), os.path.join(tmp, f"{prefix}c.pem")
     subprocess.run(
         ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2",
-         "-subj", "/CN=localhost", "-keyout", key, "-out", crt],
+         "-subj", "/CN=localhost", "-keyout", key, "-out", crt, *extra],
         check=True, capture_output=True,
     )
     return crt, key
 
 
-def contexts(version, cipher, alpn, keylog, tmp):
+def contexts(version, cipher, alpn, keylog, tmp, client_auth=False):
     crt, key = make_cert(tmp)
     server = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     server.load_cert_chain(crt, key)
@@ -311,6 +316,14 @@ def contexts(version, cipher, alpn, keylog, tmp):
     client.check_hostname = False
     client.verify_mode = ssl.CERT_NONE
     client.keylog_filename = keylog
+    if client_auth:
+        # A client certificate over 16 KiB: TLS 1.3 then splits the Certificate message over
+        # two records, so the client sends four encrypted handshake records before its data.
+        names = ",".join(f"DNS:client{i:04d}.example.invalid" for i in range(700))
+        client_crt, client_key = make_cert(tmp, "client-", ("-addext", f"subjectAltName={names}"))
+        client.load_cert_chain(client_crt, client_key)
+        server.verify_mode = ssl.CERT_REQUIRED
+        server.load_verify_locations(client_crt)
     for ctx in (server, client):
         ctx.set_alpn_protocols([alpn])
         if version == "1.2":
@@ -357,7 +370,9 @@ def generate(name):
             os.remove(keys_path)
         with tempfile.TemporaryDirectory() as tmp:
             alpn = "h2" if profile_name else "http/1.1"
-            client_ctx, server_ctx = contexts(version, cipher, alpn, keys_path, tmp)
+            client_ctx, server_ctx = contexts(
+                version, cipher, alpn, keys_path, tmp, client_auth=name in CLIENT_AUTH
+            )
             session = None
             for i in range(conns):
                 if profile_name:

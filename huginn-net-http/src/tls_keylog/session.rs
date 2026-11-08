@@ -4,7 +4,7 @@
 use super::handshake::{ServerHelloInfo, ServerHelloScan, parse_client_hello, parse_server_hello};
 use super::record::{
     CT_ALERT, CT_APPLICATION_DATA, CT_CHANGE_CIPHER_SPEC, CT_HANDSHAKE, CipherSuite, RawRecord,
-    RecordDecryptor, RecordError, split_records,
+    RecordDecryptor, RecordError, next_record,
 };
 use super::schedule::{tls12_client_keys, tls13_traffic_keys};
 use super::store::{KeyEntry, KeyLogStore};
@@ -14,9 +14,12 @@ use crate::output::TlsVersion;
 use crate::process::reassembly::StreamReassembler;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+use zeroize::Zeroizing;
 
-/// TLS 1.3 records tried at application-key sequence number 0 when the handshake secret is
-/// not in the key log (the encrypted handshake records come first and fail to open).
+/// TLS 1.3 records tried with the application key at sequence number 0. The client's
+/// encrypted handshake records come first and fail to open; the first one that opens is the
+/// first application record. Trying is cheaper than deriving the handshake keys, which are
+/// only used when this budget runs out (e.g. a large client certificate).
 const TLS13_TRIAL_RECORDS: usize = 4;
 /// TLS 1.3 handshake message type of Finished.
 const HS_FINISHED: u8 = 20;
@@ -58,10 +61,13 @@ enum Phase {
         hs: RecordDecryptor,
         app: RecordDecryptor,
     },
-    /// TLS 1.3 without a handshake secret: trying the app key on the first records.
+    /// TLS 1.3: trying the app key on the first records. Records that fail are kept while a
+    /// handshake secret is known, so they can be replayed with the handshake key.
     Tls13Trial {
         app: Box<RecordDecryptor>,
         tried: usize,
+        skipped: Vec<RawRecord>,
+        hs_secret: Option<Zeroizing<Vec<u8>>>,
     },
     /// TLS 1.2: next record must be the encrypted client Finished (seq 0).
     Tls12Finished { dec: RecordDecryptor },
@@ -154,46 +160,59 @@ impl TlsSession {
     }
 
     fn read_client_records(&mut self) -> Result<(), Abandon> {
-        let (records, used) =
-            split_records(self.client_stream.ready_bytes()).map_err(|_| Abandon::Malformed)?;
-        self.client_stream.consume(used);
-        for record in records {
-            match record.content_type {
-                CT_HANDSHAKE if self.client_random.is_none() => {
-                    self.client_hs.extend_from_slice(&record.payload);
-                    match parse_client_hello(&self.client_hs) {
+        // Field borrows so records can be read in place from the stream buffer; only the
+        // ones queued for decryption are copied.
+        let Self {
+            client_stream,
+            client_hs,
+            client_random,
+            client_ccs_seen,
+            server_hello,
+            encrypted,
+            encrypted_bytes,
+            limits,
+            ..
+        } = self;
+        let buf = client_stream.ready_bytes();
+        let mut pos = 0usize;
+        while let Some(record) = next_record(buf, pos).map_err(|_| Abandon::Malformed)? {
+            pos = record.end;
+            // TLS 1.2 encrypts records after the client's ChangeCipherSpec, with their
+            // real type.
+            let encrypts_handshake =
+                *client_ccs_seen && server_hello.map(|s| s.version) != Some(TlsVersion::Tls13);
+            let queue = match record.content_type() {
+                CT_HANDSHAKE if client_random.is_none() => {
+                    client_hs.extend_from_slice(record.payload);
+                    match parse_client_hello(client_hs) {
                         Ok(Some(random)) => {
-                            self.client_random = Some(random);
-                            self.client_hs = Vec::new();
+                            *client_random = Some(random);
+                            *client_hs = Vec::new();
                         }
                         Ok(None) => {}
                         Err(_) => return Err(Abandon::Malformed),
                     }
+                    false
                 }
-                CT_CHANGE_CIPHER_SPEC => self.client_ccs_seen = true,
-                CT_HANDSHAKE if self.encrypts_handshake_records() => self.queue(record)?,
+                CT_CHANGE_CIPHER_SPEC => {
+                    *client_ccs_seen = true;
+                    false
+                }
+                CT_HANDSHAKE | CT_ALERT if encrypts_handshake => true,
                 // TLS 1.2 ClientKeyExchange / certificate messages before ChangeCipherSpec.
-                CT_HANDSHAKE => {}
-                CT_APPLICATION_DATA => self.queue(record)?,
-                CT_ALERT if self.encrypts_handshake_records() => self.queue(record)?,
-                CT_ALERT => return Err(Abandon::Malformed),
+                CT_HANDSHAKE => false,
+                CT_APPLICATION_DATA => true,
                 _ => return Err(Abandon::Malformed),
+            };
+            if queue {
+                *encrypted_bytes = encrypted_bytes.saturating_add(record.payload.len());
+                if *encrypted_bytes > limits.max_client_buffer {
+                    return Err(Abandon::Reassembly);
+                }
+                encrypted.push_back(record.to_owned());
             }
         }
-        Ok(())
-    }
-
-    /// TLS 1.2 encrypts records after the client's ChangeCipherSpec, with their real type.
-    fn encrypts_handshake_records(&self) -> bool {
-        self.client_ccs_seen && self.server_hello.map(|s| s.version) != Some(TlsVersion::Tls13)
-    }
-
-    fn queue(&mut self, record: RawRecord) -> Result<(), Abandon> {
-        self.encrypted_bytes = self.encrypted_bytes.saturating_add(record.payload.len());
-        if self.encrypted_bytes > self.limits.max_client_buffer {
-            return Err(Abandon::Reassembly);
-        }
-        self.encrypted.push_back(record);
+        client_stream.consume(pos);
         Ok(())
     }
 
@@ -201,27 +220,19 @@ impl TlsSession {
         let Some(server) = self.server_stream.as_mut() else {
             return Ok(());
         };
-        let (records, used) =
-            split_records(server.ready_bytes()).map_err(|_| Abandon::Malformed)?;
-        server.consume(used);
-        for record in records {
-            if record.content_type != CT_HANDSHAKE {
+        let buf = server.ready_bytes();
+        let mut pos = 0usize;
+        let mut found = None;
+        while let Some(record) = next_record(buf, pos).map_err(|_| Abandon::Malformed)? {
+            pos = record.end;
+            if record.content_type() != CT_HANDSHAKE {
                 continue;
             }
-            self.server_hs.extend_from_slice(&record.payload);
+            self.server_hs.extend_from_slice(record.payload);
             match parse_server_hello(&self.server_hs) {
                 Ok(ServerHelloScan::Found(info)) => {
-                    let Some(suite) = CipherSuite::from_id(info.cipher_suite) else {
-                        return Err(Abandon::Unsupported);
-                    };
-                    if suite.version != info.version {
-                        return Err(Abandon::Unsupported);
-                    }
-                    self.server_hello = Some(info);
-                    self.suite = Some(suite);
-                    self.server_stream = None;
-                    self.server_hs = Vec::new();
-                    return Ok(());
+                    found = Some(info);
+                    break;
                 }
                 Ok(ServerHelloScan::Incomplete) => {}
                 Err(_) => return Err(Abandon::Malformed),
@@ -229,6 +240,17 @@ impl TlsSession {
             if self.server_hs.len() > self.limits.max_server_buffer {
                 return Err(Abandon::Reassembly);
             }
+        }
+        server.consume(pos);
+        if let Some(info) = found {
+            let suite = CipherSuite::from_id(info.cipher_suite).ok_or(Abandon::Unsupported)?;
+            if suite.version != info.version {
+                return Err(Abandon::Unsupported);
+            }
+            self.server_hello = Some(info);
+            self.suite = Some(suite);
+            self.server_stream = None;
+            self.server_hs = Vec::new();
         }
         Ok(())
     }
@@ -300,10 +322,12 @@ impl TlsSession {
         if self.encrypted.is_empty() {
             return Ok(false);
         }
-        let Some(entry) = store.get(&random) else {
+        let Some(built) =
+            store.with_entry(&random, |entry| self.build_phase(entry, &random, &server, suite))
+        else {
             return Ok(false);
         };
-        match self.build_phase(&entry, &random, &server, suite) {
+        match built {
             Ok(Some(phase)) => {
                 self.phase = phase;
                 self.deadline = None;
@@ -339,18 +363,32 @@ impl TlsSession {
                 let app_keys =
                     tls13_traffic_keys(app_secret, suite).map_err(|_| Abandon::AuthFailed)?;
                 let app = RecordDecryptor::new(suite, &app_keys).map_err(|_| Abandon::Malformed)?;
-                match entry.tls13_client_hs.as_ref() {
-                    Some(hs_secret) => {
-                        let hs_keys = tls13_traffic_keys(hs_secret, suite)
-                            .map_err(|_| Abandon::AuthFailed)?;
-                        let hs = RecordDecryptor::new(suite, &hs_keys)
-                            .map_err(|_| Abandon::Malformed)?;
-                        Ok(Some(Phase::Tls13Handshake { hs, app }))
-                    }
-                    None => Ok(Some(Phase::Tls13Trial { app: Box::new(app), tried: 0 })),
-                }
+                Ok(Some(Phase::Tls13Trial {
+                    app: Box::new(app),
+                    tried: 0,
+                    skipped: Vec::new(),
+                    hs_secret: entry.tls13_client_hs.clone(),
+                }))
             }
         }
+    }
+
+    /// The app-key trial ran out: decrypt from the start with the handshake key instead,
+    /// replaying the records the trial skipped before the ones still queued.
+    fn replay_with_handshake_key(
+        &mut self,
+        hs_secret: &[u8],
+        skipped: Vec<RawRecord>,
+        app: RecordDecryptor,
+    ) -> Result<Phase, Abandon> {
+        let suite = self.suite.ok_or(Abandon::Malformed)?;
+        let hs_keys = tls13_traffic_keys(hs_secret, suite).map_err(|_| Abandon::AuthFailed)?;
+        let hs = RecordDecryptor::new(suite, &hs_keys).map_err(|_| Abandon::Malformed)?;
+        for record in skipped.into_iter().rev() {
+            self.encrypted_bytes = self.encrypted_bytes.saturating_add(record.payload.len());
+            self.encrypted.push_front(record);
+        }
+        Ok(Phase::Tls13Handshake { hs, app })
     }
 
     /// Decrypts one queued record. `Ok(Some(step))` ends the session.
@@ -366,13 +404,24 @@ impl TlsSession {
                     (Phase::Tls13Handshake { hs, app }, None)
                 }
             }
-            Phase::Tls13Trial { mut app, tried } => match app.open(record) {
-                Ok((ct, plain)) => (Phase::App { dec: *app }, Some((ct, plain))),
-                Err(RecordError::Auth) if tried.saturating_add(1) < TLS13_TRIAL_RECORDS => {
-                    (Phase::Tls13Trial { app, tried: tried.saturating_add(1) }, None)
+            Phase::Tls13Trial { mut app, tried, mut skipped, hs_secret } => {
+                match app.open(record) {
+                    Ok((ct, plain)) => (Phase::App { dec: *app }, Some((ct, plain))),
+                    Err(RecordError::Auth) => {
+                        let tried = tried.saturating_add(1);
+                        if hs_secret.is_some() {
+                            skipped.push(record.clone());
+                        }
+                        if tried < TLS13_TRIAL_RECORDS {
+                            (Phase::Tls13Trial { app, tried, skipped, hs_secret }, None)
+                        } else {
+                            let hs_secret = hs_secret.ok_or(Abandon::AuthFailed)?;
+                            (self.replay_with_handshake_key(&hs_secret, skipped, *app)?, None)
+                        }
+                    }
+                    Err(e) => return Err(record_abandon(e)),
                 }
-                Err(e) => return Err(record_abandon(e)),
-            },
+            }
             Phase::Tls12Finished { mut dec } => {
                 let (ct, _finished) = dec.open(record).map_err(record_abandon)?;
                 if ct != CT_HANDSHAKE {

@@ -38,7 +38,16 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "hpack_pseudo_order"
+path = "fuzz_targets/hpack_pseudo_order.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
+hpack-patched = "0.3.0"
 huginn-net-http = { path = "../huginn-net-http", features = ["akamai-cleartext", "akamai-keylog"] }
 libfuzzer-sys = "0.4"
 zeroize = "1.9"
+

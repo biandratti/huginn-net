@@ -251,6 +251,10 @@ fn extract_pseudo_header_order(
         hpack_payload = &hpack_payload[5..];
     }
 
+    if let Some(order) = super::hpack_names::pseudo_header_order(hpack_payload) {
+        return Ok(order);
+    }
+    // Only blocks the fast path rejects get here; the full decoder reports the error.
     decode_headers(hpack_payload)
         .map(|headers| {
             headers

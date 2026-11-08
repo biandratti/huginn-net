@@ -288,6 +288,7 @@ dependencies = [
 name = "huginn-net-fuzz"
 version = "0.0.0"
 dependencies = [
+ "hpack-patched",
  "huginn-net-http",
  "libfuzzer-sys",
  "zeroize",

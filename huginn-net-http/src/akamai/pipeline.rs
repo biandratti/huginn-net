@@ -29,8 +29,8 @@ pub struct AkamaiAccumulator {
 
 impl AkamaiAccumulator {
     pub fn new(limit: usize) -> Self {
-        // A client preface, SETTINGS and the first HEADERS usually fit in 2 KiB.
-        Self { buf: Vec::with_capacity(limit.min(2 * 1024)), limit }
+        // Allocated on the first push: many sessions never get that far.
+        Self { buf: Vec::new(), limit }
     }
 
     /// Appends to the buffer. With `akamai-keylog` the buffer may hold decrypted bytes, so
@@ -41,8 +41,12 @@ impl AkamaiAccumulator {
         {
             let needed = self.buf.len().saturating_add(data.len());
             if needed > self.buf.capacity() {
-                let mut grown =
-                    Vec::with_capacity(needed.max(self.buf.capacity().saturating_mul(2)));
+                // A client preface, SETTINGS and the first HEADERS usually fit in 2 KiB.
+                let grown_len = needed
+                    .max(self.buf.capacity().saturating_mul(2))
+                    .max(2 * 1024)
+                    .min(self.limit.max(needed));
+                let mut grown = Vec::with_capacity(grown_len);
                 grown.extend_from_slice(&self.buf);
                 zeroize::Zeroize::zeroize(self.buf.as_mut_slice());
                 self.buf = grown;

@@ -4,6 +4,7 @@
 mod cleartext_golden;
 mod extractor;
 mod fingerprint;
+mod hpack_fast_path;
 #[cfg(feature = "akamai-keylog")]
 mod keylog_golden;
 #[cfg(feature = "akamai-keylog")]
