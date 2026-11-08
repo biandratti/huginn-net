@@ -5,6 +5,7 @@
 //! decrypts the start of each client stream, and emits one [`crate::AkamaiOutput`] per
 //! connection. Decrypted bytes are only fed to the Akamai fingerprint and are never exposed.
 
+mod error;
 pub(crate) mod follow;
 pub(crate) mod handshake;
 pub(crate) mod record;
@@ -13,7 +14,8 @@ pub(crate) mod session;
 pub(crate) mod store;
 mod tracker;
 
-pub use store::{KeyLogStore, KeylogLineError};
+pub use error::KeylogLineError;
+pub use store::KeyLogStore;
 pub use tracker::KeylogTracker;
 
 use crate::error::HuginnNetHttpError;
