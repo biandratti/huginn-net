@@ -3,12 +3,16 @@
 //!
 //! Handshake messages are parsed from the concatenated payloads of handshake records, so a
 //! message split over several records (e.g. a large post-quantum ClientHello) is handled.
+//! The messages themselves are decoded with `tls-parser`, as in `huginn-net-tls`.
 
 use crate::output::TlsVersion;
+use tls_parser::{
+    TlsExtension, TlsMessage, TlsMessageHandshake, parse_tls_message_handshake,
+    parse_tls_server_hello_extensions,
+};
 
 pub const HS_CLIENT_HELLO: u8 = 1;
 pub const HS_SERVER_HELLO: u8 = 2;
-const EXT_SUPPORTED_VERSIONS: u16 = 0x002b;
 
 /// ServerHello random of a HelloRetryRequest (RFC 8446 section 4.1.3).
 pub const HRR_RANDOM: [u8; 32] = [
@@ -36,90 +40,83 @@ pub enum ServerHelloScan {
     Found(ServerHelloInfo),
 }
 
-/// Reads one handshake message header: `(type, body, total_len)` if complete.
-fn next_message(buf: &[u8]) -> Option<(u8, &[u8], usize)> {
+/// Total length (header included) of the handshake message at the start of `buf`, if its
+/// header is there.
+fn message_len(buf: &[u8]) -> Option<usize> {
     let header = buf.get(..4)?;
     let len = usize::from(header[1]) << 16 | usize::from(header[2]) << 8 | usize::from(header[3]);
-    let total = len.checked_add(4)?;
-    let body = buf.get(4..total)?;
-    Some((header[0], body, total))
+    len.checked_add(4)
 }
 
 /// Client random from the first handshake message, if it is complete.
 pub fn parse_client_hello(buf: &[u8]) -> Result<Option<[u8; 32]>, HandshakeError> {
-    if buf.is_empty() {
-        return Ok(None);
+    match buf.first() {
+        None => return Ok(None),
+        Some(&HS_CLIENT_HELLO) => {}
+        Some(_) => return Err(HandshakeError),
     }
-    if buf[0] != HS_CLIENT_HELLO {
-        return Err(HandshakeError);
+    match parse_tls_message_handshake(buf) {
+        Ok((_, TlsMessage::Handshake(TlsMessageHandshake::ClientHello(hello)))) => hello
+            .random
+            .try_into()
+            .map(Some)
+            .map_err(|_| HandshakeError),
+        Err(tls_parser::Err::Incomplete(_)) => Ok(None),
+        _ => Err(HandshakeError),
     }
-    // The random sits right after the 2-byte legacy version; it is usable before the whole
-    // message arrives, but wait for the full message so malformed input is rejected.
-    let Some((_, body, _)) = next_message(buf) else {
-        return Ok(None);
-    };
-    let random = body.get(2..34).ok_or(HandshakeError)?;
-    let mut out = [0u8; 32];
-    out.copy_from_slice(random);
-    Ok(Some(out))
 }
 
-/// Scans server handshake bytes for the ServerHello, skipping a HelloRetryRequest.
+/// Scans server handshake bytes for the ServerHello, skipping a HelloRetryRequest and any
+/// other message before it.
 pub fn parse_server_hello(buf: &[u8]) -> Result<ServerHelloScan, HandshakeError> {
-    let mut pos = 0usize;
-    while let Some((msg_type, body, total)) = buf.get(pos..).and_then(next_message) {
-        pos = pos.saturating_add(total);
-        if msg_type != HS_SERVER_HELLO {
+    let mut rest = buf;
+    while let Some(total) = message_len(rest) {
+        let Some(message) = rest.get(..total) else {
+            break; // the rest of this message has not arrived yet
+        };
+        rest = &rest[total..];
+        if message[0] != HS_SERVER_HELLO {
             continue;
         }
-        let info = server_hello_fields(body)?;
-        if info.random == HRR_RANDOM {
+        let hello = match parse_tls_message_handshake(message) {
+            Ok((_, TlsMessage::Handshake(TlsMessageHandshake::ServerHello(hello)))) => hello,
+            _ => return Err(HandshakeError),
+        };
+        let random: [u8; 32] = hello.random.try_into().map_err(|_| HandshakeError)?;
+        if random == HRR_RANDOM {
             continue;
         }
-        return Ok(ServerHelloScan::Found(info));
+        return Ok(ServerHelloScan::Found(ServerHelloInfo {
+            random,
+            cipher_suite: hello.cipher.0,
+            version: negotiated_version(hello.version, hello.ext)?,
+        }));
     }
     Ok(ServerHelloScan::Incomplete)
 }
 
-fn server_hello_fields(body: &[u8]) -> Result<ServerHelloInfo, HandshakeError> {
-    let legacy_version = body.get(..2).ok_or(HandshakeError)?;
-    let mut random = [0u8; 32];
-    random.copy_from_slice(body.get(2..34).ok_or(HandshakeError)?);
-    let sid_len = usize::from(*body.get(34).ok_or(HandshakeError)?);
-    let mut pos = 35usize.checked_add(sid_len).ok_or(HandshakeError)?;
-    let suite = body.get(pos..pos.saturating_add(2)).ok_or(HandshakeError)?;
-    let cipher_suite = u16::from_be_bytes([suite[0], suite[1]]);
-    pos = pos.saturating_add(3); // cipher suite + compression method
-
-    let mut version = match legacy_version {
-        [0x03, 0x03] => TlsVersion::Tls12,
-        _ => return Err(HandshakeError),
+/// TLS 1.3 is announced by `supported_versions`; the legacy version field stays 1.2.
+fn negotiated_version(
+    legacy: tls_parser::TlsVersion,
+    extensions: Option<&[u8]>,
+) -> Result<TlsVersion, HandshakeError> {
+    if legacy != tls_parser::TlsVersion::Tls12 {
+        return Err(HandshakeError);
+    }
+    let Some(extensions) = extensions else {
+        return Ok(TlsVersion::Tls12);
     };
-
-    if let Some(ext_len) = body.get(pos..pos.saturating_add(2)) {
-        let ext_len = usize::from(u16::from_be_bytes([ext_len[0], ext_len[1]]));
-        pos = pos.saturating_add(2);
-        let exts = body
-            .get(pos..pos.saturating_add(ext_len))
-            .ok_or(HandshakeError)?;
-        let mut epos = 0usize;
-        while let Some(hdr) = exts.get(epos..epos.saturating_add(4)) {
-            let ext_type = u16::from_be_bytes([hdr[0], hdr[1]]);
-            let len = usize::from(u16::from_be_bytes([hdr[2], hdr[3]]));
-            let start = epos.saturating_add(4);
-            let data = exts
-                .get(start..start.saturating_add(len))
-                .ok_or(HandshakeError)?;
-            if ext_type == EXT_SUPPORTED_VERSIONS {
-                match data {
-                    [0x03, 0x04] => version = TlsVersion::Tls13,
-                    [0x03, 0x03] => version = TlsVersion::Tls12,
-                    _ => return Err(HandshakeError),
-                }
-            }
-            epos = start.saturating_add(len);
+    let (_, extensions) =
+        parse_tls_server_hello_extensions(extensions).map_err(|_| HandshakeError)?;
+    let mut version = TlsVersion::Tls12;
+    for extension in extensions {
+        if let TlsExtension::SupportedVersions(versions) = extension {
+            version = match versions.as_slice() {
+                [tls_parser::TlsVersion::Tls13] => TlsVersion::Tls13,
+                [tls_parser::TlsVersion::Tls12] => TlsVersion::Tls12,
+                _ => return Err(HandshakeError),
+            };
         }
     }
-
-    Ok(ServerHelloInfo { random, cipher_suite, version })
+    Ok(version)
 }

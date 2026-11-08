@@ -27,6 +27,7 @@ akamai-keylog = [
     "dep:chacha20poly1305",
     "dep:hkdf",
     "dep:hmac",
+    "dep:tls-parser",
     "dep:zeroize",
 ]
 
@@ -42,6 +43,7 @@ pnet = { workspace = true }
 serde = { workspace = true, optional = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
+tls-parser = { workspace = true, optional = true }
 tracing = { workspace = true }
 ttl_cache = { workspace = true }
 zeroize = { workspace = true, optional = true }
