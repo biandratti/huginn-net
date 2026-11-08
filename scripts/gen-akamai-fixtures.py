@@ -62,11 +62,12 @@ PROFILES = {
         "priority": [],
         "pseudo": "mpas",
     },
+    # Same SETTINGS, WINDOW_UPDATE and pseudo-header order as curl 8.5 (nghttp2).
     "curl": {
         "settings": [(3, 100), (4, 10485760), (2, 0)],
         "window_update": 1048510465,
         "priority": [],
-        "pseudo": "mpsa",
+        "pseudo": "msap",
     },
     # Legacy priority tree (RFC 7540 PRIORITY frames), weight byte is printed + 1.
     "prio": {

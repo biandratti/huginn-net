@@ -10,6 +10,7 @@ and is not built by CI.
 | `record_layer` | `split_records` and `RecordDecryptor::open` with a fixed dummy key, every supported AEAD |
 | `reassembler` | a random sequence of `StreamReassembler::push` / `consume` calls |
 | `akamai_accumulator` | client bytes after the HTTP/2 preface into the Akamai accumulator |
+| `hpack_decode` | differential: the HTTP/2 parsers' HPACK decoder against `hpack_patched`, two consecutive blocks |
 | `hpack_pseudo_order` | differential: the extractor's pseudo-header order (values not decoded) against a full `hpack_patched` decode |
 
 The targets use the `#[doc(hidden)] huginn_net_http::keylog_internals` module, which is not
@@ -24,7 +25,7 @@ cargo +nightly fuzz list --fuzz-dir fuzz
 
 # One target for 10 minutes. libFuzzer writes new inputs to the first directory and also
 # reads the committed seeds from the second one.
-t=keylog_line   # or record_layer, reassembler, akamai_accumulator, hpack_pseudo_order
+t=keylog_line   # or record_layer, reassembler, akamai_accumulator, hpack_pseudo_order, hpack_decode
 mkdir -p fuzz/corpus/$t
 cargo +nightly fuzz run --fuzz-dir fuzz $t fuzz/corpus/$t fuzz/seeds/$t -- -max_total_time=600
 ```

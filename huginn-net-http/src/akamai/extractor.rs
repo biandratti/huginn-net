@@ -2,8 +2,8 @@ use super::{AkamaiFingerprint, Http2Priority, PseudoHeader, SettingId, SettingPa
 use crate::error::HuginnNetHttpError;
 use crate::http::common::HttpHeader;
 use crate::http2::frames::{Http2Frame, Http2FrameType};
+use crate::http2::hpack::{Decoder, HpackError};
 use crate::http2::parser::Http2Parser;
-use hpack_patched::Decoder;
 
 /// Calculate the total number of bytes consumed by parsing the given frames
 ///
@@ -193,10 +193,6 @@ pub fn parse_priority_payload(stream_id: u32, payload: &[u8]) -> Option<Http2Pri
     Some(Http2Priority { stream_id, exclusive, depends_on, weight })
 }
 
-// RFC 7540 §6.2 HEADERS flags relevant for payload layout
-const FLAG_PADDED: u8 = 0x08;
-const FLAG_PRIORITY: u8 = 0x20;
-
 /// Extract pseudo-header order from HEADERS frame.
 ///
 /// Returns:
@@ -217,39 +213,8 @@ fn extract_pseudo_header_order(
         return Ok(Vec::new()); // no HEADERS frame yet, legitimate, not an error
     };
 
-    // RFC 7540 §6.2: strip optional leading fields before the HPACK block.
-    // The payload layout is:
-    //   [Pad Length (1B, if PADDED)]
-    //   [Exclusive(1b) + Stream Dependency(31b) + Weight(1B) = 5B, if PRIORITY]
-    //   <Header Block Fragment>
-    //   [Padding]
-    let mut hpack_payload = frame.payload.as_slice();
-
-    if frame.flags & FLAG_PADDED != 0 {
-        let Some((&pad_len, rest)) = hpack_payload.split_first() else {
-            return Err(HuginnNetHttpError::MalformedPseudoHeaders(
-                "PADDED flag set but payload is empty".into(),
-            ));
-        };
-        let pad = pad_len as usize;
-        let end = rest.len().checked_sub(pad).ok_or_else(|| {
-            HuginnNetHttpError::MalformedPseudoHeaders(format!(
-                "pad length {pad} exceeds remaining payload of {} bytes",
-                rest.len()
-            ))
-        })?;
-        hpack_payload = &rest[..end];
-    }
-
-    if frame.flags & FLAG_PRIORITY != 0 {
-        if hpack_payload.len() < 5 {
-            return Err(HuginnNetHttpError::MalformedPseudoHeaders(format!(
-                "PRIORITY flag set but only {} bytes remain (need 5)",
-                hpack_payload.len()
-            )));
-        }
-        hpack_payload = &hpack_payload[5..];
-    }
+    let hpack_payload = crate::http2::frames::headers_fragment(frame.flags, &frame.payload)
+        .map_err(HuginnNetHttpError::MalformedPseudoHeaders)?;
 
     if let Some(order) = super::hpack_names::pseudo_header_order(hpack_payload) {
         return Ok(order);
@@ -269,8 +234,8 @@ fn extract_pseudo_header_order(
 }
 
 /// Decode HPACK-encoded headers
-fn decode_headers(payload: &[u8]) -> Result<Vec<HttpHeader>, hpack_patched::decoder::DecoderError> {
-    let mut decoder = Decoder::new();
+fn decode_headers(payload: &[u8]) -> Result<Vec<HttpHeader>, HpackError> {
+    let mut decoder = Decoder::default();
     let mut headers = Vec::new();
 
     match decoder.decode(payload) {

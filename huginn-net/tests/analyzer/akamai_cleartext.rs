@@ -20,7 +20,7 @@ fn akamai_results(pcap: &str) -> Vec<huginn_net::AkamaiOutput> {
 #[test]
 fn h2c_prior_knowledge_and_upgrade_report_one_cleartext_result() {
     for (pcap, expected) in [
-        ("akamai-h2c-prior.pcap", "3:100;4:10485760;2:0|1048510465|0|m,p,s,a"),
+        ("akamai-h2c-prior.pcap", "3:100;4:10485760;2:0|1048510465|0|m,s,a,p"),
         ("akamai-h2c-upgrade.pcap", "1:65536;2:0;4:131072;5:16384|12517377|0|m,p,a,s"),
     ] {
         let akamai = akamai_results(pcap);

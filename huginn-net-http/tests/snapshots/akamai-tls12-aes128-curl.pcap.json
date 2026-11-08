@@ -14,8 +14,8 @@
       },
       "tls_version": "tls1.2",
       "cipher_suite": 49199,
-      "fingerprint": "3:100;4:10485760;2:0|1048510465|0|m,p,s,a",
-      "hash": "f5a2c12000e265a692b94e4cacbbd837"
+      "fingerprint": "3:100;4:10485760;2:0|1048510465|0|m,s,a,p",
+      "hash": "7cd7deab7b4ece271d77eecec99ef22d"
     }
   ],
   "not_http2": 0

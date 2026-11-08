@@ -36,7 +36,6 @@ chacha20poly1305 = { workspace = true, optional = true }
 crossbeam-channel = { workspace = true }
 hkdf = { workspace = true, optional = true }
 hmac = { workspace = true, optional = true }
-hpack-patched = { workspace = true }
 lazy_static = { workspace = true }
 pcap-file = { workspace = true }
 pnet = { workspace = true }
@@ -51,6 +50,7 @@ zeroize = { workspace = true, optional = true }
 clap = { workspace = true }
 criterion = { workspace = true }
 ctrlc = { workspace = true }
+hpack-patched = { workspace = true }
 huginn-net-db = { path = "../huginn-net-db", features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

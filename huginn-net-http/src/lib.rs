@@ -179,6 +179,13 @@ pub mod keylog_internals {
     pub use crate::tls_keylog::store::{MAX_LINE_LEN, SecretKinds};
 }
 
+/// HPACK decoder internals, exposed only for the integration tests and fuzz targets. Not part
+/// of the public API and may change in any release.
+#[doc(hidden)]
+pub mod hpack_internals {
+    pub use crate::http2::hpack::{Decoder, Header, HpackError};
+}
+
 pub mod http2_parser {
     pub use crate::http2::frames::*;
     pub use crate::http2::parser::*;

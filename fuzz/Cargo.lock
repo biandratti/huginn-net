@@ -303,7 +303,6 @@ dependencies = [
  "crossbeam-channel",
  "hkdf",
  "hmac",
- "hpack-patched",
  "lazy_static",
  "pcap-file",
  "pnet",
