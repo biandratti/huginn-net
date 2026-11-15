@@ -1,6 +1,6 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{FilterOptions, OutputFormat, initialize_logging};
+use support::{FilterOptions, initialize_logging};
 
 use clap::{Parser, Subcommand};
 use huginn_net_tls::{FilterConfig, HuginnNetTls, IpFilter, PortFilter, TlsClientOutput};
@@ -22,9 +22,6 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 #[derive(Subcommand, Debug)]
@@ -96,16 +93,8 @@ fn build_filter(port: Option<u16>, ip: Option<String>) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    let format = args.format;
 
     initialize_logging(args.log_file);
-
-    #[cfg(not(feature = "json"))]
-    if matches!(format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli-tls --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
 
     info!("Starting TLS-only capture example");
 
@@ -224,17 +213,7 @@ fn main() {
             break;
         }
 
-        match format {
-            OutputFormat::Human => print_tls(&output),
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                match serde_json::to_string(&output) {
-                    Ok(json) => println!("{json}"),
-                    Err(e) => error!("Failed to serialize output: {e}"),
-                }
-            }
-        }
+        print_tls(&output);
 
         if let Some(ref pool) = worker_pool_monitor {
             packet_count = packet_count.saturating_add(1);

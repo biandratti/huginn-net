@@ -1,18 +1,11 @@
 use std::io::{IsTerminal, Write};
 use std::net::IpAddr;
 
-use clap::{Subcommand, ValueEnum};
+use clap::Subcommand;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
-
-#[derive(ValueEnum, Debug, Clone, Default)]
-pub enum OutputFormat {
-    #[default]
-    Human,
-    Json,
-}
 
 #[derive(clap::Args, Debug)]
 pub struct FilterOptions {

@@ -1,6 +1,6 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{FilterOptions, OutputFormat, initialize_logging};
+use support::{FilterOptions, initialize_logging};
 
 use clap::{Parser, Subcommand};
 use huginn_net::output::FingerprintResult;
@@ -24,9 +24,6 @@ struct Args {
     /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 #[derive(Subcommand, Debug)]
@@ -75,16 +72,8 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    let format = args.format;
 
     initialize_logging(args.log_file);
-
-    #[cfg(not(feature = "json"))]
-    if matches!(format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
 
     let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
         mpsc::channel();
@@ -147,19 +136,7 @@ fn main() {
             break;
         }
 
-        match format {
-            OutputFormat::Human => print_human(&output),
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                if !output.is_empty() {
-                    match serde_json::to_string(&output) {
-                        Ok(json) => println!("{json}"),
-                        Err(e) => error!("Failed to serialize output: {e}"),
-                    }
-                }
-            }
-        }
+        print_human(&output);
     }
 
     info!("Analysis shutdown completed");

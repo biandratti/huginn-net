@@ -65,14 +65,14 @@ record() {
 # Args: name package example features pcap expect_regex
 smoke_pcap() {
     local name="$1" package="$2" example="$3" features="$4" pcap="$5" expect="$6"
-    local out="$TMPDIR_SMOKE/${name}.json"
+    local out="$TMPDIR_SMOKE/${name}.out"
     local err="$TMPDIR_SMOKE/${name}.err"
     local log="$TMPDIR_SMOKE/${name}.log"
 
     group_open "pcap $name"
     set +e
     cargo run -q -p "$package" --example "$example" --features "$features" -- \
-        --format json -l "$log" \
+        -l "$log" \
         pcap -f "$pcap" \
         >"$out" 2>"$err"
     local rc=$?
@@ -108,7 +108,7 @@ smoke_live() {
     # timeout(1): 124 = killed by the deadline signal (SIGINT here).
     timeout --signal=INT "${LIVE_SECS}s" \
         cargo run -q -p "$package" --example "$example" --features "$features" -- \
-        --format json -l "$log" \
+        -l "$log" \
         "$@" \
         >/dev/null 2>"$err"
     local rc=$?
@@ -140,18 +140,18 @@ smoke_live() {
 }
 
 echo "PCAP smoke (cwd=$ROOT)"
-smoke_pcap cli-tcp  huginn-net-tcp  cli-tcp  "full,json" pcap/macos_tcp_flags.pcap            'Matched|"syn"'
-smoke_pcap cli-http huginn-net-http cli-http "full,json" pcap/http-simple-get.pcap             'Matched|"http_request"'
-smoke_pcap cli-tls  huginn-net-tls  cli-tls  "full,json" pcap/tls12.pcap                       'ja4'
-smoke_pcap cli      huginn-net      cli      "full,json" pcap/http-simple-get.pcap             'tcp_syn|http_request|Matched'
+smoke_pcap cli-tcp  huginn-net-tcp  cli-tcp  "full" pcap/macos_tcp_flags.pcap            '^TCP +SYN '
+smoke_pcap cli-http huginn-net-http cli-http "full" pcap/http-simple-get.pcap             '^HTTP +REQ '
+smoke_pcap cli-tls  huginn-net-tls  cli-tls  "full" pcap/tls12.pcap                       '^TLS +1\.[0-3] '
+smoke_pcap cli      huginn-net      cli      "full" pcap/http-simple-get.pcap             '^(TCP +SYN |HTTP +REQ |TLS +1\.)'
 
 if [[ -n "$INTERFACE" ]]; then
     echo
     echo "Live smoke on interface: $INTERFACE (${LIVE_SECS}s each)"
-    smoke_live cli-tcp  huginn-net-tcp  cli-tcp  "full,json" live single -i "$INTERFACE"
-    smoke_live cli-http huginn-net-http cli-http "full,json" live single -i "$INTERFACE"
-    smoke_live cli-tls  huginn-net-tls  cli-tls  "full,json" live single -i "$INTERFACE"
-    smoke_live cli      huginn-net      cli      "full,json" live -i "$INTERFACE"
+    smoke_live cli-tcp  huginn-net-tcp  cli-tcp  "full" live single -i "$INTERFACE"
+    smoke_live cli-http huginn-net-http cli-http "full" live single -i "$INTERFACE"
+    smoke_live cli-tls  huginn-net-tls  cli-tls  "full" live single -i "$INTERFACE"
+    smoke_live cli      huginn-net      cli      "full" live -i "$INTERFACE"
 else
     echo
     echo "Skipping live smoke (pass -i/--interface IFACE to enable)."

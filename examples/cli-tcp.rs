@@ -1,6 +1,6 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{Commands, FilterOptions, LiveMode, OutputFormat, initialize_logging};
+use support::{Commands, FilterOptions, LiveMode, initialize_logging};
 
 use clap::Parser;
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
@@ -24,9 +24,6 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
@@ -64,13 +61,6 @@ fn main() {
     let args = Args::parse();
 
     initialize_logging(args.log_file);
-
-    #[cfg(not(feature = "json"))]
-    if matches!(args.format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli-tcp --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
 
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
@@ -187,17 +177,7 @@ fn main() {
             break;
         }
 
-        match args.format {
-            OutputFormat::Human => print_tcp(&output),
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                match serde_json::to_string(&output) {
-                    Ok(json) => println!("{json}"),
-                    Err(e) => error!("Failed to serialize output: {e}"),
-                }
-            }
-        }
+        print_tcp(&output);
 
         if let Some(ref pool) = worker_pool_monitor {
             packet_count = packet_count.saturating_add(1);

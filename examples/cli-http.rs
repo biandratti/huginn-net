@@ -1,6 +1,6 @@
 #[path = "support/mod.rs"]
 mod support;
-use support::{Commands, FilterOptions, LiveMode, OutputFormat, initialize_logging};
+use support::{Commands, FilterOptions, LiveMode, initialize_logging};
 
 use clap::Parser;
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
@@ -23,9 +23,6 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
@@ -61,16 +58,8 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    let format = args.format;
 
     initialize_logging(args.log_file);
-
-    #[cfg(not(feature = "json"))]
-    if matches!(format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli-http --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
 
     info!("Starting HTTP-only capture example");
 
@@ -163,19 +152,7 @@ fn main() {
             break;
         }
 
-        match format {
-            OutputFormat::Human => print_http(&output),
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                if !output.is_empty() {
-                    match serde_json::to_string(&output) {
-                        Ok(json) => println!("{json}"),
-                        Err(e) => error!("Failed to serialize output: {e}"),
-                    }
-                }
-            }
-        }
+        print_http(&output);
     }
 
     info!("Analysis shutdown completed");

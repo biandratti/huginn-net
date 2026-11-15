@@ -15,14 +15,14 @@ Before a release, or locally after touching examples:
 ./scripts/smoke-examples.sh -i eth0
 ```
 
-### Output formats
+### Output
 
-All examples support `--format human` (default) and `--format json`.
+Each event is one line: the observed signature, then the matcher result.
 
-| Format | Output | When to use |
-|--------|--------|-------------|
-| `human` | One line per event: observed signature, then matcher (default) | Terminal inspection, demos |
-| `json` | NDJSON — one JSON object per event on stdout | Pipelines, `jq`, log aggregators |
+```
+TCP   SYN     172.16.5.16:61311      → 172.67.24.71:443              4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0  iOS/macOS  mtu 1504
+TLS   1.3     192.168.133.129:36372  → contile.services.mozilla.com  t13d1715h2_5b57614c22b0_3d5424432f57                      —
+```
 
 Analysis events go to **stdout**. Operational messages (`Starting capture...`, stats) go to **stderr** and, with `-l`, to that file. The multi-line block (`[TCP SYN]`, `OS:`, `Sig:`) remains the `Display` of the library types.
 
@@ -30,14 +30,9 @@ Analysis events go to **stdout**. Operational messages (`Starting capture...`, s
 
 #### Full Analysis (TCP, HTTP, TLS)
 ```
-# Build example (human default)
+# Build example
 cargo build --release --example cli -p huginn-net --features full
 
-# Build with JSON output support
-cargo build --release --example cli -p huginn-net --features full,json
-
-# NDJSON on stdout
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli --format json live -i <INTERFACE> | jq -c
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli -l capture.log live -i <INTERFACE>
 
 # Live capture
@@ -62,14 +57,9 @@ sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli -l capture.log
 
 #### TLS-Only Analysis
 ```
-# Build example (human default)
+# Build example
 cargo build --release --example cli-tls -p huginn-net-tls --features full
 
-# Build with JSON output support
-cargo build --release --example cli-tls -p huginn-net-tls --features full,json
-
-# NDJSON on stdout
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-tls --format json live single -i <INTERFACE> | jq -c
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-tls -l tls-capture.log live single -i <INTERFACE>
 
 # Live capture - Sequential mode (single-threaded)
@@ -102,14 +92,9 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-tls -l tls-capture.
 
 #### TCP-Only Analysis
 ```
-# Build example (human default)
+# Build example
 cargo build --release --example cli-tcp -p huginn-net-tcp --features full
 
-# Build with JSON output support
-cargo build --release --example cli-tcp -p huginn-net-tcp --features full,json
-
-# NDJSON on stdout
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-tcp --format json live single -i <INTERFACE> | jq -c
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-tcp -l tcp-capture.log live single -i <INTERFACE>
 
 # Live capture - Parallel mode (multi-threaded, hash-based worker assignment)
@@ -139,14 +124,9 @@ RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-tcp -l tcp-capture.
 
 #### HTTP-Only Analysis
 ```
-# Build example (human default)
+# Build example
 cargo build --release --example cli-http -p huginn-net-http --features full
 
-# Build with JSON output support
-cargo build --release --example cli-http -p huginn-net-http --features full,json
-
-# NDJSON on stdout
-sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-http --format json live single -i <INTERFACE> | jq -c
 sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli-http -l http-capture.log live single -i <INTERFACE>
 
 # Live capture - Sequential mode (single-threaded)
