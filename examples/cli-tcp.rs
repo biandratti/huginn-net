@@ -194,7 +194,6 @@ fn main() {
 
 fn print_tcp(output: &TcpAnalysisResult) {
     if let Some(syn) = &output.syn {
-        let note = output.mtu.as_ref().map(|mtu| format!("mtu {}", mtu.mtu));
         support::print_event(
             "TCP",
             "1;36",
@@ -204,8 +203,11 @@ fn print_tcp(output: &TcpAnalysisResult) {
             &syn.sig.to_string(),
             &os_label(&syn.os_matched),
             detail_color(syn.os_matched.os.is_some()),
-            note.as_deref(),
+            None,
         );
+    }
+    if let Some(mtu) = &output.mtu {
+        print_mtu(mtu);
     }
     if let Some(syn_ack) = &output.syn_ack {
         support::print_event(
@@ -219,11 +221,6 @@ fn print_tcp(output: &TcpAnalysisResult) {
             detail_color(syn_ack.os_matched.os.is_some()),
             None,
         );
-    }
-    if output.syn.is_none() {
-        if let Some(mtu) = &output.mtu {
-            print_mtu(mtu);
-        }
     }
     if let Some(uptime) = &output.client_uptime {
         print_uptime(uptime);

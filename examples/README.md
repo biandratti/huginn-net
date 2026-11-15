@@ -19,11 +19,6 @@ Before a release, or locally after touching examples:
 
 Each event is one line: the observed signature, then the matcher result.
 
-```
-TCP   SYN     172.16.5.16:61311      → 172.67.24.71:443              4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df,ecn:0  iOS/macOS  mtu 1504
-TLS   1.3     192.168.133.129:36372  → contile.services.mozilla.com  t13d1715h2_5b57614c22b0_3d5424432f57                      —
-```
-
 Analysis events go to **stdout**. Operational messages (`Starting capture...`, stats) go to **stderr** and, with `-l`, to that file. The multi-line block (`[TCP SYN]`, `OS:`, `Sig:`) remains the `Display` of the library types.
 
 ### Process packages

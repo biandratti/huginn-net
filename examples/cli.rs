@@ -144,10 +144,6 @@ fn main() {
 
 fn print_human(output: &FingerprintResult) {
     if let Some(syn) = &output.tcp_syn {
-        let note = output
-            .tcp_mtu
-            .as_ref()
-            .map(|mtu| format!("mtu {}", mtu.mtu));
         support::print_event(
             "TCP",
             "1;36",
@@ -157,7 +153,20 @@ fn print_human(output: &FingerprintResult) {
             &syn.sig.to_string(),
             &os_label(&syn.os_matched),
             detail_color(syn.os_matched.os.is_some()),
-            note.as_deref(),
+            None,
+        );
+    }
+    if let Some(mtu) = &output.tcp_mtu {
+        support::print_event(
+            "TCP",
+            "1;36",
+            "MTU",
+            &support::endpoint(&mtu.source.ip, mtu.source.port),
+            &support::endpoint(&mtu.destination.ip, mtu.destination.port),
+            &mtu.mtu.to_string(),
+            mtu.link.link.as_deref().unwrap_or("???"),
+            detail_color(mtu.link.link.is_some()),
+            None,
         );
     }
     if let Some(syn_ack) = &output.tcp_syn_ack {
@@ -172,21 +181,6 @@ fn print_human(output: &FingerprintResult) {
             detail_color(syn_ack.os_matched.os.is_some()),
             None,
         );
-    }
-    if output.tcp_syn.is_none() {
-        if let Some(mtu) = &output.tcp_mtu {
-            support::print_event(
-                "TCP",
-                "1;36",
-                "MTU",
-                &support::endpoint(&mtu.source.ip, mtu.source.port),
-                &support::endpoint(&mtu.destination.ip, mtu.destination.port),
-                &mtu.mtu.to_string(),
-                mtu.link.link.as_deref().unwrap_or("???"),
-                detail_color(mtu.link.link.is_some()),
-                None,
-            );
-        }
     }
     if let Some(uptime) = &output.tcp_client_uptime {
         print_uptime(uptime);
