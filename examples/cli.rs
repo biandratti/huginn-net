@@ -298,6 +298,7 @@ fn os_label(matched: &huginn_net::OSQualityMatched) -> String {
     )
 }
 
+#[cfg(any(feature = "http-p0f-request", feature = "http-p0f-response"))]
 fn product_label(matched: Option<(&str, Option<&str>, Option<&str>)>) -> String {
     matched.map_or_else(
         || "???".to_string(),
@@ -323,6 +324,13 @@ fn tls_label(version: &impl std::fmt::Display) -> String {
     }
 }
 
+#[cfg(any(
+    feature = "tcp-syn",
+    feature = "tcp-syn-ack",
+    feature = "tcp-mtu",
+    feature = "http-p0f-request",
+    feature = "http-p0f-response"
+))]
 fn detail_color(matched: bool) -> &'static str {
     if matched { "1;32" } else { "2" }
 }
