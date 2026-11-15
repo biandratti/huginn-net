@@ -63,7 +63,7 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 fn main() {
     let args = Args::parse();
 
-    initialize_logging(args.log_file, matches!(args.format, OutputFormat::Json));
+    initialize_logging(args.log_file);
 
     #[cfg(not(feature = "json"))]
     if matches!(args.format, OutputFormat::Json) {
@@ -188,23 +188,7 @@ fn main() {
         }
 
         match args.format {
-            OutputFormat::Human => {
-                if let Some(syn) = output.syn {
-                    info!("{syn}");
-                }
-                if let Some(syn_ack) = output.syn_ack {
-                    info!("{syn_ack}");
-                }
-                if let Some(mtu) = output.mtu {
-                    info!("{mtu}");
-                }
-                if let Some(client_uptime) = output.client_uptime {
-                    info!("{client_uptime}");
-                }
-                if let Some(server_uptime) = output.server_uptime {
-                    info!("{server_uptime}");
-                }
-            }
+            OutputFormat::Human => print_tcp(&output),
             OutputFormat::Json =>
             {
                 #[cfg(feature = "json")]
@@ -226,4 +210,86 @@ fn main() {
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_tcp(output: &TcpAnalysisResult) {
+    if let Some(syn) = &output.syn {
+        let note = output.mtu.as_ref().map(|mtu| format!("mtu {}", mtu.mtu));
+        support::print_event(
+            "TCP",
+            "1;36",
+            "SYN",
+            &support::endpoint(&syn.source.ip, syn.source.port),
+            &support::endpoint(&syn.destination.ip, syn.destination.port),
+            &syn.sig.to_string(),
+            &os_label(&syn.os_matched),
+            detail_color(syn.os_matched.os.is_some()),
+            note.as_deref(),
+        );
+    }
+    if let Some(syn_ack) = &output.syn_ack {
+        support::print_event(
+            "TCP",
+            "1;36",
+            "SYNACK",
+            &support::endpoint(&syn_ack.source.ip, syn_ack.source.port),
+            &support::endpoint(&syn_ack.destination.ip, syn_ack.destination.port),
+            &syn_ack.sig.to_string(),
+            &os_label(&syn_ack.os_matched),
+            detail_color(syn_ack.os_matched.os.is_some()),
+            None,
+        );
+    }
+    if output.syn.is_none() {
+        if let Some(mtu) = &output.mtu {
+            print_mtu(mtu);
+        }
+    }
+    if let Some(uptime) = &output.client_uptime {
+        print_uptime(uptime);
+    }
+    if let Some(uptime) = &output.server_uptime {
+        print_uptime(uptime);
+    }
+}
+
+fn print_mtu(mtu: &huginn_net_tcp::MTUOutput) {
+    let matched = mtu.link.link.as_deref().unwrap_or("???");
+    support::print_event(
+        "TCP",
+        "1;36",
+        "MTU",
+        &support::endpoint(&mtu.source.ip, mtu.source.port),
+        &support::endpoint(&mtu.destination.ip, mtu.destination.port),
+        &mtu.mtu.to_string(),
+        matched,
+        detail_color(mtu.link.link.is_some()),
+        None,
+    );
+}
+
+fn print_uptime(uptime: &huginn_net_tcp::UptimeOutput) {
+    let role = uptime.role.to_string();
+    support::print_event(
+        "TCP",
+        "1;36",
+        "UPTIME",
+        &support::endpoint(&uptime.source.ip, uptime.source.port),
+        &support::endpoint(&uptime.destination.ip, uptime.destination.port),
+        &format!("{}d {}h {}m", uptime.days, uptime.hours, uptime.min),
+        "—",
+        "2",
+        Some(&role),
+    );
+}
+
+fn os_label(matched: &huginn_net_tcp::OSQualityMatched) -> String {
+    matched.os.as_ref().map_or_else(
+        || "???".to_string(),
+        |os| support::with_variant(&os.name, os.variant.as_deref()),
+    )
+}
+
+fn detail_color(matched: bool) -> &'static str {
+    if matched { "1;32" } else { "2" }
 }

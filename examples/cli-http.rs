@@ -63,7 +63,7 @@ fn main() {
     let args = Args::parse();
     let format = args.format;
 
-    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
+    initialize_logging(args.log_file);
 
     #[cfg(not(feature = "json"))]
     if matches!(format, OutputFormat::Json) {
@@ -164,14 +164,7 @@ fn main() {
         }
 
         match format {
-            OutputFormat::Human => {
-                if let Some(http_request) = output.http_request {
-                    info!("{http_request}");
-                }
-                if let Some(http_response) = output.http_response {
-                    info!("{http_response}");
-                }
-            }
+            OutputFormat::Human => print_http(&output),
             OutputFormat::Json =>
             {
                 #[cfg(feature = "json")]
@@ -186,4 +179,60 @@ fn main() {
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_http(output: &HttpAnalysisResult) {
+    if let Some(request) = &output.http_request {
+        support::print_event(
+            "HTTP",
+            "1;34",
+            "REQ",
+            &support::endpoint(&request.source.ip, request.source.port),
+            &support::endpoint(&request.destination.ip, request.destination.port),
+            &request.sig.to_string(),
+            &product_label(request.browser_matched.browser.as_ref().map(|browser| {
+                (browser.name.as_str(), browser.family.as_deref(), browser.variant.as_deref())
+            })),
+            detail_color(request.browser_matched.browser.is_some()),
+            request.lang.as_deref(),
+        );
+    }
+    if let Some(response) = &output.http_response {
+        support::print_event(
+            "HTTP",
+            "1;34",
+            "RESP",
+            &support::endpoint(&response.source.ip, response.source.port),
+            &support::endpoint(&response.destination.ip, response.destination.port),
+            &response.sig.to_string(),
+            &product_label(
+                response
+                    .web_server_matched
+                    .web_server
+                    .as_ref()
+                    .map(|server| {
+                        (server.name.as_str(), server.family.as_deref(), server.variant.as_deref())
+                    }),
+            ),
+            detail_color(response.web_server_matched.web_server.is_some()),
+            None,
+        );
+    }
+}
+
+fn product_label(matched: Option<(&str, Option<&str>, Option<&str>)>) -> String {
+    matched.map_or_else(
+        || "???".to_string(),
+        |(name, family, variant)| {
+            if name.is_empty() {
+                support::with_variant(family.unwrap_or("???"), variant)
+            } else {
+                support::with_variant(name, variant)
+            }
+        },
+    )
+}
+
+fn detail_color(matched: bool) -> &'static str {
+    if matched { "1;32" } else { "2" }
 }

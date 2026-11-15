@@ -98,7 +98,7 @@ fn main() {
     let args = Args::parse();
     let format = args.format;
 
-    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
+    initialize_logging(args.log_file);
 
     #[cfg(not(feature = "json"))]
     if matches!(format, OutputFormat::Json) {
@@ -225,7 +225,7 @@ fn main() {
         }
 
         match format {
-            OutputFormat::Human => info!("{output}"),
+            OutputFormat::Human => print_tls(&output),
             OutputFormat::Json =>
             {
                 #[cfg(feature = "json")]
@@ -247,4 +247,35 @@ fn main() {
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_tls(output: &TlsClientOutput) {
+    let to = output
+        .sig
+        .sni
+        .clone()
+        .unwrap_or_else(|| support::endpoint(&output.destination.ip, output.destination.port));
+    support::print_event(
+        "TLS",
+        "1;35",
+        &tls_label(&output.sig.version),
+        &support::endpoint(&output.source.ip, output.source.port),
+        &to,
+        output.sig.ja4.full.value(),
+        "—",
+        "2",
+        None,
+    );
+}
+
+fn tls_label(version: &impl std::fmt::Display) -> String {
+    match version.to_string().as_str() {
+        "13" => "1.3".to_string(),
+        "12" => "1.2".to_string(),
+        "11" => "1.1".to_string(),
+        "10" => "1.0".to_string(),
+        "s3" => "ssl3".to_string(),
+        "s2" => "ssl2".to_string(),
+        other => other.to_string(),
+    }
 }

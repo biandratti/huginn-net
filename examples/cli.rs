@@ -77,7 +77,7 @@ fn main() {
     let args = Args::parse();
     let format = args.format;
 
-    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
+    initialize_logging(args.log_file);
 
     #[cfg(not(feature = "json"))]
     if matches!(format, OutputFormat::Json) {
@@ -148,32 +148,7 @@ fn main() {
         }
 
         match format {
-            OutputFormat::Human => {
-                if let Some(tcp_syn) = output.tcp_syn {
-                    info!("{tcp_syn}");
-                }
-                if let Some(tcp_syn_ack) = output.tcp_syn_ack {
-                    info!("{tcp_syn_ack}");
-                }
-                if let Some(tcp_mtu) = output.tcp_mtu {
-                    info!("{tcp_mtu}");
-                }
-                if let Some(tcp_client_uptime) = output.tcp_client_uptime {
-                    info!("{tcp_client_uptime}");
-                }
-                if let Some(tcp_server_uptime) = output.tcp_server_uptime {
-                    info!("{tcp_server_uptime}");
-                }
-                if let Some(http_request) = output.http_request {
-                    info!("{http_request}");
-                }
-                if let Some(http_response) = output.http_response {
-                    info!("{http_response}");
-                }
-                if let Some(tls_client) = output.tls_client {
-                    info!("{tls_client}");
-                }
-            }
+            OutputFormat::Human => print_human(&output),
             OutputFormat::Json =>
             {
                 #[cfg(feature = "json")]
@@ -188,4 +163,163 @@ fn main() {
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_human(output: &FingerprintResult) {
+    if let Some(syn) = &output.tcp_syn {
+        let note = output
+            .tcp_mtu
+            .as_ref()
+            .map(|mtu| format!("mtu {}", mtu.mtu));
+        support::print_event(
+            "TCP",
+            "1;36",
+            "SYN",
+            &support::endpoint(&syn.source.ip, syn.source.port),
+            &support::endpoint(&syn.destination.ip, syn.destination.port),
+            &syn.sig.to_string(),
+            &os_label(&syn.os_matched),
+            detail_color(syn.os_matched.os.is_some()),
+            note.as_deref(),
+        );
+    }
+    if let Some(syn_ack) = &output.tcp_syn_ack {
+        support::print_event(
+            "TCP",
+            "1;36",
+            "SYNACK",
+            &support::endpoint(&syn_ack.source.ip, syn_ack.source.port),
+            &support::endpoint(&syn_ack.destination.ip, syn_ack.destination.port),
+            &syn_ack.sig.to_string(),
+            &os_label(&syn_ack.os_matched),
+            detail_color(syn_ack.os_matched.os.is_some()),
+            None,
+        );
+    }
+    if output.tcp_syn.is_none() {
+        if let Some(mtu) = &output.tcp_mtu {
+            support::print_event(
+                "TCP",
+                "1;36",
+                "MTU",
+                &support::endpoint(&mtu.source.ip, mtu.source.port),
+                &support::endpoint(&mtu.destination.ip, mtu.destination.port),
+                &mtu.mtu.to_string(),
+                mtu.link.link.as_deref().unwrap_or("???"),
+                detail_color(mtu.link.link.is_some()),
+                None,
+            );
+        }
+    }
+    if let Some(uptime) = &output.tcp_client_uptime {
+        print_uptime(uptime);
+    }
+    if let Some(uptime) = &output.tcp_server_uptime {
+        print_uptime(uptime);
+    }
+    if let Some(request) = &output.http_request {
+        support::print_event(
+            "HTTP",
+            "1;34",
+            "REQ",
+            &support::endpoint(&request.source.ip, request.source.port),
+            &support::endpoint(&request.destination.ip, request.destination.port),
+            &request.sig.to_string(),
+            &product_label(request.browser_matched.browser.as_ref().map(|browser| {
+                (browser.name.as_str(), browser.family.as_deref(), browser.variant.as_deref())
+            })),
+            detail_color(request.browser_matched.browser.is_some()),
+            request.lang.as_deref(),
+        );
+    }
+    if let Some(response) = &output.http_response {
+        support::print_event(
+            "HTTP",
+            "1;34",
+            "RESP",
+            &support::endpoint(&response.source.ip, response.source.port),
+            &support::endpoint(&response.destination.ip, response.destination.port),
+            &response.sig.to_string(),
+            &product_label(
+                response
+                    .web_server_matched
+                    .web_server
+                    .as_ref()
+                    .map(|server| {
+                        (server.name.as_str(), server.family.as_deref(), server.variant.as_deref())
+                    }),
+            ),
+            detail_color(response.web_server_matched.web_server.is_some()),
+            None,
+        );
+    }
+    if let Some(tls) = &output.tls_client {
+        let to = tls
+            .sig
+            .sni
+            .clone()
+            .unwrap_or_else(|| support::endpoint(&tls.destination.ip, tls.destination.port));
+        support::print_event(
+            "TLS",
+            "1;35",
+            &tls_label(&tls.sig.version),
+            &support::endpoint(&tls.source.ip, tls.source.port),
+            &to,
+            tls.sig.ja4.full.value(),
+            "—",
+            "2",
+            None,
+        );
+    }
+}
+
+fn print_uptime(uptime: &huginn_net::UptimeOutput) {
+    let role = uptime.role.to_string();
+    support::print_event(
+        "TCP",
+        "1;36",
+        "UPTIME",
+        &support::endpoint(&uptime.source.ip, uptime.source.port),
+        &support::endpoint(&uptime.destination.ip, uptime.destination.port),
+        &format!("{}d {}h {}m", uptime.days, uptime.hours, uptime.min),
+        "—",
+        "2",
+        Some(&role),
+    );
+}
+
+fn os_label(matched: &huginn_net::OSQualityMatched) -> String {
+    matched.os.as_ref().map_or_else(
+        || "???".to_string(),
+        |os| support::with_variant(&os.name, os.variant.as_deref()),
+    )
+}
+
+fn product_label(matched: Option<(&str, Option<&str>, Option<&str>)>) -> String {
+    matched.map_or_else(
+        || "???".to_string(),
+        |(name, family, variant)| {
+            if name.is_empty() {
+                support::with_variant(family.unwrap_or("???"), variant)
+            } else {
+                support::with_variant(name, variant)
+            }
+        },
+    )
+}
+
+fn tls_label(version: &impl std::fmt::Display) -> String {
+    match version.to_string().as_str() {
+        "13" => "1.3".to_string(),
+        "12" => "1.2".to_string(),
+        "11" => "1.1".to_string(),
+        "10" => "1.0".to_string(),
+        "s3" => "ssl3".to_string(),
+        "s2" => "ssl2".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn detail_color(matched: bool) -> &'static str {
+    if matched { "1;32" } else { "2" }
 }
