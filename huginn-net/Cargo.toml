@@ -68,13 +68,3 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "cli"
 path = "../examples/cli.rs"
-required-features = [
-    "db",
-    "tcp-syn",
-    "tcp-syn-ack",
-    "tcp-mtu",
-    "tcp-uptime",
-    "tls-stable-v1",
-    "http-p0f-request",
-    "http-p0f-response",
-]

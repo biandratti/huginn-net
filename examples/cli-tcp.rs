@@ -193,6 +193,14 @@ fn main() {
 }
 
 fn print_tcp(output: &TcpAnalysisResult) {
+    #[cfg(not(any(
+        feature = "syn",
+        feature = "syn-ack",
+        feature = "mtu",
+        feature = "uptime"
+    )))]
+    let _ = output;
+    #[cfg(feature = "syn")]
     if let Some(syn) = &output.syn {
         support::print_event(
             "TCP",
@@ -206,9 +214,11 @@ fn print_tcp(output: &TcpAnalysisResult) {
             None,
         );
     }
+    #[cfg(feature = "mtu")]
     if let Some(mtu) = &output.mtu {
         print_mtu(mtu);
     }
+    #[cfg(feature = "syn-ack")]
     if let Some(syn_ack) = &output.syn_ack {
         support::print_event(
             "TCP",
@@ -222,14 +232,18 @@ fn print_tcp(output: &TcpAnalysisResult) {
             None,
         );
     }
-    if let Some(uptime) = &output.client_uptime {
-        print_uptime(uptime);
-    }
-    if let Some(uptime) = &output.server_uptime {
-        print_uptime(uptime);
+    #[cfg(feature = "uptime")]
+    {
+        if let Some(uptime) = &output.client_uptime {
+            print_uptime(uptime);
+        }
+        if let Some(uptime) = &output.server_uptime {
+            print_uptime(uptime);
+        }
     }
 }
 
+#[cfg(feature = "mtu")]
 fn print_mtu(mtu: &huginn_net_tcp::MTUOutput) {
     let matched = mtu.link.link.as_deref().unwrap_or("???");
     support::print_event(
@@ -245,6 +259,7 @@ fn print_mtu(mtu: &huginn_net_tcp::MTUOutput) {
     );
 }
 
+#[cfg(feature = "uptime")]
 fn print_uptime(uptime: &huginn_net_tcp::UptimeOutput) {
     let role = uptime.role.to_string();
     support::print_event(
@@ -260,6 +275,7 @@ fn print_uptime(uptime: &huginn_net_tcp::UptimeOutput) {
     );
 }
 
+#[cfg(any(feature = "syn", feature = "syn-ack"))]
 fn os_label(matched: &huginn_net_tcp::OSQualityMatched) -> String {
     matched.os.as_ref().map_or_else(
         || "???".to_string(),
@@ -267,6 +283,7 @@ fn os_label(matched: &huginn_net_tcp::OSQualityMatched) -> String {
     )
 }
 
+#[cfg(any(feature = "syn", feature = "syn-ack", feature = "mtu"))]
 fn detail_color(matched: bool) -> &'static str {
     if matched { "1;32" } else { "2" }
 }

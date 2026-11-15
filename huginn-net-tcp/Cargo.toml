@@ -44,7 +44,6 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "cli-tcp"
 path = "../examples/cli-tcp.rs"
-required-features = ["syn", "syn-ack", "mtu", "uptime"]
 
 [[bench]]
 name = "bench_tcp"

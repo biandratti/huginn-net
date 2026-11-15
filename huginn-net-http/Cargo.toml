@@ -46,7 +46,6 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "cli-http"
 path = "../examples/cli-http.rs"
-required-features = ["p0f-request", "p0f-response"]
 
 [[bench]]
 name = "bench_http"

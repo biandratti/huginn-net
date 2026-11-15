@@ -23,6 +23,8 @@ Analysis events go to **stdout**. Operational messages (`Starting capture...`, s
 
 ### Process packages
 
+Each example builds with `--features full`, or with only the analyses you select. A feature you leave out is omitted from that binary.
+
 #### Full Analysis (TCP, HTTP, TLS)
 ```
 # Build example

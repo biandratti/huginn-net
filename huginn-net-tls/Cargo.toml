@@ -47,7 +47,6 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "cli-tls"
 path = "../examples/cli-tls.rs"
-required-features = ["stable-v1"]
 
 [[bench]]
 name = "bench_tls"

@@ -159,6 +159,9 @@ fn main() {
 }
 
 fn print_http(output: &HttpAnalysisResult) {
+    #[cfg(not(any(feature = "p0f-request", feature = "p0f-response")))]
+    let _ = output;
+    #[cfg(feature = "p0f-request")]
     if let Some(request) = &output.http_request {
         support::print_event(
             "HTTP",
@@ -174,6 +177,7 @@ fn print_http(output: &HttpAnalysisResult) {
             request.lang.as_deref(),
         );
     }
+    #[cfg(feature = "p0f-response")]
     if let Some(response) = &output.http_response {
         support::print_event(
             "HTTP",
@@ -197,6 +201,7 @@ fn print_http(output: &HttpAnalysisResult) {
     }
 }
 
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 fn product_label(matched: Option<(&str, Option<&str>, Option<&str>)>) -> String {
     matched.map_or_else(
         || "???".to_string(),
@@ -210,6 +215,7 @@ fn product_label(matched: Option<(&str, Option<&str>, Option<&str>)>) -> String 
     )
 }
 
+#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
 fn detail_color(matched: bool) -> &'static str {
     if matched { "1;32" } else { "2" }
 }

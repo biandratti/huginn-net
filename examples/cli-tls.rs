@@ -229,6 +229,7 @@ fn main() {
 }
 
 fn print_tls(output: &TlsClientOutput) {
+    let from = support::endpoint(&output.source.ip, output.source.port);
     let to = output
         .sig
         .sni
@@ -238,9 +239,21 @@ fn print_tls(output: &TlsClientOutput) {
         "TLS",
         "1;35",
         &tls_label(&output.sig.version),
-        &support::endpoint(&output.source.ip, output.source.port),
+        &from,
         &to,
         output.sig.ja4.full.value(),
+        "—",
+        "2",
+        None,
+    );
+    #[cfg(feature = "stable-v1")]
+    support::print_event(
+        "TLS",
+        "1;35",
+        "S1",
+        &from,
+        &to,
+        output.sig.ja4_stable_v1.full.value(),
         "—",
         "2",
         None,

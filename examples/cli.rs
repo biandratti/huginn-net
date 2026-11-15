@@ -3,14 +3,16 @@ mod support;
 use support::{FilterOptions, initialize_logging};
 
 use clap::{Parser, Subcommand};
+#[cfg(feature = "db")]
+use huginn_net::Database;
 use huginn_net::output::FingerprintResult;
-use huginn_net::{Database, FilterConfig, HuginnNet, IpFilter, PortFilter};
+use huginn_net::{FilterConfig, HuginnNet, IpFilter, PortFilter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -90,6 +92,7 @@ fn main() {
         return;
     }
 
+    #[cfg(feature = "db")]
     let db = match Database::load_default() {
         Ok(db) => db,
         Err(e) => {
@@ -97,12 +100,18 @@ fn main() {
             return;
         }
     };
-    debug!("Loaded p0f TCP+HTTP database successfully");
+    #[cfg(feature = "db")]
+    tracing::debug!("Loaded p0f TCP+HTTP database successfully");
 
     thread::spawn(move || {
         let filter_config = build_filter(&args.filter);
 
-        let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
+        #[cfg(feature = "db")]
+        let built = HuginnNet::new(Some(&db), 100, None);
+        #[cfg(not(feature = "db"))]
+        let built = HuginnNet::new_observable(100, None);
+
+        let mut analyzer = match built {
             Ok(analyzer) => analyzer,
             Err(e) => {
                 error!("Failed to create HuginnNet analyzer: {e}");
@@ -143,6 +152,7 @@ fn main() {
 }
 
 fn print_human(output: &FingerprintResult) {
+    #[cfg(feature = "tcp-syn")]
     if let Some(syn) = &output.tcp_syn {
         support::print_event(
             "TCP",
@@ -156,6 +166,7 @@ fn print_human(output: &FingerprintResult) {
             None,
         );
     }
+    #[cfg(feature = "tcp-mtu")]
     if let Some(mtu) = &output.tcp_mtu {
         support::print_event(
             "TCP",
@@ -169,6 +180,7 @@ fn print_human(output: &FingerprintResult) {
             None,
         );
     }
+    #[cfg(feature = "tcp-syn-ack")]
     if let Some(syn_ack) = &output.tcp_syn_ack {
         support::print_event(
             "TCP",
@@ -182,12 +194,16 @@ fn print_human(output: &FingerprintResult) {
             None,
         );
     }
-    if let Some(uptime) = &output.tcp_client_uptime {
-        print_uptime(uptime);
+    #[cfg(feature = "tcp-uptime")]
+    {
+        if let Some(uptime) = &output.tcp_client_uptime {
+            print_uptime(uptime);
+        }
+        if let Some(uptime) = &output.tcp_server_uptime {
+            print_uptime(uptime);
+        }
     }
-    if let Some(uptime) = &output.tcp_server_uptime {
-        print_uptime(uptime);
-    }
+    #[cfg(feature = "http-p0f-request")]
     if let Some(request) = &output.http_request {
         support::print_event(
             "HTTP",
@@ -203,6 +219,7 @@ fn print_human(output: &FingerprintResult) {
             request.lang.as_deref(),
         );
     }
+    #[cfg(feature = "http-p0f-response")]
     if let Some(response) = &output.http_response {
         support::print_event(
             "HTTP",
@@ -225,6 +242,7 @@ fn print_human(output: &FingerprintResult) {
         );
     }
     if let Some(tls) = &output.tls_client {
+        let from = support::endpoint(&tls.source.ip, tls.source.port);
         let to = tls
             .sig
             .sni
@@ -234,9 +252,21 @@ fn print_human(output: &FingerprintResult) {
             "TLS",
             "1;35",
             &tls_label(&tls.sig.version),
-            &support::endpoint(&tls.source.ip, tls.source.port),
+            &from,
             &to,
             tls.sig.ja4.full.value(),
+            "—",
+            "2",
+            None,
+        );
+        #[cfg(feature = "tls-stable-v1")]
+        support::print_event(
+            "TLS",
+            "1;35",
+            "S1",
+            &from,
+            &to,
+            tls.sig.ja4_stable_v1.full.value(),
             "—",
             "2",
             None,
@@ -244,6 +274,7 @@ fn print_human(output: &FingerprintResult) {
     }
 }
 
+#[cfg(feature = "tcp-uptime")]
 fn print_uptime(uptime: &huginn_net::UptimeOutput) {
     let role = uptime.role.to_string();
     support::print_event(
@@ -259,6 +290,7 @@ fn print_uptime(uptime: &huginn_net::UptimeOutput) {
     );
 }
 
+#[cfg(any(feature = "tcp-syn", feature = "tcp-syn-ack"))]
 fn os_label(matched: &huginn_net::OSQualityMatched) -> String {
     matched.os.as_ref().map_or_else(
         || "???".to_string(),
