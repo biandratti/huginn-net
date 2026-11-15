@@ -235,39 +235,13 @@ fn print_tls(output: &TlsClientOutput) {
         .sni
         .clone()
         .unwrap_or_else(|| support::endpoint(&output.destination.ip, output.destination.port));
-    support::print_event(
-        "TLS",
-        "1;35",
-        &tls_label(&output.sig.version),
-        &from,
-        &to,
-        output.sig.ja4.full.value(),
-        "—",
-        "2",
-        None,
-    );
+    support::Event::new(support::Kind::tls(&output.sig.version))
+        .flow(&from, &to)
+        .signature(output.sig.ja4.full.value())
+        .emit();
     #[cfg(feature = "stable-v1")]
-    support::print_event(
-        "TLS",
-        "1;35",
-        "S1",
-        &from,
-        &to,
-        output.sig.ja4_stable_v1.full.value(),
-        "—",
-        "2",
-        None,
-    );
-}
-
-fn tls_label(version: &impl std::fmt::Display) -> String {
-    match version.to_string().as_str() {
-        "13" => "1.3".to_string(),
-        "12" => "1.2".to_string(),
-        "11" => "1.1".to_string(),
-        "10" => "1.0".to_string(),
-        "s3" => "ssl3".to_string(),
-        "s2" => "ssl2".to_string(),
-        other => other.to_string(),
-    }
+    support::Event::new(support::Kind::TlsS1)
+        .flow(&from, &to)
+        .signature(output.sig.ja4_stable_v1.full.value())
+        .emit();
 }

@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::{IsTerminal, Write};
 use std::net::IpAddr;
 
@@ -77,44 +78,230 @@ pub fn endpoint(ip: &IpAddr, port: u16) -> String {
     format!("{ip}:{port}")
 }
 
-/// `name`, or `name variant` when the signature carries a variant.
-#[allow(dead_code)]
-pub fn with_variant(name: &str, variant: Option<&str>) -> String {
+/// Width of the record column. Sized for the longest label, `UPTIME-CLIENT`.
+const KIND_WIDTH: usize = 13;
+
+/// Which analysis produced a record. The label and protocol come from here,
+/// so every example prints the same name for the same record.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Kind {
+    Syn,
+    SynAck,
+    Mtu,
+    UptimeClient,
+    UptimeServer,
+    HttpRequest,
+    HttpResponse,
+    /// TLS ClientHello. Carries the wire version as shown (`1.3`, `1.2`, ...).
+    Tls(String),
+    /// JA4_s1 companion line of a TLS ClientHello.
+    TlsS1,
+}
+
+impl Kind {
+    /// TLS ClientHello from the wire version (`"13"` becomes `1.3`).
+    pub fn tls(version: &impl Display) -> Self {
+        let label = match version.to_string().as_str() {
+            "13" => "1.3".to_string(),
+            "12" => "1.2".to_string(),
+            "11" => "1.1".to_string(),
+            "10" => "1.0".to_string(),
+            "s3" => "ssl3".to_string(),
+            "s2" => "ssl2".to_string(),
+            other => other.to_string(),
+        };
+        Self::Tls(label)
+    }
+
+    fn protocol(&self) -> Protocol {
+        match self {
+            Self::Syn | Self::SynAck | Self::Mtu | Self::UptimeClient | Self::UptimeServer => {
+                Protocol::Tcp
+            }
+            Self::HttpRequest | Self::HttpResponse => Protocol::Http,
+            Self::Tls(_) | Self::TlsS1 => Protocol::Tls,
+        }
+    }
+
+    fn label(&self) -> &str {
+        match self {
+            Self::Syn => "SYN",
+            Self::SynAck => "SYNACK",
+            Self::Mtu => "MTU",
+            Self::UptimeClient => "UPTIME-CLIENT",
+            Self::UptimeServer => "UPTIME-SERVER",
+            Self::HttpRequest => "REQUEST",
+            Self::HttpResponse => "RESPONSE",
+            Self::Tls(version) => version,
+            Self::TlsS1 => "S1",
+        }
+    }
+}
+
+/// Matcher column for an OS that may be absent.
+pub fn os_match(os: Option<(&str, Option<&str>)>) -> Match {
+    os.map_or(Match::Miss, |(name, variant)| Match::hit(named(name, variant)))
+}
+
+/// Matcher column for a browser or web server that may be absent.
+/// An empty name falls back to the family.
+pub fn product(item: Option<(&str, Option<&str>, Option<&str>)>) -> Match {
+    item.map_or(Match::Miss, |(name, family, variant)| {
+        let base = if name.is_empty() {
+            family.unwrap_or("???")
+        } else {
+            name
+        };
+        Match::hit(named(base, variant))
+    })
+}
+
+/// Matcher column for an optional link name (MTU).
+pub fn link(name: Option<&str>) -> Match {
+    name.map_or(Match::Miss, |name| Match::hit(name.to_string()))
+}
+
+fn named(name: &str, variant: Option<&str>) -> String {
     match variant {
         Some(variant) if !variant.is_empty() => format!("{name} {variant}"),
         _ => name.to_string(),
     }
 }
 
-/// One event per line: the observed signature, then the matcher result.
-/// Colored when stdout is a terminal.
-#[allow(clippy::too_many_arguments)]
-pub fn print_event(
-    proto: &str,
-    proto_color: &str,
-    label: &str,
-    from: &str,
-    to: &str,
-    signature: &str,
-    matched: &str,
-    match_color: &str,
-    note: Option<&str>,
-) {
-    let mut line = format!(
-        "{}  {}  {} → {}  {}  {}",
-        paint(&fit(proto, 4), proto_color),
-        fit(label, 6),
-        fit(from, 22),
-        fit(to, 28),
-        pad_min(signature, 56),
-        paint(matched, match_color),
-    );
-    if let Some(note) = note {
-        line.push_str("  ");
-        line.push_str(&paint(note, "2"));
+#[derive(Clone, Copy)]
+enum Protocol {
+    Tcp,
+    Http,
+    Tls,
+}
+
+impl Protocol {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Tcp => "TCP",
+            Self::Http => "HTTP",
+            Self::Tls => "TLS",
+        }
     }
-    let mut stdout = std::io::stdout().lock();
-    let _ = writeln!(stdout, "{line}");
+
+    fn color(self) -> &'static str {
+        match self {
+            Self::Tcp => "1;36",
+            Self::Http => "1;34",
+            Self::Tls => "1;35",
+        }
+    }
+}
+
+/// Result shown after the observed signature.
+pub enum Match {
+    /// A database label. Painted when stdout is a terminal.
+    Hit(String),
+    /// Looked up, nothing matched (`???`).
+    Miss,
+    /// This record has no matcher (`—`).
+    None,
+}
+
+impl Match {
+    pub fn hit(text: impl Into<String>) -> Self {
+        Self::Hit(text.into())
+    }
+
+    fn text(&self) -> &str {
+        match self {
+            Self::Hit(text) => text,
+            Self::Miss => "???",
+            Self::None => "—",
+        }
+    }
+
+    fn color(&self) -> &'static str {
+        match self {
+            Self::Hit(_) => "1;32",
+            Self::Miss | Self::None => "2",
+        }
+    }
+}
+
+/// One analysis record. The layout (columns, widths, colors) lives here.
+pub struct Event {
+    kind: Kind,
+    from: String,
+    to: String,
+    signature: String,
+    matched: Match,
+    note: Option<String>,
+}
+
+impl Event {
+    pub fn new(kind: Kind) -> Self {
+        Self {
+            kind,
+            from: String::new(),
+            to: String::new(),
+            signature: String::new(),
+            matched: Match::None,
+            note: None,
+        }
+    }
+
+    pub fn flow(mut self, from: impl AsRef<str>, to: impl AsRef<str>) -> Self {
+        self.from = from.as_ref().to_string();
+        self.to = to.as_ref().to_string();
+        self
+    }
+
+    pub fn between(
+        self,
+        source_ip: &IpAddr,
+        source_port: u16,
+        dest_ip: &IpAddr,
+        dest_port: u16,
+    ) -> Self {
+        self.flow(endpoint(source_ip, source_port), endpoint(dest_ip, dest_port))
+    }
+
+    pub fn signature(mut self, signature: impl AsRef<str>) -> Self {
+        self.signature = signature.as_ref().to_string();
+        self
+    }
+
+    pub fn matched(mut self, matched: Match) -> Self {
+        self.matched = matched;
+        self
+    }
+
+    pub fn note(mut self, note: impl AsRef<str>) -> Self {
+        self.note = Some(note.as_ref().to_string());
+        self
+    }
+
+    pub fn note_opt(self, note: Option<&str>) -> Self {
+        match note {
+            Some(note) => self.note(note),
+            None => self,
+        }
+    }
+
+    pub fn emit(self) {
+        let protocol = self.kind.protocol();
+        let mut line = format!(
+            "{}  {}  {} → {}  {}  {}",
+            paint(&fit(protocol.as_str(), 4), protocol.color()),
+            fit(self.kind.label(), KIND_WIDTH),
+            fit(&self.from, 22),
+            fit(&self.to, 28),
+            pad_min(&self.signature, 56),
+            paint(self.matched.text(), self.matched.color()),
+        );
+        if let Some(note) = &self.note {
+            line.push_str("  ");
+            line.push_str(&paint(note, "2"));
+        }
+        let mut stdout = std::io::stdout().lock();
+        let _ = writeln!(stdout, "{line}");
+    }
 }
 
 fn paint(text: &str, code: &str) -> String {

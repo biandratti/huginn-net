@@ -163,59 +163,35 @@ fn print_http(output: &HttpAnalysisResult) {
     let _ = output;
     #[cfg(feature = "p0f-request")]
     if let Some(request) = &output.http_request {
-        support::print_event(
-            "HTTP",
-            "1;34",
-            "REQ",
-            &support::endpoint(&request.source.ip, request.source.port),
-            &support::endpoint(&request.destination.ip, request.destination.port),
-            &request.sig.to_string(),
-            &product_label(request.browser_matched.browser.as_ref().map(|browser| {
+        support::Event::new(support::Kind::HttpRequest)
+            .between(
+                &request.source.ip,
+                request.source.port,
+                &request.destination.ip,
+                request.destination.port,
+            )
+            .signature(request.sig.to_string())
+            .matched(support::product(request.browser_matched.browser.as_ref().map(|browser| {
                 (browser.name.as_str(), browser.family.as_deref(), browser.variant.as_deref())
-            })),
-            detail_color(request.browser_matched.browser.is_some()),
-            request.lang.as_deref(),
-        );
+            })))
+            .note_opt(request.lang.as_deref())
+            .emit();
     }
     #[cfg(feature = "p0f-response")]
     if let Some(response) = &output.http_response {
-        support::print_event(
-            "HTTP",
-            "1;34",
-            "RESP",
-            &support::endpoint(&response.source.ip, response.source.port),
-            &support::endpoint(&response.destination.ip, response.destination.port),
-            &response.sig.to_string(),
-            &product_label(
-                response
-                    .web_server_matched
-                    .web_server
-                    .as_ref()
-                    .map(|server| {
-                        (server.name.as_str(), server.family.as_deref(), server.variant.as_deref())
-                    }),
-            ),
-            detail_color(response.web_server_matched.web_server.is_some()),
-            None,
-        );
+        support::Event::new(support::Kind::HttpResponse)
+            .between(
+                &response.source.ip,
+                response.source.port,
+                &response.destination.ip,
+                response.destination.port,
+            )
+            .signature(response.sig.to_string())
+            .matched(support::product(response.web_server_matched.web_server.as_ref().map(
+                |server| {
+                    (server.name.as_str(), server.family.as_deref(), server.variant.as_deref())
+                },
+            )))
+            .emit();
     }
-}
-
-#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
-fn product_label(matched: Option<(&str, Option<&str>, Option<&str>)>) -> String {
-    matched.map_or_else(
-        || "???".to_string(),
-        |(name, family, variant)| {
-            if name.is_empty() {
-                support::with_variant(family.unwrap_or("???"), variant)
-            } else {
-                support::with_variant(name, variant)
-            }
-        },
-    )
-}
-
-#[cfg(any(feature = "p0f-request", feature = "p0f-response"))]
-fn detail_color(matched: bool) -> &'static str {
-    if matched { "1;32" } else { "2" }
 }

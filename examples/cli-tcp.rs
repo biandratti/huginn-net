@@ -202,88 +202,68 @@ fn print_tcp(output: &TcpAnalysisResult) {
     let _ = output;
     #[cfg(feature = "syn")]
     if let Some(syn) = &output.syn {
-        support::print_event(
-            "TCP",
-            "1;36",
-            "SYN",
-            &support::endpoint(&syn.source.ip, syn.source.port),
-            &support::endpoint(&syn.destination.ip, syn.destination.port),
-            &syn.sig.to_string(),
-            &os_label(&syn.os_matched),
-            detail_color(syn.os_matched.os.is_some()),
-            None,
-        );
+        support::Event::new(support::Kind::Syn)
+            .between(&syn.source.ip, syn.source.port, &syn.destination.ip, syn.destination.port)
+            .signature(syn.sig.to_string())
+            .matched(support::os_match(
+                syn.os_matched
+                    .os
+                    .as_ref()
+                    .map(|os| (os.name.as_str(), os.variant.as_deref())),
+            ))
+            .emit();
     }
     #[cfg(feature = "mtu")]
     if let Some(mtu) = &output.mtu {
-        print_mtu(mtu);
+        support::Event::new(support::Kind::Mtu)
+            .between(&mtu.source.ip, mtu.source.port, &mtu.destination.ip, mtu.destination.port)
+            .signature(mtu.mtu.to_string())
+            .matched(support::link(mtu.link.link.as_deref()))
+            .emit();
     }
     #[cfg(feature = "syn-ack")]
     if let Some(syn_ack) = &output.syn_ack {
-        support::print_event(
-            "TCP",
-            "1;36",
-            "SYNACK",
-            &support::endpoint(&syn_ack.source.ip, syn_ack.source.port),
-            &support::endpoint(&syn_ack.destination.ip, syn_ack.destination.port),
-            &syn_ack.sig.to_string(),
-            &os_label(&syn_ack.os_matched),
-            detail_color(syn_ack.os_matched.os.is_some()),
-            None,
-        );
+        support::Event::new(support::Kind::SynAck)
+            .between(
+                &syn_ack.source.ip,
+                syn_ack.source.port,
+                &syn_ack.destination.ip,
+                syn_ack.destination.port,
+            )
+            .signature(syn_ack.sig.to_string())
+            .matched(support::os_match(
+                syn_ack
+                    .os_matched
+                    .os
+                    .as_ref()
+                    .map(|os| (os.name.as_str(), os.variant.as_deref())),
+            ))
+            .emit();
     }
     #[cfg(feature = "uptime")]
     {
         if let Some(uptime) = &output.client_uptime {
-            print_uptime(uptime);
+            emit_uptime(uptime);
         }
         if let Some(uptime) = &output.server_uptime {
-            print_uptime(uptime);
+            emit_uptime(uptime);
         }
     }
 }
 
-#[cfg(feature = "mtu")]
-fn print_mtu(mtu: &huginn_net_tcp::MTUOutput) {
-    let matched = mtu.link.link.as_deref().unwrap_or("???");
-    support::print_event(
-        "TCP",
-        "1;36",
-        "MTU",
-        &support::endpoint(&mtu.source.ip, mtu.source.port),
-        &support::endpoint(&mtu.destination.ip, mtu.destination.port),
-        &mtu.mtu.to_string(),
-        matched,
-        detail_color(mtu.link.link.is_some()),
-        None,
-    );
-}
-
 #[cfg(feature = "uptime")]
-fn print_uptime(uptime: &huginn_net_tcp::UptimeOutput) {
-    let role = uptime.role.to_string();
-    support::print_event(
-        "TCP",
-        "1;36",
-        "UPTIME",
-        &support::endpoint(&uptime.source.ip, uptime.source.port),
-        &support::endpoint(&uptime.destination.ip, uptime.destination.port),
-        &format!("{}d {}h {}m", uptime.days, uptime.hours, uptime.min),
-        "—",
-        "2",
-        Some(&role),
-    );
-}
-
-#[cfg(any(feature = "syn", feature = "syn-ack"))]
-fn os_label(matched: &huginn_net_tcp::OSQualityMatched) -> String {
-    matched.os.as_ref().map_or_else(
-        || "???".to_string(),
-        |os| support::with_variant(&os.name, os.variant.as_deref()),
-    )
-}
-
-#[cfg(any(feature = "syn", feature = "syn-ack", feature = "mtu"))]
-fn detail_color(matched: bool) -> &'static str {
-    if matched { "1;32" } else { "2" }
+fn emit_uptime(uptime: &huginn_net_tcp::UptimeOutput) {
+    let kind = match uptime.role {
+        huginn_net_tcp::UptimeRole::Client => support::Kind::UptimeClient,
+        huginn_net_tcp::UptimeRole::Server => support::Kind::UptimeServer,
+    };
+    support::Event::new(kind)
+        .between(
+            &uptime.source.ip,
+            uptime.source.port,
+            &uptime.destination.ip,
+            uptime.destination.port,
+        )
+        .signature(format!("{}d {}h {}m", uptime.days, uptime.hours, uptime.min))
+        .emit();
 }
