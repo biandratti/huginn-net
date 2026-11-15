@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 #[path = "support/mod.rs"]
 mod support;
 use support::{FilterOptions, initialize_logging};

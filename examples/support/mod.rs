@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::fmt::Display;
 use std::io::{IsTerminal, Write};
 use std::net::IpAddr;
