@@ -9,7 +9,6 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
 keywords = ["http", "fingerprinting", "browser", "p0f", "security"]
 categories = ["network-programming", "web-programming"]
 

@@ -369,7 +369,7 @@ impl Http1Parser {
                     .iter()
                     .any(|h: &HttpHeader| h.name.to_lowercase() == name_lower)
                 {
-                    duplicate_headers.push(name_lower.clone());
+                    duplicate_headers.push(name_lower);
                 }
 
                 headers.push(HttpHeader { name, value, position, source: HeaderSource::Http1Line });

@@ -9,7 +9,6 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
 keywords = ["tcp", "fingerprinting", "network", "security"]
 categories = ["network-programming"]
 
