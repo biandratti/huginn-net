@@ -237,7 +237,7 @@ fn print_tls(output: &TlsClientOutput) {
         .sni
         .clone()
         .unwrap_or_else(|| support::endpoint(&output.destination.ip, output.destination.port));
-    support::Event::new(support::Kind::tls(&output.sig.version))
+    support::Event::new(support::Kind::tls(output.sig.version.label()))
         .flow(&from, &to)
         .signature(output.sig.ja4.full.value())
         .emit();

@@ -243,7 +243,7 @@ fn print_human(output: &FingerprintResult) {
             .sni
             .clone()
             .unwrap_or_else(|| support::endpoint(&tls.destination.ip, tls.destination.port));
-        support::Event::new(support::Kind::tls(&tls.sig.version))
+        support::Event::new(support::Kind::tls(tls.sig.version.label()))
             .flow(&from, &to)
             .signature(tls.sig.ja4.full.value())
             .emit();

@@ -27,6 +27,19 @@ impl TlsVersion {
             _ => TlsVersion::Unknown(code),
         }
     }
+
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::V1_3 => "1.3",
+            Self::V1_2 => "1.2",
+            Self::V1_1 => "1.1",
+            Self::V1_0 => "1.0",
+            Self::Ssl3_0 => "ssl3",
+            Self::Ssl2_0 => "ssl2",
+            Self::Unknown(_) => "00",
+        }
+    }
 }
 
 impl fmt::Display for TlsVersion {

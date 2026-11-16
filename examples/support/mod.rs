@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use std::fmt::Display;
 use std::io::{IsTerminal, Write};
 use std::net::IpAddr;
 
@@ -19,8 +18,6 @@ pub struct FilterOptions {
     pub ip: Option<String>,
 }
 
-/// Shared CLI commands for examples with live (single/parallel) + pcap modes.
-/// Used by cli-tcp and cli-http. cli-tls has extra parallel fields; cli has no LiveMode.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     Live {
@@ -80,11 +77,9 @@ pub fn endpoint(ip: &IpAddr, port: u16) -> String {
     format!("{ip}:{port}")
 }
 
-/// Width of the record column. Sized for the longest label, `UPTIME-CLIENT`.
 const KIND_WIDTH: usize = 13;
 
-/// Which analysis produced a record. The label and protocol come from here,
-/// so every example prints the same name for the same record.
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Syn,
@@ -94,25 +89,14 @@ pub enum Kind {
     UptimeServer,
     HttpRequest,
     HttpResponse,
-    /// TLS ClientHello. Carries the wire version as shown (`1.3`, `1.2`, ...).
     Tls(String),
-    /// JA4_s1 companion line of a TLS ClientHello.
     TlsS1,
 }
 
 impl Kind {
-    /// TLS ClientHello from the wire version (`"13"` becomes `1.3`).
-    pub fn tls(version: &impl Display) -> Self {
-        let label = match version.to_string().as_str() {
-            "13" => "1.3".to_string(),
-            "12" => "1.2".to_string(),
-            "11" => "1.1".to_string(),
-            "10" => "1.0".to_string(),
-            "s3" => "ssl3".to_string(),
-            "s2" => "ssl2".to_string(),
-            other => other.to_string(),
-        };
-        Self::Tls(label)
+
+    pub fn tls(label: &str) -> Self {
+        Self::Tls(label.to_string())
     }
 
     fn protocol(&self) -> Protocol {
@@ -140,7 +124,6 @@ impl Kind {
     }
 }
 
-/// Matcher column for an OS that may be absent.
 pub fn os_match(os: Option<(&str, Option<&str>)>) -> Match {
     os.map_or(Match::Miss, |(name, variant)| Match::hit(named(name, variant)))
 }
