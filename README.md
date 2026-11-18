@@ -17,6 +17,8 @@
   [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
 
   <h2><a href="https://huginn-proxy.duckdns.org/">Live demo</a></h2>
+
+  <img src="scripts/demo.gif" alt="Huginn Net CLI analyzing live traffic" width="100%"/>
 </div>
 
 **Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f v3 for TCP, FoxIO's JA4 for TLS, and the Akamai HTTP/2 fingerprinting spec. All signature databases are open source and community-driven.

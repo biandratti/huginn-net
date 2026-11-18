@@ -142,8 +142,8 @@ smoke_live() {
 echo "PCAP smoke (cwd=$ROOT)"
 smoke_pcap cli-tcp  huginn-net-tcp  cli-tcp  "full" pcap/macos_tcp_flags.pcap            '^TCP +SYN '
 smoke_pcap cli-http huginn-net-http cli-http "full" pcap/http-simple-get.pcap             '^HTTP +REQUEST '
-smoke_pcap cli-tls  huginn-net-tls  cli-tls  "full" pcap/tls12.pcap                       '^TLS +1\.[0-3] '
-smoke_pcap cli      huginn-net      cli      "full" pcap/http-simple-get.pcap             '^(TCP +SYN |HTTP +REQUEST |TLS +1\.)'
+smoke_pcap cli-tls  huginn-net-tls  cli-tls  "full" pcap/tls12.pcap                       '^TLS +(JA4|S1) .+ (1\.[0-3]|ssl[23]|00)$'
+smoke_pcap cli      huginn-net      cli      "full" pcap/http-simple-get.pcap             '^(TCP +SYN |HTTP +REQUEST |TLS +(JA4|S1) )'
 
 if [[ -n "$INTERFACE" ]]; then
     echo
