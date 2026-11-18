@@ -79,7 +79,6 @@ pub fn endpoint(ip: &IpAddr, port: u16) -> String {
 
 const KIND_WIDTH: usize = 13;
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Syn,
@@ -89,23 +88,18 @@ pub enum Kind {
     UptimeServer,
     HttpRequest,
     HttpResponse,
-    Tls(String),
+    Tls,
     TlsS1,
 }
 
 impl Kind {
-
-    pub fn tls(label: &str) -> Self {
-        Self::Tls(label.to_string())
-    }
-
     fn protocol(&self) -> Protocol {
         match self {
             Self::Syn | Self::SynAck | Self::Mtu | Self::UptimeClient | Self::UptimeServer => {
                 Protocol::Tcp
             }
             Self::HttpRequest | Self::HttpResponse => Protocol::Http,
-            Self::Tls(_) | Self::TlsS1 => Protocol::Tls,
+            Self::Tls | Self::TlsS1 => Protocol::Tls,
         }
     }
 
@@ -118,8 +112,23 @@ impl Kind {
             Self::UptimeServer => "UPTIME-SERVER",
             Self::HttpRequest => "REQUEST",
             Self::HttpResponse => "RESPONSE",
-            Self::Tls(version) => version,
+            Self::Tls => "JA4",
             Self::TlsS1 => "S1",
+        }
+    }
+
+    /// ANSI color of the record label, so each kind is recognizable at a glance.
+    fn color(&self) -> &'static str {
+        match self {
+            Self::Syn => "1;33",
+            Self::SynAck => "1;93",
+            Self::Mtu => "1;31",
+            Self::UptimeClient => "1;96",
+            Self::UptimeServer => "1;94",
+            Self::HttpRequest => "1;92",
+            Self::HttpResponse => "1;91",
+            Self::Tls => "1;95",
+            Self::TlsS1 => "1;37",
         }
     }
 }
@@ -274,7 +283,7 @@ impl Event {
         let mut line = format!(
             "{}  {}  {} → {}  {}  {}",
             paint(&fit(protocol.as_str(), 4), protocol.color()),
-            fit(self.kind.label(), KIND_WIDTH),
+            paint(&fit(self.kind.label(), KIND_WIDTH), self.kind.color()),
             fit(&self.from, 22),
             fit(&self.to, 28),
             pad_min(&self.signature, 56),

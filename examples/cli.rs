@@ -243,14 +243,16 @@ fn print_human(output: &FingerprintResult) {
             .sni
             .clone()
             .unwrap_or_else(|| support::endpoint(&tls.destination.ip, tls.destination.port));
-        support::Event::new(support::Kind::tls(tls.sig.version.label()))
+        support::Event::new(support::Kind::Tls)
             .flow(&from, &to)
             .signature(tls.sig.ja4.full.value())
+            .matched(support::Match::hit(tls.sig.version.label()))
             .emit();
         #[cfg(feature = "tls-stable-v1")]
         support::Event::new(support::Kind::TlsS1)
             .flow(&from, &to)
             .signature(tls.sig.ja4_stable_v1.full.value())
+            .matched(support::Match::hit(tls.sig.version.label()))
             .emit();
     }
 }
