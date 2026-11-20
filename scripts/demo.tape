@@ -9,18 +9,25 @@
 Output scripts/demo.gif
 
 Set Shell "bash"
-Set FontSize 13
-Set Width 1500
-Set Height 640
-Set Padding 20
-Set Theme "Dracula"
-Set TypingSpeed 12ms
-Set Framerate 15
+Set FontFamily "DejaVu Sans Mono"
+Set FontSize 16
+Set Width 1760
+Set Height 700
+Set Padding 32
+Set Margin 16
+Set MarginFill "#11111b"
+Set BorderRadius 14
+Set WindowBar Colorful
+Set WindowBarSize 38
+Set Theme "Catppuccin Mocha"
+Set LineHeight 1.15
+Set TypingSpeed 4ms
+Set Framerate 20
 
 Hide
 Type "export PATH=$PWD/target/release/examples:$PATH"
 Enter
-Type "export PS1='$ '"
+Type "export PS1='huginn $ '"
 Enter
 Type "set +m"
 Enter
@@ -47,6 +54,7 @@ Type "clear"
 Enter
 Show
 
+Set TypingSpeed 18ms
 Type "sudo RUST_LOG=info RUST_BACKTRACE=1 ./target/release/examples/cli -l capture.log live -i eth0"
 Enter
 

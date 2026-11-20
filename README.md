@@ -17,11 +17,11 @@
   [![huginn-net-tls](https://img.shields.io/crates/d/huginn-net-tls.svg?label=huginn-net-tls)](https://crates.io/crates/huginn-net-tls)
 
   <h2><a href="https://huginn-proxy.duckdns.org/">Live demo</a></h2>
-
+  <br>
   <img src="scripts/demo.gif" alt="Huginn Net CLI analyzing live traffic" width="100%"/>
 </div>
 
-**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** No active probes, no tshark, no wireshark. Pure Rust, built entirely on open-source specifications: p0f v3 for TCP, FoxIO's JA4 for TLS, and the Akamai HTTP/2 fingerprinting spec. All signature databases are open source and community-driven.
+**Huginn Net fingerprints TCP, HTTP, and TLS traffic passively.** It parses each packet directly in Rust and processes flows in parallel, at high throughput. Built on open specifications: p0f v3 for TCP, FoxIO's JA4 for TLS, and the Akamai HTTP/2 fingerprint. Signature databases are open source and community-driven. Numbers are in [Performance](#performance).
 
 #### What is Passive Traffic Fingerprinting?
 Passive fingerprinting infers information about remote hosts without sending any probes. By analyzing TCP/IP packets and TLS handshakes, Huginn Net identifies:
@@ -31,13 +31,13 @@ Passive fingerprinting infers information about remote hosts without sending any
 - **Network Infrastructure** - Detecting intermediary devices, proxies, and load balancers
 - **Client Capabilities** - TLS versions, cipher suites, and supported extensions
 
-### Network Stack analysis supported by Huginn-Net
+### Fingerprints by protocol
 
-| Layer | Protocol / Feature        | Huginn Net Analysis                         |
-|-------|---------------------------|---------------------------------------------|
-| 7     | TLS                       | JA4 (FoxIO-style) + stable signature        |
-| 7     | HTTP                      | HTTP/1 & HTTP/2 - Headers, User-Agent, Lang |
-| 4     | TCP                       | OS Fingerprinting (p0f-style)               |
+| Protocol | What Huginn Net extracts |
+|----------|--------------------------|
+| **TLS** | JA4 (FoxIO) and a stable signature |
+| **HTTP** | HTTP/1 headers (User-Agent, language) and HTTP/2 (Akamai) |
+| **TCP** | OS fingerprint, p0f-style |
 
 
 ## Crates
@@ -116,17 +116,15 @@ Optional packet filtering by port and/or IP address for improved performance. Fi
 
 ### Matching Quality
 
-Database matching follows p0f-style **tier selection**, not a continuous distance score. Each signature field is a pass/fail gate; a candidate that fails any gate is rejected, not ranked lower.
+A match is one of three tiers. Each signature field is a pass/fail gate, so a failing field drops the candidate.
 
-A match reports its tier as `MatchQuality::Matched(MatchRank)` (ordering matters; the scores from `as_quality()` may be recalibrated):
+- **Specific**: exact fit on a named product or OS
+- **Generic**: exact fit on a catch-all signature
+- **Fuzzy**: TCP only, after a documented tolerance
 
-- **`Specific`** (1.0): exact fit on a **specified** signature (concrete product/OS)
-- **`Generic`** (0.8): exact fit on a **generic** catch-all signature
-- **`Fuzzy(FuzzyReason)`** (0.5): **fuzzy** fit (TCP only). The signature holds only after documented tolerances (e.g. missing `df`/`id+`, extra `id-`/`ecn`, implausible TTL hop distance), and the variant carries which ones
+**NotMatched** means the matcher ran and nothing fit. **Disabled** means no matcher was attached. HTTP stays on the exact tiers. A larger database labels more traffic; the tier of one observation stays the same.
 
-Other outcomes: **NotMatched** (matcher active, nothing fit) and **Disabled** (no matcher attached). On TCP, fuzzy matches also surface in `Params:` (`fuzzy (…)`, `generic`, `random_ttl`, `excess_dist`, `tos:0xNN`). HTTP signatures must fit exactly. There is no fuzzy tier.
-
-A richer database improves **coverage** (more traffic gets a label), not a higher score on the same observation.
+Scores, fuzzy reasons, and TCP `params` are in [Reading match results](huginn-net-db/README.md#reading-match-results).
 
 ## Companion: huginn-proxy
 
@@ -149,7 +147,7 @@ Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
 
 ### Attribution
 
-`huginn-net` is an independent Rust implementation inspired by the methodologies of `p0f` and `JA4`.
+`huginn-net` is an independent Rust implementation inspired by p0f, JA4, and the Akamai HTTP/2 fingerprint. The stable TLS signature (`JA4_s1`) comes from Huginn's own research.
 
 - **p0f v3** ([spec](https://lcamtuf.coredump.cx/p0f3/README)): TCP SYN fingerprinting follows the p0f v3 specification by Michal Zalewski.
 - **JA4** ([spec](https://github.com/FoxIO-LLC/ja4)): TLS fingerprinting follows the JA4 specification by FoxIO, LLC (BSD 3-Clause). Written from scratch; no JA4+ components (FoxIO License 1.1) are included. Copyright (c) 2023, FoxIO, LLC.
