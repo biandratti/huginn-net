@@ -155,6 +155,14 @@ fn test_tls_version_display() {
     assert_eq!(format!("{}", TlsVersion::Ssl3_0), "s3");
     assert_eq!(format!("{}", TlsVersion::Ssl2_0), "s2");
     assert_eq!(format!("{}", TlsVersion::Unknown(0x0305)), "00");
+
+    assert_eq!(TlsVersion::V1_0.label(), "1.0");
+    assert_eq!(TlsVersion::V1_1.label(), "1.1");
+    assert_eq!(TlsVersion::V1_2.label(), "1.2");
+    assert_eq!(TlsVersion::V1_3.label(), "1.3");
+    assert_eq!(TlsVersion::Ssl3_0.label(), "ssl3");
+    assert_eq!(TlsVersion::Ssl2_0.label(), "ssl2");
+    assert_eq!(TlsVersion::Unknown(0x0305).label(), "00");
 }
 
 #[test]

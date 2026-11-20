@@ -1,6 +1,8 @@
+#![forbid(unsafe_code)]
+
 #[path = "support/mod.rs"]
 mod support;
-use support::{Commands, FilterOptions, LiveMode, OutputFormat, initialize_logging};
+use support::{Commands, FilterOptions, LiveMode, initialize_logging};
 
 use clap::Parser;
 use huginn_net_db::{SharedTcpSignatureMatcher, TcpDatabase};
@@ -24,9 +26,6 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
@@ -63,14 +62,7 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 fn main() {
     let args = Args::parse();
 
-    initialize_logging(args.log_file, matches!(args.format, OutputFormat::Json));
-
-    #[cfg(not(feature = "json"))]
-    if matches!(args.format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli-tcp --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
+    initialize_logging(args.log_file);
 
     let (sender, receiver): (Sender<TcpAnalysisResult>, Receiver<TcpAnalysisResult>) =
         mpsc::channel();
@@ -187,33 +179,7 @@ fn main() {
             break;
         }
 
-        match args.format {
-            OutputFormat::Human => {
-                if let Some(syn) = output.syn {
-                    info!("{syn}");
-                }
-                if let Some(syn_ack) = output.syn_ack {
-                    info!("{syn_ack}");
-                }
-                if let Some(mtu) = output.mtu {
-                    info!("{mtu}");
-                }
-                if let Some(client_uptime) = output.client_uptime {
-                    info!("{client_uptime}");
-                }
-                if let Some(server_uptime) = output.server_uptime {
-                    info!("{server_uptime}");
-                }
-            }
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                match serde_json::to_string(&output) {
-                    Ok(json) => println!("{json}"),
-                    Err(e) => error!("Failed to serialize output: {e}"),
-                }
-            }
-        }
+        print_tcp(&output);
 
         if let Some(ref pool) = worker_pool_monitor {
             packet_count = packet_count.saturating_add(1);
@@ -226,4 +192,80 @@ fn main() {
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_tcp(output: &TcpAnalysisResult) {
+    #[cfg(not(any(
+        feature = "syn",
+        feature = "syn-ack",
+        feature = "mtu",
+        feature = "uptime"
+    )))]
+    let _ = output;
+    #[cfg(feature = "syn")]
+    if let Some(syn) = &output.syn {
+        support::Event::new(support::Kind::Syn)
+            .between(&syn.source.ip, syn.source.port, &syn.destination.ip, syn.destination.port)
+            .signature(syn.sig.to_string())
+            .matched(support::os_match(
+                syn.os_matched
+                    .os
+                    .as_ref()
+                    .map(|os| (os.name.as_str(), os.variant.as_deref())),
+            ))
+            .emit();
+    }
+    #[cfg(feature = "mtu")]
+    if let Some(mtu) = &output.mtu {
+        support::Event::new(support::Kind::Mtu)
+            .between(&mtu.source.ip, mtu.source.port, &mtu.destination.ip, mtu.destination.port)
+            .signature(mtu.mtu.to_string())
+            .matched(support::link(mtu.link.link.as_deref()))
+            .emit();
+    }
+    #[cfg(feature = "syn-ack")]
+    if let Some(syn_ack) = &output.syn_ack {
+        support::Event::new(support::Kind::SynAck)
+            .between(
+                &syn_ack.source.ip,
+                syn_ack.source.port,
+                &syn_ack.destination.ip,
+                syn_ack.destination.port,
+            )
+            .signature(syn_ack.sig.to_string())
+            .matched(support::os_match(
+                syn_ack
+                    .os_matched
+                    .os
+                    .as_ref()
+                    .map(|os| (os.name.as_str(), os.variant.as_deref())),
+            ))
+            .emit();
+    }
+    #[cfg(feature = "uptime")]
+    {
+        if let Some(uptime) = &output.client_uptime {
+            emit_uptime(uptime);
+        }
+        if let Some(uptime) = &output.server_uptime {
+            emit_uptime(uptime);
+        }
+    }
+}
+
+#[cfg(feature = "uptime")]
+fn emit_uptime(uptime: &huginn_net_tcp::UptimeOutput) {
+    let kind = match uptime.role {
+        huginn_net_tcp::UptimeRole::Client => support::Kind::UptimeClient,
+        huginn_net_tcp::UptimeRole::Server => support::Kind::UptimeServer,
+    };
+    support::Event::new(kind)
+        .between(
+            &uptime.source.ip,
+            uptime.source.port,
+            &uptime.destination.ip,
+            uptime.destination.port,
+        )
+        .signature(format!("{}d {}h {}m", uptime.days, uptime.hours, uptime.min))
+        .emit();
 }

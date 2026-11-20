@@ -69,37 +69,24 @@ pub struct FingerprintResult {
 impl FingerprintResult {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        #[cfg(feature = "tcp-syn")]
-        if self.tcp_syn.is_some() {
-            return false;
-        }
-        #[cfg(feature = "tcp-syn-ack")]
-        if self.tcp_syn_ack.is_some() {
-            return false;
-        }
-        #[cfg(feature = "tcp-mtu")]
-        if self.tcp_mtu.is_some() {
-            return false;
-        }
-        #[cfg(feature = "tcp-uptime")]
-        if self.tcp_client_uptime.is_some() {
-            return false;
-        }
-        #[cfg(feature = "tcp-uptime")]
-        if self.tcp_server_uptime.is_some() {
-            return false;
-        }
-        #[cfg(feature = "http-p0f-request")]
-        if self.http_request.is_some() {
-            return false;
-        }
-        #[cfg(feature = "http-p0f-response")]
-        if self.http_response.is_some() {
-            return false;
-        }
-        if self.tls_client.is_some() {
-            return false;
-        }
-        true
+        [
+            #[cfg(feature = "tcp-syn")]
+            self.tcp_syn.is_none(),
+            #[cfg(feature = "tcp-syn-ack")]
+            self.tcp_syn_ack.is_none(),
+            #[cfg(feature = "tcp-mtu")]
+            self.tcp_mtu.is_none(),
+            #[cfg(feature = "tcp-uptime")]
+            self.tcp_client_uptime.is_none(),
+            #[cfg(feature = "tcp-uptime")]
+            self.tcp_server_uptime.is_none(),
+            #[cfg(feature = "http-p0f-request")]
+            self.http_request.is_none(),
+            #[cfg(feature = "http-p0f-response")]
+            self.http_response.is_none(),
+            self.tls_client.is_none(),
+        ]
+        .into_iter()
+        .all(std::convert::identity)
     }
 }

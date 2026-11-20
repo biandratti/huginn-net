@@ -1,6 +1,8 @@
+#![forbid(unsafe_code)]
+
 #[path = "support/mod.rs"]
 mod support;
-use support::{Commands, FilterOptions, LiveMode, OutputFormat, initialize_logging};
+use support::{Commands, FilterOptions, LiveMode, initialize_logging};
 
 use clap::Parser;
 use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
@@ -23,9 +25,6 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
@@ -61,16 +60,8 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    let format = args.format;
 
-    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
-
-    #[cfg(not(feature = "json"))]
-    if matches!(format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli-http --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
+    initialize_logging(args.log_file);
 
     info!("Starting HTTP-only capture example");
 
@@ -163,27 +154,46 @@ fn main() {
             break;
         }
 
-        match format {
-            OutputFormat::Human => {
-                if let Some(http_request) = output.http_request {
-                    info!("{http_request}");
-                }
-                if let Some(http_response) = output.http_response {
-                    info!("{http_response}");
-                }
-            }
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                if !output.is_empty() {
-                    match serde_json::to_string(&output) {
-                        Ok(json) => println!("{json}"),
-                        Err(e) => error!("Failed to serialize output: {e}"),
-                    }
-                }
-            }
-        }
+        print_http(&output);
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_http(output: &HttpAnalysisResult) {
+    #[cfg(not(any(feature = "p0f-request", feature = "p0f-response")))]
+    let _ = output;
+    #[cfg(feature = "p0f-request")]
+    if let Some(request) = &output.http_request {
+        support::Event::new(support::Kind::HttpRequest)
+            .between(
+                &request.source.ip,
+                request.source.port,
+                &request.destination.ip,
+                request.destination.port,
+            )
+            .signature(request.sig.to_string())
+            .matched(support::product(request.browser_matched.browser.as_ref().map(|browser| {
+                (browser.name.as_str(), browser.family.as_deref(), browser.variant.as_deref())
+            })))
+            .note_opt(request.lang.as_deref())
+            .emit();
+    }
+    #[cfg(feature = "p0f-response")]
+    if let Some(response) = &output.http_response {
+        support::Event::new(support::Kind::HttpResponse)
+            .between(
+                &response.source.ip,
+                response.source.port,
+                &response.destination.ip,
+                response.destination.port,
+            )
+            .signature(response.sig.to_string())
+            .matched(support::product(response.web_server_matched.web_server.as_ref().map(
+                |server| {
+                    (server.name.as_str(), server.family.as_deref(), server.variant.as_deref())
+                },
+            )))
+            .emit();
+    }
 }

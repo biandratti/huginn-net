@@ -64,8 +64,7 @@ fn create_observable_package_ipv4(
 
     let http_package = http_process::process_http_ipv4(ipv4, http_flows, http_processors)?;
 
-    let http_result =
-        build_http_result(http_package, source.clone(), destination.clone(), matcher, os_source);
+    let http_result = build_http_result(http_package, source, destination, matcher, os_source);
 
     Ok(ObservablePackage { source, destination, http_result })
 }
@@ -100,8 +99,7 @@ fn create_observable_package_ipv6(
 
     let http_package = http_process::process_http_ipv6(ipv6, http_flows, http_processors)?;
 
-    let http_result =
-        build_http_result(http_package, source.clone(), destination.clone(), matcher, os_source);
+    let http_result = build_http_result(http_package, source, destination, matcher, os_source);
 
     Ok(ObservablePackage { source, destination, http_result })
 }
@@ -163,8 +161,8 @@ fn build_http_result(
         };
 
         let request_output = HttpRequestOutput {
-            source: source.clone(),
-            destination: destination.clone(),
+            source,
+            destination,
             lang: http_request.lang.clone(),
             params: build_params(&http_request.matching.expsw, notes),
             browser_matched: browser_quality,

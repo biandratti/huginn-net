@@ -10,7 +10,6 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
 keywords = ["p0f", "JA4", "fingerprinting", "network", "security"]
 categories = ["network-programming", "cryptography", "development-tools"]
 
@@ -68,13 +67,3 @@ tracing-subscriber = { workspace = true }
 [[example]]
 name = "cli"
 path = "../examples/cli.rs"
-required-features = [
-    "db",
-    "tcp-syn",
-    "tcp-syn-ack",
-    "tcp-mtu",
-    "tcp-uptime",
-    "tls-stable-v1",
-    "http-p0f-request",
-    "http-p0f-response",
-]

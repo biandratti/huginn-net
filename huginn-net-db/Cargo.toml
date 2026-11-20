@@ -9,7 +9,6 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
 keywords = ["p0f", "database", "parser", "fingerprinting", "network"]
 categories = ["network-programming"]
 

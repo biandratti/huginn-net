@@ -55,14 +55,13 @@ impl HttpAnalysisResult {
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        #[cfg(feature = "p0f-request")]
-        if self.http_request.is_some() {
-            return false;
-        }
-        #[cfg(feature = "p0f-response")]
-        if self.http_response.is_some() {
-            return false;
-        }
-        true
+        [
+            #[cfg(feature = "p0f-request")]
+            self.http_request.is_none(),
+            #[cfg(feature = "p0f-response")]
+            self.http_response.is_none(),
+        ]
+        .into_iter()
+        .all(std::convert::identity)
     }
 }

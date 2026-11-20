@@ -1,16 +1,20 @@
+#![forbid(unsafe_code)]
+
 #[path = "support/mod.rs"]
 mod support;
-use support::{FilterOptions, OutputFormat, initialize_logging};
+use support::{FilterOptions, initialize_logging};
 
 use clap::{Parser, Subcommand};
+#[cfg(feature = "db")]
+use huginn_net::Database;
 use huginn_net::output::FingerprintResult;
-use huginn_net::{Database, FilterConfig, HuginnNet, IpFilter, PortFilter};
+use huginn_net::{FilterConfig, HuginnNet, IpFilter, PortFilter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,9 +28,6 @@ struct Args {
     /// Log file path
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 #[derive(Subcommand, Debug)]
@@ -75,16 +76,8 @@ fn build_filter(filter_options: &FilterOptions) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    let format = args.format;
 
-    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
-
-    #[cfg(not(feature = "json"))]
-    if matches!(format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
+    initialize_logging(args.log_file);
 
     let (sender, receiver): (Sender<FingerprintResult>, Receiver<FingerprintResult>) =
         mpsc::channel();
@@ -101,6 +94,7 @@ fn main() {
         return;
     }
 
+    #[cfg(feature = "db")]
     let db = match Database::load_default() {
         Ok(db) => db,
         Err(e) => {
@@ -108,12 +102,18 @@ fn main() {
             return;
         }
     };
-    debug!("Loaded p0f TCP+HTTP database successfully");
+    #[cfg(feature = "db")]
+    tracing::debug!("Loaded p0f TCP+HTTP database successfully");
 
     thread::spawn(move || {
         let filter_config = build_filter(&args.filter);
 
-        let mut analyzer = match HuginnNet::new(Some(&db), 100, None) {
+        #[cfg(feature = "db")]
+        let built = HuginnNet::new(Some(&db), 100, None);
+        #[cfg(not(feature = "db"))]
+        let built = HuginnNet::new_observable(100, None);
+
+        let mut analyzer = match built {
             Ok(analyzer) => analyzer,
             Err(e) => {
                 error!("Failed to create HuginnNet analyzer: {e}");
@@ -147,45 +147,129 @@ fn main() {
             break;
         }
 
-        match format {
-            OutputFormat::Human => {
-                if let Some(tcp_syn) = output.tcp_syn {
-                    info!("{tcp_syn}");
-                }
-                if let Some(tcp_syn_ack) = output.tcp_syn_ack {
-                    info!("{tcp_syn_ack}");
-                }
-                if let Some(tcp_mtu) = output.tcp_mtu {
-                    info!("{tcp_mtu}");
-                }
-                if let Some(tcp_client_uptime) = output.tcp_client_uptime {
-                    info!("{tcp_client_uptime}");
-                }
-                if let Some(tcp_server_uptime) = output.tcp_server_uptime {
-                    info!("{tcp_server_uptime}");
-                }
-                if let Some(http_request) = output.http_request {
-                    info!("{http_request}");
-                }
-                if let Some(http_response) = output.http_response {
-                    info!("{http_response}");
-                }
-                if let Some(tls_client) = output.tls_client {
-                    info!("{tls_client}");
-                }
-            }
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                if !output.is_empty() {
-                    match serde_json::to_string(&output) {
-                        Ok(json) => println!("{json}"),
-                        Err(e) => error!("Failed to serialize output: {e}"),
-                    }
-                }
-            }
-        }
+        print_human(&output);
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_human(output: &FingerprintResult) {
+    #[cfg(feature = "tcp-syn")]
+    if let Some(syn) = &output.tcp_syn {
+        support::Event::new(support::Kind::Syn)
+            .between(&syn.source.ip, syn.source.port, &syn.destination.ip, syn.destination.port)
+            .signature(syn.sig.to_string())
+            .matched(support::os_match(
+                syn.os_matched
+                    .os
+                    .as_ref()
+                    .map(|os| (os.name.as_str(), os.variant.as_deref())),
+            ))
+            .emit();
+    }
+    #[cfg(feature = "tcp-mtu")]
+    if let Some(mtu) = &output.tcp_mtu {
+        support::Event::new(support::Kind::Mtu)
+            .between(&mtu.source.ip, mtu.source.port, &mtu.destination.ip, mtu.destination.port)
+            .signature(mtu.mtu.to_string())
+            .matched(support::link(mtu.link.link.as_deref()))
+            .emit();
+    }
+    #[cfg(feature = "tcp-syn-ack")]
+    if let Some(syn_ack) = &output.tcp_syn_ack {
+        support::Event::new(support::Kind::SynAck)
+            .between(
+                &syn_ack.source.ip,
+                syn_ack.source.port,
+                &syn_ack.destination.ip,
+                syn_ack.destination.port,
+            )
+            .signature(syn_ack.sig.to_string())
+            .matched(support::os_match(
+                syn_ack
+                    .os_matched
+                    .os
+                    .as_ref()
+                    .map(|os| (os.name.as_str(), os.variant.as_deref())),
+            ))
+            .emit();
+    }
+    #[cfg(feature = "tcp-uptime")]
+    {
+        if let Some(uptime) = &output.tcp_client_uptime {
+            emit_uptime(uptime);
+        }
+        if let Some(uptime) = &output.tcp_server_uptime {
+            emit_uptime(uptime);
+        }
+    }
+    #[cfg(feature = "http-p0f-request")]
+    if let Some(request) = &output.http_request {
+        support::Event::new(support::Kind::HttpRequest)
+            .between(
+                &request.source.ip,
+                request.source.port,
+                &request.destination.ip,
+                request.destination.port,
+            )
+            .signature(request.sig.to_string())
+            .matched(support::product(request.browser_matched.browser.as_ref().map(|browser| {
+                (browser.name.as_str(), browser.family.as_deref(), browser.variant.as_deref())
+            })))
+            .note_opt(request.lang.as_deref())
+            .emit();
+    }
+    #[cfg(feature = "http-p0f-response")]
+    if let Some(response) = &output.http_response {
+        support::Event::new(support::Kind::HttpResponse)
+            .between(
+                &response.source.ip,
+                response.source.port,
+                &response.destination.ip,
+                response.destination.port,
+            )
+            .signature(response.sig.to_string())
+            .matched(support::product(response.web_server_matched.web_server.as_ref().map(
+                |server| {
+                    (server.name.as_str(), server.family.as_deref(), server.variant.as_deref())
+                },
+            )))
+            .emit();
+    }
+    if let Some(tls) = &output.tls_client {
+        let from = support::endpoint(&tls.source.ip, tls.source.port);
+        let to = tls
+            .sig
+            .sni
+            .clone()
+            .unwrap_or_else(|| support::endpoint(&tls.destination.ip, tls.destination.port));
+        support::Event::new(support::Kind::Tls)
+            .flow(&from, &to)
+            .signature(tls.sig.ja4.full.value())
+            .matched(support::Match::hit(tls.sig.version.label()))
+            .emit();
+        #[cfg(feature = "tls-stable-v1")]
+        support::Event::new(support::Kind::TlsS1)
+            .flow(&from, &to)
+            .signature(tls.sig.ja4_stable_v1.full.value())
+            .matched(support::Match::hit(tls.sig.version.label()))
+            .emit();
+    }
+}
+
+#[cfg(feature = "tcp-uptime")]
+fn emit_uptime(uptime: &huginn_net::UptimeOutput) {
+    let kind = match uptime.role {
+        huginn_net::UptimeRole::Client => support::Kind::UptimeClient,
+        huginn_net::UptimeRole::Server => support::Kind::UptimeServer,
+    };
+    support::Event::new(kind)
+        .between(
+            &uptime.source.ip,
+            uptime.source.port,
+            &uptime.destination.ip,
+            uptime.destination.port,
+        )
+        .signature(format!("{}d {}h {}m", uptime.days, uptime.hours, uptime.min))
+        .emit();
 }

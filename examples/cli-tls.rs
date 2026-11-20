@@ -1,6 +1,8 @@
+#![forbid(unsafe_code)]
+
 #[path = "support/mod.rs"]
 mod support;
-use support::{FilterOptions, OutputFormat, initialize_logging};
+use support::{FilterOptions, initialize_logging};
 
 use clap::{Parser, Subcommand};
 use huginn_net_tls::{FilterConfig, HuginnNetTls, IpFilter, PortFilter, TlsClientOutput};
@@ -22,9 +24,6 @@ struct Args {
 
     #[arg(short = 'l', long = "log-file")]
     log_file: Option<String>,
-
-    #[arg(long, value_enum, default_value = "human")]
-    format: OutputFormat,
 }
 
 #[derive(Subcommand, Debug)]
@@ -96,16 +95,8 @@ fn build_filter(port: Option<u16>, ip: Option<String>) -> Option<FilterConfig> {
 
 fn main() {
     let args = Args::parse();
-    let format = args.format;
 
-    initialize_logging(args.log_file, matches!(format, OutputFormat::Json));
-
-    #[cfg(not(feature = "json"))]
-    if matches!(format, OutputFormat::Json) {
-        error!("error: --format json requires the `json` feature");
-        info!("hint:  cargo run --example cli-tls --features full,json -- --format json ...");
-        std::process::exit(1);
-    }
+    initialize_logging(args.log_file);
 
     info!("Starting TLS-only capture example");
 
@@ -224,17 +215,7 @@ fn main() {
             break;
         }
 
-        match format {
-            OutputFormat::Human => info!("{output}"),
-            OutputFormat::Json =>
-            {
-                #[cfg(feature = "json")]
-                match serde_json::to_string(&output) {
-                    Ok(json) => println!("{json}"),
-                    Err(e) => error!("Failed to serialize output: {e}"),
-                }
-            }
-        }
+        print_tls(&output);
 
         if let Some(ref pool) = worker_pool_monitor {
             packet_count = packet_count.saturating_add(1);
@@ -247,4 +228,24 @@ fn main() {
     }
 
     info!("Analysis shutdown completed");
+}
+
+fn print_tls(output: &TlsClientOutput) {
+    let from = support::endpoint(&output.source.ip, output.source.port);
+    let to = output
+        .sig
+        .sni
+        .clone()
+        .unwrap_or_else(|| support::endpoint(&output.destination.ip, output.destination.port));
+    support::Event::new(support::Kind::Tls)
+        .flow(&from, &to)
+        .signature(output.sig.ja4.full.value())
+        .matched(support::Match::hit(output.sig.version.label()))
+        .emit();
+    #[cfg(feature = "stable-v1")]
+    support::Event::new(support::Kind::TlsS1)
+        .flow(&from, &to)
+        .signature(output.sig.ja4_stable_v1.full.value())
+        .matched(support::Match::hit(output.sig.version.label()))
+        .emit();
 }
