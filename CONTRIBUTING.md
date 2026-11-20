@@ -20,13 +20,13 @@ Thank you for your interest in contributing to huginn-net! This document covers 
 
 huginn-net is a Cargo workspace with multiple crates:
 
-| Crate | Purpose |
-|-------|---------|
-| `huginn-net` | Unified multi-protocol fingerprinting (TCP + HTTP + TLS) |
-| `huginn-net-tcp` | TCP/OS fingerprinting (p0f-inspired) |
-| `huginn-net-http` | HTTP header analysis |
-| `huginn-net-tls` | TLS/JA4 fingerprinting |
-| `huginn-net-db` | Signature database parsing |
+| Crate             | Purpose                                                  |
+| ----------------- | -------------------------------------------------------- |
+| `huginn-net`      | Unified multi-protocol fingerprinting (TCP + HTTP + TLS) |
+| `huginn-net-tcp`  | TCP/OS fingerprinting (p0f-inspired)                     |
+| `huginn-net-http` | HTTP header analysis                                     |
+| `huginn-net-tls`  | TLS/JA4 fingerprinting                                   |
+| `huginn-net-db`   | Signature database parsing                               |
 
 Changes affecting public APIs should also update the relevant `README.md` inside the crate directory and `MIGRATION.md` if they introduce breaking changes.
 
@@ -35,17 +35,28 @@ Changes affecting public APIs should also update the relevant `README.md` inside
 ## Getting Started
 
 1. **Fork** the repository on GitHub and clone your fork:
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/huginn-net.git
    cd huginn-net
    ```
 
-2. **Install Rust** via [rustup.rs](https://rustup.rs/) (stable toolchain):
+2. **Install Rust** via [rustup.rs](https://rustup.rs/) (stable toolchain), or use the Nix flake:
+
    ```bash
    rustup toolchain install stable
    ```
 
-3. **Install required system dependency** for live capture:
+   With [Nix](https://nixos.org/download/) installed, `nix develop` gives you the stable Rust toolchain and other tools for development:
+
+   ```bash
+   nix develop          # dev shell with all tooling
+   nix build            # build the example CLIs into ./result/bin
+   nix fmt              # format Nix files with nixfmt
+   ```
+
+3. **Install required system dependency** for live capture (skip this step inside `nix develop`, which provides `libpcap` and `pkg-config`):
+
    ```bash
    # Debian/Ubuntu
    sudo apt-get install libpcap-dev
@@ -141,12 +152,12 @@ Use clear, descriptive messages in the imperative mood (`add`, `fix`, `update`).
 
 Apply the appropriate label so the release notes are generated correctly:
 
-| Label | When to use |
-|-------|------------|
-| `enhancement` | New feature or improvement |
-| `bug` | Bug fix |
-| `documentation` | Docs-only change |
-| `dependencies` | Dependency bump |
+| Label           | When to use                |
+| --------------- | -------------------------- |
+| `enhancement`   | New feature or improvement |
+| `bug`           | Bug fix                    |
+| `documentation` | Docs-only change           |
+| `dependencies`  | Dependency bump            |
 
 ---
 
