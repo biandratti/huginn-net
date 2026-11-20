@@ -78,7 +78,7 @@ fn load_signature() -> Option<(Signature, &'static str)> {
         };
         let mut tcp_flows = TtlCache::new(256);
         while let Some(Ok(pkt)) = reader.next_packet() {
-            if let Some(out) = process_tls_packet(&pkt.data, &mut tcp_flows) {
+            if let Some(out) = process_tls_packet(pkt.data(), &mut tcp_flows) {
                 return Some((signature_from_output(out), path));
             }
         }
