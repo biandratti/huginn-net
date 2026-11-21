@@ -21,9 +21,6 @@ syn-ack = ["dep:ttl_cache"]
 mtu = []
 uptime = ["dep:ttl_cache"]
 
-[lints]
-workspace = true
-
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }
@@ -42,6 +39,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true
 
 [[example]]
 name = "cli-tcp"

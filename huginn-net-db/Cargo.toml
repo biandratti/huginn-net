@@ -18,9 +18,6 @@ full = ["tcp", "http"]
 tcp = ["dep:huginn-net-tcp"]
 http = ["dep:huginn-net-http"]
 
-[lints]
-workspace = true
-
 [dependencies]
 huginn-net-http = { workspace = true, optional = true }
 huginn-net-tcp = { workspace = true, optional = true }
@@ -34,3 +31,6 @@ huginn-net-tcp = { workspace = true, features = ["full"] }
 lazy_static = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[lints]
+workspace = true

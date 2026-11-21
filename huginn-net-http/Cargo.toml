@@ -20,9 +20,6 @@ p0f-request = []
 p0f-response = []
 akamai = []
 
-[lints]
-workspace = true
-
 [dependencies]
 crossbeam-channel = { workspace = true }
 hpack-patched = { workspace = true }
@@ -44,6 +41,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true
 
 [[example]]
 name = "cli-http"
