@@ -4,6 +4,7 @@ use huginn_net_http::{Http2Frame, extract_akamai_fingerprint};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
+use crate::ActualFingerprint;
 use crate::common::TestResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -44,15 +45,6 @@ fn load_test_cases() -> Result<Vec<AkamaiTestCase>, Box<dyn std::error::Error>> 
     let cases = serde_json::from_str(&test_data)
         .map_err(|e| format!("Failed to parse test cases JSON: {e}"))?;
     Ok(cases)
-}
-
-struct ActualFingerprint<'a> {
-    signature: &'a str,
-    hash: &'a str,
-    settings_count: usize,
-    window_update: u32,
-    priority_count: usize,
-    pseudo_headers_count: usize,
 }
 
 fn assert_fingerprint_matches(

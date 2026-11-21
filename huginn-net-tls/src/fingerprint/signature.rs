@@ -106,7 +106,7 @@ impl Signature {
             Cow::Borrowed(&self.extensions)
         };
         #[cfg(not(feature = "stable-v1"))]
-        let extensions_after_exclude: std::borrow::Cow<[u16]> =
+        let extensions_after_exclude: std::borrow::Cow<'_, [u16]> =
             std::borrow::Cow::Borrowed(&self.extensions);
 
         let filtered_ciphers = filter_grease_values(&self.cipher_suites);

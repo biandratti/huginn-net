@@ -6,31 +6,13 @@
 //! that the umbrella crate correctly wires and combines both protocols in a
 //! single `FingerprintResult`.
 
-use huginn_net::{
-    Database, HuginnNet, NotCheckedReason, TcpMatchQuality, TcpMatchRank, UaOsAgreement,
-};
+use huginn_net::{NotCheckedReason, TcpMatchQuality, TcpMatchRank, UaOsAgreement};
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
-use std::path::Path;
-use std::sync::mpsc;
 
 const TCP_PCAP_PATH: &str = "../pcap/macos_tcp_flags.pcap";
 const HTTP_PCAP_PATH: &str = "../pcap/http-simple-get.pcap";
 
-use crate::common::TestResult;
-
-fn collect_results(
-    pcap_path: &str,
-) -> Result<Vec<huginn_net::output::FingerprintResult>, Box<dyn std::error::Error>> {
-    assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
-    let db = Database::load_default().map_err(|e| format!("load embedded p0f database: {e}"))?;
-    let mut analyzer =
-        HuginnNet::new(Some(&db), 1000, None).map_err(|e| format!("construct HuginnNet: {e}"))?;
-    let (tx, rx) = mpsc::channel();
-    analyzer
-        .analyze_pcap(pcap_path, tx, None)
-        .map_err(|e| format!("analyze pcap {pcap_path}: {e}"))?;
-    Ok(rx.into_iter().collect())
-}
+use crate::common::{TestResult, collect_results};
 
 #[test]
 fn e2e_tcp_syn_and_mtu_are_identified() -> TestResult {

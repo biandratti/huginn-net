@@ -1,11 +1,9 @@
-use huginn_net::{Database, HuginnNet, TcpMatchQuality};
+use huginn_net::TcpMatchQuality;
 use huginn_net_http::output::MatchQuality as HttpMatchQuality;
 use serde::Deserialize;
 use std::fs;
-use std::path::Path;
-use std::sync::mpsc;
 
-use crate::common::TestResult;
+use crate::common::{TestResult, collect_results};
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {
@@ -78,20 +76,6 @@ fn load_snapshot(name: &str) -> Result<PcapSnapshot, Box<dyn std::error::Error>>
     let snapshot = serde_json::from_str(&content)
         .map_err(|e| format!("failed to parse snapshot {path}: {e}"))?;
     Ok(snapshot)
-}
-
-fn collect_results(
-    pcap_path: &str,
-) -> Result<Vec<huginn_net::output::FingerprintResult>, Box<dyn std::error::Error>> {
-    assert!(Path::new(pcap_path).exists(), "PCAP not found: {pcap_path}");
-    let db = Database::load_default().map_err(|e| format!("load embedded p0f database: {e}"))?;
-    let mut analyzer =
-        HuginnNet::new(Some(&db), 1000, None).map_err(|e| format!("construct HuginnNet: {e}"))?;
-    let (tx, rx) = mpsc::channel();
-    analyzer
-        .analyze_pcap(pcap_path, tx, None)
-        .map_err(|e| format!("analyze pcap {pcap_path}: {e}"))?;
-    Ok(rx.into_iter().filter(|r| !r.is_empty()).collect())
 }
 
 fn endpoint(ip: impl ToString, port: u16) -> EndpointSnapshot {
@@ -224,7 +208,10 @@ fn assert_connection(
 
 fn run_golden_test(name: &str) -> TestResult {
     let snapshot = load_snapshot(name)?;
-    let results = collect_results(&snapshot.pcap_path)?;
+    let results: Vec<_> = collect_results(&snapshot.pcap_path)?
+        .into_iter()
+        .filter(|r| !r.is_empty())
+        .collect();
 
     assert_eq!(
         results.len(),

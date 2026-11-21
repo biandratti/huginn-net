@@ -2,12 +2,11 @@ use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::HuginnNetHttp;
 use huginn_net_http::output::{HttpAnalysisResult, MatchQuality};
 use serde::Deserialize;
-use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc::channel;
 
-use crate::common::TestResult;
+use crate::common::{TestResult, expected_quality, load_snapshot};
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {
@@ -51,15 +50,6 @@ struct HttpResponseSnapshot {
     headers_count: usize,
 }
 
-fn load_snapshot(name: &str) -> Result<PcapSnapshot, Box<dyn std::error::Error>> {
-    let path = format!("tests/snapshots/{name}.json");
-    let content =
-        fs::read_to_string(&path).map_err(|e| format!("failed to read snapshot {path}: {e}"))?;
-    let snapshot = serde_json::from_str(&content)
-        .map_err(|e| format!("failed to parse snapshot {path}: {e}"))?;
-    Ok(snapshot)
-}
-
 fn run_pcap_with_matcher(
     pcap_path: &str,
 ) -> Result<Vec<HttpAnalysisResult>, Box<dyn std::error::Error>> {
@@ -91,12 +81,7 @@ fn assert_quality(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match actual {
         MatchQuality::Matched(rank) => {
-            let expected_q: f32 = expected
-                .strip_prefix("Matched(")
-                .and_then(|s| s.strip_suffix(")"))
-                .ok_or_else(|| format!("{ctx}: unexpected quality format: {expected}"))?
-                .parse()
-                .map_err(|_| format!("{ctx}: cannot parse quality float from: {expected}"))?;
+            let expected_q = expected_quality(expected, ctx)?;
             let q = rank.as_quality();
             assert!(
                 (q - expected_q).abs() < 0.01,
@@ -282,7 +267,7 @@ fn assert_connection(
 }
 
 fn run_golden_test(snapshot_name: &str) -> TestResult {
-    let snapshot = load_snapshot(snapshot_name)?;
+    let snapshot: PcapSnapshot = load_snapshot(snapshot_name)?;
     let results = run_pcap_with_matcher(&snapshot.pcap_path)?;
 
     assert_eq!(
