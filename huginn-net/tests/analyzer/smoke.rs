@@ -16,21 +16,25 @@ use std::sync::mpsc;
 const TCP_PCAP_PATH: &str = "../pcap/macos_tcp_flags.pcap";
 const HTTP_PCAP_PATH: &str = "../pcap/http-simple-get.pcap";
 
-fn collect_results(pcap_path: &str) -> Vec<huginn_net::output::FingerprintResult> {
+use crate::TestResult;
+
+fn collect_results(
+    pcap_path: &str,
+) -> Result<Vec<huginn_net::output::FingerprintResult>, Box<dyn std::error::Error>> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
-    let db = Database::load_default().unwrap_or_else(|e| panic!("load embedded p0f database: {e}"));
-    let mut analyzer = HuginnNet::new(Some(&db), 1000, None)
-        .unwrap_or_else(|e| panic!("construct HuginnNet: {e}"));
+    let db = Database::load_default().map_err(|e| format!("load embedded p0f database: {e}"))?;
+    let mut analyzer =
+        HuginnNet::new(Some(&db), 1000, None).map_err(|e| format!("construct HuginnNet: {e}"))?;
     let (tx, rx) = mpsc::channel();
     analyzer
         .analyze_pcap(pcap_path, tx, None)
-        .unwrap_or_else(|e| panic!("analyze pcap {pcap_path}: {e}"));
-    rx.into_iter().collect()
+        .map_err(|e| format!("analyze pcap {pcap_path}: {e}"))?;
+    Ok(rx.into_iter().collect())
 }
 
 #[test]
-fn e2e_tcp_syn_and_mtu_are_identified() {
-    let results = collect_results(TCP_PCAP_PATH);
+fn e2e_tcp_syn_and_mtu_are_identified() -> TestResult {
+    let results = collect_results(TCP_PCAP_PATH)?;
 
     let first_syn = results
         .iter()
@@ -74,11 +78,12 @@ fn e2e_tcp_syn_and_mtu_are_identified() {
         "MTU 1504 is not in p0f.fp, matcher must return NotMatched, got {:?}",
         first_mtu.link.quality
     );
+    Ok(())
 }
 
 #[test]
-fn e2e_http_pcap_produces_both_tcp_and_http_results() {
-    let results = collect_results(HTTP_PCAP_PATH);
+fn e2e_http_pcap_produces_both_tcp_and_http_results() -> TestResult {
+    let results = collect_results(HTTP_PCAP_PATH)?;
 
     assert!(
         results.iter().any(|r| r.tcp_syn.is_some()),
@@ -125,4 +130,5 @@ fn e2e_http_pcap_produces_both_tcp_and_http_results() {
         "web server quality must be Matched, got {:?}",
         resp.web_server_matched.quality
     );
+    Ok(())
 }

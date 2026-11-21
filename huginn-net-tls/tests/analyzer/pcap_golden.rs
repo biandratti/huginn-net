@@ -5,6 +5,8 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
 
+use crate::TestResult;
+
 #[derive(Debug, Deserialize, Serialize)]
 struct PcapSnapshot {
     pcap_file: String,
@@ -50,16 +52,17 @@ struct Ja4Snapshot {
     raw: String,
 }
 
-fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
+fn load_snapshot(pcap_file: &str) -> Result<PcapSnapshot, Box<dyn std::error::Error>> {
     let snapshot_path = format!("tests/snapshots/{pcap_file}.json");
     let snapshot_content = fs::read_to_string(&snapshot_path)
-        .unwrap_or_else(|_| panic!("Failed to read snapshot file: {snapshot_path}"));
+        .map_err(|e| format!("Failed to read snapshot file {snapshot_path}: {e}"))?;
 
-    serde_json::from_str(&snapshot_content)
-        .unwrap_or_else(|e| panic!("Failed to parse snapshot JSON: {e}"))
+    let snapshot = serde_json::from_str(&snapshot_content)
+        .map_err(|e| format!("Failed to parse snapshot JSON: {e}"))?;
+    Ok(snapshot)
 }
 
-fn analyze_pcap_file(pcap_path: &str) -> Vec<TlsClientOutput> {
+fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TlsClientOutput>, Box<dyn std::error::Error>> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
     let mut analyzer = HuginnNetTls::new(10000);
@@ -75,22 +78,18 @@ fn analyze_pcap_file(pcap_path: &str) -> Vec<TlsClientOutput> {
 
     match handle.join() {
         Ok(Ok(())) => {}
-        Ok(Err(e)) => {
-            panic!("PCAP analysis failed: {e}");
-        }
-        Err(e) => {
-            panic!("Thread join failed: {e:?}");
-        }
+        Ok(Err(e)) => return Err(format!("PCAP analysis failed: {e}").into()),
+        Err(e) => return Err(format!("Thread join failed: {e:?}").into()),
     }
 
-    results
+    Ok(results)
 }
 
 fn assert_connection_matches_snapshot(
     actual: &TlsClientOutput,
     expected: &ConnectionSnapshot,
     connection_index: usize,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(
         actual.source.ip.to_string(),
         expected.source.ip,
@@ -117,7 +116,7 @@ fn assert_connection_matches_snapshot(
         "V1_2" => TlsVersion::V1_2,
         "V1_1" => TlsVersion::V1_1,
         "V1_0" => TlsVersion::V1_0,
-        _ => panic!("Unknown TLS version: {}", expected.tls.version),
+        other => return Err(format!("Unknown TLS version: {other}").into()),
     };
 
     assert_eq!(
@@ -247,12 +246,13 @@ fn assert_connection_matches_snapshot(
         expected.tls.ja4_stable_v1.raw,
         "Connection {connection_index}: JA4 stable v1 raw mismatch"
     );
+    Ok(())
 }
 
 /// Golden test: compares PCAP analysis output against known-good JSON snapshots
-fn test_pcap_with_snapshot(pcap_file: &str) {
-    let snapshot = load_snapshot(pcap_file);
-    let results = analyze_pcap_file(&snapshot.pcap_path);
+fn test_pcap_with_snapshot(pcap_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let snapshot = load_snapshot(pcap_file)?;
+    let results = analyze_pcap_file(&snapshot.pcap_path)?;
 
     assert_eq!(
         results.len(),
@@ -264,17 +264,19 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
     );
 
     for (i, (actual, expected)) in results.iter().zip(snapshot.connections.iter()).enumerate() {
-        assert_connection_matches_snapshot(actual, expected, i);
+        assert_connection_matches_snapshot(actual, expected, i)?;
     }
+    Ok(())
 }
 
 #[test]
-fn test_golden_sigalg_grease_pcap() {
-    test_pcap_with_snapshot("sigalg-grease.pcap");
+fn test_golden_sigalg_grease_pcap() -> TestResult {
+    test_pcap_with_snapshot("sigalg-grease.pcap")?;
+    Ok(())
 }
 
 #[test]
-fn test_golden_pcap_snapshots() {
+fn test_golden_pcap_snapshots() -> TestResult {
     let golden_test_cases = [
         "tls12.pcap",
         "tls-alpn-h2.pcap", // IPv6 TLS 1.2 with NULL datalink format
@@ -288,17 +290,18 @@ fn test_golden_pcap_snapshots() {
 
     for pcap_file in golden_test_cases {
         println!("Running golden test for: {pcap_file}");
-        test_pcap_with_snapshot(pcap_file);
+        test_pcap_with_snapshot(pcap_file)?;
     }
+    Ok(())
 }
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_pcap_group_yields_single_ja4_s1() {
+fn test_pcap_group_yields_single_ja4_s1() -> TestResult {
     use std::collections::{BTreeMap, BTreeSet};
 
-    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
-    let results = analyze_pcap_file(&snapshot.pcap_path);
+    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap")?;
+    let results = analyze_pcap_file(&snapshot.pcap_path)?;
     assert!(results.len() > 1, "need several hellos to group");
 
     let mut groups: BTreeMap<(String, String, String), Vec<&TlsClientOutput>> = BTreeMap::new();
@@ -330,10 +333,14 @@ fn test_pcap_group_yields_single_ja4_s1() {
         "this pcap must contain at least one group that official JA4 splits, \
          otherwise it does not exercise the collapse"
     );
+    Ok(())
 }
 
 #[cfg(feature = "stable-v1")]
-fn analyze_pcap_with(pcap_path: &str, analyzer: HuginnNetTls) -> Vec<TlsClientOutput> {
+fn analyze_pcap_with(
+    pcap_path: &str,
+    analyzer: HuginnNetTls,
+) -> Result<Vec<TlsClientOutput>, Box<dyn std::error::Error>> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
     let mut analyzer = analyzer;
     let (sender, receiver) = mpsc::channel::<TlsClientOutput>();
@@ -345,30 +352,26 @@ fn analyze_pcap_with(pcap_path: &str, analyzer: HuginnNetTls) -> Vec<TlsClientOu
     }
     match handle.join() {
         Ok(Ok(())) => {}
-        Ok(Err(e)) => {
-            panic!("PCAP analysis failed: {e}");
-        }
-        Err(e) => {
-            panic!("Thread join failed: {e:?}");
-        }
+        Ok(Err(e)) => return Err(format!("PCAP analysis failed: {e}").into()),
+        Err(e) => return Err(format!("Thread join failed: {e:?}").into()),
     }
 
-    results
+    Ok(results)
 }
 
 #[cfg(feature = "stable-v1")]
 #[test]
-fn test_analyzer_s1_excluded_extensions_widens_denylist() {
-    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap");
-    let canonical = analyze_pcap_file(&snapshot.pcap_path);
+fn test_analyzer_s1_excluded_extensions_widens_denylist() -> TestResult {
+    let snapshot = load_snapshot("macos_safari_tls_extensions.pcap")?;
+    let canonical = analyze_pcap_file(&snapshot.pcap_path)?;
     let empty_excluded = analyze_pcap_with(
         &snapshot.pcap_path,
         HuginnNetTls::new(10000).with_s1_excluded_extensions([]),
-    );
+    )?;
     let widened = analyze_pcap_with(
         &snapshot.pcap_path,
         HuginnNetTls::new(10000).with_s1_excluded_extensions([0x44cd]),
-    );
+    )?;
 
     assert!(!canonical.is_empty());
     assert_eq!(canonical.len(), empty_excluded.len());
@@ -386,4 +389,5 @@ fn test_analyzer_s1_excluded_extensions_widens_denylist() {
         assert_eq!(canonical[i].sig.ja4.full.value(), widened[i].sig.ja4.full.value());
         assert!(canonical[i].sig.extensions.contains(&0x44cd));
     }
+    Ok(())
 }

@@ -7,14 +7,12 @@ fn assert_parser_error<T>(
     result: Result<Option<T>, Http2ParseError>,
     expected_discriminant: Http2ParseError,
 ) {
-    match result {
-        Err(actual) => assert_eq!(
-            std::mem::discriminant(&actual),
-            std::mem::discriminant(&expected_discriminant),
-            "Expected error type {expected_discriminant:?} but got {actual:?}"
-        ),
-        Ok(_) => panic!("Expected error {expected_discriminant:?} but got Ok"),
-    }
+    let actual = result.err();
+    assert_eq!(
+        actual.as_ref().map(std::mem::discriminant),
+        Some(std::mem::discriminant(&expected_discriminant)),
+        "expected error {expected_discriminant:?}, got {actual:?}"
+    );
 }
 
 fn create_http2_frame(frame_type: u8, stream_id: u32, payload: &[u8]) -> Vec<u8> {

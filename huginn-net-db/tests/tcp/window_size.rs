@@ -4,6 +4,8 @@ use huginn_net_tcp::ObservableTcp;
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
 
+use crate::TestResult;
+
 fn observed(
     raw_ttl: u8,
     mss: Option<u16>,
@@ -48,26 +50,28 @@ fn observed_syn(
     observed(raw_ttl, mss, window, wscale, olayout, quirks, None)
 }
 
-fn matched_request_flavor(syn: &ObservableTcp) -> Option<(String, Option<String>)> {
-    let db = match TcpDatabase::load_default() {
-        Ok(db) => db,
-        Err(e) => panic!("failed to load default database: {e}"),
+type Flavor = Option<(String, Option<String>)>;
+
+fn matched_request_flavor(syn: &ObservableTcp) -> Result<Flavor, Box<dyn std::error::Error>> {
+    let db =
+        TcpDatabase::load_default().map_err(|e| format!("failed to load default database: {e}"))?;
+    let Some(found) = TcpSignatureMatcher::new(&db).match_tcp_request(&syn.matching) else {
+        return Ok(None);
     };
-    let found = TcpSignatureMatcher::new(&db).match_tcp_request(&syn.matching)?;
-    Some((found.os.name, found.os.variant))
+    Ok(Some((found.os.name, found.os.variant)))
 }
 
-fn matched_response_flavor(syn_ack: &ObservableTcp) -> Option<(String, Option<String>)> {
-    let db = match TcpDatabase::load_default() {
-        Ok(db) => db,
-        Err(e) => panic!("failed to load default database: {e}"),
+fn matched_response_flavor(syn_ack: &ObservableTcp) -> Result<Flavor, Box<dyn std::error::Error>> {
+    let db =
+        TcpDatabase::load_default().map_err(|e| format!("failed to load default database: {e}"))?;
+    let Some(found) = TcpSignatureMatcher::new(&db).match_tcp_response(&syn_ack.matching) else {
+        return Ok(None);
     };
-    let found = TcpSignatureMatcher::new(&db).match_tcp_response(&syn_ack.matching)?;
-    Some((found.os.name, found.os.variant))
+    Ok(Some((found.os.name, found.os.variant)))
 }
 
 #[test]
-fn a_windows_syn_matches_its_literal_window() {
+fn a_windows_syn_matches_its_literal_window() -> TestResult {
     // s:win:Windows:7, 8 or 8.1 -> *:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0
     let syn = observed_syn(
         128,
@@ -79,26 +83,28 @@ fn a_windows_syn_matches_its_literal_window() {
     );
 
     assert_eq!(
-        matched_request_flavor(&syn),
+        matched_request_flavor(&syn)?,
         Some(("Windows".to_string(), Some("7, 8 or 8.1".to_string()))),
         "a window of 8192 is the literal value the signature declares"
     );
+    Ok(())
 }
 
 #[test]
-fn an_nmap_scan_matches_its_literal_window() {
+fn an_nmap_scan_matches_its_literal_window() -> TestResult {
     // s:!:NMap:SYN scan -> *:64-:0:1460:1024,0:mss::0
     let syn = observed_syn(64, Some(1460), 1024, Some(0), vec![TcpOption::Mss], QuirkSet::EMPTY);
 
     assert_eq!(
-        matched_request_flavor(&syn),
+        matched_request_flavor(&syn)?,
         Some(("NMap".to_string(), Some("SYN scan".to_string()))),
         "a window of 1024 is the literal value the signature declares"
     );
+    Ok(())
 }
 
 #[test]
-fn a_window_that_is_a_multiple_of_the_mss_matches_an_mss_signature() {
+fn a_window_that_is_a_multiple_of_the_mss_matches_an_mss_signature() -> TestResult {
     // g:unix:Linux:2.2.x-3.x accepts any window, so aim at the specific
     // s:unix:Linux:3.11 and newer -> *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
     let syn = observed_syn(
@@ -111,14 +117,15 @@ fn a_window_that_is_a_multiple_of_the_mss_matches_an_mss_signature() {
     );
 
     assert_eq!(
-        matched_request_flavor(&syn),
+        matched_request_flavor(&syn)?,
         Some(("Linux".to_string(), Some("3.11 and newer".to_string()))),
         "29200 is exactly 20 times the MSS"
     );
+    Ok(())
 }
 
 #[test]
-fn a_window_that_is_not_a_multiple_of_the_mss_does_not_match_an_mss_signature() {
+fn a_window_that_is_not_a_multiple_of_the_mss_does_not_match_an_mss_signature() -> TestResult {
     // Same signature as above, but 65535 is only 44.8 times an MSS of 1460:
     // p0f rejects it because the remainder is not zero.
     let syn = observed_syn(
@@ -131,14 +138,15 @@ fn a_window_that_is_not_a_multiple_of_the_mss_does_not_match_an_mss_signature() 
     );
 
     assert_ne!(
-        matched_request_flavor(&syn).and_then(|(_, flavor)| flavor),
+        matched_request_flavor(&syn)?.and_then(|(_, flavor)| flavor),
         Some("3.11 and newer".to_string()),
         "65535 leaves a remainder of 1295 over an MSS of 1460"
     );
+    Ok(())
 }
 
 #[test]
-fn a_syn_ack_window_sized_off_the_peer_mss_matches_and_renders() {
+fn a_syn_ack_window_sized_off_the_peer_mss_matches_and_renders() -> TestResult {
     // s:unix:Linux:3.x -> *:64:0:*:mss*10,*:mss,sok,ts,nop,ws:df:0
     // Own MSS 1460 does not divide 14000; the client's 1400 does (10×).
     let syn_ack = observed(
@@ -157,14 +165,15 @@ fn a_syn_ack_window_sized_off_the_peer_mss_matches_and_renders() {
         syn_ack
     );
     assert_eq!(
-        matched_response_flavor(&syn_ack),
+        matched_response_flavor(&syn_ack)?,
         Some(("Linux".to_string(), Some("3.x".to_string()))),
         "mss*10 against the peer is what the Linux 3.x response signature declares"
     );
+    Ok(())
 }
 
 #[test]
-fn without_the_peer_mss_that_same_window_does_not_match() {
+fn without_the_peer_mss_that_same_window_does_not_match() -> TestResult {
     let syn_ack = observed(
         64,
         Some(1460),
@@ -180,7 +189,8 @@ fn without_the_peer_mss_that_same_window_does_not_match() {
         "without a peer MSS the window is not 10× anything we try"
     );
     assert_ne!(
-        matched_response_flavor(&syn_ack).and_then(|(_, flavor)| flavor),
+        matched_response_flavor(&syn_ack)?.and_then(|(_, flavor)| flavor),
         Some("3.x".to_string())
     );
+    Ok(())
 }

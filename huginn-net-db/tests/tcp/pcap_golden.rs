@@ -7,6 +7,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc;
 
+use crate::TestResult;
+
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {
     pcap_path: String,
@@ -59,18 +61,21 @@ struct UptimeSnapshot {
     raw_frequency: f64,
 }
 
-fn load_snapshot(name: &str) -> PcapSnapshot {
+fn load_snapshot(name: &str) -> Result<PcapSnapshot, Box<dyn std::error::Error>> {
     let path = format!("tests/snapshots/{name}.json");
     let content =
-        fs::read_to_string(&path).unwrap_or_else(|_| panic!("failed to read snapshot: {path}"));
-    serde_json::from_str(&content)
-        .unwrap_or_else(|e| panic!("failed to parse snapshot {path}: {e}"))
+        fs::read_to_string(&path).map_err(|e| format!("failed to read snapshot {path}: {e}"))?;
+    let snapshot = serde_json::from_str(&content)
+        .map_err(|e| format!("failed to parse snapshot {path}: {e}"))?;
+    Ok(snapshot)
 }
 
-fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
+fn run_pcap_with_matcher(
+    pcap_path: &str,
+) -> Result<Vec<TcpAnalysisResult>, Box<dyn std::error::Error>> {
     assert!(Path::new(pcap_path).exists(), "PCAP not found: {pcap_path}");
 
-    let db = TcpDatabase::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
+    let db = TcpDatabase::load_default().map_err(|e| format!("failed to load database: {e}"))?;
     let matcher = Arc::new(SharedTcpSignatureMatcher::new(Arc::new(db)));
 
     let mut analyzer = HuginnNetTcp::new(1000).with_matcher(matcher);
@@ -78,23 +83,28 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<TcpAnalysisResult> {
     let (tx, rx) = mpsc::channel();
     analyzer
         .analyze_pcap(pcap_path, tx, None)
-        .unwrap_or_else(|e| panic!("PCAP analysis failed: {e}"));
+        .map_err(|e| format!("PCAP analysis failed: {e}"))?;
 
     // Ignore uptime-only ACKs (wall-clock `MIN_TWAIT` fires under tarpaulin).
-    rx.into_iter()
+    Ok(rx
+        .into_iter()
         .filter(|r| r.syn.is_some() || r.syn_ack.is_some() || r.mtu.is_some())
-        .collect()
+        .collect())
 }
 
-fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
+fn assert_quality(
+    actual: &MatchQuality,
+    expected: &str,
+    ctx: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     match actual {
         MatchQuality::Matched(rank) => {
             let expected_q: f32 = expected
                 .strip_prefix("Matched(")
                 .and_then(|s| s.strip_suffix(")"))
-                .unwrap_or_else(|| panic!("{ctx}: unexpected quality format: {expected}"))
+                .ok_or_else(|| format!("{ctx}: unexpected quality format: {expected}"))?
                 .parse()
-                .unwrap_or_else(|_| panic!("{ctx}: cannot parse quality float: {expected}"));
+                .map_err(|_| format!("{ctx}: cannot parse quality float: {expected}"))?;
             let quality = rank.as_quality();
             assert!(
                 (quality - expected_q).abs() < 0.01,
@@ -104,6 +114,7 @@ fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
         MatchQuality::NotMatched => assert_eq!(expected, "NotMatched", "{ctx}"),
         MatchQuality::Disabled => assert_eq!(expected, "Disabled", "{ctx}"),
     }
+    Ok(())
 }
 
 fn assert_fuzzy(actual: &MatchQuality, expected: &str, ctx: &str) {
@@ -113,7 +124,11 @@ fn assert_fuzzy(actual: &MatchQuality, expected: &str, ctx: &str) {
     assert_eq!(rendered, expected, "{ctx}: tolerated difference");
 }
 
-fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, idx: usize) {
+fn assert_connection(
+    actual: &TcpAnalysisResult,
+    expected: &ConnectionSnapshot,
+    idx: usize,
+) -> TestResult {
     if let (Some(actual_syn), Some(exp_syn)) = (&actual.syn, &expected.tcp_analysis.syn) {
         assert_eq!(
             actual_syn.source.ip.to_string(),
@@ -141,9 +156,9 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
 
         if let Some(expected_name) = &exp_syn.os_name {
             let os =
-                actual_syn.os_matched.os.as_ref().unwrap_or_else(|| {
-                    panic!("connection {idx}: expected OS match for SYN, got None")
-                });
+                actual_syn.os_matched.os.as_ref().ok_or_else(|| {
+                    format!("connection {idx}: expected OS match for SYN, got None")
+                })?;
             assert_eq!(&os.name, expected_name, "connection {idx}: SYN os_name");
         } else {
             assert!(
@@ -158,7 +173,7 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
                 .os_matched
                 .os
                 .as_ref()
-                .unwrap_or_else(|| panic!("connection {idx}: expected OS for SYN family"));
+                .ok_or_else(|| format!("connection {idx}: expected OS for SYN family"))?;
             assert_eq!(
                 os.family.as_deref(),
                 Some(expected_family.as_str()),
@@ -171,7 +186,7 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
                 .os_matched
                 .os
                 .as_ref()
-                .unwrap_or_else(|| panic!("connection {idx}: expected OS for SYN variant"));
+                .ok_or_else(|| format!("connection {idx}: expected OS for SYN variant"))?;
             assert_eq!(
                 os.variant.as_deref(),
                 Some(expected_variant.as_str()),
@@ -184,7 +199,7 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
                 &actual_syn.os_matched.quality,
                 expected_quality,
                 &format!("connection {idx} SYN"),
-            );
+            )?;
         }
 
         if let Some(expected_fuzzy) = &exp_syn.fuzzy {
@@ -215,9 +230,9 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
         );
 
         if let Some(expected_name) = &exp_syn_ack.os_name {
-            let os = actual_syn_ack.os_matched.os.as_ref().unwrap_or_else(|| {
-                panic!("connection {idx}: expected OS match for SYN-ACK, got None")
-            });
+            let os = actual_syn_ack.os_matched.os.as_ref().ok_or_else(|| {
+                format!("connection {idx}: expected OS match for SYN-ACK, got None")
+            })?;
             assert_eq!(&os.name, expected_name, "connection {idx}: SYN-ACK os_name");
         } else {
             assert!(
@@ -232,7 +247,7 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
                 &actual_syn_ack.os_matched.quality,
                 expected_quality,
                 &format!("connection {idx} SYN-ACK"),
-            );
+            )?;
         }
 
         if let Some(expected_fuzzy) = &exp_syn_ack.fuzzy {
@@ -281,11 +296,12 @@ fn assert_connection(actual: &TcpAnalysisResult, expected: &ConnectionSnapshot, 
             "connection {idx}: server uptime frequency"
         );
     }
+    Ok(())
 }
 
-fn run_golden_test(snapshot_name: &str) {
-    let snapshot = load_snapshot(snapshot_name);
-    let results = run_pcap_with_matcher(&snapshot.pcap_path);
+fn run_golden_test(snapshot_name: &str) -> TestResult {
+    let snapshot = load_snapshot(snapshot_name)?;
+    let results = run_pcap_with_matcher(&snapshot.pcap_path)?;
 
     assert_eq!(
         results.len(),
@@ -296,17 +312,19 @@ fn run_golden_test(snapshot_name: &str) {
     );
 
     for (i, (actual, expected)) in results.iter().zip(snapshot.connections.iter()).enumerate() {
-        assert_connection(actual, expected, i);
+        assert_connection(actual, expected, i)?;
     }
+    Ok(())
 }
 
 #[test]
-fn test_golden_tcp_pcap_with_matcher() {
+fn test_golden_tcp_pcap_with_matcher() -> TestResult {
     let cases = [
         "macos_tcp_flags.pcap",
         // add more snapshot names here as pcap files are added
     ];
     for name in cases {
-        run_golden_test(name);
+        run_golden_test(name)?;
     }
+    Ok(())
 }

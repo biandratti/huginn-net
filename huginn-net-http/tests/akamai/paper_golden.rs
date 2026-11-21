@@ -9,6 +9,8 @@ use huginn_net_http::{Http2Frame, extract_akamai_fingerprint};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
+use crate::TestResult;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PaperTestCase {
     name: String,
@@ -42,16 +44,12 @@ impl From<FrameSnapshot> for Http2Frame {
     }
 }
 
-fn load_paper_test_cases() -> Vec<PaperTestCase> {
-    let test_data = match fs::read_to_string("tests/snapshots/akamai_paper_cases.json") {
-        Ok(data) => data,
-        Err(e) => panic!("Failed to read akamai_paper_cases.json: {e}"),
-    };
-
-    match serde_json::from_str(&test_data) {
-        Ok(cases) => cases,
-        Err(e) => panic!("Failed to parse paper test cases JSON: {e}"),
-    }
+fn load_paper_test_cases() -> Result<Vec<PaperTestCase>, Box<dyn std::error::Error>> {
+    let test_data = fs::read_to_string("tests/snapshots/akamai_paper_cases.json")
+        .map_err(|e| format!("Failed to read akamai_paper_cases.json: {e}"))?;
+    let cases = serde_json::from_str(&test_data)
+        .map_err(|e| format!("Failed to parse paper test cases JSON: {e}"))?;
+    Ok(cases)
 }
 
 struct ActualFingerprint<'a> {
@@ -97,8 +95,8 @@ fn assert_paper_fingerprint_matches(
 
 /// Main test: Validates against Blackhat EU 2017 paper examples
 #[test]
-fn test_paper_golden_snapshots() {
-    let test_cases = load_paper_test_cases();
+fn test_paper_golden_snapshots() -> TestResult {
+    let test_cases = load_paper_test_cases()?;
 
     for test_case in test_cases {
         println!("📄 Running Paper Test: {}", test_case.name);
@@ -134,6 +132,7 @@ fn test_paper_golden_snapshots() {
             }
         }
     }
+    Ok(())
 }
 
 #[test]

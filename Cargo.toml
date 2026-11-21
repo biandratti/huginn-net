@@ -9,7 +9,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "2.2.2"
+version = "2.2.1"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
@@ -22,10 +22,10 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 crossbeam-channel = "0.5.17"
 ctrlc = "3.5.3"
 hpack-patched = "0.3.0"
-huginn-net-db = { path = "huginn-net-db", version = "2.2.2" }
-huginn-net-http = { path = "huginn-net-http", version = "2.2.2" }
-huginn-net-tcp = { path = "huginn-net-tcp", version = "2.2.2" }
-huginn-net-tls = { path = "huginn-net-tls", version = "2.2.2" }
+huginn-net-db = { path = "huginn-net-db", version = "2.2.1" }
+huginn-net-http = { path = "huginn-net-http", version = "2.2.1" }
+huginn-net-tcp = { path = "huginn-net-tcp", version = "2.2.1" }
+huginn-net-tls = { path = "huginn-net-tls", version = "2.2.1" }
 lazy_static = "1.5.1"
 
 nom = "8.0.0"
@@ -41,7 +41,16 @@ tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 ttl_cache = "0.5.1"
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+
 [workspace.lints.clippy]
+dbg_macro = "deny"
+exit = "deny"
+panic = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
 expect_used = "deny"
 unreachable = "deny"
 arithmetic_side_effects = "deny"

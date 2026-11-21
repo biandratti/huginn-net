@@ -4,6 +4,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
 
+use crate::TestResult;
+
 #[derive(Debug, Deserialize, Serialize)]
 struct PcapSnapshot {
     pcap_file: String,
@@ -58,13 +60,14 @@ struct UptimeSnapshot {
     raw_frequency: f64,
 }
 
-fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
+fn load_snapshot(pcap_file: &str) -> Result<PcapSnapshot, Box<dyn std::error::Error>> {
     let snapshot_path = format!("tests/snapshots/{pcap_file}.json");
     let snapshot_content = fs::read_to_string(&snapshot_path)
-        .unwrap_or_else(|_| panic!("Failed to read snapshot file: {snapshot_path}"));
+        .map_err(|e| format!("Failed to read snapshot file {snapshot_path}: {e}"))?;
 
-    serde_json::from_str(&snapshot_content)
-        .unwrap_or_else(|e| panic!("Failed to parse snapshot JSON: {e}"))
+    let snapshot = serde_json::from_str(&snapshot_content)
+        .map_err(|e| format!("Failed to parse snapshot JSON: {e}"))?;
+    Ok(snapshot)
 }
 
 fn analyze_pcap_file(pcap_path: &str) -> Result<Vec<TcpAnalysisResult>, HuginnNetTcpError> {
@@ -211,10 +214,9 @@ fn assert_connection_matches_snapshot(
 }
 
 /// Golden test: compares PCAP analysis output against known-good JSON snapshots.
-fn test_pcap_with_snapshot(pcap_file: &str) {
-    let snapshot = load_snapshot(pcap_file);
-    let results = analyze_pcap_file(&snapshot.pcap_path)
-        .unwrap_or_else(|e| panic!("Failed to analyze PCAP file: {e}"));
+fn test_pcap_with_snapshot(pcap_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let snapshot = load_snapshot(pcap_file)?;
+    let results = analyze_pcap_file(&snapshot.pcap_path)?;
 
     assert_eq!(
         results.len(),
@@ -228,10 +230,11 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
     for (i, (actual, expected)) in results.iter().zip(snapshot.connections.iter()).enumerate() {
         assert_connection_matches_snapshot(actual, expected, i);
     }
+    Ok(())
 }
 
 #[test]
-fn test_golden_tcp_snapshots() {
+fn test_golden_tcp_snapshots() -> TestResult {
     let golden_test_cases = [
         "macos_tcp_flags.pcap",
         // Add more PCAP files here as golden tests:
@@ -241,11 +244,13 @@ fn test_golden_tcp_snapshots() {
 
     for pcap_file in golden_test_cases {
         println!("Running golden test for: {pcap_file}");
-        test_pcap_with_snapshot(pcap_file);
+        test_pcap_with_snapshot(pcap_file)?;
     }
+    Ok(())
 }
 
 #[test]
-fn test_macos_tcp_flags_pcap_snapshot() {
-    test_pcap_with_snapshot("macos_tcp_flags.pcap");
+fn test_macos_tcp_flags_pcap_snapshot() -> TestResult {
+    test_pcap_with_snapshot("macos_tcp_flags.pcap")?;
+    Ok(())
 }

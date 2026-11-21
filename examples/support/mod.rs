@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+// Shared helpers compiled as a module by each example binary.
+#![allow(clippy::exit, clippy::print_stderr, unreachable_pub)]
 
 use std::io::{IsTerminal, Write};
 use std::net::IpAddr;

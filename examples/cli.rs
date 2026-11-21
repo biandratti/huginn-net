@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+// Example binaries are CLIs: they print results and exit with a status code.
+#![allow(clippy::exit)]
 
 #[path = "support/mod.rs"]
 mod support;
