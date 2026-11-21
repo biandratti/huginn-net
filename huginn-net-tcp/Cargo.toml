@@ -21,6 +21,9 @@ syn-ack = ["dep:ttl_cache"]
 mtu = []
 uptime = ["dep:ttl_cache"]
 
+[lints]
+workspace = true
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }

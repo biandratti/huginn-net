@@ -94,18 +94,8 @@ cargo fmt --all
 # Run the full test suite
 cargo test --all
 
-# Lint — same flags used in CI
-cargo clippy --workspace --all-features --all-targets -- \
-  -D warnings \
-  -D clippy::expect_used \
-  -D clippy::unreachable \
-  -D clippy::arithmetic_side_effects \
-  -D clippy::unwrap_used \
-  -D clippy::todo \
-  -D clippy::redundant_clone \
-  -D clippy::unimplemented \
-  -D clippy::missing_panics_doc \
-  -D clippy::redundant_field_names
+# Lint — same as CI; the extra clippy lints are set in [workspace.lints] in Cargo.toml
+cargo clippy --workspace --all-features --all-targets -- -D warnings
 
 # Check for security advisories and license issues
 cargo deny check

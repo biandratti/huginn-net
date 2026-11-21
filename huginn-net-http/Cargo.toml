@@ -20,6 +20,9 @@ p0f-request = []
 p0f-response = []
 akamai = []
 
+[lints]
+workspace = true
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 hpack-patched = { workspace = true }

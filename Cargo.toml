@@ -40,3 +40,14 @@ tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 ttl_cache = "0.5.1"
+
+[workspace.lints.clippy]
+expect_used = "deny"
+unreachable = "deny"
+arithmetic_side_effects = "deny"
+unwrap_used = "deny"
+todo = "deny"
+redundant_clone = "deny"
+unimplemented = "deny"
+missing_panics_doc = "deny"
+redundant_field_names = "deny"

@@ -23,6 +23,9 @@ full = ["stable-v1"]
 json = ["dep:serde"]
 stable-v1 = []
 
+[lints]
+workspace = true
+
 [dependencies]
 crossbeam-channel = { workspace = true }
 pcap-file = { workspace = true }
