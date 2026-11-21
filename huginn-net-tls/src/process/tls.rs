@@ -13,7 +13,9 @@ use tls_parser::{
 };
 use tracing::{debug, error};
 
-pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
+pub fn process_tls_ipv4(
+    packet: &Ipv4Packet<'_>,
+) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
         debug!("IPv4 packet with non-TCP protocol: {:?}", packet.get_next_level_protocol());
         return Ok(ObservableTlsPackage { tls_client: None });
@@ -27,7 +29,9 @@ pub fn process_tls_ipv4(packet: &Ipv4Packet) -> Result<ObservableTlsPackage, Hug
     }
 }
 
-pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
+pub fn process_tls_ipv6(
+    packet: &Ipv6Packet<'_>,
+) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
         debug!("IPv6 packet with non-TCP protocol: {:?}", packet.get_next_header());
         return Ok(ObservableTlsPackage { tls_client: None });
@@ -41,7 +45,7 @@ pub fn process_tls_ipv6(packet: &Ipv6Packet) -> Result<ObservableTlsPackage, Hug
     }
 }
 
-pub fn process_tls_tcp(tcp: &TcpPacket) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
+pub fn process_tls_tcp(tcp: &TcpPacket<'_>) -> Result<ObservableTlsPackage, HuginnNetTlsError> {
     let payload = tcp.payload();
     let src_port = tcp.get_source();
     let dst_port = tcp.get_destination();
@@ -250,7 +254,7 @@ pub fn parse_tls_client_hello_ja4(data: &[u8]) -> Option<String> {
 }
 
 pub fn extract_tls_signature_from_client_hello(
-    client_hello: &TlsClientHelloContents,
+    client_hello: &TlsClientHelloContents<'_>,
 ) -> Result<Signature, HuginnNetTlsError> {
     let cipher_suites = without_grease(client_hello.ciphers.iter().map(|c| c.0));
 

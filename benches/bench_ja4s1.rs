@@ -14,6 +14,9 @@
 //! cargo bench -p huginn-net-tls --bench bench_ja4s1 --features stable-v1
 //! ```
 
+// Benchmarks report results on stdout/stderr; a panic stops the run.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use criterion::{Criterion, criterion_group, criterion_main};
 use huginn_net_tls::{
     FlowKey, Ja4Payload, S1_SESSION_EXTENSIONS, Signature, TlsClientHelloReader, packet_parser,

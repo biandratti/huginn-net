@@ -5,11 +5,12 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-fn unwrap_worker_pool(result: Result<WorkerPool, HuginnNetTlsError>) -> WorkerPool {
-    match result {
-        Ok(pool) => pool,
-        Err(e) => panic!("Failed to create WorkerPool: {e}"),
-    }
+use crate::common::TestResult;
+
+fn unwrap_worker_pool(
+    result: Result<WorkerPool, HuginnNetTlsError>,
+) -> Result<WorkerPool, Box<dyn std::error::Error>> {
+    result.map_err(|e| format!("failed to create WorkerPool: {e}").into())
 }
 
 /// Helper to create a minimal Ethernet + IPv4 + TCP packet with specific flow
@@ -64,19 +65,20 @@ fn test_worker_pool_rejects_zero_workers() {
 }
 
 #[test]
-fn test_worker_pool_creates_with_valid_workers() {
+fn test_worker_pool_creates_with_valid_workers() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let result = WorkerPool::new(4, 100, 32, 10, tx, 10000, None, Arc::from([]));
     assert!(result.is_ok());
 
-    let pool = unwrap_worker_pool(result);
+    let pool = unwrap_worker_pool(result)?;
     assert_eq!(pool.num_workers.get(), 4);
+    Ok(())
 }
 
 #[test]
-fn test_hash_based_dispatch() {
+fn test_hash_based_dispatch() -> TestResult {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(3, 10, 32, 10, tx, 10000, None, Arc::from([])));
+    let pool = unwrap_worker_pool(WorkerPool::new(3, 10, 32, 10, tx, 10000, None, Arc::from([])))?;
 
     // Dispatch 9 packets with different flows to ensure distribution
     for i in 0..9 {
@@ -104,14 +106,15 @@ fn test_hash_based_dispatch() {
     // but the dispatch mechanism itself is verified by the above checks.
     // The hash function ensures packets from the same flow go to the same worker,
     // which is tested implicitly by the successful queuing of all packets.
+    Ok(())
 }
 
 #[test]
-fn test_queue_overflow_handling() {
+fn test_queue_overflow_handling() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 5;
     let pool =
-        unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, 10000, None, Arc::from([])));
+        unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, 10000, None, Arc::from([])))?;
 
     let mut queued = 0;
     let mut dropped = 0;
@@ -134,12 +137,13 @@ fn test_queue_overflow_handling() {
     // total_dispatched counts all packets that were attempted (queued + dropped by queue overflow)
     assert_eq!(stats.total_dispatched, queued + dropped);
     assert_eq!(stats.total_dropped, dropped);
+    Ok(())
 }
 
 #[test]
-fn test_stats_accuracy() {
+fn test_stats_accuracy() -> TestResult {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None, Arc::from([])));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None, Arc::from([])))?;
 
     // Dispatch some packets
     let dispatch_count = 10;
@@ -156,12 +160,13 @@ fn test_stats_accuracy() {
     let stats = pool.stats();
     assert_eq!(stats.total_dispatched, dispatch_count);
     assert_eq!(stats.workers.len(), 2);
+    Ok(())
 }
 
 #[test]
-fn test_shutdown_stops_accepting_packets() {
+fn test_shutdown_stops_accepting_packets() -> TestResult {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None, Arc::from([])));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, 10000, None, Arc::from([])))?;
 
     // Dispatch before shutdown should work
     let packet = create_ipv4_tcp_packet([192, 168, 1, 100], [8, 8, 8, 8], 12345, 443);
@@ -175,14 +180,15 @@ fn test_shutdown_stops_accepting_packets() {
     let packet = create_ipv4_tcp_packet([192, 168, 1, 101], [8, 8, 8, 8], 12346, 443);
     let result = pool.dispatch(packet);
     assert_eq!(result, DispatchResult::Dropped);
+    Ok(())
 }
 
 #[test]
-fn test_per_worker_dropped_count() {
+fn test_per_worker_dropped_count() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 2;
     let pool =
-        unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, 10000, None, Arc::from([])));
+        unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, 10000, None, Arc::from([])))?;
 
     // Fill the single worker's queue
     // Use same flow to ensure all packets go to the same worker
@@ -200,10 +206,11 @@ fn test_per_worker_dropped_count() {
     // The single worker should have the drops
     assert_eq!(stats.workers.len(), 1);
     assert_eq!(stats.workers[0].dropped, stats.total_dropped);
+    Ok(())
 }
 
 #[test]
-fn test_concurrent_dispatch() {
+fn test_concurrent_dispatch() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(
         4,
@@ -214,7 +221,7 @@ fn test_concurrent_dispatch() {
         10000,
         None,
         Arc::from([]),
-    )));
+    ))?);
 
     let handles: Vec<_> = (0..4)
         .map(|thread_id| {
@@ -240,6 +247,7 @@ fn test_concurrent_dispatch() {
     // 4 threads * 25 dispatches = 100 total (some might be queued, some dropped)
     let total_processed = stats.total_dispatched + stats.total_dropped;
     assert_eq!(total_processed, 100);
+    Ok(())
 }
 
 #[test]

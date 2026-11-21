@@ -4,11 +4,12 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
 
-fn unwrap_worker_pool(result: Result<WorkerPool, HuginnNetTcpError>) -> WorkerPool {
-    match result {
-        Ok(pool) => pool,
-        Err(e) => panic!("Failed to create WorkerPool: {e}"),
-    }
+use crate::common::TestResult;
+
+fn unwrap_worker_pool(
+    result: Result<WorkerPool, HuginnNetTcpError>,
+) -> Result<WorkerPool, Box<dyn std::error::Error>> {
+    result.map_err(|e| format!("failed to create WorkerPool: {e}").into())
 }
 
 /// Helper to create a minimal Ethernet + IPv4 + TCP packet with a specific source IP
@@ -38,20 +39,21 @@ fn test_worker_pool_rejects_zero_workers() {
 }
 
 #[test]
-fn test_worker_pool_creates_with_valid_workers() {
+fn test_worker_pool_creates_with_valid_workers() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let result = WorkerPool::new(4, 100, 32, 10, tx, None, 1000, None);
     assert!(result.is_ok());
 
-    let pool = unwrap_worker_pool(result);
+    let pool = unwrap_worker_pool(result)?;
     assert_eq!(pool.num_workers.get(), 4);
+    Ok(())
 }
 
 #[test]
-fn test_hash_based_dispatch_consistency() {
+fn test_hash_based_dispatch_consistency() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 10;
-    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None))?;
 
     let src_ip = [192, 168, 1, 100];
     let packet = create_ipv4_packet(src_ip);
@@ -82,13 +84,14 @@ fn test_hash_based_dispatch_consistency() {
         let workers_with_drops = stats.workers.iter().filter(|w| w.dropped > 0).count();
         assert_eq!(workers_with_drops, 1, "drops for one source IP must accrue on a single worker");
     }
+    Ok(())
 }
 
 #[test]
-fn test_same_ip_drops_only_on_routed_worker_under_pressure() {
+fn test_same_ip_drops_only_on_routed_worker_under_pressure() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 1;
-    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None))?;
 
     let src_ip = [192, 168, 1, 42];
     let expected_worker = pool.worker_index_for_packet(&create_ipv4_packet(src_ip));
@@ -140,16 +143,17 @@ fn test_same_ip_drops_only_on_routed_worker_under_pressure() {
         stats.workers[expected_worker].dropped, dropped,
         "routed worker must own all drop events"
     );
+    Ok(())
 }
 
 #[test]
-fn test_different_ips_distributed() {
+fn test_different_ips_distributed() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     // Small queue to guarantee drops regardless of worker processing speed.
     // With queue_size=2 and 20 packets per IP across 4 workers, each worker
     // overflows deterministically, making `dropped` a reliable cumulative signal.
     let queue_size = 2;
-    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(4, queue_size, 32, 10, tx, None, 1000, None))?;
 
     let src_ips = [
         [192, 168, 1, 1],
@@ -181,13 +185,14 @@ fn test_different_ips_distributed() {
         "Expected packets from different IPs to be distributed across multiple workers, \
          but only {workers_with_drops} worker(s) had drops"
     );
+    Ok(())
 }
 
 #[test]
-fn test_queue_overflow_handling() {
+fn test_queue_overflow_handling() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 5;
-    let pool = unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, queue_size, 32, 10, tx, None, 1000, None))?;
 
     let mut queued = 0;
     let mut dropped = 0;
@@ -209,12 +214,13 @@ fn test_queue_overflow_handling() {
     let stats = pool.stats();
     assert_eq!(stats.total_dispatched, queued);
     assert_eq!(stats.total_dropped, dropped);
+    Ok(())
 }
 
 #[test]
-fn test_stats_accuracy() {
+fn test_stats_accuracy() -> TestResult {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None, 1000, None))?;
 
     // Dispatch some packets
     let dispatch_count = 10;
@@ -225,12 +231,13 @@ fn test_stats_accuracy() {
     let stats = pool.stats();
     assert_eq!(stats.total_dispatched, dispatch_count);
     assert_eq!(stats.workers.len(), 2);
+    Ok(())
 }
 
 #[test]
-fn test_shutdown_stops_accepting_packets() {
+fn test_shutdown_stops_accepting_packets() -> TestResult {
     let (tx, _rx) = mpsc::channel();
-    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(2, 100, 32, 10, tx, None, 1000, None))?;
 
     // Dispatch before shutdown should work
     let result = pool.dispatch(create_ipv4_packet([192, 168, 1, 1]));
@@ -242,13 +249,14 @@ fn test_shutdown_stops_accepting_packets() {
     // Dispatch after shutdown should return Dropped
     let result = pool.dispatch(create_ipv4_packet([192, 168, 1, 1]));
     assert_eq!(result, DispatchResult::Dropped);
+    Ok(())
 }
 
 #[test]
-fn test_per_worker_dropped_count() {
+fn test_per_worker_dropped_count() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     let queue_size = 2;
-    let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(1, queue_size, 32, 10, tx, None, 1000, None))?;
 
     // Fill the single worker's queue (same source IP)
     let src_ip = [192, 168, 1, 100];
@@ -264,12 +272,13 @@ fn test_per_worker_dropped_count() {
     // The single worker should have the drops
     assert_eq!(stats.workers.len(), 1);
     assert_eq!(stats.workers[0].dropped, stats.total_dropped);
+    Ok(())
 }
 
 #[test]
-fn test_concurrent_dispatch() {
+fn test_concurrent_dispatch() -> TestResult {
     let (tx, _rx) = mpsc::channel();
-    let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, 32, 10, tx, None, 1000, None)));
+    let pool = Arc::new(unwrap_worker_pool(WorkerPool::new(4, 100, 32, 10, tx, None, 1000, None))?);
 
     let handles: Vec<_> = (0..4)
         .map(|thread_id| {
@@ -293,6 +302,7 @@ fn test_concurrent_dispatch() {
     // 4 threads * 25 dispatches = 100 total (some might be queued, some dropped)
     let total_processed = stats.total_dispatched + stats.total_dropped;
     assert_eq!(total_processed, 100);
+    Ok(())
 }
 
 #[test]
@@ -324,11 +334,11 @@ fn test_pool_stats_display() {
 }
 
 #[test]
-fn test_state_isolation() {
+fn test_state_isolation() -> TestResult {
     let (tx, _rx) = mpsc::channel();
     // Use a smaller queue size to ensure packets remain in queue when checked
     let queue_size = 5;
-    let pool = unwrap_worker_pool(WorkerPool::new(3, queue_size, 32, 10, tx, None, 1000, None));
+    let pool = unwrap_worker_pool(WorkerPool::new(3, queue_size, 32, 10, tx, None, 1000, None))?;
 
     // Dispatch packets from 3 different IPs (should go to different workers)
     let ips = [[10, 0, 0, 1], [10, 0, 0, 2], [10, 0, 0, 3]];
@@ -365,4 +375,5 @@ fn test_state_isolation() {
         workers_with_queue > 0 || stats.total_dropped > 0,
         "Expected workers to have packets in queue or have dropped packets"
     );
+    Ok(())
 }

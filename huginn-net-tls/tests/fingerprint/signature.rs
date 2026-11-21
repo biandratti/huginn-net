@@ -244,16 +244,16 @@ fn test_cipher_extension_count_limits() {
 
     // JA4_a format: protocol(1) + version(2) + sni(1) + cipher_count(2) + extension_count(2) + alpn_first(1) + alpn_last(1)
     // Example: "t13d9999h2" = t + 13 + d + 99 + 99 + h + 2
-    let cipher_count = &ja4.ja4_a[4..6]; // positions 4-5 for cipher count
-    assert_eq!(cipher_count, "99");
+    let cipher_count = ja4.ja4_a.get(4..6); // positions 4-5 for cipher count
+    assert_eq!(cipher_count, Some("99"));
 
     // Test with more than 99 extensions
     sig.extensions = (0..200).map(|i| i as u16).collect();
     let ja4 = sig.generate_ja4();
 
     // Should be limited to 99
-    let ext_count = &ja4.ja4_a[6..8]; // positions 6-7 for extension count
-    assert_eq!(ext_count, "99");
+    let ext_count = ja4.ja4_a.get(6..8); // positions 6-7 for extension count
+    assert_eq!(ext_count, Some("99"));
 }
 
 #[test]

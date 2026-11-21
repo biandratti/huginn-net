@@ -26,22 +26,22 @@ fn test_parse_http1_request() {
             assert_eq!(request.matching.version, http::Version::V11);
 
             let expected_horder = vec![
-                    http::Header::new("Host"),
-                    http::Header::new("Accept").with_value("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
-                    http::Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
-                    http::Header::new("Cache-Control").optional(),
-                    http::Header::new("Connection").with_value("keep-alive"),
-                    http::Header::new("If-Modified-Since").optional(),
+                    Header::new("Host"),
+                    Header::new("Accept").with_value("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
+                    Header::new("Accept-Language").with_value("en-US,en;q=0.9,es;q=0.8"),
+                    Header::new("Cache-Control").optional(),
+                    Header::new("Connection").with_value("keep-alive"),
+                    Header::new("If-Modified-Since").optional(),
                     Header::new("If-None-Match").optional(),
-                    http::Header::new("Upgrade-Insecure-Requests").with_value("1"),
-                    http::Header::new("User-Agent"),
+                    Header::new("Upgrade-Insecure-Requests").with_value("1"),
+                    Header::new("User-Agent"),
                 ];
             assert_eq!(request.matching.horder, expected_horder);
 
             let expected_habsent = vec![
-                http::Header::new("Accept-Encoding"),
-                http::Header::new("Accept-Charset"),
-                http::Header::new("Keep-Alive"),
+                Header::new("Accept-Encoding"),
+                Header::new("Accept-Charset"),
+                Header::new("Keep-Alive"),
             ];
             assert_eq!(request.matching.habsent, expected_habsent);
 
@@ -72,18 +72,15 @@ fn test_parse_http1_response() {
             assert_eq!(response.matching.version, http::Version::V11);
 
             let expected_horder = vec![
-                http::Header::new("Server"),
-                http::Header::new("Content-Type"),
-                http::Header::new("Content-Length").optional(),
-                http::Header::new("Connection").with_value("keep-alive"),
+                Header::new("Server"),
+                Header::new("Content-Type"),
+                Header::new("Content-Length").optional(),
+                Header::new("Connection").with_value("keep-alive"),
             ];
             assert_eq!(response.matching.horder, expected_horder);
 
-            let expected_absent = vec![
-                http::Header::new("Keep-Alive"),
-                http::Header::new("Accept-Ranges"),
-                http::Header::new("Date"),
-            ];
+            let expected_absent =
+                vec![Header::new("Keep-Alive"), Header::new("Accept-Ranges"), Header::new("Date")];
             assert_eq!(response.matching.habsent, expected_absent);
         }
         Ok(None) => panic!("Incomplete HTTP response"),

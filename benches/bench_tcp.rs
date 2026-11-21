@@ -1,3 +1,6 @@
+// Benchmarks report results on stdout/stderr; a panic stops the run.
+#![allow(clippy::print_stdout, clippy::print_stderr, clippy::panic)]
+
 use criterion::{Criterion, criterion_group, criterion_main};
 use huginn_net_db::{Database, SharedTcpSignatureMatcher, TcpSignatureMatcher};
 use huginn_net_tcp::matcher_api::TcpMatcher;
@@ -931,7 +934,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
     }
 
     let db = match Database::load_default() {
-        Ok(db) => std::sync::Arc::new(db),
+        Ok(db) => Arc::new(db),
         Err(e) => {
             eprintln!("Failed to load default database: {e}");
             return;

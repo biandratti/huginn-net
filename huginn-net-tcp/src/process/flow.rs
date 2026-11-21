@@ -17,7 +17,11 @@ use pnet::packet::{
     Packet, PacketSize,
     ipv4::{Ipv4Flags, Ipv4Packet},
     ipv6::Ipv6Packet,
-    tcp::{TcpFlags, TcpOptionNumbers::*, TcpOptionPacket, TcpPacket},
+    tcp::{
+        TcpFlags,
+        TcpOptionNumbers::{EOL, MSS, NOP, SACK, SACK_PERMITTED, TIMESTAMPS, WSCALE},
+        TcpOptionPacket, TcpPacket,
+    },
 };
 use std::convert::TryInto;
 use std::net::IpAddr;
@@ -62,12 +66,12 @@ impl ObservableTCPPackage {
 }
 
 pub fn from_client(tcp_flags: u8) -> bool {
-    use TcpFlags::*;
+    use TcpFlags::{ACK, SYN};
     tcp_flags & SYN != 0 && tcp_flags & ACK == 0
 }
 
 pub fn from_server(tcp_flags: u8) -> bool {
-    use TcpFlags::*;
+    use TcpFlags::{ACK, SYN};
     tcp_flags & SYN != 0 && tcp_flags & ACK != 0
 }
 
@@ -97,7 +101,7 @@ pub fn is_packet_from_client(tcp_flags: u8, src_port: u16, dst_port: u16) -> boo
 }
 
 pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
-    use TcpFlags::*;
+    use TcpFlags::{FIN, RST, SYN};
 
     !(((tcp_flags & SYN) == SYN && (tcp_flags & (FIN | RST)) != 0)
         || (tcp_flags & (FIN | RST)) == (FIN | RST)
@@ -106,14 +110,14 @@ pub fn is_valid(tcp_flags: u8, tcp_type: u8) -> bool {
 
 /// SYN and SYN+ACK only.
 pub fn is_fingerprintable(tcp_type: u8) -> bool {
-    use TcpFlags::*;
+    use TcpFlags::{ACK, SYN};
 
     tcp_type == SYN || tcp_type == (SYN | ACK)
 }
 
 #[inline]
 pub fn process_tcp_ipv4(
-    packet: &Ipv4Packet,
+    packet: &Ipv4Packet<'_>,
     connection_tracker: &mut ConnectionTracker,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     if packet.get_next_level_protocol() != IpNextHeaderProtocols::Tcp {
@@ -180,7 +184,7 @@ pub fn process_tcp_ipv4(
 
 #[inline]
 pub fn process_tcp_ipv6(
-    packet: &Ipv6Packet,
+    packet: &Ipv6Packet<'_>,
     connection_tracker: &mut ConnectionTracker,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
     if packet.get_next_header() != IpNextHeaderProtocols::Tcp {
@@ -235,7 +239,7 @@ fn tcp_observation(
     mss: Option<u16>,
     wsize: u16,
     ip_header_bytes: u16,
-    tcp: &TcpPacket,
+    tcp: &TcpPacket<'_>,
     wscale: Option<u8>,
     olayout: Vec<TcpOption>,
     quirks: QuirkSet,
@@ -279,7 +283,7 @@ fn tcp_observation(
 )]
 fn visit_tcp(
     connection_tracker: &mut ConnectionTracker,
-    tcp: &TcpPacket,
+    tcp: &TcpPacket<'_>,
     version: IpVersion,
     ittl: Ttl,
     tos: u8,
@@ -290,7 +294,7 @@ fn visit_tcp(
     source_ip: IpAddr,
     destination_ip: IpAddr,
 ) -> Result<ObservableTCPPackage, HuginnNetTcpError> {
-    use TcpFlags::*;
+    use TcpFlags::{ACK, CWR, ECE, FIN, PSH, RST, SYN, URG};
     let flags: u8 = tcp.get_flags();
     let from_client: bool = from_client(flags);
 

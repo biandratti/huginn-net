@@ -3,12 +3,16 @@ use pnet::packet::tcp::TcpFlags::SYN;
 use pnet::packet::tcp::TcpPacket;
 use tracing::debug;
 
-fn from_client(tcp: &TcpPacket) -> bool {
+fn from_client(tcp: &TcpPacket<'_>) -> bool {
     tcp.get_flags() & SYN == SYN
 }
 
 #[inline]
-pub fn extract_from_ipv4(tcp: &TcpPacket, ipv4_header_len: u8, mss: u16) -> Option<ObservableMtu> {
+pub fn extract_from_ipv4(
+    tcp: &TcpPacket<'_>,
+    ipv4_header_len: u8,
+    mss: u16,
+) -> Option<ObservableMtu> {
     if from_client(tcp) {
         let ip_header_len = (ipv4_header_len as u16).saturating_mul(4); // convert to bytes
         let mut tcp_header_len = (tcp.get_data_offset() as u16).saturating_mul(4); // convert to bytes
@@ -30,7 +34,11 @@ pub fn extract_from_ipv4(tcp: &TcpPacket, ipv4_header_len: u8, mss: u16) -> Opti
 }
 
 #[inline]
-pub fn extract_from_ipv6(tcp: &TcpPacket, ipv6_header_len: u8, mss: u16) -> Option<ObservableMtu> {
+pub fn extract_from_ipv6(
+    tcp: &TcpPacket<'_>,
+    ipv6_header_len: u8,
+    mss: u16,
+) -> Option<ObservableMtu> {
     if from_client(tcp) {
         let ip_header_len = ipv6_header_len as u16; // ipv6_header_len is in bytes already
         let mut tcp_header_len = (tcp.get_data_offset() as u16).saturating_mul(4); // convert to bytes

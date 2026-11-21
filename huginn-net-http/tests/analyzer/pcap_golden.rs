@@ -4,6 +4,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc::channel;
 
+use crate::common::TestResult;
+
 #[derive(Serialize, Deserialize, Debug)]
 struct PcapSnapshot {
     pcap_file: String,
@@ -41,16 +43,19 @@ struct HttpResponseSnapshot {
     headers_count: usize,
 }
 
-fn load_snapshot(pcap_file: &str) -> PcapSnapshot {
+fn load_snapshot(pcap_file: &str) -> Result<PcapSnapshot, Box<dyn std::error::Error>> {
     let snapshot_path = format!("tests/snapshots/{pcap_file}.json");
     let snapshot_content = fs::read_to_string(&snapshot_path)
-        .unwrap_or_else(|_| panic!("Failed to read snapshot file: {snapshot_path}"));
+        .map_err(|e| format!("Failed to read snapshot file {snapshot_path}: {e}"))?;
 
-    serde_json::from_str(&snapshot_content)
-        .unwrap_or_else(|e| panic!("Failed to parse snapshot JSON: {e}"))
+    let snapshot = serde_json::from_str(&snapshot_content)
+        .map_err(|e| format!("Failed to parse snapshot JSON: {e}"))?;
+    Ok(snapshot)
 }
 
-fn analyze_pcap_file(pcap_path: &str) -> Vec<HttpAnalysisResult> {
+fn analyze_pcap_file(
+    pcap_path: &str,
+) -> Result<Vec<HttpAnalysisResult>, Box<dyn std::error::Error>> {
     assert!(Path::new(pcap_path).exists(), "PCAP file must exist: {pcap_path}");
 
     // Layer 1: no matcher attached. We only assert raw HTTP extraction.
@@ -59,7 +64,7 @@ fn analyze_pcap_file(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     let (sender, receiver) = channel();
 
     if let Err(e) = analyzer.analyze_pcap(pcap_path, sender, None) {
-        panic!("PCAP analysis failed: {e}");
+        return Err(format!("PCAP analysis failed: {e}").into());
     }
 
     let mut results = Vec::new();
@@ -69,7 +74,7 @@ fn analyze_pcap_file(pcap_path: &str) -> Vec<HttpAnalysisResult> {
         }
     }
 
-    results
+    Ok(results)
 }
 
 fn has_meaningful_http_data(result: &HttpAnalysisResult) -> bool {
@@ -80,11 +85,11 @@ fn assert_connection_matches_snapshot(
     actual: &HttpAnalysisResult,
     expected: &ConnectionSnapshot,
     connection_index: usize,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(expected_request) = &expected.http_request {
-        let actual_request = actual.http_request.as_ref().unwrap_or_else(|| {
-            panic!("Connection {connection_index}: Expected HTTP request but found none")
-        });
+        let actual_request = actual.http_request.as_ref().ok_or_else(|| {
+            format!("Connection {connection_index}: Expected HTTP request but found none")
+        })?;
 
         assert_eq!(
             actual_request.source.ip.to_string(),
@@ -107,9 +112,9 @@ fn assert_connection_matches_snapshot(
 
         if let Some(expected_lang) = &expected_request.lang {
             assert_eq!(
-                actual_request.lang.as_ref().unwrap_or_else(|| panic!(
+                actual_request.lang.as_ref().ok_or_else(|| format!(
                     "Connection {connection_index}: Expected language but found none"
-                )),
+                ))?,
                 expected_lang,
                 "Connection {connection_index}: HTTP language mismatch"
             );
@@ -121,9 +126,9 @@ fn assert_connection_matches_snapshot(
                     .sig
                     .user_agent
                     .as_ref()
-                    .unwrap_or_else(|| panic!(
+                    .ok_or_else(|| format!(
                         "Connection {connection_index}: Expected user agent but found none"
-                    )),
+                    ))?,
                 expected_ua,
                 "Connection {connection_index}: User agent mismatch"
             );
@@ -131,9 +136,9 @@ fn assert_connection_matches_snapshot(
 
         if let Some(expected_method) = &expected_request.method {
             assert_eq!(
-                actual_request.sig.method.as_ref().unwrap_or_else(|| panic!(
+                actual_request.sig.method.as_ref().ok_or_else(|| format!(
                     "Connection {connection_index}: Expected method but found none"
-                )),
+                ))?,
                 expected_method,
                 "Connection {connection_index}: HTTP method mismatch"
             );
@@ -141,9 +146,9 @@ fn assert_connection_matches_snapshot(
 
         if let Some(expected_uri) = &expected_request.uri {
             assert_eq!(
-                actual_request.sig.uri.as_ref().unwrap_or_else(|| panic!(
+                actual_request.sig.uri.as_ref().ok_or_else(|| format!(
                     "Connection {connection_index}: Expected URI but found none"
-                )),
+                ))?,
                 expected_uri,
                 "Connection {connection_index}: HTTP URI mismatch"
             );
@@ -159,9 +164,9 @@ fn assert_connection_matches_snapshot(
     }
 
     if let Some(expected_response) = &expected.http_response {
-        let actual_response = actual.http_response.as_ref().unwrap_or_else(|| {
-            panic!("Connection {connection_index}: Expected HTTP response but found none")
-        });
+        let actual_response = actual.http_response.as_ref().ok_or_else(|| {
+            format!("Connection {connection_index}: Expected HTTP response but found none")
+        })?;
 
         assert_eq!(
             actual_response.source.ip.to_string(),
@@ -184,9 +189,9 @@ fn assert_connection_matches_snapshot(
 
         if let Some(expected_status) = expected_response.status_code {
             assert_eq!(
-                actual_response.sig.status_code.unwrap_or_else(|| panic!(
+                actual_response.sig.status_code.ok_or_else(|| format!(
                     "Connection {connection_index}: Expected status code but found none"
-                )),
+                ))?,
                 expected_status,
                 "Connection {connection_index}: HTTP status code mismatch"
             );
@@ -198,12 +203,13 @@ fn assert_connection_matches_snapshot(
             "Connection {connection_index}: Headers count mismatch"
         );
     }
+    Ok(())
 }
 
 /// Golden test: compares PCAP analysis output against known-good JSON snapshots.
-fn test_pcap_with_snapshot(pcap_file: &str) {
-    let snapshot = load_snapshot(pcap_file);
-    let results = analyze_pcap_file(&snapshot.pcap_path);
+fn test_pcap_with_snapshot(pcap_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let snapshot = load_snapshot(pcap_file)?;
+    let results = analyze_pcap_file(&snapshot.pcap_path)?;
 
     assert_eq!(
         results.len(),
@@ -215,12 +221,13 @@ fn test_pcap_with_snapshot(pcap_file: &str) {
     );
 
     for (i, (actual, expected)) in results.iter().zip(snapshot.connections.iter()).enumerate() {
-        assert_connection_matches_snapshot(actual, expected, i);
+        assert_connection_matches_snapshot(actual, expected, i)?;
     }
+    Ok(())
 }
 
 #[test]
-fn test_golden_http_snapshots() {
+fn test_golden_http_snapshots() -> TestResult {
     let golden_test_cases = [
         "http-simple-get",
         "ua-os-divergent-linux-syn-windows-ua",
@@ -229,6 +236,7 @@ fn test_golden_http_snapshots() {
 
     for pcap_file in golden_test_cases {
         println!("Running golden test for: {pcap_file}");
-        test_pcap_with_snapshot(pcap_file);
+        test_pcap_with_snapshot(pcap_file)?;
     }
+    Ok(())
 }

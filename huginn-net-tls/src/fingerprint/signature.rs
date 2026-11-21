@@ -100,13 +100,13 @@ impl Signature {
         let original_order = mode.is_original_order();
 
         #[cfg(feature = "stable-v1")]
-        let extensions_after_exclude: Cow<[u16]> = if mode.is_stable_v1() {
+        let extensions_after_exclude: Cow<'_, [u16]> = if mode.is_stable_v1() {
             filter_s1_extensions(&self.extensions)
         } else {
             Cow::Borrowed(&self.extensions)
         };
         #[cfg(not(feature = "stable-v1"))]
-        let extensions_after_exclude: std::borrow::Cow<[u16]> =
+        let extensions_after_exclude: std::borrow::Cow<'_, [u16]> =
             std::borrow::Cow::Borrowed(&self.extensions);
 
         let filtered_ciphers = filter_grease_values(&self.cipher_suites);

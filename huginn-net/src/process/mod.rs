@@ -244,17 +244,15 @@ impl IpPacketProcessor for Ipv6Packet<'_> {
     fn process_tls_with_data(data: &[u8]) -> Result<ObservableTlsPackage, HuginnNetError> {
         if let Some(packet) = Ipv6Packet::new(data) {
             huginn_net_tls::process_tls_ipv6(&packet).map_err(|e| match e {
-                huginn_net_tls::error::HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
-                huginn_net_tls::error::HuginnNetTlsError::UnsupportedProtocol(msg) => {
+                HuginnNetTlsError::Parse(msg) => HuginnNetError::Parse(msg),
+                HuginnNetTlsError::UnsupportedProtocol(msg) => {
                     HuginnNetError::UnsupportedProtocol(msg)
                 }
-                huginn_net_tls::error::HuginnNetTlsError::Misconfiguration(msg) => {
-                    HuginnNetError::Parse(msg)
-                }
-                huginn_net_tls::error::HuginnNetTlsError::NotClientHello => {
+                HuginnNetTlsError::Misconfiguration(msg) => HuginnNetError::Parse(msg),
+                HuginnNetTlsError::NotClientHello => {
                     HuginnNetError::Parse("TLS record is not a ClientHello".to_string())
                 }
-                huginn_net_tls::error::HuginnNetTlsError::Unknown => {
+                HuginnNetTlsError::Unknown => {
                     HuginnNetError::Parse("Unknown TLS error".to_string())
                 }
             })
@@ -329,7 +327,7 @@ pub fn process_ipv4(
     connection_tracker: &mut ConnectionTracker,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
-    packet: Ipv4Packet,
+    packet: Ipv4Packet<'_>,
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
     process_ip(connection_tracker, http_flows, http_processors, packet, config)
@@ -339,7 +337,7 @@ pub fn process_ipv6(
     connection_tracker: &mut ConnectionTracker,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     http_processors: &HttpProcessors,
-    packet: Ipv6Packet,
+    packet: Ipv6Packet<'_>,
     config: &AnalysisConfig,
 ) -> Result<ObservablePackage, HuginnNetError> {
     process_ip(connection_tracker, http_flows, http_processors, packet, config)

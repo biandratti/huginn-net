@@ -4,6 +4,9 @@ use huginn_net_http::{Http2Frame, extract_akamai_fingerprint};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
+use crate::ActualFingerprint;
+use crate::common::TestResult;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct AkamaiTestCase {
     name: String,
@@ -36,29 +39,16 @@ impl From<FrameSnapshot> for Http2Frame {
     }
 }
 
-fn load_test_cases() -> Vec<AkamaiTestCase> {
-    let test_data = match fs::read_to_string("tests/snapshots/akamai_test_cases.json") {
-        Ok(data) => data,
-        Err(e) => panic!("Failed to read akamai_test_cases.json: {e}"),
-    };
-
-    match serde_json::from_str(&test_data) {
-        Ok(cases) => cases,
-        Err(e) => panic!("Failed to parse test cases JSON: {e}"),
-    }
-}
-
-struct ActualFingerprint<'a> {
-    signature: &'a str,
-    hash: &'a str,
-    settings_count: usize,
-    window_update: u32,
-    priority_count: usize,
-    pseudo_headers_count: usize,
+fn load_test_cases() -> Result<Vec<AkamaiTestCase>, Box<dyn std::error::Error>> {
+    let test_data = fs::read_to_string("tests/snapshots/akamai_test_cases.json")
+        .map_err(|e| format!("Failed to read akamai_test_cases.json: {e}"))?;
+    let cases = serde_json::from_str(&test_data)
+        .map_err(|e| format!("Failed to parse test cases JSON: {e}"))?;
+    Ok(cases)
 }
 
 fn assert_fingerprint_matches(
-    actual: &ActualFingerprint,
+    actual: &ActualFingerprint<'_>,
     expected: &ExpectedFingerprint,
     test_name: &str,
 ) {
@@ -83,8 +73,8 @@ fn assert_fingerprint_matches(
 }
 
 #[test]
-fn test_akamai_golden_snapshots() {
-    let test_cases = load_test_cases();
+fn test_akamai_golden_snapshots() -> TestResult {
+    let test_cases = load_test_cases()?;
 
     for test_case in test_cases {
         println!("Running Akamai golden test: {}", test_case.name);
@@ -118,6 +108,7 @@ fn test_akamai_golden_snapshots() {
             }
         }
     }
+    Ok(())
 }
 
 #[test]

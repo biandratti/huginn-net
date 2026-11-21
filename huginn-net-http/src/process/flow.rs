@@ -307,7 +307,7 @@ fn ordered_payload(data: &[TcpData]) -> Vec<u8> {
 
 #[inline]
 pub fn process_http_ipv4(
-    packet: &Ipv4Packet,
+    packet: &Ipv4Packet<'_>,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
@@ -329,7 +329,7 @@ pub fn process_http_ipv4(
 
 #[inline]
 pub fn process_http_ipv6(
-    packet: &Ipv6Packet,
+    packet: &Ipv6Packet<'_>,
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
     processors: &HttpProcessors,
 ) -> Result<ObservableHttpPackage, HuginnNetHttpError> {
@@ -355,7 +355,7 @@ pub fn process_http_ipv6(
 )]
 fn process_tcp_packet(
     http_flows: &mut TtlCache<FlowKey, TcpFlow>,
-    tcp: TcpPacket,
+    tcp: TcpPacket<'_>,
     src_ip: IpAddr,
     dst_ip: IpAddr,
     processors: &HttpProcessors,

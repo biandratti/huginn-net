@@ -7,6 +7,8 @@
     feature = "http-p0f-response"
 ))]
 
+#[path = "../common/mod.rs"]
+mod common;
 mod observed_os;
 mod pcap_golden;
 mod smoke;

@@ -92,7 +92,10 @@ pub(super) fn cache_sizes(config: &AnalysisConfig, max_connections: usize) -> (u
 }
 
 impl<'a> HuginnNet<'a> {
+    // Without the `db` feature these helpers never touch `self`, hence the scoped
+    // `unused_self` allows below.
     #[cfg(feature = "tcp-mtu")]
+    #[cfg_attr(not(feature = "db"), allow(clippy::unused_self))]
     pub(super) fn match_mtu(&self, mtu: &u16) -> MTUQualityMatched {
         #[cfg(feature = "db")]
         {
@@ -123,6 +126,7 @@ impl<'a> HuginnNet<'a> {
     }
 
     #[cfg(feature = "tcp-syn")]
+    #[cfg_attr(not(feature = "db"), allow(clippy::unused_self))]
     pub(super) fn match_tcp_request(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
@@ -150,6 +154,7 @@ impl<'a> HuginnNet<'a> {
     }
 
     #[cfg(feature = "tcp-syn-ack")]
+    #[cfg_attr(not(feature = "db"), allow(clippy::unused_self))]
     pub(super) fn match_tcp_response(&self, observable_tcp: &ObservableTcp) -> OSQualityMatched {
         #[cfg(feature = "db")]
         {
@@ -177,6 +182,7 @@ impl<'a> HuginnNet<'a> {
     }
 
     #[cfg(feature = "http-p0f-request")]
+    #[cfg_attr(not(feature = "db"), allow(clippy::unused_self))]
     pub(super) fn match_http_request(
         &self,
         observable_http_request: &ObservableHttpRequest,
@@ -255,6 +261,7 @@ impl<'a> HuginnNet<'a> {
     }
 
     #[cfg(feature = "http-p0f-response")]
+    #[cfg_attr(not(feature = "db"), allow(clippy::unused_self))]
     pub(super) fn match_http_response(
         &self,
         observable_http_response: &ObservableHttpResponse,

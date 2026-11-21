@@ -1,5 +1,7 @@
 #![cfg(feature = "tcp")]
 
+#[path = "../common/mod.rs"]
+mod common;
 mod db_coverage;
 mod db_reachable;
 mod distances;

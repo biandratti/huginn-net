@@ -6,6 +6,8 @@ use huginn_net_db::{TcpDatabase, Type};
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::FuzzyReason;
 
+use crate::common::TestResult;
+
 /// Resolves the window a signature declares into a concrete value a packet
 /// could have carried, so the signature can be replayed as an observation.
 fn raw_window(sig: &Signature) -> u16 {
@@ -40,19 +42,23 @@ fn observation_from_signature(sig: &Signature) -> TcpObservation {
 type MatchedLabel = (String, Option<String>, Option<String>, MatchRank<FuzzyReason>);
 
 /// Parses `raw` as a TCP signature and matches it against the request collection.
-fn match_request(db: &TcpDatabase, raw: &str) -> Option<MatchedLabel> {
-    let sig: Signature = match raw.parse() {
-        Ok(sig) => sig,
-        Err(e) => panic!("Failed to parse signature {raw}: {e}"),
-    };
+fn match_request(
+    db: &TcpDatabase,
+    raw: &str,
+) -> Result<Option<MatchedLabel>, Box<dyn std::error::Error>> {
+    let sig: Signature = raw
+        .parse()
+        .map_err(|e| format!("failed to parse signature {raw}: {e}"))?;
     let obs = observation_from_signature(&sig);
-    let found = db.tcp_request.find_best_match(&obs)?;
-    Some((
+    let Some(found) = db.tcp_request.find_best_match(&obs) else {
+        return Ok(None);
+    };
+    Ok(Some((
         found.label.name.clone(),
         found.label.class.clone(),
         found.label.flavor.clone(),
         found.rank,
-    ))
+    )))
 }
 
 #[test]
@@ -159,15 +165,16 @@ fn matching_android_by_tcp_request() {
 }
 
 #[test]
-fn unknown_request_signature_does_not_match() {
+fn unknown_request_signature_does_not_match() -> TestResult {
     let db = match TcpDatabase::load_default() {
         Ok(db) => db,
         Err(e) => panic!("Failed to load default database: {e}"),
     };
     let raw = "4:64+0:0:1460:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1,eol+0:df,ecn:0";
-    let result = match_request(&db, raw);
+    let result = match_request(&db, raw)?;
     assert!(
         result.is_none(),
         "expected no match for synthetic signature: {raw}, got {result:?}"
     );
+    Ok(())
 }

@@ -221,7 +221,7 @@ impl Http1Parser {
             return Err(Http1ParseError::IncompleteData);
         }
 
-        let (version, status_code, reason_phrase) = self.parse_status_line(lines[0])?;
+        let (version, status_code, reason_phrase) = Self::parse_status_line(lines[0])?;
 
         let header_end = lines
             .iter()
@@ -289,17 +289,14 @@ impl Http1Parser {
             return Err(Http1ParseError::InvalidVersion(parts[2].to_string()));
         }
 
-        if !self.is_valid_method(&method) {
+        if !Self::is_valid_method(&method) {
             return Err(Http1ParseError::InvalidMethod(method));
         }
 
         Ok((method, uri, version))
     }
 
-    fn parse_status_line(
-        &self,
-        line: &str,
-    ) -> Result<(http::Version, u16, String), Http1ParseError> {
+    fn parse_status_line(line: &str) -> Result<(http::Version, u16, String), Http1ParseError> {
         let parts: Vec<&str> = line.splitn(3, ' ').collect();
         if parts.len() < 2 {
             return Err(Http1ParseError::InvalidStatusLine(line.to_string()));
@@ -347,7 +344,7 @@ impl Http1Parser {
             }
 
             if let Some(colon_pos) = line.find(':') {
-                let name = line[..colon_pos].trim().to_string();
+                let name = line.get(..colon_pos).unwrap_or("").trim().to_string();
                 let value = line
                     .get(colon_pos.saturating_add(1)..)
                     .map(|v| v.trim().to_string());
@@ -406,7 +403,7 @@ impl Http1Parser {
             }
 
             if let Some(eq_pos) = cookie_str.find('=') {
-                let name = cookie_str[..eq_pos].trim().to_string();
+                let name = cookie_str.get(..eq_pos).unwrap_or("").trim().to_string();
                 let value = Some(
                     cookie_str
                         .get(eq_pos.saturating_add(1)..)
@@ -424,7 +421,7 @@ impl Http1Parser {
         cookies
     }
 
-    fn is_valid_method(&self, method: &str) -> bool {
+    fn is_valid_method(method: &str) -> bool {
         matches!(
             method,
             "GET"

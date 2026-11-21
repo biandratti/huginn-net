@@ -5,7 +5,10 @@
 //! to assemble a complete [`crate::observable::TcpObservation`].
 
 use super::TcpOption;
-use pnet::packet::tcp::{TcpOptionNumbers::*, TcpOptionPacket};
+use pnet::packet::tcp::{
+    TcpOptionNumbers::{EOL, MSS, NOP, SACK, SACK_PERMITTED, TIMESTAMPS, WSCALE},
+    TcpOptionPacket,
+};
 use pnet::packet::{Packet, PacketSize};
 
 /// Decoded TCP options extracted from a raw SYN packet.

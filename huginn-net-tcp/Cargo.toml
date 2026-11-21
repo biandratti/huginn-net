@@ -40,6 +40,9 @@ serde_json = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+[lints]
+workspace = true
+
 [[example]]
 name = "cli-tcp"
 path = "../examples/cli-tcp.rs"

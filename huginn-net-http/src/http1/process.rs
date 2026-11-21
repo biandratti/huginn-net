@@ -219,9 +219,9 @@ pub fn convert_headers_to_http_format(
 
     for header in headers {
         if optional_list.contains(&header.name.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name).optional());
+            headers_in_order.push(Header::new(&header.name).optional());
         } else if skip_value_list.contains(&header.name.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name));
+            headers_in_order.push(Header::new(&header.name));
         } else {
             headers_in_order
                 .push(Header::new(&header.name).with_optional_value(header.value.clone()));

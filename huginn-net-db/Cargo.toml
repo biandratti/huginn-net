@@ -31,3 +31,6 @@ huginn-net-tcp = { workspace = true, features = ["full"] }
 lazy_static = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[lints]
+workspace = true

@@ -2,10 +2,11 @@ use huginn_net_db::{HttpDatabase, SharedHttpSignatureMatcher};
 use huginn_net_http::HuginnNetHttp;
 use huginn_net_http::output::{HttpAnalysisResult, MatchQuality};
 use serde::Deserialize;
-use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc::channel;
+
+use crate::common::{TestResult, expected_quality, load_snapshot};
 
 #[derive(Deserialize, Debug)]
 struct PcapSnapshot {
@@ -49,19 +50,12 @@ struct HttpResponseSnapshot {
     headers_count: usize,
 }
 
-fn load_snapshot(name: &str) -> PcapSnapshot {
-    let path = format!("tests/snapshots/{name}.json");
-    let content =
-        fs::read_to_string(&path).unwrap_or_else(|_| panic!("failed to read snapshot: {path}"));
-    serde_json::from_str(&content)
-        .unwrap_or_else(|e| panic!("failed to parse snapshot {path}: {e}"))
-}
-
-fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
+fn run_pcap_with_matcher(
+    pcap_path: &str,
+) -> Result<Vec<HttpAnalysisResult>, Box<dyn std::error::Error>> {
     assert!(Path::new(pcap_path).exists(), "PCAP not found: {pcap_path}");
 
-    let db =
-        HttpDatabase::load_default().unwrap_or_else(|e| panic!("failed to load database: {e}"));
+    let db = HttpDatabase::load_default().map_err(|e| format!("failed to load database: {e}"))?;
     let matcher = Arc::new(SharedHttpSignatureMatcher::new(Arc::new(db)));
 
     let mut analyzer = HuginnNetHttp::new(1000).with_matcher(matcher);
@@ -69,7 +63,7 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
     let (tx, rx) = channel();
     analyzer
         .analyze_pcap(pcap_path, tx, None)
-        .unwrap_or_else(|e| panic!("PCAP analysis failed: {e}"));
+        .map_err(|e| format!("PCAP analysis failed: {e}"))?;
 
     let mut results = Vec::new();
     while let Ok(r) = rx.try_recv() {
@@ -77,18 +71,17 @@ fn run_pcap_with_matcher(pcap_path: &str) -> Vec<HttpAnalysisResult> {
             results.push(r);
         }
     }
-    results
+    Ok(results)
 }
 
-fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
+fn assert_quality(
+    actual: &MatchQuality,
+    expected: &str,
+    ctx: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     match actual {
         MatchQuality::Matched(rank) => {
-            let expected_q: f32 = expected
-                .strip_prefix("Matched(")
-                .and_then(|s| s.strip_suffix(")"))
-                .unwrap_or_else(|| panic!("{ctx}: unexpected quality format: {expected}"))
-                .parse()
-                .unwrap_or_else(|_| panic!("{ctx}: cannot parse quality float from: {expected}"));
+            let expected_q = expected_quality(expected, ctx)?;
             let q = rank.as_quality();
             assert!(
                 (q - expected_q).abs() < 0.01,
@@ -102,14 +95,19 @@ fn assert_quality(actual: &MatchQuality, expected: &str, ctx: &str) {
             assert_eq!(expected, "Disabled", "{ctx}: expected Disabled")
         }
     }
+    Ok(())
 }
 
-fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot, idx: usize) {
+fn assert_connection(
+    actual: &HttpAnalysisResult,
+    expected: &ConnectionSnapshot,
+    idx: usize,
+) -> TestResult {
     if let Some(exp_req) = &expected.http_request {
         let req = actual
             .http_request
             .as_ref()
-            .unwrap_or_else(|| panic!("connection {idx}: expected HTTP request, found none"));
+            .ok_or_else(|| format!("connection {idx}: expected HTTP request, found none"))?;
 
         assert_eq!(
             req.source.ip.to_string(),
@@ -128,10 +126,11 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
         );
 
         if let Some(expected_browser) = &exp_req.browser {
-            let browser =
-                req.browser_matched.browser.as_ref().unwrap_or_else(|| {
-                    panic!("connection {idx}: expected browser match, got None")
-                });
+            let browser = req
+                .browser_matched
+                .browser
+                .as_ref()
+                .ok_or_else(|| format!("connection {idx}: expected browser match, got None"))?;
             assert_eq!(&browser.name, expected_browser, "connection {idx}: browser name");
         }
 
@@ -140,7 +139,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 &req.browser_matched.quality,
                 expected_quality,
                 &format!("connection {idx} request"),
-            );
+            )?;
         }
 
         if let Some(expected_params) = &exp_req.params {
@@ -155,7 +154,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
             assert_eq!(
                 req.lang
                     .as_ref()
-                    .unwrap_or_else(|| panic!("connection {idx}: expected lang")),
+                    .ok_or_else(|| format!("connection {idx}: expected lang"))?,
                 expected_lang,
                 "connection {idx}: lang"
             );
@@ -166,7 +165,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 req.sig
                     .user_agent
                     .as_ref()
-                    .unwrap_or_else(|| panic!("connection {idx}: expected user_agent")),
+                    .ok_or_else(|| format!("connection {idx}: expected user_agent"))?,
                 expected_ua,
                 "connection {idx}: user_agent"
             );
@@ -177,7 +176,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 req.sig
                     .method
                     .as_ref()
-                    .unwrap_or_else(|| panic!("connection {idx}: expected method")),
+                    .ok_or_else(|| format!("connection {idx}: expected method"))?,
                 expected_method,
                 "connection {idx}: method"
             );
@@ -188,7 +187,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 req.sig
                     .uri
                     .as_ref()
-                    .unwrap_or_else(|| panic!("connection {idx}: expected uri")),
+                    .ok_or_else(|| format!("connection {idx}: expected uri"))?,
                 expected_uri,
                 "connection {idx}: uri"
             );
@@ -203,7 +202,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
         let resp = actual
             .http_response
             .as_ref()
-            .unwrap_or_else(|| panic!("connection {idx}: expected HTTP response, found none"));
+            .ok_or_else(|| format!("connection {idx}: expected HTTP response, found none"))?;
 
         assert_eq!(
             resp.source.ip.to_string(),
@@ -225,11 +224,10 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
         );
 
         if let Some(expected_server) = &exp_resp.web_server {
-            let server = resp
-                .web_server_matched
-                .web_server
-                .as_ref()
-                .unwrap_or_else(|| panic!("connection {idx}: expected web_server match, got None"));
+            let server =
+                resp.web_server_matched.web_server.as_ref().ok_or_else(|| {
+                    format!("connection {idx}: expected web_server match, got None")
+                })?;
             assert_eq!(&server.name, expected_server, "connection {idx}: web_server name");
         }
 
@@ -238,7 +236,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
                 &resp.web_server_matched.quality,
                 expected_quality,
                 &format!("connection {idx} response"),
-            );
+            )?;
         }
 
         if let Some(expected_params) = &exp_resp.params {
@@ -253,7 +251,7 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
             assert_eq!(
                 resp.sig
                     .status_code
-                    .unwrap_or_else(|| panic!("connection {idx}: expected status_code")),
+                    .ok_or_else(|| format!("connection {idx}: expected status_code"))?,
                 expected_status,
                 "connection {idx}: status_code"
             );
@@ -265,11 +263,12 @@ fn assert_connection(actual: &HttpAnalysisResult, expected: &ConnectionSnapshot,
             "connection {idx}: headers_count"
         );
     }
+    Ok(())
 }
 
-fn run_golden_test(snapshot_name: &str) {
-    let snapshot = load_snapshot(snapshot_name);
-    let results = run_pcap_with_matcher(&snapshot.pcap_path);
+fn run_golden_test(snapshot_name: &str) -> TestResult {
+    let snapshot: PcapSnapshot = load_snapshot(snapshot_name)?;
+    let results = run_pcap_with_matcher(&snapshot.pcap_path)?;
 
     assert_eq!(
         results.len(),
@@ -280,18 +279,20 @@ fn run_golden_test(snapshot_name: &str) {
     );
 
     for (i, (actual, expected)) in results.iter().zip(snapshot.connections.iter()).enumerate() {
-        assert_connection(actual, expected, i);
+        assert_connection(actual, expected, i)?;
     }
+    Ok(())
 }
 
 #[test]
-fn test_golden_http_pcap_with_matcher() {
+fn test_golden_http_pcap_with_matcher() -> TestResult {
     let cases = [
         "http-simple-get",
         "ua-os-divergent-linux-syn-windows-ua",
         "ua-os-consistent-linux-syn-linux-ua",
     ];
     for name in cases {
-        run_golden_test(name);
+        run_golden_test(name)?;
     }
+    Ok(())
 }

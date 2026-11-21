@@ -1,3 +1,4 @@
+use crate::create_http2_frame;
 use huginn_net_http::http2_parser::{
     HTTP2_CONNECTION_PREFACE, Http2Config, Http2FrameType, Http2ParseError, Http2Parser,
     is_http2_traffic,
@@ -7,38 +8,12 @@ fn assert_parser_error<T>(
     result: Result<Option<T>, Http2ParseError>,
     expected_discriminant: Http2ParseError,
 ) {
-    match result {
-        Err(actual) => assert_eq!(
-            std::mem::discriminant(&actual),
-            std::mem::discriminant(&expected_discriminant),
-            "Expected error type {expected_discriminant:?} but got {actual:?}"
-        ),
-        Ok(_) => panic!("Expected error {expected_discriminant:?} but got Ok"),
-    }
-}
-
-fn create_http2_frame(frame_type: u8, stream_id: u32, payload: &[u8]) -> Vec<u8> {
-    let mut frame = Vec::new();
-
-    // Length (24 bits)
-    let length = payload.len() as u32;
-    frame.push(((length >> 16) & 0xFF) as u8);
-    frame.push(((length >> 8) & 0xFF) as u8);
-    frame.push((length & 0xFF) as u8);
-
-    // Type (8 bits)
-    frame.push(frame_type);
-
-    // Flags (8 bits)
-    frame.push(0x00);
-
-    // Stream ID (32 bits, with R bit cleared)
-    frame.extend_from_slice(&(stream_id & 0x7FFFFFFF).to_be_bytes());
-
-    // Payload
-    frame.extend_from_slice(payload);
-
-    frame
+    let actual = result.err();
+    assert_eq!(
+        actual.as_ref().map(std::mem::discriminant),
+        Some(std::mem::discriminant(&expected_discriminant)),
+        "expected error {expected_discriminant:?}, got {actual:?}"
+    );
 }
 
 fn create_http2_request_with_preface(frames: &[Vec<u8>]) -> Vec<u8> {

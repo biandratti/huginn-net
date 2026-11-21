@@ -161,12 +161,12 @@ fn convert_http2_headers_to_http_format(
     for header in headers {
         let header_name_lower = header.name.to_lowercase();
         if optional_list.contains(&header_name_lower.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name).optional());
+            headers_in_order.push(Header::new(&header.name).optional());
         } else if skip_value_list.contains(&header_name_lower.as_str()) {
-            headers_in_order.push(http::Header::new(&header.name));
+            headers_in_order.push(Header::new(&header.name));
         } else {
             headers_in_order
-                .push(http::Header::new(&header.name).with_optional_value(header.value.clone()));
+                .push(Header::new(&header.name).with_optional_value(header.value.clone()));
         }
     }
 
@@ -188,7 +188,7 @@ fn build_absent_headers_from_http2(
     let mut headers_absent: Vec<Header> = Vec::with_capacity(common_list.len());
     for header in &common_list {
         if !current_headers.contains(&header.to_lowercase()) {
-            headers_absent.push(http::Header::new(header));
+            headers_absent.push(Header::new(header));
         }
     }
     headers_absent
@@ -200,7 +200,7 @@ fn build_absent_headers_from_http2(
 /// that can be used for fingerprinting and analysis.
 pub fn parse_http2_request(
     data: &[u8],
-    parser: &http2_parser::Http2Parser,
+    parser: &http2_parser::Http2Parser<'_>,
 ) -> Result<Option<ObservableHttpRequest>, HuginnNetHttpError> {
     match parser.parse_request(data) {
         Ok(Some(req)) => {
@@ -220,7 +220,7 @@ pub fn parse_http2_request(
 
 fn parse_http2_response(
     data: &[u8],
-    parser: &http2_parser::Http2Parser,
+    parser: &http2_parser::Http2Parser<'_>,
 ) -> Result<Option<ObservableHttpResponse>, HuginnNetHttpError> {
     match parser.parse_response(data) {
         Ok(Some(res)) => {
