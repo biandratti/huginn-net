@@ -6,11 +6,11 @@ use std::fmt::Formatter;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
     /// HTTP version
-    pub version: super::Version,
+    pub version: Version,
     /// ordered list of headers that should appear in matching traffic.
-    pub horder: Vec<super::Header>,
+    pub horder: Vec<Header>,
     /// list of headers that must *not* appear in matching traffic.
-    pub habsent: Vec<super::Header>,
+    pub habsent: Vec<Header>,
     /// expected substring in 'User-Agent' or 'Server'.
     pub expsw: String,
 }

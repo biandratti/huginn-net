@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc::channel;
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct PcapSnapshot {

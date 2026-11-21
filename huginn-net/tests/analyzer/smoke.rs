@@ -16,7 +16,7 @@ use std::sync::mpsc;
 const TCP_PCAP_PATH: &str = "../pcap/macos_tcp_flags.pcap";
 const HTTP_PCAP_PATH: &str = "../pcap/http-simple-get.pcap";
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 fn collect_results(
     pcap_path: &str,

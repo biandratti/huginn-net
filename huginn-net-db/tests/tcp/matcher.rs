@@ -6,7 +6,7 @@ use huginn_net_db::{TcpDatabase, Type};
 use huginn_net_tcp::observable::TcpObservation;
 use huginn_net_tcp::output::FuzzyReason;
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 /// Resolves the window a signature declares into a concrete value a packet
 /// could have carried, so the signature can be replayed as an observation.

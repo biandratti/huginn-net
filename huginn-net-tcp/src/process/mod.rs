@@ -69,7 +69,7 @@ pub struct ObservablePackage {
 /// Processes an IPv4 packet for TCP content.
 #[inline]
 pub fn process_ipv4_packet(
-    ipv4: &Ipv4Packet,
+    ipv4: &Ipv4Packet<'_>,
     connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
@@ -90,7 +90,7 @@ pub fn process_ipv4_packet(
     allow(unused_mut)
 )]
 fn create_observable_package_ipv4(
-    ipv4: &Ipv4Packet,
+    ipv4: &Ipv4Packet<'_>,
     connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<ObservablePackage, HuginnNetTcpError> {
@@ -195,7 +195,7 @@ fn create_observable_package_ipv4(
 /// Processes an IPv6 packet for TCP content.
 #[inline]
 pub fn process_ipv6_packet(
-    ipv6: &Ipv6Packet,
+    ipv6: &Ipv6Packet<'_>,
     connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<TcpAnalysisResult, HuginnNetTcpError> {
@@ -216,7 +216,7 @@ pub fn process_ipv6_packet(
     allow(unused_mut)
 )]
 fn create_observable_package_ipv6(
-    ipv6: &Ipv6Packet,
+    ipv6: &Ipv6Packet<'_>,
     connection_tracker: &mut ConnectionTracker,
     matcher: Option<&dyn TcpMatcher>,
 ) -> Result<ObservablePackage, HuginnNetTcpError> {

@@ -934,7 +934,7 @@ fn bench_tcp_parallel_processing(c: &mut Criterion) {
     }
 
     let db = match Database::load_default() {
-        Ok(db) => std::sync::Arc::new(db),
+        Ok(db) => Arc::new(db),
         Err(e) => {
             eprintln!("Failed to load default database: {e}");
             return;

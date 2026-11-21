@@ -7,10 +7,8 @@
     feature = "http-p0f-response"
 ))]
 
-// Shared by every test module in this target: helpers return this so that
-// failures propagate with `?` instead of panicking.
-type TestResult = Result<(), Box<dyn std::error::Error>>;
-
+#[path = "../common/mod.rs"]
+mod common;
 mod observed_os;
 mod pcap_golden;
 mod smoke;

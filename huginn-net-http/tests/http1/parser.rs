@@ -1,7 +1,7 @@
 use huginn_net_http::http;
 use huginn_net_http::http1_parser::{Http1Config, Http1ParseError, Http1Parser};
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 fn unwrap_parser_result<T>(
     result: Result<Option<T>, Http1ParseError>,

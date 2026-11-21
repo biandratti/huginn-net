@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 fn unwrap_worker_pool(
     result: Result<WorkerPool, HuginnNetTcpError>,

@@ -4,7 +4,7 @@ use huginn_net_tcp::ObservableTcp;
 use huginn_net_tcp::matcher_api::TcpMatcher;
 use huginn_net_tcp::observable::TcpObservation;
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 fn observed(
     raw_ttl: u8,

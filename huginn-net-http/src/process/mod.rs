@@ -37,9 +37,9 @@ pub struct ObservablePackage {
 /// Processes an IPv4 packet for HTTP content.
 #[inline]
 pub fn process_ipv4_packet(
-    ipv4: &Ipv4Packet,
-    http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
-    http_processors: &http_process::HttpProcessors,
+    ipv4: &Ipv4Packet<'_>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
+    http_processors: &HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
     os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
@@ -49,9 +49,9 @@ pub fn process_ipv4_packet(
 }
 
 fn create_observable_package_ipv4(
-    ipv4: &Ipv4Packet,
-    http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
-    http_processors: &http_process::HttpProcessors,
+    ipv4: &Ipv4Packet<'_>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
+    http_processors: &HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
     os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<ObservablePackage, HuginnNetHttpError> {
@@ -72,9 +72,9 @@ fn create_observable_package_ipv4(
 /// Processes an IPv6 packet for HTTP content.
 #[inline]
 pub fn process_ipv6_packet(
-    ipv6: &Ipv6Packet,
-    http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
-    http_processors: &http_process::HttpProcessors,
+    ipv6: &Ipv6Packet<'_>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
+    http_processors: &HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
     os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<HttpAnalysisResult, HuginnNetHttpError> {
@@ -84,9 +84,9 @@ pub fn process_ipv6_packet(
 }
 
 fn create_observable_package_ipv6(
-    ipv6: &Ipv6Packet,
-    http_flows: &mut TtlCache<http_process::FlowKey, http_process::TcpFlow>,
-    http_processors: &http_process::HttpProcessors,
+    ipv6: &Ipv6Packet<'_>,
+    http_flows: &mut TtlCache<FlowKey, TcpFlow>,
+    http_processors: &HttpProcessors,
     matcher: Option<&dyn HttpMatcher>,
     os_source: Option<&dyn ObservedOsSource>,
 ) -> Result<ObservablePackage, HuginnNetHttpError> {
@@ -109,7 +109,7 @@ fn create_observable_package_ipv6(
     allow(unused_mut)
 )]
 fn build_http_result(
-    http_package: http_process::ObservableHttpPackage,
+    http_package: ObservableHttpPackage,
     source: IpPort,
     destination: IpPort,
     matcher: Option<&dyn HttpMatcher>,

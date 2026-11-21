@@ -5,7 +5,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 fn unwrap_worker_pool(
     result: Result<WorkerPool, HuginnNetTlsError>,

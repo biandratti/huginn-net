@@ -141,7 +141,7 @@ impl<'a> Http2Parser<'a> {
     pub fn parse_request(&self, data: &[u8]) -> Result<Option<Http2Request>, Http2ParseError> {
         let start_time = Instant::now();
 
-        if !self.has_http2_preface(data) {
+        if !Self::has_http2_preface(data) {
             return Err(Http2ParseError::InvalidPreface);
         }
 
@@ -152,7 +152,7 @@ impl<'a> Http2Parser<'a> {
             return Ok(None);
         }
 
-        let Some(stream_id) = self.find_primary_stream(&frames) else {
+        let Some(stream_id) = Self::find_primary_stream(&frames) else {
             return Ok(None);
         };
         let stream = self.build_stream(stream_id, &frames)?;
@@ -219,7 +219,7 @@ impl<'a> Http2Parser<'a> {
             stream_id,
             parsing_metadata: metadata,
             frame_sequence,
-            settings: self.extract_settings(&frames),
+            settings: Self::extract_settings(&frames),
         }))
     }
 
@@ -233,7 +233,7 @@ impl<'a> Http2Parser<'a> {
             return Ok(None);
         }
 
-        let Some(stream_id) = self.find_primary_stream(&frames) else {
+        let Some(stream_id) = Self::find_primary_stream(&frames) else {
             return Ok(None);
         };
         let stream = self.build_stream(stream_id, &frames)?;
@@ -283,7 +283,7 @@ impl<'a> Http2Parser<'a> {
         }))
     }
 
-    fn has_http2_preface(&self, data: &[u8]) -> bool {
+    fn has_http2_preface(data: &[u8]) -> bool {
         data.starts_with(HTTP2_CONNECTION_PREFACE)
     }
 
@@ -434,7 +434,7 @@ impl<'a> Http2Parser<'a> {
         Ok((&data[payload_end..], frame))
     }
 
-    fn find_primary_stream(&self, frames: &[Http2Frame]) -> Option<u32> {
+    fn find_primary_stream(frames: &[Http2Frame]) -> Option<u32> {
         for frame in frames {
             if frame.stream_id > 0 && frame.frame_type == Http2FrameType::Headers {
                 return Some(frame.stream_id);
@@ -513,7 +513,7 @@ impl<'a> Http2Parser<'a> {
         Ok(http_headers)
     }
 
-    fn extract_settings(&self, frames: &[Http2Frame]) -> Http2Settings {
+    fn extract_settings(frames: &[Http2Frame]) -> Http2Settings {
         let mut settings = Http2Settings::default();
 
         for frame in frames {
@@ -555,7 +555,7 @@ impl<'a> Http2Parser<'a> {
                     }
 
                     if let Some(eq_pos) = cookie_str.find('=') {
-                        let name = cookie_str[..eq_pos].trim().to_string();
+                        let name = cookie_str.get(..eq_pos).unwrap_or("").trim().to_string();
                         let value = Some(
                             cookie_str
                                 .get(eq_pos.saturating_add(1)..)

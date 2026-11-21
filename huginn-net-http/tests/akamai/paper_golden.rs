@@ -9,7 +9,7 @@ use huginn_net_http::{Http2Frame, extract_akamai_fingerprint};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-use crate::TestResult;
+use crate::common::TestResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PaperTestCase {
@@ -62,7 +62,7 @@ struct ActualFingerprint<'a> {
 }
 
 fn assert_paper_fingerprint_matches(
-    actual: &ActualFingerprint,
+    actual: &ActualFingerprint<'_>,
     expected: &ExpectedFingerprint,
     test_name: &str,
 ) {

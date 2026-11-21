@@ -174,7 +174,7 @@ fn test_server_hello_returns_not_client_hello_error() {
 
     let result = parse_tls_client_hello(&server_hello);
     assert!(
-        matches!(result, Err(huginn_net_tls::error::HuginnNetTlsError::NotClientHello)),
+        matches!(result, Err(HuginnNetTlsError::NotClientHello)),
         "Expected NotClientHello for a ServerHello record, got: {:?}",
         result
     );
@@ -186,7 +186,7 @@ fn test_elliptic_curve_point_formats_parsing() {
     // even though they're not used in JA4 generation
 
     // Verify that the field exists in the Signature struct
-    let sig = crate::tls::Signature {
+    let sig = Signature {
         version: TlsVersion::V1_2,
         cipher_suites: vec![0x1301],
         extensions: vec![0x000b], // ec_point_formats extension
@@ -211,7 +211,7 @@ fn test_signature_parsing_functional_approach() {
     // without using mut and creates a complete Signature in one pass
 
     // Create a test signature to verify all fields are accessible
-    let sig = crate::tls::Signature {
+    let sig = Signature {
         version: TlsVersion::V1_3,
         cipher_suites: vec![0x1301, 0x1302],
         extensions: vec![0x0000, 0x0010, 0x000d],
@@ -326,7 +326,7 @@ fn test_extract_signature_grease_filtering() {
 
 #[test]
 fn test_signature_struct_completeness() {
-    let signature = crate::tls::Signature {
+    let signature = Signature {
         version: TlsVersion::V1_2,
         cipher_suites: vec![0x1301, 0x1302],
         extensions: vec![0x0000, 0x0010, 0x000d],

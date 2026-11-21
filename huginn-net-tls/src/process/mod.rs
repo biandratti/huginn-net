@@ -29,7 +29,7 @@ pub struct ObservablePackage {
 
 #[inline]
 pub fn process_ipv4_packet(
-    ipv4: &pnet::packet::ipv4::Ipv4Packet,
+    ipv4: &pnet::packet::ipv4::Ipv4Packet<'_>,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
     s1_excluded_extensions: &[u16],
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
@@ -53,7 +53,7 @@ pub fn process_ipv4_packet(
 
 #[inline]
 pub fn process_ipv6_packet(
-    ipv6: &pnet::packet::ipv6::Ipv6Packet,
+    ipv6: &pnet::packet::ipv6::Ipv6Packet<'_>,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,
     s1_excluded_extensions: &[u16],
 ) -> Result<Option<TlsClientOutput>, HuginnNetTlsError> {
@@ -76,7 +76,7 @@ pub fn process_ipv6_packet(
 }
 
 fn process_tcp_packet(
-    tcp: TcpPacket,
+    tcp: TcpPacket<'_>,
     src_ip: IpAddr,
     dst_ip: IpAddr,
     tcp_flows: &mut TtlCache<FlowKey, TlsClientHelloReader>,

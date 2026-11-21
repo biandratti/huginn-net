@@ -44,8 +44,13 @@ ttl_cache = "0.5.1"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unreachable_pub = "warn"
+unused_qualifications = "warn"
+elided_lifetimes_in_paths = "warn"
 
 [workspace.lints.clippy]
+wildcard_imports = "warn"
+unused_self = "warn"
+string_slice = "deny"
 dbg_macro = "deny"
 exit = "deny"
 panic = "deny"
